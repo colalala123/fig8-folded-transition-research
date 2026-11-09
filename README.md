@@ -28,6 +28,10 @@
 
 ![冻结预测与HFSS实测](docs/figures/prediction_vs_HFSS.png)
 
+## 配置模板
+
+新电脑配置入口：[脱敏配置模板](config-templates/README.md)。仅含占位值，真实凭据不上传，也不自动启动仿真。
+
 ## 快速使用
 
 Python 3.12，在仓库根目录执行：

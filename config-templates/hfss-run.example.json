@@ -1,0 +1,39 @@
+{
+  "template_only": true,
+  "enabled": false,
+  "requires_explicit_simulation_authorization": true,
+  "aedt_version": "2024 R2",
+  "visible_desktop": true,
+  "resources": {
+    "cores": 14,
+    "tasks": 1,
+    "groups": 1,
+    "serial": true
+  },
+  "mesh": {
+    "target_min": 100000,
+    "target_max": 110000,
+    "documented_minor_overrun_max": 112000
+  },
+  "setup": {
+    "name": "Setup19",
+    "adaptive_frequency_GHz": [
+      0.1,
+      15.0
+    ],
+    "max_delta_s": 0.005
+  },
+  "sweep": {
+    "name": "Sweep1",
+    "type": "Interpolating",
+    "start_GHz": 0.01,
+    "stop_GHz": 15.0,
+    "export_step_GHz": 0.01,
+    "tolerance_percent": 1.0,
+    "force_passivity": false
+  },
+  "ports": {
+    "modes_per_port": 2
+  },
+  "note": "Descriptive reference for the latest validated single case, not a schema accepted by a production runner. Does not create or start a solve."
+}
