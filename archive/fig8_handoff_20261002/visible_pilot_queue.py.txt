@@ -1,0 +1,32 @@
+"""Run the existing bounded Fig8 queue, replacing each solve with MCP visible 16-core execution."""
+import json,subprocess,sys,traceback,shutil
+from pathlib import Path
+import pilot_queue as q
+ROOT=q.ROOT;HERE=Path(__file__).resolve().parent
+def visible_solve(run):
+    manifest=Path(run)/'manifest.json'
+    if manifest.exists():
+        m=q.read(manifest)
+        if m.get('status')=='completed' and m.get('source_unchanged'):
+            if q.sha(Path(run)/'sparams.csv')!=m['curve_sha256']:raise RuntimeError('Saved curve hash changed')
+            return q.read(Path(run)/'response_metrics.json')
+        raise RuntimeError(f'Preserving existing result requiring review: {run}, {m.get("status")}')
+    if shutil.disk_usage(ROOT).free<15*1024**3:raise RuntimeError('Less than 15 GiB free')
+    spec=Path(run)/'prediction_frozen.json';log=Path(run)/'worker.log';cmd=[sys.executable,str(HERE/'visible_solve.py'),str(spec)]
+    with log.open('a',encoding='utf-8') as out:
+        p=subprocess.Popen(cmd,cwd=str(q.WORK),stdout=out,stderr=subprocess.STDOUT,creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0));q.status(status='running',active_worker_pid=p.pid,active_run=str(run),active_stage=q.read(spec)['stage'],cores=16,tasks=1);rc=p.wait()
+    m=q.read(Path(run)/'manifest.json')
+    if rc or m.get('status')!='completed' or not m.get('source_unchanged'):raise RuntimeError(f'Visible MCP worker requires review: {run}, code={rc}, status={m.get("status")}')
+    return q.read(Path(run)/'response_metrics.json')
+q.solve=visible_solve
+if __name__=='__main__':
+    import argparse
+    ap=argparse.ArgumentParser();ap.add_argument('stage',choices=['collector','pilot','corners','after-protocol','summary']);args=ap.parse_args()
+    try:
+        if args.stage=='collector':q.collector_stage()
+        elif args.stage=='pilot':q.pilot_stage()
+        elif args.stage=='corners':q.corner_stage()
+        elif args.stage=='after-protocol':q.collector_stage();q.pilot_stage();q.corner_stage()
+        else:q.summarize()
+    except Exception:
+        q.status(status='review_required',error=traceback.format_exc());traceback.print_exc();sys.exit(1)

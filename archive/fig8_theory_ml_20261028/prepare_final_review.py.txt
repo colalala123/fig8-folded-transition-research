@@ -1,0 +1,139 @@
+"""Assemble at most3 selected corrected designs for native same-mesh review.
+
+No Analyze. Only after all actual probe/candidate reviews, never auto-ACK.
+"""
+from common import *
+from correction import load_curve,assess
+from prepare_candidates import review_source
+from prepare_runtime import PROBE_ROOT,PROBE_BASE,AUTH
+import shutil,ast
+import numpy as np
+sys.path.insert(0,str(PREVIOUS))
+from blind_direct_science import make_plan
+R=ROOT/'final_review';S=PREVIOUS/'final_review';BASE=Path('J:/f8_MLD_261028')
+
+def main():
+    assert not R.exists(),'Existing context: do not regenerate'
+    decisions=read(ROOT/'candidate_decisions.json')
+    probeledger=read(PROBE_ROOT/'budget_ledger.json')
+    assert len(probeledger['tasks'])==6 and all(x['status']=='reviewed' for x in probeledger['tasks'])
+    cr=OUT/'fig8_ml_candidates_20261028'
+    candidate_paths={};n=0
+    if (ROOT/'candidate_runtime.json').exists():
+        ledger=read(cr/'budget_ledger.json');cases=read(cr/'plan.json')['cases']
+        assert len(ledger['tasks'])==len(cases)<=3 and all(x['status']=='reviewed' for x in ledger['tasks'])
+        n=len(cases)
+        for x in cases:candidate_paths[x['parent_case']]=Path('J:/f8_MLC_261028')/x['case']/'g01_initial'
+    assert 6+n<=9
+    selected=[];decision_rows=[]
+    for case in ['B02','B05','B06']:
+        parent=next(x for x in decisions['cases'] if x['parent_case']==case)
+        options=[PROBE_BASE/(case+s)/'g01_initial' for s in ['S','M']]
+        if case in candidate_paths:options.append(candidate_paths[case])
+        evaluations=[]
+        for run in options:
+            evidence=review_source(run);state=read(run/'state.json');m=read(run/'response_metrics.json')
+            score=assess(*load_curve(run/'sparams.csv'),parent['target'])
+            evaluations.append(dict(run=str(run),score=score,evidence=evidence,state=state,metrics=m))
+        shaped=[x for x in evaluations if x['score']['shape_valid']]
+        if not shaped:
+            decision_rows.append(dict(case=case,status='no_three_valley_candidate_no_direct_queue',options=[dict(run=x['run'],score=x['score']) for x in evaluations]));continue
+        best=min(shaped,key=lambda x:(not x['score']['passed'],x['score']['objective'],x['score']['worst_S11_dB']))
+        run=Path(best['run']);state=best['state'];target={**parent['target'],'S11_max_dB':-20,'S21_min_dB':-2}
+        data=np.genfromtxt(run/'sparams.csv',delimiter=',',names=True)
+        tm=read(run/'target20_metrics.json');fp=make_plan(data,best['metrics'],target,tm['joint20_center_band_GHz'])
+        project=Path(state['project']);evidence=best['evidence'];evidence[str(project)]=sha(project)
+        for name in ['manifest.json','response_metrics.json','target20_metrics.json']:evidence[str(run/name)]=sha(run/name)
+        selected.append(dict(case=case,source_case=state['case'],source=str(run),project=str(project),project_sha256=sha(project),
+            geometry=state['geometry'],actual_elements=state['actual_elements'],evidence_hashes=evidence,
+            target=target,frequency_plan=fp,requested_frequencies_GHz=fp['requested_frequencies_GHz'],
+            missing_frequencies_GHz=fp['requested_frequencies_GHz'],existing_frequencies_GHz=[],chunks=fp['chunks']))
+        decision_rows.append(dict(case=case,status='selected_for_finite_direct',source=str(run),dense_score=best['score'],
+            options=[dict(run=x['run'],score=x['score']) for x in evaluations]))
+    write(ROOT/'selected_correction_sources.json',dict(cases=decision_rows,total_development_geometries=6+n,final_direct_pending=bool(selected)))
+    if not selected:print(dict(direct_cases=0,reason='No valid corrected shape; report finite development failure'));return
+    R.mkdir();order=[x['case'] for x in selected];provenance={}
+    def cp(name,change=None,source=S):
+        src=source/name;dst=R/name
+        if change:dst.write_text(change(src.read_text(encoding='utf-8')),encoding='utf-8')
+        else:shutil.copyfile(src,dst)
+        provenance[name]=dict(source=str(src),source_sha256=sha(src),local_sha256=sha(dst))
+    def control(s):
+        s=s.replace("ORIGINAL=PARENT.parent/'fig8_finish24_20261023'",f"ORIGINAL=Path({str(OUT/'fig8_finish24_20261023').replace(chr(92),'/')!r})")
+        s=s.replace("HOOK=PARENT.parent/'completion-hook-portable-1.0.0'",f"HOOK=Path({str(OUT/'completion-hook-portable-1.0.0').replace(chr(92),'/')!r})")
+        s=s.replace("BASE=Path('J:/f8_B6_261027')",f"BASE=Path({BASE.as_posix()!r})")
+        i=s.index('ORDER=');j=s.index('\n',i);return s[:i]+'ORDER='+repr(order)+s[j:]
+    cp('phase_control.py',control)
+    for name in ['recovery_control.py','solver_runtime.py','merge_native.py','preserve_discrete_ranges.py',
+                 'supervise_smallbatch.py','smallbatch_worker.py','acknowledge_smallbatch.py','phase_final_direct.py',
+                 'receive_verified.py','case_reference.py','reference_validation.json','phase_geometry_publish.py','phase_publish.py',
+                 'blind_direct_science.py','aedt_session_guard.py','mesh_policy_addendum_v2.json']:
+        cp(name)
+    cp('dispatch_smallbatch.py',lambda s:s.replace("['new_cached_tasks_reserved']<6","['new_cached_tasks_reserved']<3"))
+    cp('phase_direct_context.py',lambda s:s.replace("source=Path(source).resolve();assert source==(BASE/case/'g01_initial').resolve()", "source=Path(source).resolve()")
+        .replace("    for f,h in row['evidence_hashes'].items()", "    assert source==Path(row['source']).resolve()\n    for f,h in row['evidence_hashes'].items()"))
+    actual_context=cr if candidate_paths else PROBE_ROOT
+    for name in ['phase_heartbeat.py','phase_heartbeat_transport.py','aedt_identity.json','policy.json']:
+        cp(name,source=actual_context)
+    cp('lifecycle_watch.py',lambda s:s.replace(f"BASE=Path({str(Path('J:/f8_MLC_261028') if candidate_paths else PROBE_BASE)!r})",f"BASE=Path({BASE.as_posix()!r})")
+        .replace("str(ROOT.parent/'completion-hook-portable-1.0.0')",f"{(OUT/'completion-hook-portable-1.0.0').as_posix()!r}"),source=actual_context)
+    (R/'publish_smallbatch.py').write_text(PUBLISH,encoding='utf-8')
+    for row in selected:write(R/'cases'/row['case']/'frequency_plan.json',row.pop('frequency_plan'))
+    write(R/'selected_sources.json',dict(cases=selected))
+    write(R/'continuation_plan.json',dict(cases=selected,maximum_new_analyze_launches=sum(len(r['chunks']) for r in selected),
+        prior_evidence_hashes={str(ROOT/'candidate_decisions.json'):sha(ROOT/'candidate_decisions.json'),str(ROOT/'selected_correction_sources.json'):sha(ROOT/'selected_correction_sources.json')},
+        reserved_points_per_case=8,reserved_launches_per_case=2,geometry=0,adaptive=False))
+    write(R/'case_work_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,analyze_launches_reserved=0,tasks=[]))
+    write(R/'authorization.json',dict(execution_authorized=True,cases=order,points_first_wave=24,launches_first_wave=6,
+        reserve_points=8,reserve_launches=2,geometry=False,adaptive=False,human_instruction=AUTH))
+    cfg=read(actual_context/'hook/config.json');cfg['state_dir']=str(R/'hook/state');write(R/'hook/config.json',cfg)
+    write(R/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_completion'))
+    write(R/'active.json',dict(stage='prepared_not_started'))
+    (R/'CONTINUATION.md').write_text('''# C9校正结果同网格直接复核
+先读父目录EXECUTION_PLAN.md。最多3选中项，不是新的盲测，不重写原B6首次结果。
+每项首轮<=24点/6次Analyze，每次<=4点，无新自适应、无几何改变。
+dispatch_smallbatch.py --case CASE --solve；supervise_smallbatch.py --run J:/f8_MLD_261028/CASE/direct_smallbatch --seconds600；lifecycle_watch.py ensure --run RUN。
+完成后receive_verified.py --run RUN，实际看图后acknowledge_smallbatch.py --run RUN --visual-reviewed --note实际观察。再按ORDER继续。
+所有首轮ACK后运行父目录prepare_reserved_correction.py，只对未定位关键峰/边界使用预留8点/2次；明确直接违例可停止。总计32点/8次上限不变。
+所有终态后运行父目录summarize_correction.py，查看实际汇总图，写最后事件的continuation_resolution=batch_complete，stop本阶段及原探针/候选/预留所有phase_heartbeat；不要手动重发消息。
+若后继运行已开始，用受支持stop关闭旧探针/候选完成心跳。正常求解安静。失败不清工程锁不重复Analyze，继承预算后最多一次技术恢复。
+后续48点只是离线计划，是否具备开跑条件须依据本轮真实闭环/分组模型证据，不能自动扩成1000点。
+''',encoding='utf-8')
+    # Build reserve adapter using tested acquisition and byte-identical references.
+    reserve=(PREVIOUS/'prepare_reserved_review.py').read_text(encoding='utf-8')
+    reserve=reserve.replace('import phase_control as pc',"sys.path.insert(0,str(Path(__file__).resolve().parent/'final_review'))\nimport phase_control as pc")
+    reserve=reserve.replace("P=pc.HERE;S=P/'final_review';R=P/'reserved_review'","P=Path(__file__).resolve().parent;S=P/'final_review';R=P/'reserved_review'")
+    reserve=reserve.replace("len(ledger['tasks'])==6","len(ledger['tasks'])==len(pc.ORDER)")
+    reserve=reserve.replace("P/'predictions_frozen.json'","P/'selected_correction_sources.json'")
+    reserve=reserve.replace('J:/f8_B6_261027','J:/f8_MLD_261028').replace('finalize_blind.py','summarize_correction.py')
+    reserve=reserve.replace('verify all6 requests and prediction hashes','verify all3 original requests and correction provenance')
+    reserve=reserve.replace('No step9 geometry tuning or model refitting without new human instruction.','No more than the9 authorized development geometries.')
+    (ROOT/'prepare_reserved_correction.py').write_text(reserve,encoding='utf-8')
+    write(R/'implementation_provenance.json',provenance)
+    frozen={str(ROOT/'EXECUTION_PLAN.md'):sha(ROOT/'EXECUTION_PLAN.md'),str(Path(__file__)):sha(__file__),
+            str(ROOT/'prepare_reserved_correction.py'):sha(ROOT/'prepare_reserved_correction.py')}
+    for row in selected:frozen.update(row['evidence_hashes'])
+    for f in R.rglob('*'):
+        if f.is_file() and (f.suffix=='.py' or f.name in ['authorization.json','continuation_plan.json','selected_sources.json','frequency_plan.json',
+              'policy.json','reference_validation.json','mesh_policy_addendum_v2.json','config.json','CONTINUATION.md','aedt_identity.json']):frozen[str(f)]=sha(f)
+    for f,h in frozen.items():assert sha(f)==h
+    for f in [*R.glob('*.py'),ROOT/'prepare_reserved_correction.py']:ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    write(R/'implementation_hashes.json',frozen)
+    print(dict(context=str(R),order=order,Analyze_started=False))
+
+PUBLISH='''from phase_control import HERE,read,write,now
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(HERE/'hook/config.json');path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Bounded C9 corrected design same-mesh direct review, no adaptive')
+    def prompt(e,p):return f'[Fig8校正结果直接复核] {p}\\n{summary}\\n先读{HERE/"CONTINUATION.md"}。实际核验/看图/ACK后继续唯一后继。首轮24点6批，预留8点2批，32点8批总上限。直接违例保留，不能凑全部达标或改原盲测。'
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as e:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(e)))
+    return receipt
+'''
+
+if __name__=='__main__':main()

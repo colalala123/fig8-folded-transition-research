@@ -1,0 +1,68 @@
+"""Use signed peak balance and valley position to propose local phase corrections."""
+import json
+import sys
+from pathlib import Path
+import numpy as np
+
+WORK=Path('${WORKSPACE}')
+ROOT=Path('F:/hfss_f8_261002')
+OLD=Path('F:/hfss_fold_260920')
+sys.path.insert(0,str(WORK/'output/folded_geometry_scope_20261002'))
+from prepare_geometry_scope import derive
+
+def read_metrics(directory):
+    return json.loads((directory/'response_metrics.json').read_text(encoding='utf-8'))
+
+def main():
+    baseline=read_metrics(ROOT/'B0')
+    target_frequency=baseline['central_valley_GHz']
+    q={name:read_metrics(OLD/name) for name in ('Q1','Q2','Q3','Q4')}
+    features=('signed_peak_difference_dB','central_valley_GHz')
+    jacobian=np.array([[(q['Q2'][k]-q['Q1'][k])/0.2,(q['Q4'][k]-q['Q3'][k])/0.1] for k in features])
+    proposals=[]
+    for name in ('F2','F3','G035','G2'):
+        metrics=read_metrics(ROOT/name)
+        manifest=json.loads((ROOT/name/'manifest.json').read_text(encoding='utf-8'))
+        geometry=dict(manifest['geometry'])
+        error=np.array([-metrics['signed_peak_difference_dB'],target_frequency-metrics['central_valley_GHz']])
+        one_parameter_delta=np.array([error[0]/jacobian[0,0],0.0])
+        one_parameter_center=metrics['central_valley_GHz']+float(jacobian[1]@one_parameter_delta)
+        if abs(one_parameter_center-target_frequency)<=0.03 and abs(one_parameter_delta[0])<=0.35:
+            delta=one_parameter_delta
+            strategy='Adjust Ls1 first; the local prediction already keeps the central valley within tolerance.'
+        else:
+            delta=np.linalg.solve(jacobian,error)
+            strategy='Joint Ls1/Lm initial correction because the one-parameter prediction misses the center gate.'
+        # One local step only. Actual EM must verify this transfer of the B0 Jacobian.
+        scale=min(1.0,0.35/max(abs(delta[0]),1e-12),0.08/max(abs(delta[1]),1e-12))
+        delta*=scale
+        geometry['Ls1']+=float(delta[0]);geometry['Lm']+=float(delta[1])
+        valid=derive(geometry)
+        proposals.append({'case':'T_'+name,'parent':name,'source':str(ROOT/name/(name+'.aedt')),
+            'geometry':geometry,'changes_mm':{'Ls1':float(delta[0]),'Lm':float(delta[1])},
+            'strategy':strategy,
+            'step_scale':scale,'geometry_check':valid,
+            'target_signed_peak_difference_dB':0.0,'target_central_valley_GHz':target_frequency,
+            'expected_response_change_linearized':dict(zip(features,(jacobian@delta).tolist())),
+            'predicted_signed_peak_difference_dB':float(metrics['signed_peak_difference_dB']+(jacobian@delta)[0]),
+            'predicted_central_valley_GHz':float(metrics['central_valley_GHz']+(jacobian@delta)[1]),
+            'followup_if_peak_gate_fails':'Bracket Ls1 around this candidate with +/- 0.05 mm at the same fold/gap; update the local slope. Use Lm only if center correction remains necessary.',
+            'status':'proposed_not_simulated'})
+        completed=ROOT/('T_'+name)/'prospective_validation.json'
+        if completed.exists():
+            verification=json.loads(completed.read_text(encoding='utf-8'))
+            proposals[-1]['status']='simulated_accepted' if verification['acceptance_passed'] else 'simulated_requires_refinement'
+            proposals[-1]['actual_response']=verification['actual']
+            proposals[-1]['validation_path']=str(completed)
+    report={'scope':'Fig8 only; six-pole deferred','parent_data':'Fresh five-case simulations',
+            'method':'Historical B0 local 2x2 Jacobian, applied as a bounded initial correction.',
+            'jacobian_rows':list(features),'jacobian_columns':['Ls1_mm','Lm_mm'],
+            'jacobian':jacobian.tolist(),'target_center_definition':'Central S11 valley of freshly solved B0.',
+            'widths_fold_arm_and_gap_held_fixed':True,'geometrical_path_may_change_during_phase_correction':True,
+            'proposals':proposals,
+            'acceptance':{'absolute_peak_difference_max_dB':0.5,'central_valley_deviation_max_GHz':0.03},
+            'limitation':'These are initial guesses, not guaranteed roots; verify with HFSS and update sensitivities if needed.'}
+    (ROOT/'phase_correction_plan.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
+    print(json.dumps(report,indent=2,ensure_ascii=False))
+
+if __name__=='__main__':main()

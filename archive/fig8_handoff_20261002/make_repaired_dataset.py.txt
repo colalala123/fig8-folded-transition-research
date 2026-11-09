@@ -1,0 +1,43 @@
+import json, numpy as np
+from pathlib import Path
+R=Path(r'F:\hfss_f8x_261002\R_tri_diagC')
+
+def parse(p):
+    vals=[]; unit=1; fmt='RI'; header=[]
+    for ln in Path(p).read_text(errors='ignore').splitlines():
+        if ln.startswith('!') or not ln.strip(): continue
+        if ln.startswith('#'):
+            header.append(ln.strip()); t=ln.upper().split(); unit={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9); fmt=next((x for x in ('RI','MA','DB') if x in t),'RI'); continue
+        vals.extend(float(x.replace('D','E')) for x in ln.split())
+    n=6; st=1+2*n*n; chunks=[vals[i:i+st] for i in range(0,len(vals)-st+1,st)]
+    f=np.array([c[0]*unit/1e9 for c in chunks]); s=np.zeros((len(chunks),n,n),complex)
+    for k,c in enumerate(chunks):
+        x=np.array(c[1:]).reshape(n*n,2)
+        if fmt=='MA': z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1]))
+        elif fmt=='DB': z=10**(x[:,0]/20)*np.exp(1j*np.deg2rad(x[:,1]))
+        else: z=x[:,0]+1j*x[:,1]
+        s[k]=z.reshape(n,n)
+    return f,s
+
+def write(path,f,s,renorm):
+    lines=['! Repaired tri-mode dataset: full interpolating sweep with exact discrete HFSS replacement at 6.96-7.01 GHz',
+           '! Full sweep: TriDiagE/SweepFullNoPass, EnforcePassivity=false; replacement: TriDiagE/SweepBandDirect, discrete 6 points, 16 cores serial',
+           '# GHz S MA'+(' R 50.000000' if renorm else '')]
+    for ff,mat in zip(f,s):
+        pairs=[]
+        for z in mat.ravel(order='C'):
+            pairs += [abs(z), np.rad2deg(np.angle(z))]
+        lines.append(' '.join([f'{ff:.12g}']+[f'{x:.12g}' for x in pairs]))
+    Path(path).write_text('\n'.join(lines)+'\n',encoding='utf-8')
+
+prov={}
+for renorm,base,direct,out in [(True,'50ohm_full_no_pass.s6p','50ohm_band_direct.s6p','50ohm_full_repaired.s6p'),(False,'native_full_no_pass.s6p','native_band_direct.s6p','native_full_repaired.s6p')]:
+    f,s=parse(R/base); fd,sd=parse(R/direct)
+    repl=[]
+    for ff,mat in zip(fd,sd):
+        i=int(np.argmin(abs(f-ff)))
+        if abs(f[i]-ff)>1e-9: raise RuntimeError((ff,f[i]))
+        s[i]=mat; repl.append({'freq_GHz':float(ff),'index':i})
+    write(R/out,f,s,renorm); prov[out]={'points':int(len(f)),'replaced':repl,'source_full':base,'source_direct':direct}
+(R/'repair_provenance_full.json').write_text(json.dumps(prov,indent=2),encoding='utf-8')
+print(json.dumps(prov,indent=2))

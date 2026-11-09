@@ -1,0 +1,130 @@
+"""Prepare only after B6 initial runs reviewed. No Analyze or model refitting."""
+import ast,json,sys
+from pathlib import Path
+P=Path(__file__).resolve().parent;R=P/'final_review';S=P.parent/'fig8_PR18_20261027/final_review'
+sys.path.insert(0,str(P));import phase_control as pc
+from blind_direct_science import make_plan
+import numpy as np
+
+def main():
+ assert not R.exists(),'Existing direct context: inspect, never overwrite'
+ tasks=pc.read(P/'budget_ledger.json')['tasks'];assert len(tasks)==len(pc.ORDER) and all(t['status']=='reviewed' for t in tasks)
+ R.mkdir();provenance={}
+ def copy(name,change=lambda s:s,source=S):
+  src=source/name;dst=R/name;dst.write_text(change(src.read_text(encoding='utf-8')),encoding='utf-8');provenance[name]=dict(source=str(src),source_sha256=pc.sha(src),local_sha256=pc.sha(dst))
+ def control(s):
+  s=s.replace("BASE=Path('J:/f8_PR18_261027')","BASE=Path('J:/f8_B6_261027')").replace('PR18','B6')
+  i=s.index('ORDER=');j=s.index('\n',i);return s[:i]+'ORDER='+repr(pc.ORDER)+s[j:]
+ copy('phase_control.py',control)
+ copy('recovery_control.py',lambda s:s.replace('PR18','B6').replace("[HERE,PARENT,PARENT/'length_tuning']","[HERE,PARENT]").replace("[HERE,PARENT,PARENT/\'length_tuning\']","[HERE,PARENT]"))
+ for name in ['solver_runtime.py','merge_native.py','preserve_discrete_ranges.py','supervise_smallbatch.py']:
+  copy(name)
+ for name in ['aedt_session_guard.py','aedt_identity.json','case_reference.py','reference_validation.json','policy.json','mesh_policy_addendum_v2.json','phase_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py']:
+  copy(name,source=P)
+ copy('blind_direct_science.py',source=P)
+ copy('smallbatch_worker.py',lambda s:s.replace('PR18_SmallBatch','B6Direct').replace('phase=\'PR18R\'','phase=\'B6D\''))
+ copy('dispatch_smallbatch.py',lambda s:s.replace("<18","<6").replace('_PR18SmallBatch','_B6Direct'))
+ copy('acknowledge_smallbatch.py')
+ copy('receive_verified.py',lambda s:s[:s.index('    fig,axes=plt.subplots')]+'''    fig,axes=plt.subplots(1,2,figsize=(13,4))
+    target=read(HERE/'cases'/plan['case']/'frequency_plan.json')['target']
+    for ax in axes:
+        for key,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+            ax.plot(original['Freq_GHz'],original[key],color=color,label=key+' interpolating')
+            ax.scatter(direct['Freq_GHz'],direct[key],facecolors='none',edgecolors=color,s=16)
+        ax.axhline(-20,color='red',linestyle='--',linewidth=.8);ax.axhline(-2,color='gray',linestyle=':',linewidth=.8)
+        ax.axvspan(target['f_low_GHz'],target['f_high_GHz'],alpha=.1,color='green');ax.grid(alpha=.2);ax.set(xlabel='GHz',ylabel='dB')
+    axes[0].set(xlim=(2.5,10.5),ylim=(-65,2),title=plan['case']+' B6 finite direct review')
+    axes[1].set(xlim=(target['f_low_GHz']-.1,target['f_high_GHz']+.1),ylim=(-23,-18),title='Target reflection near minus20')
+    axes[0].legend(fontsize=7);fig.tight_layout()
+    plot=HERE/'cases'/plan['case']/'direct_overlay.png';fig.savefig(plot,dpi=150);plt.close(fig)
+    out=dict(event_id=hook.event_id(event),event_sha256=sha(run/'completion_event.json'),at=now(),artifacts_verified=verified,same_mesh_verified=True,actual_elements=state['actual_elements'],observed_16core_process=all(s['observed_16core_process'] for s in state['segments']),comparison=result,plot=str(plot),plot_sha256=sha(plot),visual_review_pending=True,full_matrix_approved=False)
+    write(run/'receiver_verification.json',out);print(dict(plot=str(plot),comparison=result))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);review(p.parse_args().run)
+''')
+ (R/'phase_geometry_publish.py').write_text('from phase_publish import hook\n',encoding='utf-8')
+ (R/'phase_direct_context.py').write_text('''from pathlib import Path
+from phase_control import *
+def reviewed_source(source,case):
+    source=Path(source).resolve();assert source==(BASE/case/'g01_initial').resolve()
+    row=next(r for r in read(HERE/'selected_sources.json')['cases'] if r['case']==case)
+    for f,h in row['evidence_hashes'].items():assert sha(f)==h,f
+    p=read(source/'input.json');s=read(source/'state.json');a=read(source/'receiver_ack.json');e=read(source/'completion_event.json')
+    assert e['status']=='completed' and e['verified_success'] and e['target_thread_id']==TARGET
+    assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed']
+    assert a['event_sha256']==sha(source/'completion_event.json') and a['verification_sha256']==sha(source/'receiver_verification.json')
+    assert s['status']=='completed' and p['geometry']==s['geometry']==row['geometry'] and 100000<=s['actual_elements']<=112000
+    from case_reference import verify_reference
+    assert verify_reference(source)==s['reference_treatment']
+    return p,s,read(source/'response_metrics.json')
+''',encoding='utf-8')
+ (R/'phase_final_direct.py').write_text('''from pathlib import Path
+import numpy as np
+from phase_control import HERE,read
+from solver_runtime import passes
+from blind_direct_science import compare_arrays
+def compare(source,run):
+    source=Path(source);run=Path(run);p=read(run/'input.json')
+    plan=read(HERE/'cases'/p['case']/'frequency_plan.json')
+    a=np.atleast_1d(np.genfromtxt(source/'sparams.csv',delimiter=',',names=True));b=np.atleast_1d(np.genfromtxt(run/'sparams.csv',delimiter=',',names=True))
+    assert np.allclose(b['Freq_GHz'],plan['requested_frequencies_GHz'],rtol=0,atol=1e-9)
+    result=compare_arrays(a,b,read(source/'response_metrics.json'),plan,read(HERE/'policy.json')['direct_criteria'])
+    result['baseline_tuning_passed']=read(source/'state.json')['design_passed']
+    result['sampled_design_supported']=bool(result['sampled_design_supported'] and result['baseline_tuning_passed'] and result['direct_peak_difference_dB'] is not None and result['direct_peak_difference_dB']<=.5)
+    return result
+''',encoding='utf-8')
+ (R/'publish_smallbatch.py').write_text('''import traceback
+import recovery_control as pc
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(pc.HERE/'hook/config.json');path=run/'completion_event.json'
+    assert pc.read(pc.HERE/'authorization.json')['execution_authorized'] and case in pc.ORDER
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B6 frozen first-wave same-mesh direct target review; no new geometry or adaptive')
+    def prompt(e,p):
+        return (f'[Fig8 B6直接复核完成] {p}\\n{summary}\\n先读'+str(pc.HERE/'CONTINUATION.md')+'。运行receive_verified.py核验，实际看图后acknowledge_smallbatch.py --run RUN --visual-reviewed --note实际说明。'
+          '保留明确的目标失败与数值未解决，不把baseline或插值通过当联合-20达标。按ORDER继续未复核项；所有首轮后只在已授权预留8点/2次每项内处理确需的峰或边界。'
+          '六项均E类，不重训不调参。全部终态后报告首测命中、失败、未解决，关闭hook；不得重开旧队列。')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(error=traceback.format_exc(),at=pc.now()))
+''',encoding='utf-8')
+ cfg=pc.read(P/'hook/config.json');cfg['state_dir']=str(R/'hook/state');pc.write(R/'hook/config.json',cfg)
+ pc.write(R/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_first_completion'))
+ cases=[]
+ for case in pc.ORDER:
+  source=pc.BASE/case/'g01_initial';s=pc.read(source/'state.json');p=pc.read(source/'input.json');a=pc.read(source/'receiver_ack.json')
+  assert a['visual_review_completed'] and s['status']=='completed'
+  project=Path(s['project']);target=next(r['target'] for r in pc.read(P/'plan.json')['cases'] if r['case']==case)
+  met=pc.read(source/'response_metrics.json');tm=pc.read(source/'target20_metrics.json');data=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+  fp=make_plan(data,met,target,tm['joint20_center_band_GHz']);pc.write(R/'cases'/case/'frequency_plan.json',fp)
+  evidence={str(source/f):pc.sha(source/f) for f in ['input.json','state.json','manifest.json','response_metrics.json','target20_metrics.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt','completion_event.json','receiver_ack.json','receiver_verification.json']}
+  evidence[str(project)]=pc.sha(project)
+  cases.append(dict(case=case,source=str(source),project=str(project),project_sha256=pc.sha(project),geometry=s['geometry'],actual_elements=s['actual_elements'],evidence_hashes=evidence,
+    requested_frequencies_GHz=fp['requested_frequencies_GHz'],missing_frequencies_GHz=fp['requested_frequencies_GHz'],existing_frequencies_GHz=[],chunks=fp['chunks']))
+ pc.write(R/'selected_sources.json',dict(cases=cases))
+ pc.write(R/'continuation_plan.json',dict(cases=cases,maximum_new_analyze_launches=sum(len(r['chunks']) for r in cases),prior_evidence_hashes={str(P/'predictions_frozen.json'):pc.sha(P/'predictions_frozen.json')},reserved_points_per_case=8,reserved_launches_per_case=2,geometry=0,adaptive=False))
+ pc.write(R/'case_work_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,analyze_launches_reserved=0,tasks=[]))
+ pc.write(R/'authorization.json',dict(execution_authorized=True,cases=pc.ORDER,points_first_wave=24,launches_first_wave=6,reserve_points=8,reserve_launches=2,geometry=False,adaptive=False,human_instruction='你按照这个方案跑完他'))
+ pc.write(R/'active.json',dict(stage='prepared_not_started'))
+ (R/'CONTINUATION.md').write_text('''# B6 target-specific finite direct review
+Read parent CONTINUATION.md/execution_plan.json and frozen predictions. Human authorized six initial blind designs; no geometry tuning/refitting. First wave <=24points and6launches/case,4points/launch. Reserved<=8points/2launches per case separately; do not consume without evidence-driven frozen follow-up plan. Total32/8 hard cap per case.
+Dispatch one case: dispatch_smallbatch.py --case CASE --solve, then supervise_smallbatch.py --run J:/f8_B6_261027/CASE/direct_smallbatch --seconds600. On event receive_verified.py --run RUN, actual view_image overlay, acknowledge_smallbatch.py --run RUN --visual-reviewed --note actual evidence. Design false is retained, never repaired by thresholds/geometry changes.
+After all six first waves, examine comparison.needs_reserved_points and target_finite_direct_failure_confirmed. A direct target violation is a real design failure; do not chase every other edge. For potentially passing but unresolved cases, prepare a separate bounded reserve context using missing peak/edge evidence and <=8new points/2launches. Preserve first-wave conclusions and exact mesh. No duplicated frequencies or new adaptive. No remaining safe budget => unresolved.
+Finally write final report for all6requests R/E/N, prediction-vs-actual and baseline/target/numerical separate, update parent active, bind last event resolution=batch_complete and stop heartbeat. Original PR18 and uniform datasets read-only. No optional step9 tuning authorized.
+''',encoding='utf-8')
+ pc.write(R/'implementation_provenance.json',provenance)
+ # Freeze own static files plus already-frozen parent inputs and imports.
+ frozen={}
+ for task in tasks:
+  frozen.update(pc.read(Path(task['path']))['parent_evidence_hashes'])
+ for f in R.rglob('*'):
+  if f.is_file() and (f.suffix=='.py' or f.name in ['authorization.json','continuation_plan.json','selected_sources.json','frequency_plan.json','policy.json','reference_validation.json','mesh_policy_addendum_v2.json','config.json','CONTINUATION.md','aedt_identity.json']):frozen[str(f)]=pc.sha(f)
+ for file,h in frozen.items():assert pc.sha(file)==h,file
+ for file in R.glob('*.py'):ast.parse(file.read_text(encoding='utf-8'))
+ pc.write(R/'implementation_hashes.json',frozen)
+ pc.write(P/'direct_handoff.json',dict(context=str(R),prepared=True,initial_cases=len(cases)))
+ print(dict(prepared=str(R),cases=len(cases),points=sum(len(r['requested_frequencies_GHz']) for r in cases),launches=sum(len(r['chunks']) for r in cases),reserve_per_case=8,Analyze_started=False))
+if __name__=='__main__':main()

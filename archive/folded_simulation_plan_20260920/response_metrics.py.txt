@@ -1,0 +1,92 @@
+"""Versioned, consistent extraction of response-effective parameters."""
+from pathlib import Path
+import csv,hashlib,math
+import numpy as np
+from scipy.optimize import brentq
+from scipy.signal import find_peaks
+
+VERSION='response_pr_v1_20260920'
+
+def theoretical(f,p,r,f0=6.85):
+    f=np.asarray(f);theta=np.pi*f/(2*f0)
+    zm,zs=np.sqrt(p*r),np.sqrt(p/r)
+    u=1/np.tan(theta)
+    fm=(zm*zm*u**3+(1-p)*u)/zs
+    return np.abs(fm)/np.hypot(1,fm),1/np.hypot(1,fm)
+
+def extract_pr(db,bw,f0):
+    mag=10**(db/20)
+    fp=mag/math.sqrt(1-mag*mag)
+    p=brentq(lambda p:2*(p-1)**1.5/(3*math.sqrt(3)*p)-fp,1+1e-10,100)
+    theta=np.pi/2*(1-bw/(2*f0));u=1/math.tan(theta)
+    threshold=math.sqrt(10**0.2-1)
+    r=brentq(lambda r:math.sqrt(r/p)*(p*r*u**3+(1-p)*u)-threshold,1e-9,100)
+    return {'P_response':p,'R_BW':r,'Zm_response_ohm':50*math.sqrt(p*r),'Zs_response_ohm':50*math.sqrt(p/r),'f0_reference_GHz':f0}
+
+def intervals(f, margins):
+    """Intersect linear threshold margins within each frequency interval."""
+    segments=[]
+    for i in range(len(f)-1):
+        lo,hi=0.,1.
+        for a in margins:
+            y0,y1=a[i],a[i+1]
+            if y0<0 and y1<0:hi=-1;break
+            if y0<0:lo=max(lo,-y0/(y1-y0))
+            elif y1<0:hi=min(hi,-y0/(y1-y0))
+        if hi<lo:continue
+        a,b=float(f[i]+lo*(f[i+1]-f[i])),float(f[i]+hi*(f[i+1]-f[i]))
+        if segments and abs(a-segments[-1][1])<1e-8:segments[-1][1]=b
+        else:segments.append([a,b])
+    return [{'f_low_GHz':a,'f_high_GHz':b,'BW_GHz':b-a,'touches_sweep_edge':a==float(f[0]) or b==float(f[-1])} for a,b in segments if b-a>1e-8]
+
+def analyze(path,f0=6.85):
+    path=Path(path)
+    with path.open(encoding='utf-8-sig',newline='') as h:rows=list(csv.DictReader(h))
+    f=np.array([float(r['Freq_GHz']) for r in rows])
+    db=lambda key:np.array([float(r[key+'_dB']) if key+'_dB' in r else 20*math.log10(max(float(r[key+'_mag']),1e-300)) for r in rows])
+    s11,s21=db('S11'),db('S21')
+    assert np.all(np.isfinite(np.r_[f,s11,s21])) and np.all(np.diff(f)>0)
+    m={'extraction_version':VERSION,'curve_path':str(path.resolve()),'curve_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+       'points':len(f),'frequency_range_GHz':[float(f[0]),float(f[-1])],'f0_reference_GHz':f0,
+       'peak_average':'linear magnitude mean, then 20log10','R_definition':'zm/zs',
+       'max_S21_dB':float(max(s21)),'power_excess_S11_S21':float(max(10**(s11/10)+10**(s21/10)-1)),
+       'formal_response_PR':None,'diagnostic_response_PR':None}
+    pbs=intervals(f,[s21+2]);joint=intervals(f,[s21+2,-10-s11])
+    m['passband_2dB']=max(pbs,key=lambda x:x['BW_GHz']) if pbs else None
+    m['passband_joint']=max(joint,key=lambda x:x['BW_GHz']) if joint else None
+    if not pbs:m['validity']={'equal_ripple':False,'reason':'no_2dB_passband'};return m
+    pb=m['passband_2dB'];lo,hi=pb['f_low_GHz'],pb['f_high_GHz']
+    # Prominence is declared, not adjusted case by case.
+    minima,_=find_peaks(-s11,prominence=0.5)
+    valleys=[int(i) for i in minima if lo<f[i]<hi and s11[i]<-10]
+    m['prominent_valley_count']=len(valleys);m['valley_prominence_dB']=0.5
+    if len(valleys)!=3:m['validity']={'equal_ripple':False,'reason':'not_exactly_three_prominent_valleys'};return m
+    peaks=[int(a+1+np.argmax(s11[a+1:b])) for a,b in zip(valleys,valleys[1:])]
+    m['valleys']=[{'frequency_GHz':float(f[i]),'S11_dB':float(s11[i])} for i in valleys]
+    m['peaks']=[{'frequency_GHz':float(f[i]),'S11_dB':float(s11[i]),'S21_dB':float(s21[i])} for i in peaks]
+    m['signed_peak_difference_dB']=float(s11[peaks[0]]-s11[peaks[1]])
+    m['peak_difference_dB']=abs(m['signed_peak_difference_dB'])
+    m['peak_level_dB']=float(20*np.log10(np.mean(10**(s11[peaks]/20))))
+    m['central_valley_GHz']=float(f[valleys[1]])
+    m['band_center_GHz']=(lo+hi)/2
+    m['worst_S11_between_valleys_dB']=float(max(s11[valleys[0]:valleys[-1]+1]))
+    m['min_S21_between_valleys_dB']=float(min(s21[valleys[0]:valleys[-1]+1]))
+    gates={'peak_difference_le_0p5':m['peak_difference_dB']<=0.5,
+           'S11_below_minus10_between_valleys':m['worst_S11_between_valleys_dB']<-10,
+           'S21_ge_minus2_between_valleys':m['min_S21_between_valleys_dB']>=-2,
+           'band_not_truncated':not pb['touches_sweep_edge'],'nonpositive_transmission':m['max_S21_dB']<=0.05}
+    m['validity']={**gates,'equal_ripple':all(gates.values()),'solver_convergence_verified':False}
+    pr=extract_pr(m['peak_level_dB'],pb['BW_GHz'],f0)
+    m['diagnostic_response_PR']=pr
+    if m['validity']['equal_ripple']:m['formal_response_PR']=pr
+    m['bandcenter_sensitivity_PR']=extract_pr(m['peak_level_dB'],pb['BW_GHz'],m['band_center_GHz'])
+    u=np.mean(np.abs(1/np.tan(np.pi*f[[valleys[0],valleys[-1]]]/(2*f0))))
+    m['R_side_poles_diagnostic']=(pr['P_response']-1)/(pr['P_response']*u*u)
+    a,b=theoretical(f,pr['P_response'],pr['R_BW'],f0)
+    idx=(f>=lo)&(f<=hi)
+    m['unused_shape_checks']={'S11_magnitude_RMSE':float(np.sqrt(np.mean((a[idx]-10**(s11[idx]/20))**2))),
+      'S21_dB_RMSE':float(np.sqrt(np.mean((20*np.log10(np.maximum(b[idx],1e-30))-s21[idx])**2))),
+      'low_edge_error_GHz':float(f0-pb['BW_GHz']/2-lo),'high_edge_error_GHz':float(f0+pb['BW_GHz']/2-hi),
+      'central_valley_error_GHz':float(f0-m['central_valley_GHz']),
+      'note':'Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction.'}
+    return m

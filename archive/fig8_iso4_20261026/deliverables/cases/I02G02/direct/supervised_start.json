@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-26T10:14:10.673825+00:00",
+  "input_sha256": "d2c3f862350e57e12853b654cc034e6349e25f39762637eb85365b69d5f9ea3d",
+  "worker_pid": 5924,
+  "worker_created": 1793009622.8377512,
+  "worker_command": [
+    "D:\\uv\\python\\cpython-3.12.13-windows-x86_64-none\\python.exe",
+    "${WORKSPACE}\\output\\fig8_iso4_20261026\\final_review\\smallbatch_worker.py",
+    "--spec",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\input.json"
+  ],
+  "actual_hf3d": [
+    {
+      "pid": 2388,
+      "name": "hf3d.exe",
+      "cmdline": [
+        "30504_0",
+        "30504_1",
+        "J:\\f8_finish24_261023\\solver_temp\\hfss_DESKTOP-94969B0_30504.pjt/",
+        "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 10000000000 -max_processors 16 -DonotRestartOnEachFreqGroup -UseSolverWrapper -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+      ]
+    }
+  ],
+  "active_stage": "candidate_cached_direct",
+  "actual_elements": 103694,
+  "mcp_requests": [
+    {
+      "project_name": "I02G02_I4SmallBatch",
+      "design_name": "Wideband vertical transition",
+      "setup_name": "Setup19",
+      "port": 7990,
+      "concurrent_tasks": 1,
+      "cores_per_task": 16,
+      "blocking": false,
+      "timeout": 120
+    }
+  ],
+  "geometry": {
+    "Wm": 1.9,
+    "Ws": 0.369815,
+    "Lm": 6.593053311442359,
+    "Ls1": 12.695846529014311,
+    "Ls2": 1.28963,
+    "Ls3": 1.769815
+  },
+  "actual_16core_single_group_observed": true
+}

@@ -1,0 +1,60 @@
+"""Read-only reclassification evidence. Never edits production acceptance."""
+import csv, json, hashlib
+from pathlib import Path
+import numpy as np
+
+HERE=Path(__file__).resolve().parent
+ROOT=Path('J:/f8_261007')
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,x): Path(p).write_text(json.dumps(x,indent=2,ensure_ascii=False),encoding='utf-8')
+def load(run):
+    rows=list(csv.DictReader((run/'all_modes_sparams.csv').open(encoding='utf-8-sig')))
+    aux=list(csv.DictReader((run/'mode_impedance_gamma.csv').open(encoding='utf-8-sig')))
+    modes=['1:1','1:2','2:1','2:2'];f=np.array([float(r['Freq_GHz']) for r in rows])
+    assert np.allclose(f,[float(r['Freq_GHz']) for r in aux])
+    def c(rows,k): return np.array([complex(float(r[k+'_real']),float(r[k+'_imag'])) for r in rows])
+    s=np.array([[c(rows,f'S({a},{b})') for b in modes] for a in modes]).transpose(2,0,1)
+    z=np.array([c(aux,f'Zo({a})') for a in modes]).T
+    return f,s,z
+def summarize(run):
+    f,s,z=load(run);m=read(run/'manifest.json');met=read(run/'response_metrics.json') if (run/'response_metrics.json').exists() else {}
+    v=abs(s[:,0,2]-s[:,2,0]);n=run/'scalar_reference_50ohm.npz'
+    result={'run':str(run),'points':len(f),'convergence':m.get('convergence'),'sweep_converged':m.get('sweep_converged'),
+      'complete_finite_grid':bool(len(f)==1500 and np.allclose(f,np.arange(1,1501)/100,rtol=0,atol=1e-9) and np.isfinite(s).all() and np.isfinite(z).all()),
+      'native_curve_hash_matches_manifest':sha(run/'sparams.csv')==m.get('curve_sha256'),
+      'source_hash_matches_manifest':bool(m.get('source') and Path(m['source']).exists() and sha(m['source'])==m.get('source_sha256')),
+      'port_passed':read(run/'port_review.json').get('passed') if (run/'port_review.json').exists() else None,
+      'native_fundamental_reciprocity':float(v.max()),'native_fundamental_reciprocity_worst_GHz':float(f[v.argmax()]),
+      'native_S21_max_dB':float(20*np.log10(abs(s[:,2,0]).max())),
+      'metrics':{k:met.get(k) for k in ['passband_2dB','peak_difference_dB','central_valley_GHz','peaks','valleys']},
+      'evidence_hashes':{str(run/x):sha(run/x) for x in ['manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']}}
+    if n.exists():
+        mat=np.load(n)['S'];delta=abs(mat-mat.transpose(0,2,1));sv=np.linalg.svd(mat,compute_uv=False)[:,0]
+        sub=mat[:,[0,2]][:,:,[0,2]];svsub=np.linalg.svd(sub,compute_uv=False)[:,0]
+        rec=abs(sub[:,0,1]-sub[:,1,0]);idx=np.unravel_index(delta.argmax(),delta.shape)
+        result.update(full_max_sv=float(sv.max()),full_violations=int(sum(sv>1.001)),full_reciprocity=float(delta.max()),
+          worst_pair=[['1:1','1:2','2:1','2:2'][j] for j in idx[1:]],worst_pair_GHz=float(f[idx[0]]),
+          fundamental_50ohm_max_sv=float(svsub.max()),fundamental_50ohm_violations=int(sum(svsub>1.001)),
+          fundamental_50ohm_reciprocity=float(rec.max()),full_violation_frequencies=f[sv>1.001].tolist())
+        # Submatrix checks are diagnostic and are NOT a substitute for same-geometry direct checks.
+        result['offline_category']='full_matrix_pass' if sv.max()<=1.001 and delta.max()<=1e-6 else (
+          'fundamental_reciprocity_above_0p005' if max(v.max(),rec.max())>.005 else 'fundamental_candidate_needs_direct_evidence')
+    if not m.get('sweep_converged'): result['offline_category']='sweep_not_converged'
+    return result
+def main():
+    plan=read(HERE.parent/'fig8_resume_20261007/resume_queue_plan.json');cases=[]
+    for c in plan['cases']:
+        folder=ROOT/c['case'];result=read(folder/'design_result.json') if (folder/'design_result.json').exists() else {}
+        attempts=[]
+        for attempt in sorted(folder.glob('i[0-9][0-9]')):
+            run=attempt/'verified_recovery' if (attempt/'recovery_acceptance.json').exists() else attempt
+            if all((run/n).exists() for n in ['manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']):
+                try: attempts.append(summarize(run))
+                except Exception as e: attempts.append({'run':str(run),'error':repr(e)})
+        cases.append({'case':c['case'],'production_status':result.get('status','unfinished'),'selected_run':result.get('selected_run'),'attempts':attempts})
+    write(HERE/'offline_audit.json',{'cases':cases,'production_changes':False})
+    for c in cases:
+        a=c['attempts'][-1] if c['attempts'] else {}
+        print(c['case'],c['production_status'],Path(a.get('run','')).name,a.get('offline_category'),a.get('full_reciprocity'),a.get('fundamental_50ohm_reciprocity'),a.get('native_fundamental_reciprocity'))
+if __name__=='__main__':main()

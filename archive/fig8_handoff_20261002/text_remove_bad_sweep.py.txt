@@ -1,0 +1,21 @@
+import re, shutil
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+root = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+p = root / "R_B0_rebuild_max500.aedt"
+shutil.copy2(p, root / "R_B0_rebuild_max500.before_text_remove_nofullbasis.aedt")
+t = p.read_text(encoding="utf-8", errors="ignore")
+pat = r"\n\s*\$begin 'SweepRepairBBNoFullBasis'.*?\$end 'SweepRepairBBNoFullBasis'"
+t2, n1 = re.subn(pat, "", t, count=1, flags=re.S)
+pat2 = r"\n\s*\$begin 'Solution'\s*\n\s*ID=51202\s*\n\s*Name='SweepRepairBBNoFullBasis'.*?\$end 'Solution'"
+t3, n2 = re.subn(pat2, "", t2, count=1, flags=re.S)
+t3 = re.sub(r"\n\s*Soln\(N='SweepRepairBBNoFullBasis', [^\n]*\)", "", t3)
+p.write_text(t3, encoding="utf-8")
+print({"sweep_block_removed": n1, "solution_block_removed": n2}, flush=True)
+app = Hfss(project=str(p), design="Wideband vertical transition", version="2024.2", machine="localhost", port=7393, non_graphical=False, new_desktop=False, close_on_exit=False)
+try:
+    print([s.name for s in app.get_setup("ModalRepairBB").sweeps], flush=True)
+    app.save_project()
+finally:
+    app.release_desktop(close_projects=False, close_desktop=False)

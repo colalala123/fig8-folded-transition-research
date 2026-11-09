@@ -1,0 +1,1825 @@
+{
+  "kind": "derived_read_only_evidence_bundle",
+  "source_snapshot_UTC": "2026-10-31T08:37:56.011182+00:00",
+  "budget": {
+    "geometries_started": 32,
+    "new_geometries_declared": 33,
+    "geometry_cap": 172,
+    "Analyze_used": 269,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 9,
+      "N11_A18_M": 7,
+      "N11_A18_C1": 1,
+      "N11_A18_C2": 7,
+      "N11_A14_S": 10,
+      "N11_A14_M": 8,
+      "N11_A14_C1": 9,
+      "N19_A14_S": 7,
+      "N19_A14_M": 10,
+      "N10_A18_S": 11,
+      "N10_A18_M": 11,
+      "N10_A18_C1": 8,
+      "N17_A14_S": 7,
+      "N17_A14_M": 9,
+      "N18_A18_S": 9,
+      "N18_A18_M": 7,
+      "N22_A18_S": 9,
+      "N22_A18_M": 7,
+      "N20_A14_S": 10,
+      "N20_A14_M": 10,
+      "N20_A14_C1": 8,
+      "N20_A14_C2": 1,
+      "N22_A14_S": 9,
+      "N22_A14_M": 9,
+      "N14_A18_S": 10,
+      "N14_A18_M": 9,
+      "N18_A14_S": 8,
+      "N18_A14_M": 7,
+      "N15_A18_S": 4,
+      "N15_A18_M": 0,
+      "N20_A14_C2_TR1": 0,
+      "N20_A14_C2_TR1B": 10
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 4,
+      "N11_A14": 3,
+      "N19_A14": 2,
+      "N10_A18": 3,
+      "N17_A14": 2,
+      "N18_A18": 2,
+      "N22_A18": 2,
+      "N20_A14": 4,
+      "N22_A14": 2,
+      "N14_A18": 2,
+      "N18_A14": 2,
+      "N15_A18": 2
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true,
+    "technical_recovery_slots_declared": 1,
+    "technical_recovery_Analyze": 10,
+    "original_design_geometry_cap": 172,
+    "attempt_slot_cap_including_technical": 173,
+    "combined_N20_C2_Analyze": 11,
+    "budget_overlay": "tuning_budget_recovery_v2",
+    "frozen_original_budget_unchanged": true,
+    "zero_Analyze_startups_closed": 1,
+    "same_single_recovery_slot": true
+  },
+  "selected_records": [
+    {
+      "at": "2026-10-30T21:29:20.008108+00:00",
+      "parent": "N10_A18",
+      "selected_case": "N10_A18_C1",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N10_A18\\c1\\N10_A18_C1\\g01_initial",
+      "geometry": {
+        "Wm": 1.945516,
+        "Ws": 0.35492,
+        "Lm": 6.557145648389449,
+        "Ls1": 12.059103360411955,
+        "Ls2": 1.25984,
+        "Ls3": 2.15492
+      },
+      "P_nominal": 2.0406594738843116,
+      "R_nominal": 0.4400809933066121,
+      "score": {
+        "worst_S11_dB": -20.126340157261,
+        "min_S21_dB": -0.908324242672889,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.75,
+        "peak_difference_dB": 0.1868135236276487,
+        "inner_peaks": [
+          {
+            "GHz": 5.3,
+            "S11_dB": -21.550888737227773
+          },
+          {
+            "GHz": 8.18,
+            "S11_dB": -21.364075213600124
+          }
+        ],
+        "objective": 6.240013019814644e-28,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "28950d20b6aa756547a74b9ad6e4743b1b0dbee6d99f5f7c49618c9d4dc5549b",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    {
+      "at": "2026-10-30T19:26:14.252710+00:00",
+      "parent": "N11_A14",
+      "selected_case": "N11_A14_C1",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A14\\c1\\N11_A14_C1\\g01_initial",
+      "geometry": {
+        "Wm": 1.868639,
+        "Ws": 0.353497,
+        "Lm": 6.586226978578006,
+        "Ls1": 12.637445102864609,
+        "Ls2": 1.2569940000000002,
+        "Ls3": 1.7534969999999999
+      },
+      "P_nominal": 2.090432794777202,
+      "R_nominal": 0.45170739799579973,
+      "score": {
+        "worst_S11_dB": -20.333645063040635,
+        "min_S21_dB": -0.9888848882121061,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.71,
+        "peak_difference_dB": 0.038155802582799936,
+        "inner_peaks": [
+          {
+            "GHz": 5.13,
+            "S11_dB": -20.371800865623435
+          },
+          {
+            "GHz": 8.26,
+            "S11_dB": -20.333645063040635
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "5e0d0ed263fbb4f045969927af14b36ddd7d71e1823e667ad61615f7abc2cb03",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    {
+      "at": "2026-10-30T18:11:42.242854+00:00",
+      "parent": "N11_A18",
+      "selected_case": "N11_A18_C2",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\c2\\N11_A18_C2\\g01_initial",
+      "geometry": {
+        "Wm": 1.868639,
+        "Ws": 0.353497,
+        "Lm": 6.555608083899126,
+        "Ls1": 12.014319559892876,
+        "Ls2": 1.2569940000000002,
+        "Ls3": 2.153497
+      },
+      "P_nominal": 2.090432794777202,
+      "R_nominal": 0.45170739799579973,
+      "score": {
+        "worst_S11_dB": -20.429876375266627,
+        "min_S21_dB": -0.9080523972687388,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.73,
+        "peak_difference_dB": 0.28687658268745864,
+        "inner_peaks": [
+          {
+            "GHz": 5.27,
+            "S11_dB": -21.01773121426803
+          },
+          {
+            "GHz": 8.21,
+            "S11_dB": -20.73085463158057
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "71b37acd1a9d7e4ac1afbae2f01e0949c0cd8dd41a9971fef0258a307a81d155",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    {
+      "at": "2026-10-30T16:54:27.889547+00:00",
+      "parent": "N17_A18",
+      "selected_case": "N17_A18_C1",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N17_A18\\c1\\N17_A18_C1\\g01_initial",
+      "geometry": {
+        "Wm": 1.893236,
+        "Ws": 0.39459,
+        "Lm": 6.570817212267215,
+        "Ls1": 12.162952887702197,
+        "Ls2": 1.33918,
+        "Ls3": 2.19459
+      },
+      "P_nominal": 2.1313681121216974,
+      "R_nominal": 0.4359087271515597,
+      "score": {
+        "worst_S11_dB": -20.063962132902013,
+        "min_S21_dB": -0.9332858655947817,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.73,
+        "peak_difference_dB": 0.14563885297580015,
+        "inner_peaks": [
+          {
+            "GHz": 5.12,
+            "S11_dB": -20.209600985877813
+          },
+          {
+            "GHz": 8.26,
+            "S11_dB": -20.063962132902013
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "ec03d920a2fa7d39e7cae2ca4dc235ed5298c547918e6ebb4c3e0a5deb92f524",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    {
+      "at": "2026-10-31T02:33:50.137159+00:00",
+      "parent": "N20_A14",
+      "selected_case": "N20_A14_C2_TR1B",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N20_A14\\c2_retry1\\boot2\\N20_A14_C2_TR1B\\g01_initial",
+      "geometry": {
+        "Wm": 1.913179,
+        "Ws": 0.345082,
+        "Lm": 6.584698605611728,
+        "Ls1": 12.61767661432842,
+        "Ls2": 1.240164,
+        "Ls3": 1.745082
+      },
+      "P_nominal": 2.047961113281801,
+      "R_nominal": 0.4477874388935538,
+      "score": {
+        "worst_S11_dB": -20.589297609061163,
+        "min_S21_dB": -0.9793352824494841,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.73,
+        "peak_difference_dB": 0.26038426508098667,
+        "inner_peaks": [
+          {
+            "GHz": 5.27,
+            "S11_dB": -21.242956337939574
+          },
+          {
+            "GHz": 8.18,
+            "S11_dB": -20.982572072858588
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "0fcbb6fa6b49f0c43cc6e83485787939349242eb9000c2adabb810a098474630",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true,
+      "technical_recovery_attempt": 1,
+      "original_failed_attempt_preserved": true
+    }
+  ],
+  "quality_notes": {
+    "N10_A18_C1.json": {
+      "parent": "N10_A18",
+      "case": "N10_A18_C1",
+      "actual_visual_review_completed": true,
+      "nominal_full_primary_pass": true,
+      "actual_elements": 103745,
+      "fixed_window_GHz": [
+        3.92,
+        9.52
+      ],
+      "worst_S11_dB": -20.126340157261,
+      "min_S21_dB": -0.908324242672889,
+      "central_valley_GHz": 6.75,
+      "central_valley_at_allowed_upper_boundary": true,
+      "inner_peak_difference_dB": 0.1868135236276487,
+      "joint20_interval_GHz": [
+        3.6784412182930635,
+        9.523624424777116
+      ],
+      "upper_window_margin_MHz": 3.624424777116,
+      "reflection_margin_dB": 0.126340157261,
+      "boundary_sensitive": true,
+      "not_0p4dB_margin_or_final_direct_or_robust_certification": true,
+      "no_additional_strict_rerun_requested": true,
+      "fixed_PR_fold_gap": true,
+      "only_Lm_Ls1_changed": true,
+      "original_blind_results_unchanged": true,
+      "second_candidate_not_needed_for_nominal_target": true
+    },
+    "N11_A14_C1.json": {
+      "parent": "N11_A14",
+      "case": "N11_A14_C1",
+      "actual_elements": 100138,
+      "actual_visual_review_completed": true,
+      "nominal_full_primary_pass": true,
+      "fixed_window_GHz": [
+        3.92,
+        9.52
+      ],
+      "worst_S11_dB": -20.333645063040635,
+      "min_S21_dB": -0.9888848882121061,
+      "central_valley_GHz": 6.71,
+      "inner_peak_difference_dB": 0.038155802582799936,
+      "reflection_margin_dB": 0.333645063040635,
+      "joint20_interval_GHz": [
+        3.6302375013863633,
+        9.544101016038857
+      ],
+      "upper_window_margin_MHz": 24.101016038857,
+      "fixed_PR_fold_gap": true,
+      "only_Lm_Ls1_changed": true,
+      "satisfies_0p4dB_reflection_buffer": false,
+      "not_final_direct_or_robust_certification": true,
+      "original_blind_results_unchanged": true,
+      "second_candidate_not_needed": true
+    },
+    "N11_A18_same_geometry_recovery_pass.json": {
+      "parent": "N11_A18",
+      "selected_case": "N11_A18_C2",
+      "selected_sha256": "1582fdc75f1683cebbfbf68771da580cfc0c84a780cc6b727a8c08bb766d4f02",
+      "hard_target_passed": true,
+      "reflection_margin_dB": 0.4298763752666268,
+      "upper_joint20_edge_extension_MHz": 11.444691085857883,
+      "max_symmetric_joint20_BW_about_6p72_GHz": 5.622889382171715,
+      "derived_symmetric_bandwidth_is_not_a_new_requested_target": true,
+      "same_geometry_as_failed_C1": true,
+      "failed_original_requests_retained": 1,
+      "recovery_requests": 7,
+      "combined_physical_case_requests": 8,
+      "distinct_parent_geometries": 3,
+      "conservative_parent_attempt_slots_used": 4,
+      "final_direct_or_robust_certified": false
+    },
+    "N14_A18_local_search_unresolved.json": {
+      "parent": "N14_A18",
+      "disposition": "Local model did not find a predicted hard-target pass within fixed length trust region",
+      "actual_probe_cases_reviewed": [
+        "N14_A18_S",
+        "N14_A18_M"
+      ],
+      "actual_probe_elements": [
+        101172,
+        101958
+      ],
+      "candidate_HFSS_runs": 0,
+      "all_four_slots_exhausted": false,
+      "best_proposed_prediction_worst_S11_dB": -19.66859818326302,
+      "prediction_shortfall_dB": 0.33140181673698,
+      "prediction_is_not_actual_HFSS": true,
+      "not_proof_of_physical_impossibility": true,
+      "fixed_PR_fold_gap_preserved": true,
+      "original_window_unchanged": true,
+      "no_unapproved_width_or_length_radius_expansion": true,
+      "needs_future_methodology_review_before_additional_dispatch": true
+    },
+    "N17_A14_local_search_unresolved.json": {
+      "parent": "N17_A14",
+      "disposition": "Local model did not find a predicted hard-target pass within the fixed length trust region",
+      "actual_probe_cases_reviewed": [
+        "N17_A14_S",
+        "N17_A14_M"
+      ],
+      "actual_probe_elements": [
+        100266,
+        103917
+      ],
+      "candidate_HFSS_runs": 0,
+      "all_four_slots_exhausted": false,
+      "best_proposed_prediction_worst_S11_dB": -19.718712886686344,
+      "prediction_shortfall_dB": 0.281287113313656,
+      "prediction_is_not_actual_HFSS": true,
+      "not_proof_of_physical_impossibility": true,
+      "fixed_PR_fold_gap_preserved": true,
+      "original_window_unchanged": true,
+      "no_unapproved_width_or_length_radius_expansion": true,
+      "needs_future_methodology_review_before_additional_dispatch": true
+    },
+    "N17_A18_C1.json": {
+      "parent": "N17_A18",
+      "selected_sha256": "3cfb33152ac927246570bfaf269e992095bbfbb2edf75dab342c673e6e164858",
+      "hard_target_passed": true,
+      "reflection_margin_dB": 0.06396213290201302,
+      "desired_0p4dB_reflection_buffer_met": false,
+      "scope": "Nominal mesh-controlled interpolated target pass only; no robust/final native-direct certification; no extra C2 solely for margin."
+    },
+    "N18_A14_local_search_unresolved.json": {
+      "parent": "N18_A14",
+      "disposition": "Local model did not find a predicted hard-target pass within fixed length trust region",
+      "actual_probe_cases_reviewed": [
+        "N18_A14_S",
+        "N18_A14_M"
+      ],
+      "actual_probe_elements": [
+        102336,
+        102587
+      ],
+      "candidate_HFSS_runs": 0,
+      "all_four_slots_exhausted": false,
+      "best_proposed_prediction_worst_S11_dB": -19.396075544108378,
+      "prediction_shortfall_dB": 0.603924455891622,
+      "prediction_is_not_actual_HFSS": true,
+      "not_proof_of_physical_impossibility": true,
+      "fixed_PR_fold_gap_preserved": true,
+      "original_window_unchanged": true,
+      "no_unapproved_width_or_length_radius_expansion": true,
+      "needs_future_methodology_review_before_additional_dispatch": true
+    },
+    "N18_A18_local_search_unresolved.json": {
+      "parent": "N18_A18",
+      "disposition": "Local model did not find a predicted hard-target pass within fixed length trust region",
+      "actual_probe_cases_reviewed": [
+        "N18_A18_S",
+        "N18_A18_M"
+      ],
+      "actual_probe_elements": [
+        101787,
+        100326
+      ],
+      "candidate_HFSS_runs": 0,
+      "all_four_slots_exhausted": false,
+      "best_proposed_prediction_worst_S11_dB": -19.78257067103645,
+      "prediction_shortfall_dB": 0.21742932896355,
+      "prediction_is_not_actual_HFSS": true,
+      "not_proof_of_physical_impossibility": true,
+      "fixed_PR_fold_gap_preserved": true,
+      "original_window_unchanged": true,
+      "no_unapproved_width_or_length_radius_expansion": true,
+      "needs_future_methodology_review_before_additional_dispatch": true
+    },
+    "N19_A14_local_search_unresolved.json": {
+      "parent": "N19_A14",
+      "disposition": "Local model did not find a predicted hard-target pass; defer within authorized bounded campaign",
+      "actual_probe_cases_reviewed": [
+        "N19_A14_S",
+        "N19_A14_M"
+      ],
+      "actual_probe_elements": [
+        103004,
+        100512
+      ],
+      "candidate_HFSS_runs": 0,
+      "all_four_slots_exhausted": false,
+      "best_proposed_prediction_worst_S11_dB": -19.95551133580896,
+      "prediction_shortfall_dB": 0.04448866419104,
+      "prediction_is_not_actual_HFSS": true,
+      "not_proof_of_physical_impossibility": true,
+      "fixed_PR_fold_gap_preserved": true,
+      "original_window_unchanged": true,
+      "no_unapproved_width_or_length_radius_expansion": true,
+      "needs_future_methodology_review_before_additional_dispatch": true
+    },
+    "N20_A14_C2_TR1B.json": {
+      "parent": "N20_A14",
+      "case": "N20_A14_C2_TR1B",
+      "actual_visual_review_completed": true,
+      "nominal_full_primary_pass": true,
+      "actual_elements": 100409,
+      "fixed_window_GHz": [
+        3.92,
+        9.52
+      ],
+      "worst_S11_dB": -20.589297609061163,
+      "min_S21_dB": -0.9793352824494841,
+      "central_valley_GHz": 6.73,
+      "inner_peak_difference_dB": 0.26038426508098667,
+      "joint20_interval_GHz": [
+        3.6532912350962534,
+        9.536404710390343
+      ],
+      "reflection_margin_dB": 0.589297609061163,
+      "upper_window_margin_MHz": 16.404710390343,
+      "fixed_PR_fold_gap": true,
+      "only_Lm_Ls1_changed": true,
+      "original_C2_failure_preserved": true,
+      "zero_Analyze_startup_preserved": true,
+      "same_single_authorized_technical_recovery": true,
+      "old_failed_paths_have_no_successful_ACK": true,
+      "not_final_direct_or_robust_certification": true,
+      "original_blind_results_unchanged": true
+    },
+    "N22_A14_local_search_unresolved.json": {
+      "parent": "N22_A14",
+      "disposition": "Local model did not find a predicted hard-target pass within fixed length trust region",
+      "actual_probe_cases_reviewed": [
+        "N22_A14_S",
+        "N22_A14_M"
+      ],
+      "actual_probe_elements": [
+        102254,
+        100438
+      ],
+      "candidate_HFSS_runs": 0,
+      "all_four_slots_exhausted": false,
+      "best_proposed_prediction_worst_S11_dB": -19.489201915554663,
+      "prediction_shortfall_dB": 0.510798084445337,
+      "prediction_is_not_actual_HFSS": true,
+      "not_proof_of_physical_impossibility": true,
+      "fixed_PR_fold_gap_preserved": true,
+      "original_window_unchanged": true,
+      "no_unapproved_width_or_length_radius_expansion": true,
+      "needs_future_methodology_review_before_additional_dispatch": true
+    },
+    "N22_A18_local_search_unresolved.json": {
+      "parent": "N22_A18",
+      "disposition": "Local model did not find a predicted hard-target pass within fixed length trust region",
+      "actual_probe_cases_reviewed": [
+        "N22_A18_S",
+        "N22_A18_M"
+      ],
+      "actual_probe_elements": [
+        103380,
+        104128
+      ],
+      "candidate_HFSS_runs": 0,
+      "all_four_slots_exhausted": false,
+      "best_proposed_prediction_worst_S11_dB": -19.852825017927202,
+      "prediction_shortfall_dB": 0.147174982072798,
+      "prediction_is_not_actual_HFSS": true,
+      "not_proof_of_physical_impossibility": true,
+      "fixed_PR_fold_gap_preserved": true,
+      "original_window_unchanged": true,
+      "no_unapproved_width_or_length_radius_expansion": true,
+      "needs_future_methodology_review_before_additional_dispatch": true
+    }
+  },
+  "decision_records": {
+    "N10_A18_c1_decision.json": {
+      "at": "2026-10-30T21:05:34.337491+00:00",
+      "parent": "N10_A18",
+      "proposal": {
+        "action": "candidate",
+        "geometry": {
+          "Wm": 1.945516,
+          "Ws": 0.35492,
+          "Lm": 6.557145648389449,
+          "Ls1": 12.059103360411955,
+          "Ls2": 1.25984,
+          "Ls3": 2.15492
+        },
+        "delta_mm": [
+          -0.030907256666800845,
+          -0.013268260218624803
+        ],
+        "predicted": {
+          "worst_S11_dB": -20.39990958456064,
+          "min_S21_dB": -0.903226853822534,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.75,
+          "peak_difference_dB": 0.24191886194322265,
+          "inner_peaks": [
+            {
+              "GHz": 5.27,
+              "S11_dB": -21.566545200587342
+            },
+            {
+              "GHz": 8.24,
+              "S11_dB": -21.32462633864412
+            }
+          ],
+          "objective": 1.0000008174952173,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.76293261699295,
+          "min_S21_dB": -0.924932989567828,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.73,
+          "peak_difference_dB": 0.12216720272117954,
+          "inner_peaks": [
+            {
+              "GHz": 5.25,
+              "S11_dB": -21.567944709655286
+            },
+            {
+              "GHz": 8.22,
+              "S11_dB": -21.445777506934107
+            }
+          ],
+          "objective": 40.58548504914533,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.2853915245940852,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "Predicted pass and meaningful constraint improvement"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N10_A18\\probes\\N10_A18_S\\g01_initial\\receiver_ack.json": "3df7f87e4a1204fc043b04d0d9bf138187b87cdf16fc421a94a83bd9fba0218e",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N10_A18\\probes\\N10_A18_M\\g01_initial\\receiver_ack.json": "5f9548ebe745b4ee517911f40cb7af85bcf2113005189586c0a6108b50fa5483"
+      }
+    },
+    "N10_A18_selected.json": {
+      "at": "2026-10-30T21:29:20.008108+00:00",
+      "parent": "N10_A18",
+      "selected_case": "N10_A18_C1",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N10_A18\\c1\\N10_A18_C1\\g01_initial",
+      "geometry": {
+        "Wm": 1.945516,
+        "Ws": 0.35492,
+        "Lm": 6.557145648389449,
+        "Ls1": 12.059103360411955,
+        "Ls2": 1.25984,
+        "Ls3": 2.15492
+      },
+      "P_nominal": 2.0406594738843116,
+      "R_nominal": 0.4400809933066121,
+      "score": {
+        "worst_S11_dB": -20.126340157261,
+        "min_S21_dB": -0.908324242672889,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.75,
+        "peak_difference_dB": 0.1868135236276487,
+        "inner_peaks": [
+          {
+            "GHz": 5.3,
+            "S11_dB": -21.550888737227773
+          },
+          {
+            "GHz": 8.18,
+            "S11_dB": -21.364075213600124
+          }
+        ],
+        "objective": 6.240013019814644e-28,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "28950d20b6aa756547a74b9ad6e4743b1b0dbee6d99f5f7c49618c9d4dc5549b",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    "N11_A14_c1_decision.json": {
+      "at": "2026-10-30T19:01:52.277715+00:00",
+      "parent": "N11_A14",
+      "proposal": {
+        "action": "candidate",
+        "geometry": {
+          "Wm": 1.868639,
+          "Ws": 0.353497,
+          "Lm": 6.586226978578006,
+          "Ls1": 12.637445102864609,
+          "Ls2": 1.2569940000000002,
+          "Ls3": 1.7534969999999999
+        },
+        "delta_mm": [
+          -0.029408667366367693,
+          -0.007506984305785266
+        ],
+        "predicted": {
+          "worst_S11_dB": -20.399988576243615,
+          "min_S21_dB": -0.9896738056589788,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.73,
+          "peak_difference_dB": 0.24998852318768172,
+          "inner_peaks": [
+            {
+              "GHz": 5.25,
+              "S11_dB": -20.733232706809027
+            },
+            {
+              "GHz": 8.14,
+              "S11_dB": -20.483244183621345
+            }
+          ],
+          "objective": 1.3050220994303014e-08,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.889975420635906,
+          "min_S21_dB": -1.008443728615094,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.73,
+          "peak_difference_dB": 0.04259427129287374,
+          "inner_peaks": [
+            {
+              "GHz": 5.21,
+              "S11_dB": -20.60647782419513
+            },
+            {
+              "GHz": 8.16,
+              "S11_dB": -20.563883552902258
+            }
+          ],
+          "objective": 26.012507155552072,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.631281878500815,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "Predicted pass and meaningful constraint improvement"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A14\\probes\\N11_A14_S\\g01_initial\\receiver_ack.json": "b164451203493ed0eca83441b31f994331f808e8bbb3fcb8c90c33b4ad4cacdd",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A14\\probes\\N11_A14_M\\g01_initial\\receiver_ack.json": "d55427e7027433fe58fd27f8d225953f2da6ec117f16324a84c2a097e355ff52"
+      }
+    },
+    "N11_A14_selected.json": {
+      "at": "2026-10-30T19:26:14.252710+00:00",
+      "parent": "N11_A14",
+      "selected_case": "N11_A14_C1",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A14\\c1\\N11_A14_C1\\g01_initial",
+      "geometry": {
+        "Wm": 1.868639,
+        "Ws": 0.353497,
+        "Lm": 6.586226978578006,
+        "Ls1": 12.637445102864609,
+        "Ls2": 1.2569940000000002,
+        "Ls3": 1.7534969999999999
+      },
+      "P_nominal": 2.090432794777202,
+      "R_nominal": 0.45170739799579973,
+      "score": {
+        "worst_S11_dB": -20.333645063040635,
+        "min_S21_dB": -0.9888848882121061,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.71,
+        "peak_difference_dB": 0.038155802582799936,
+        "inner_peaks": [
+          {
+            "GHz": 5.13,
+            "S11_dB": -20.371800865623435
+          },
+          {
+            "GHz": 8.26,
+            "S11_dB": -20.333645063040635
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "5e0d0ed263fbb4f045969927af14b36ddd7d71e1823e667ad61615f7abc2cb03",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    "N11_A18_c1_decision.json": {
+      "at": "2026-10-30T17:40:17.840422+00:00",
+      "parent": "N11_A18",
+      "proposal": {
+        "action": "candidate",
+        "geometry": {
+          "Wm": 1.868639,
+          "Ws": 0.353497,
+          "Lm": 6.555608083899126,
+          "Ls1": 12.014319559892876,
+          "Ls2": 1.2569940000000002,
+          "Ls3": 2.153497
+        },
+        "delta_mm": [
+          -0.025032980176103975,
+          -0.01090777124284413
+        ],
+        "predicted": {
+          "worst_S11_dB": -20.399989651116325,
+          "min_S21_dB": -0.9066967839984653,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.2500064500093018,
+          "inner_peaks": [
+            {
+              "GHz": 5.26,
+              "S11_dB": -21.06835467807906
+            },
+            {
+              "GHz": 8.21,
+              "S11_dB": -20.81834822806976
+            }
+          ],
+          "objective": 1.4870201331195545e-08,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.894414078056926,
+          "min_S21_dB": -0.9244781596054636,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.27413773983896306,
+          "inner_peaks": [
+            {
+              "GHz": 5.25,
+              "S11_dB": -21.07077081389538
+            },
+            {
+              "GHz": 8.2,
+              "S11_dB": -20.796633074056416
+            }
+          ],
+          "objective": 25.619975495156197,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.5146171709492329,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "Predicted pass and meaningful constraint improvement"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\probes\\N11_A18_S\\g01_initial\\receiver_ack.json": "79c2707cc1930644c92618eb57019947015d344e530c05419da753551382cae7",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\probes\\N11_A18_M\\g01_initial\\receiver_ack.json": "a17907d147f38ebcf9ab9b63e77d8b28f9290281faa2b4f73f3271105bc2bd3c"
+      }
+    },
+    "N11_A18_selected.json": {
+      "at": "2026-10-30T18:11:42.242854+00:00",
+      "parent": "N11_A18",
+      "selected_case": "N11_A18_C2",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\c2\\N11_A18_C2\\g01_initial",
+      "geometry": {
+        "Wm": 1.868639,
+        "Ws": 0.353497,
+        "Lm": 6.555608083899126,
+        "Ls1": 12.014319559892876,
+        "Ls2": 1.2569940000000002,
+        "Ls3": 2.153497
+      },
+      "P_nominal": 2.090432794777202,
+      "R_nominal": 0.45170739799579973,
+      "score": {
+        "worst_S11_dB": -20.429876375266627,
+        "min_S21_dB": -0.9080523972687388,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.73,
+        "peak_difference_dB": 0.28687658268745864,
+        "inner_peaks": [
+          {
+            "GHz": 5.27,
+            "S11_dB": -21.01773121426803
+          },
+          {
+            "GHz": 8.21,
+            "S11_dB": -20.73085463158057
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "71b37acd1a9d7e4ac1afbae2f01e0949c0cd8dd41a9971fef0258a307a81d155",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    "N11_A18_technical_retry1.json": {
+      "at": "2026-10-30T17:50:15.571384+00:00",
+      "technical_recovery_attempt": 1,
+      "parent": "N11_A18",
+      "failed_case": "N11_A18_C1",
+      "recovery_label": "N11_A18_C2",
+      "label_meaning": "C2 is the last budget SLOT used for same-geometry technical recovery, not a new Broyden candidate",
+      "failure": "Native port-refinement hf3d exit -1073741819, setup unsolved, no completed adaptive mesh",
+      "original_hashes": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\c1\\N11_A18_C1\\g01_initial\\input.json": "bcee36aa4220cf0bc511e234cb505a8a9f29bd5f51b424052a14ed7a8e834c0e",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\c1\\N11_A18_C1\\g01_initial\\state.json": "fa1cc989ddad70848ba44b7d50d6b6f3d08198a640ab3dcf81c0f3cc5b986974",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\c1\\N11_A18_C1\\g01_initial\\worker_error.json": "4cd68062037d735f5f667eec6ac7276efdb2dcdeaa9e865b2dc4e8cf2723c2c5",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\c1\\N11_A18_C1\\g01_initial\\completion_event.json": "83d284fc3f46958bf861b3b9d8709a5a23bc41106bd00ef4936cda6ef5125d51"
+      },
+      "diagnosis_sha256": "4a18ff0dcef32e00d42933b7da0a20a09fd41e8c5e91cee95a5faade7992195c",
+      "prepared_source": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\c1\\N11_A18_C1\\prepared\\N11_A18_C1_T48_N11_A18_C1_Prepared.aedt",
+      "prepared_source_sha256": "ca5807697cb02584de2081896ebacf691f90a521c2cfeef803431d5f316c9a79",
+      "geometry": {
+        "Wm": 1.868639,
+        "Ws": 0.353497,
+        "Lm": 6.555608083899126,
+        "Ls1": 12.014319559892876,
+        "Ls2": 1.2569940000000002,
+        "Ls3": 2.153497
+      },
+      "same_geometry": true,
+      "failed_Analyze_retained": 1,
+      "new_Analyze_max": 12,
+      "combined_physical_case_Analyze_cap": 13,
+      "conservative_parent_geometry_attempts_after_retry": 4,
+      "actual_distinct_parent_geometries": 3,
+      "no_extra_candidate_after_this_slot": true,
+      "no_desktop_restart": true,
+      "no_lock_deletion": true,
+      "no_automatic_second_recovery": true
+    },
+    "N14_A18_c1_decision.json": {
+      "at": "2026-10-31T04:08:49.695326+00:00",
+      "parent": "N14_A18",
+      "proposal": {
+        "action": "no_supported_length_candidate",
+        "geometry": {
+          "Wm": 1.810636,
+          "Ws": 0.394178,
+          "Lm": 6.589050556921981,
+          "Ls1": 12.19189409433409,
+          "Ls2": 1.338356,
+          "Ls3": 2.194178
+        },
+        "delta_mm": [
+          0.17118769632137212,
+          0.049048059776259936
+        ],
+        "predicted": {
+          "worst_S11_dB": -19.66859818326302,
+          "min_S21_dB": -0.9489904171766589,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.75,
+          "peak_difference_dB": 7.528520029609354e-10,
+          "inner_peaks": [
+            {
+              "GHz": 5.14,
+              "S11_dB": -19.66859818326302
+            },
+            {
+              "GHz": 8.2,
+              "S11_dB": -19.66859818401587
+            }
+          ],
+          "objective": 54.49486175261578,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.36076208828095,
+          "min_S21_dB": -0.8947890161108976,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.71,
+          "peak_difference_dB": 0.3475596775249379,
+          "inner_peaks": [
+            {
+              "GHz": 5.08,
+              "S11_dB": -19.708321765805888
+            },
+            {
+              "GHz": 8.3,
+              "S11_dB": -19.36076208828095
+            }
+          ],
+          "objective": 108.95333278329416,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.5060314212401507,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "No predicted target pass/improvement in trust region"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N14_A18\\probes\\N14_A18_S\\g01_initial\\receiver_ack.json": "d8e39ad21d5fe769c8c892cf269ae3e11d60c2befd81ed0f7aa2d6c4e5aac85e",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N14_A18\\probes\\N14_A18_M\\g01_initial\\receiver_ack.json": "d273e8701ff69372591d9ad7dc1ba45c0a5b3d24f133ef008887c46d28945765"
+      }
+    },
+    "N14_A18_unresolved.json": {
+      "at": "2026-10-31T04:08:49.696327+00:00",
+      "parent": "N14_A18",
+      "reason": "No model-supported original-target candidate within fixed length trust region",
+      "fixed_PR": true,
+      "not_proof_of_physical_impossibility": true
+    },
+    "N17_A14_c1_decision.json": {
+      "at": "2026-10-30T22:15:31.344390+00:00",
+      "parent": "N17_A14",
+      "proposal": {
+        "action": "no_supported_length_candidate",
+        "geometry": {
+          "Wm": 1.893236,
+          "Ws": 0.39459,
+          "Lm": 6.598096952646497,
+          "Ls1": 12.793815849612068,
+          "Ls2": 1.33918,
+          "Ls3": 1.79459
+        },
+        "delta_mm": [
+          0.0924264315788208,
+          0.026664053071512973
+        ],
+        "predicted": {
+          "worst_S11_dB": -19.718712886686344,
+          "min_S21_dB": -1.0225009389886341,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.73,
+          "peak_difference_dB": 4.812555313549183e-05,
+          "inner_peaks": [
+            {
+              "GHz": 5.01,
+              "S11_dB": -19.718712886686344
+            },
+            {
+              "GHz": 8.28,
+              "S11_dB": -19.71876101223948
+            }
+          ],
+          "objective": 46.41521307672544,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.662682014152068,
+          "min_S21_dB": -0.9767405224720174,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.07559115993530341,
+          "inner_peaks": [
+            {
+              "GHz": 5.03,
+              "S11_dB": -19.73827317408737
+            },
+            {
+              "GHz": 8.34,
+              "S11_dB": -19.662682014152068
+            }
+          ],
+          "objective": 54.3637812254851,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.4725086447876368,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "No predicted target pass/improvement in trust region"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N17_A14\\probes\\N17_A14_S\\g01_initial\\receiver_ack.json": "fcb55b877c2a9353adac58f8309c846a5204fdce3b579ef662214ae2c22f854b",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N17_A14\\probes\\N17_A14_M\\g01_initial\\receiver_ack.json": "2cf336d235dc8eecde8dd5cf28902316cc92f9b5627425d9beb97aeb28c870b1"
+      }
+    },
+    "N17_A14_unresolved.json": {
+      "at": "2026-10-30T22:15:31.346396+00:00",
+      "parent": "N17_A14",
+      "reason": "No model-supported original-target candidate within fixed length trust region",
+      "fixed_PR": true,
+      "not_proof_of_physical_impossibility": true
+    },
+    "N17_A18_c1_decision.json": {
+      "at": "2026-10-30T16:24:20.794216+00:00",
+      "parent": "N17_A18",
+      "proposal": {
+        "action": "candidate",
+        "geometry": {
+          "Wm": 1.893236,
+          "Ws": 0.39459,
+          "Lm": 6.570817212267215,
+          "Ls1": 12.162952887702197,
+          "Ls2": 1.33918,
+          "Ls3": 2.19459
+        },
+        "delta_mm": [
+          0.08800759053153967,
+          0.026669235900123395
+        ],
+        "predicted": {
+          "worst_S11_dB": -20.26297884269521,
+          "min_S21_dB": -0.9304952807871901,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.71,
+          "peak_difference_dB": 2.519029256831118e-05,
+          "inner_peaks": [
+            {
+              "GHz": 5.11,
+              "S11_dB": -20.26300403298778
+            },
+            {
+              "GHz": 8.25,
+              "S11_dB": -20.26297884269521
+            }
+          ],
+          "objective": 1.8774797549143527,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.975132538085667,
+          "min_S21_dB": -0.8911039026750929,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.48378122621988595,
+          "inner_peaks": [
+            {
+              "GHz": 5.14,
+              "S11_dB": -20.458913764305553
+            },
+            {
+              "GHz": 8.28,
+              "S11_dB": -19.975132538085667
+            }
+          ],
+          "objective": 23.516602192640068,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.4535097457205393,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "Predicted pass and meaningful constraint improvement"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N17_A18\\probes\\N17_A18_S\\g01_initial\\receiver_ack.json": "0cfe09ae25670eb5912bfde98b311c1628ac0d0107824376fe740c14665113ce",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N17_A18\\probes\\N17_A18_M\\g01_initial\\receiver_ack.json": "8b952fae4692759477b161cfc362a4b30132fc5284be2b4263672087691e7703"
+      }
+    },
+    "N17_A18_selected.json": {
+      "at": "2026-10-30T16:54:27.889547+00:00",
+      "parent": "N17_A18",
+      "selected_case": "N17_A18_C1",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N17_A18\\c1\\N17_A18_C1\\g01_initial",
+      "geometry": {
+        "Wm": 1.893236,
+        "Ws": 0.39459,
+        "Lm": 6.570817212267215,
+        "Ls1": 12.162952887702197,
+        "Ls2": 1.33918,
+        "Ls3": 2.19459
+      },
+      "P_nominal": 2.1313681121216974,
+      "R_nominal": 0.4359087271515597,
+      "score": {
+        "worst_S11_dB": -20.063962132902013,
+        "min_S21_dB": -0.9332858655947817,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.73,
+        "peak_difference_dB": 0.14563885297580015,
+        "inner_peaks": [
+          {
+            "GHz": 5.12,
+            "S11_dB": -20.209600985877813
+          },
+          {
+            "GHz": 8.26,
+            "S11_dB": -20.063962132902013
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "ec03d920a2fa7d39e7cae2ca4dc235ed5298c547918e6ebb4c3e0a5deb92f524",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true
+    },
+    "N18_A14_c1_decision.json": {
+      "at": "2026-10-31T04:53:19.207652+00:00",
+      "parent": "N18_A14",
+      "proposal": {
+        "action": "no_supported_length_candidate",
+        "geometry": {
+          "Wm": 1.771862,
+          "Ws": 0.369088,
+          "Lm": 6.619944845488376,
+          "Ls1": 12.719747776694962,
+          "Ls2": 1.288176,
+          "Ls3": 1.769088
+        },
+        "delta_mm": [
+          0.10650907184527887,
+          0.039999056727126406
+        ],
+        "predicted": {
+          "worst_S11_dB": -19.396075544108378,
+          "min_S21_dB": -1.053469201922887,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.7,
+          "peak_difference_dB": 4.855207748732937e-06,
+          "inner_peaks": [
+            {
+              "GHz": 5.03,
+              "S11_dB": -19.396075544108378
+            },
+            {
+              "GHz": 8.2,
+              "S11_dB": -19.396080399316126
+            }
+          ],
+          "objective": 100.78643131372897,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.350883891018963,
+          "min_S21_dB": -0.9975280633323637,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.73,
+          "peak_difference_dB": 0.014595850098650942,
+          "inner_peaks": [
+            {
+              "GHz": 5.09,
+              "S11_dB": -19.365479741117614
+            },
+            {
+              "GHz": 8.25,
+              "S11_dB": -19.350883891018963
+            }
+          ],
+          "objective": 110.06446101235105,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.5097538662645993,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "No predicted target pass/improvement in trust region"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N18_A14\\probes\\N18_A14_S\\g01_initial\\receiver_ack.json": "8edd0113dfa492340fd37d5a56d70fc0291a51194fb91b1ee7af7a56a03eef30",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N18_A14\\probes\\N18_A14_M\\g01_initial\\receiver_ack.json": "291bc9f6eabafd80b16ab24cd8a0baddd0362ace723018dc0c99ce63b53657a1"
+      }
+    },
+    "N18_A14_unresolved.json": {
+      "at": "2026-10-31T04:53:19.208652+00:00",
+      "parent": "N18_A14",
+      "reason": "No model-supported original-target candidate within fixed length trust region",
+      "fixed_PR": true,
+      "not_proof_of_physical_impossibility": true
+    },
+    "N18_A18_c1_decision.json": {
+      "at": "2026-10-30T23:01:59.730398+00:00",
+      "parent": "N18_A18",
+      "proposal": {
+        "action": "no_supported_length_candidate",
+        "geometry": {
+          "Wm": 1.771862,
+          "Ws": 0.369088,
+          "Lm": 6.538985556431663,
+          "Ls1": 11.968390449146778,
+          "Ls2": 1.288176,
+          "Ls3": 2.169088
+        },
+        "delta_mm": [
+          -0.015926187324471503,
+          -0.013334437811893194
+        ],
+        "predicted": {
+          "worst_S11_dB": -19.78257067103645,
+          "min_S21_dB": -0.8986390006564794,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.74,
+          "peak_difference_dB": 1.289816626837137e-06,
+          "inner_peaks": [
+            {
+              "GHz": 5.2,
+              "S11_dB": -19.78257067103645
+            },
+            {
+              "GHz": 8.26,
+              "S11_dB": -19.782571960853076
+            }
+          ],
+          "objective": 38.121897626438056,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.652571974059107,
+          "min_S21_dB": -0.9121486732313688,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.21594297435907706,
+          "inner_peaks": [
+            {
+              "GHz": 5.18,
+              "S11_dB": -19.868514948418184
+            },
+            {
+              "GHz": 8.24,
+              "S11_dB": -19.652571974059107
+            }
+          ],
+          "objective": 55.86486539619,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.5908533539874625,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "No predicted target pass/improvement in trust region"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N18_A18\\probes\\N18_A18_S\\g01_initial\\receiver_ack.json": "63b26ffd20d0fee5c09ea5ef375337f51e2dfd815717bf3797167db286cf69d9",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N18_A18\\probes\\N18_A18_M\\g01_initial\\receiver_ack.json": "bdac5c07e588d03d5c2a531023d7133824dacef2471497365ad95c8a1087bae8"
+      }
+    },
+    "N18_A18_unresolved.json": {
+      "at": "2026-10-30T23:01:59.732397+00:00",
+      "parent": "N18_A18",
+      "reason": "No model-supported original-target candidate within fixed length trust region",
+      "fixed_PR": true,
+      "not_proof_of_physical_impossibility": true
+    },
+    "N19_A14_c1_decision.json": {
+      "at": "2026-10-30T20:13:57.489027+00:00",
+      "parent": "N19_A14",
+      "proposal": {
+        "action": "no_supported_length_candidate",
+        "geometry": {
+          "Wm": 1.845816,
+          "Ws": 0.371911,
+          "Lm": 6.5751697119085115,
+          "Ls1": 12.66547939139962,
+          "Ls2": 1.293822,
+          "Ls3": 1.7719109999999998
+        },
+        "delta_mm": [
+          0.003685728797976737,
+          -0.0066674234436315885
+        ],
+        "predicted": {
+          "worst_S11_dB": -19.95551133580896,
+          "min_S21_dB": -0.9866924431346431,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.75,
+          "peak_difference_dB": 0.014838280614011268,
+          "inner_peaks": [
+            {
+              "GHz": 5.17,
+              "S11_dB": -19.970349616422972
+            },
+            {
+              "GHz": 8.22,
+              "S11_dB": -19.95551133580896
+            }
+          ],
+          "objective": 20.757017259433507,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.797406939800098,
+          "min_S21_dB": -0.9898511375568233,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.74,
+          "peak_difference_dB": 0.26296527950509585,
+          "inner_peaks": [
+            {
+              "GHz": 5.16,
+              "S11_dB": -20.060372219305194
+            },
+            {
+              "GHz": 8.23,
+              "S11_dB": -19.797406939800098
+            }
+          ],
+          "objective": 36.32864946737282,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.6524666138608517,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "No predicted target pass/improvement in trust region"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N19_A14\\probes\\N19_A14_S\\g01_initial\\receiver_ack.json": "53a57e0642b3f50e2b80f116c96bf1251eb931ef14765d2cdd69f9345e77ae1e",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N19_A14\\probes\\N19_A14_M\\g01_initial\\receiver_ack.json": "1e3de3c890e4284bace1320ae1ace5424c667d72c82dde384067e59cf0577a6e"
+      }
+    },
+    "N19_A14_unresolved.json": {
+      "at": "2026-10-30T20:13:57.491026+00:00",
+      "parent": "N19_A14",
+      "reason": "No model-supported original-target candidate within fixed length trust region",
+      "fixed_PR": true,
+      "not_proof_of_physical_impossibility": true
+    },
+    "N20_A14_c1_decision.json": {
+      "at": "2026-10-31T00:36:17.439203+00:00",
+      "parent": "N20_A14",
+      "proposal": {
+        "action": "candidate",
+        "geometry": {
+          "Wm": 1.913179,
+          "Ws": 0.345082,
+          "Lm": 6.589698605611728,
+          "Ls1": 12.64767661432842,
+          "Ls2": 1.240164,
+          "Ls3": 1.745082
+        },
+        "delta_mm": [
+          -0.042441277332130635,
+          -0.011576193956426173
+        ],
+        "predicted": {
+          "worst_S11_dB": -20.399985755155466,
+          "min_S21_dB": -0.9789774417129657,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.25000121561551936,
+          "inner_peaks": [
+            {
+              "GHz": 5.25,
+              "S11_dB": -21.109886761321963
+            },
+            {
+              "GHz": 8.21,
+              "S11_dB": -20.859885545706444
+            }
+          ],
+          "objective": 2.0439331688383992e-08,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.5685542278323,
+          "min_S21_dB": -1.0116037453198774,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.004583350359165905,
+          "inner_peaks": [
+            {
+              "GHz": 5.22,
+              "S11_dB": -20.99694761719703
+            },
+            {
+              "GHz": 8.19,
+              "S11_dB": -21.001530967556196
+            }
+          ],
+          "objective": 69.13020720555409,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.6671034521555248,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "Predicted pass and meaningful constraint improvement"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N20_A14\\probes\\N20_A14_S\\g01_initial\\receiver_ack.json": "a7fb80e6275d19f4134018ef5c0e3004bc2e3bf9b5d994586575c63523d17f80",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N20_A14\\probes\\N20_A14_M\\g01_initial\\receiver_ack.json": "a45f331bb3c1fa4316f0652a24ce0ed2ab14d30add89e1ba06b9498db18e2d13"
+      }
+    },
+    "N20_A14_c2_decision.json": {
+      "at": "2026-10-31T00:58:20.959041+00:00",
+      "parent": "N20_A14",
+      "proposal": {
+        "action": "candidate",
+        "geometry": {
+          "Wm": 1.913179,
+          "Ws": 0.345082,
+          "Lm": 6.584698605611728,
+          "Ls1": 12.61767661432842,
+          "Ls2": 1.240164,
+          "Ls3": 1.745082
+        },
+        "predicted": {
+          "worst_S11_dB": -20.268627695923165,
+          "min_S21_dB": -0.9791783680639734,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.75,
+          "peak_difference_dB": 0.36018477351403533,
+          "inner_peaks": [
+            {
+              "GHz": 5.31,
+              "S11_dB": -21.250411470591896
+            },
+            {
+              "GHz": 8.17,
+              "S11_dB": -20.89022669707786
+            }
+          ],
+          "objective": 3.9399366592796206,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Scaled-coordinate rank1 Broyden, half trust region around actualC1",
+        "prediction_is_HFSS": false,
+        "global_bounds_unchanged": true
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N20_A14\\c1\\N20_A14_C1\\g01_initial\\receiver_ack.json": "f177c424572bf60e0bb6658b3d6085fef0ab2340dd8006e897e51d3580d30bfb"
+      }
+    },
+    "N20_A14_selected.json": {
+      "at": "2026-10-31T02:33:50.137159+00:00",
+      "parent": "N20_A14",
+      "selected_case": "N20_A14_C2_TR1B",
+      "selected_run": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N20_A14\\c2_retry1\\boot2\\N20_A14_C2_TR1B\\g01_initial",
+      "geometry": {
+        "Wm": 1.913179,
+        "Ws": 0.345082,
+        "Lm": 6.584698605611728,
+        "Ls1": 12.61767661432842,
+        "Ls2": 1.240164,
+        "Ls3": 1.745082
+      },
+      "P_nominal": 2.047961113281801,
+      "R_nominal": 0.4477874388935538,
+      "score": {
+        "worst_S11_dB": -20.589297609061163,
+        "min_S21_dB": -0.9793352824494841,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.73,
+        "peak_difference_dB": 0.26038426508098667,
+        "inner_peaks": [
+          {
+            "GHz": 5.27,
+            "S11_dB": -21.242956337939574
+          },
+          {
+            "GHz": 8.18,
+            "S11_dB": -20.982572072858588
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true
+      },
+      "ACK_sha256": "0fcbb6fa6b49f0c43cc6e83485787939349242eb9000c2adabb810a098474630",
+      "nominal_interpolated_target_pass": true,
+      "not_final_direct_certification": true,
+      "technical_recovery_attempt": 1,
+      "original_failed_attempt_preserved": true
+    },
+    "N22_A14_c1_decision.json": {
+      "at": "2026-10-31T03:20:13.725627+00:00",
+      "parent": "N22_A14",
+      "proposal": {
+        "action": "no_supported_length_candidate",
+        "geometry": {
+          "Wm": 1.748808,
+          "Ws": 0.358396,
+          "Lm": 6.558389012673838,
+          "Ls1": 12.54382514771196,
+          "Ls2": 1.2667920000000001,
+          "Ls3": 1.7583959999999998
+        },
+        "delta_mm": [
+          -0.04929403991711506,
+          -0.02666845608239305
+        ],
+        "predicted": {
+          "worst_S11_dB": -19.489201915554663,
+          "min_S21_dB": -0.9573353675890527,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.74,
+          "peak_difference_dB": 5.771134681253898e-10,
+          "inner_peaks": [
+            {
+              "GHz": 5.13,
+              "S11_dB": -19.489201915554663
+            },
+            {
+              "GHz": 8.33,
+              "S11_dB": -19.489201916131776
+            }
+          ],
+          "objective": 82.95531506292957,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.37515403311894,
+          "min_S21_dB": -1.0041361867777598,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.72,
+          "peak_difference_dB": 0.1664174317303697,
+          "inner_peaks": [
+            {
+              "GHz": 5.1,
+              "S11_dB": -19.54157146484931
+            },
+            {
+              "GHz": 8.27,
+              "S11_dB": -19.37515403311894
+            }
+          ],
+          "objective": 105.03092558323766,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.6589040503373755,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "No predicted target pass/improvement in trust region"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N22_A14\\probes\\N22_A14_S\\g01_initial\\receiver_ack.json": "d107d71ccda7b7c1fbddd9bf6bcd981ff2900557bb71c2636e5e9c8e37982a0a",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N22_A14\\probes\\N22_A14_M\\g01_initial\\receiver_ack.json": "8a217a6f713e612319bc01b8916c6adbdd49ee6ab128b319652ffbbba4feca5b"
+      }
+    },
+    "N22_A14_unresolved.json": {
+      "at": "2026-10-31T03:20:13.727132+00:00",
+      "parent": "N22_A14",
+      "reason": "No model-supported original-target candidate within fixed length trust region",
+      "fixed_PR": true,
+      "not_proof_of_physical_impossibility": true
+    },
+    "N22_A18_c1_decision.json": {
+      "at": "2026-10-30T23:49:18.679053+00:00",
+      "parent": "N22_A18",
+      "proposal": {
+        "action": "no_supported_length_candidate",
+        "geometry": {
+          "Wm": 1.748808,
+          "Ws": 0.358396,
+          "Lm": 6.537386016024348,
+          "Ls1": 11.955989141633564,
+          "Ls2": 1.2667920000000001,
+          "Ls3": 2.158396
+        },
+        "delta_mm": [
+          -0.007632814537929505,
+          -0.020001652252467444
+        ],
+        "predicted": {
+          "worst_S11_dB": -19.852825017927202,
+          "min_S21_dB": -0.9031646075959905,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.74,
+          "peak_difference_dB": 7.786127298459178e-11,
+          "inner_peaks": [
+            {
+              "GHz": 5.2,
+              "S11_dB": -19.852825018005063
+            },
+            {
+              "GHz": 8.2,
+              "S11_dB": -19.852825017927202
+            }
+          ],
+          "objective": 29.940046100636668,
+          "nominal_buffer_satisfied": false
+        },
+        "baseline": {
+          "worst_S11_dB": -19.60139742623636,
+          "min_S21_dB": -0.9206231798811425,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.71,
+          "peak_difference_dB": 0.4300709967505725,
+          "inner_peaks": [
+            {
+              "GHz": 5.18,
+              "S11_dB": -20.031468422986933
+            },
+            {
+              "GHz": 8.21,
+              "S11_dB": -19.60139742623636
+            }
+          ],
+          "objective": 67.01916346926541,
+          "nominal_buffer_satisfied": false
+        },
+        "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+        "trust_region_mm": {
+          "Ls1": 0.2,
+          "Lm": 0.1
+        },
+        "prediction_is_HFSS": false,
+        "complex_sensitivity_condition": 1.6937268388068976,
+        "reflection_buffer_dB": 0.4,
+        "buffer_is_certified": false,
+        "strict_R_screen_not_changed": true,
+        "keep_original_blind_outcome": true,
+        "reason": "No predicted target pass/improvement in trust region"
+      },
+      "original_target_preserved": true,
+      "not_HFSS_prediction": true,
+      "source_ACKs": {
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N22_A18\\probes\\N22_A18_S\\g01_initial\\receiver_ack.json": "6d2129354627c3cb66c514c44ee136de96e528908f44c8e1d4148afb62b771d2",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N22_A18\\probes\\N22_A18_M\\g01_initial\\receiver_ack.json": "190d68019fb45d4b25470076402d2279b2965e83d4cfdc0414b9c924f378a952"
+      }
+    },
+    "N22_A18_unresolved.json": {
+      "at": "2026-10-30T23:49:18.681053+00:00",
+      "parent": "N22_A18",
+      "reason": "No model-supported original-target candidate within fixed length trust region",
+      "fixed_PR": true,
+      "not_proof_of_physical_impossibility": true
+    }
+  },
+  "selected_ACK_binding_checks": [
+    {
+      "parent": "N10_A18",
+      "selected_ACK_hash_matches": true,
+      "measured_reflection_margin_dB": 0.12634015726100145,
+      "at_least_0p4_dB_reflection_margin": false
+    },
+    {
+      "parent": "N11_A14",
+      "selected_ACK_hash_matches": true,
+      "measured_reflection_margin_dB": 0.3336450630406347,
+      "at_least_0p4_dB_reflection_margin": false
+    },
+    {
+      "parent": "N11_A18",
+      "selected_ACK_hash_matches": true,
+      "measured_reflection_margin_dB": 0.4298763752666268,
+      "at_least_0p4_dB_reflection_margin": true
+    },
+    {
+      "parent": "N17_A18",
+      "selected_ACK_hash_matches": true,
+      "measured_reflection_margin_dB": 0.06396213290201302,
+      "at_least_0p4_dB_reflection_margin": false
+    },
+    {
+      "parent": "N20_A14",
+      "selected_ACK_hash_matches": true,
+      "measured_reflection_margin_dB": 0.5892976090611626,
+      "at_least_0p4_dB_reflection_margin": true
+    }
+  ],
+  "nominal_buffer_warning": "assess optimization_margin=False does not enforce extra0.4dB; inspect actual S11 and call context."
+}

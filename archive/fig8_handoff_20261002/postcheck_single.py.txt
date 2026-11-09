@@ -1,0 +1,31 @@
+import json, hashlib, re, math
+from pathlib import Path
+from ansys.aedt.core import Hfss
+R=Path(r"F:\hfss_f8x_261002\R_B0_single_fix"); P=R/'R_B0_single_fix.aedt'
+app=Hfss(project=str(P),design='Wideband vertical transition',version='2024.2',machine='localhost',port=12704,non_graphical=False,new_desktop=False,close_on_exit=False)
+out={}
+try:
+ out['project']=app.project_name; out['design']=app.design_name
+ out['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+ out['existing_analysis_sweeps']=list(app.existing_analysis_sweeps)
+ try: out['report_quantities']=list(app.post.available_report_quantities('ModalSingle : SweepSingle'))
+ except Exception as e: out['report_quantities_error']=repr(e)
+ for norm,name in [(False,'hfss_native.s2p'),(True,'hfss_50ohm.s2p')]:
+  try:
+   out[f'export_{name}']=bool(app.export_touchstone(setup='ModalSingle',sweep='SweepSingle',output_file=str(R/name),renormalization=norm,impedance=50,gamma_impedance_comments=True))
+  except Exception as e: out[f'export_{name}_error']=repr(e)
+ try: out['export_convergence']=bool(app.export_convergence('ModalSingle',output_file=str(R/'convergence.txt')))
+ except Exception as e: out['export_convergence_error']=repr(e)
+ try:
+  d=app.post.get_solution_data(expressions=['S(1,1)','S(2,1)'],setup_sweep_name='ModalSingle : SweepSingle',domain='Sweep',report_category='Modal Solution Data')
+  out['n_freq']=len(d.primary_sweep_values);out['freq_first_last']=[float(d.primary_sweep_values[0]),float(d.primary_sweep_values[-1])]
+  out['exprs']=list(d.expressions)
+  for ex in ['S(1,1)','S(2,1)']:
+   try:
+    vals=d.get_expression_data(ex,formula='mag')[1]; out[ex+'_mag_minmax']=[float(min(vals)),float(max(vals))]
+   except Exception as e: out[ex+'_error']=repr(e)
+ except Exception as e: out['solution_data_error']=repr(e)
+ app.save_project()
+finally: app.release_desktop(close_projects=False,close_desktop=False)
+R.joinpath('postcheck.json').write_text(json.dumps(out,indent=2,default=str),encoding='utf-8')
+print(json.dumps(out,indent=2,default=str))

@@ -1,0 +1,75 @@
+{
+  "event_id": "dde564e2d547a07a575f4aea",
+  "event_sha256": "a3644c61b4adc86dbab3644d353030f118a2340c63a70dc1e34922e3902d9989",
+  "at": "2026-10-26T10:35:02.191903+00:00",
+  "artifacts_verified": {
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\input.json": "d2c3f862350e57e12853b654cc034e6349e25f39762637eb85365b69d5f9ea3d",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\state.json": "57e6e4034269419441c7dcbad1368086748100c5d9fa4ed88b86cbc4325b31fd",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\comparison.json": "e4a4f44082b7ba7c56bec13c1e400ad2b272922249517fe41b72cc34cdc9d582",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\manifest.json": "b3457b646f13b1c580ad006976eeb1a3c89c7a22f30e169c988e0a47ecf480fe",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\sparams.csv": "b5f0f3c81d4e92fd595e5e9b97b7fc13257fb7245dd683b263e003594a73a433",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\all_modes_sparams.csv": "df8ddfeaaac90b03680811bbabada6aa73d8c498736a6034c33927146cf85cab",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\mode_impedance_gamma.csv": "5c8c1fd7b60bb7f7d3a1940fc7da95fd22f66121e21a191b79bd29860450548c",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\reference_review.json": "c49327d217066e5d42abdfafcdd2e3f10615efe2c1d594dbcbdf77e1cc39abb3",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\convergence_before.txt": "1554d5df0b3cf8ee850341de2545a1610f74ae6cdc7628a1489d74e65c91a1b2",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\convergence_after.txt": "1554d5df0b3cf8ee850341de2545a1610f74ae6cdc7628a1489d74e65c91a1b2",
+    "J:\\f8_I4_261026\\I02G02\\direct_smallbatch\\merge_sources.json": "615fb619ea26ab7a6a44c2695459b3f22bdffa2c11830214f48f82c16f299fef"
+  },
+  "same_mesh_verified": true,
+  "actual_elements": 103694,
+  "observed_16core_process": true,
+  "comparison": {
+    "points": 62,
+    "max_complex_error": 0.000877722615180688,
+    "max_nearband_S21_error_dB": 0.0023979139082068723,
+    "peak_height_errors_dB": [
+      0.02128978214522803,
+      0.05070412432367277
+    ],
+    "direct_peaks": [
+      {
+        "GHz": 5.12,
+        "dB": -20.47657493943962,
+        "interior": true
+      },
+      {
+        "GHz": 8.26,
+        "dB": -20.09071878760249,
+        "interior": true
+      }
+    ],
+    "direct_peak_difference_dB": 0.3858561518371282,
+    "direct_central_valley": {
+      "GHz": 6.71,
+      "interior": true
+    },
+    "direct_edges_GHz": {
+      "f_low_GHz": 2.9678735729897414,
+      "f_high_GHz": 9.976771574838553
+    },
+    "edge_shifts_GHz": {
+      "f_low_GHz": 4.428025105784883e-05,
+      "f_high_GHz": 0.000523234456716537
+    },
+    "direct_BW_GHz": 7.008898001848811,
+    "BW_shift_GHz": 0.0005675147077734977,
+    "numerical_review_passed": true,
+    "sampled_design_supported": true,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite direct samples on unchanged mesh; not full-curve independent convergence or continuous-extrema proof. Requires receiver review; no automatic acceptance."
+  },
+  "plot": "${WORKSPACE}\\output\\fig8_iso4_20261026\\final_review\\cases\\I02G02\\direct_smallbatch_overlay.png",
+  "plot_sha256": "bc3f7302d99869dde43e91e46f73a15a4646ea352a13ec90698e1b9d25f4aee9",
+  "visual_review_pending": true,
+  "full_matrix_approved": false,
+  "reference_review_validated_directly": true,
+  "state_reference_field_present": false,
+  "receiver_implementation_sha256": "2d6d73b99ed76da931801abe746670b7aa6f35dfe3eed7a148375a7f4bab9f3a"
+}

@@ -1,0 +1,16 @@
+from pathlib import Path
+import re,shutil,json
+src=Path(r'F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt')
+dst_dir=Path(r'F:\hfss_f8x_261002\R_tri_analytic'); dst_dir.mkdir(exist_ok=True)
+dst=dst_dir/'R_tri_analytic.aedt'
+text=src.read_text(encoding='utf-8',errors='ignore')
+begin="$begin 'HFSSModel'"; end="$end 'HFSSModel'"; start=text.rfind(begin); stop=text.find(end,start)
+if start<0 or stop<0: raise RuntimeError('active model block not found')
+block=text[start:stop+len(end)]
+if "Name='Wideband vertical transition'" not in block: raise RuntimeError('wrong last model block')
+count=block.count('UseAnalyticAlignment=false')
+if count<2: raise RuntimeError(f'expected 2 analytic flags, got {count}')
+block2=block.replace('UseAnalyticAlignment=false','UseAnalyticAlignment=true')
+text2=text[:start]+block2+text[stop+len(end):]
+dst.write_text(text2,encoding='utf-8')
+print(json.dumps({'source':str(src),'dest':str(dst),'replaced':count,'block_start':start},indent=2))

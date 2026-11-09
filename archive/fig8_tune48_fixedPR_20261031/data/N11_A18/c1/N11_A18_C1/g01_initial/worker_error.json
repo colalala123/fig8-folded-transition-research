@@ -1,0 +1,5 @@
+{
+  "at": "2026-10-30T17:42:36.633958+00:00",
+  "error": "Traceback (most recent call last):\n  File \"${WORKSPACE}\\output\\fig8_tune48_N11_A18_c1_20261031\\phase_geometry_worker.py\", line 273, in main\n    result=await execute(spec_path);status='completed';metrics=result['metrics']\n           ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\output\\fig8_tune48_N11_A18_c1_20261031\\phase_geometry_worker.py\", line 191, in execute\n    item=await solve_stage(project,run,state,f'adaptive_{stage:02d}',True)\n         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\output\\fig8_tune48_N11_A18_c1_20261031\\phase_geometry_worker.py\", line 93, in solve_stage\n    if adaptive:assert item['observed_14core_process'] and item['observed_adaptive_process']\n                       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n",
+  "live_solvers": []
+}

@@ -1,0 +1,89 @@
+"""Versioned D-drive routing. Original frozen inputs/results remain read-only."""
+import hashlib
+import json
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT.parent
+OLD_CONTEXT = OUT / 'fig8_ml_probes_20261028'
+PROBE_ROOT = OUT / 'fig8_ml_probes_D_20261028'
+PROBE_BASE = Path('D:/hfss_fig8_20261028/probes')
+CANDIDATE_ROOT = OUT / 'fig8_ml_candidates_D_20261028'
+CANDIDATE_BASE = Path('D:/hfss_fig8_20261028/candidates')
+DIRECT_BASE = Path('D:/hfss_fig8_20261028/direct')
+TEMP = Path('D:/hfss_fig8_20261028/solver_temp')
+ORDER = ['B02S', 'B02M', 'B05S', 'B05M', 'B06S', 'B06M']
+
+def read(p):
+    return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+
+def sha(p):
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+def probe_run(case):
+    assert case in ORDER
+    base = Path('J:/f8_MLP_261028') if case in ORDER[:2] else PROBE_BASE
+    return base / case / 'g01_initial'
+
+def verify_migration():
+    plan = read(ROOT / 'storage_migration_plan.json')
+    for p, digest in plan['preserved_hashes'].items():
+        assert sha(p) == digest, 'Preserved migration source changed: ' + p
+    failed = Path(plan['preflight_failure_run'])
+    assert not (failed / 'state.json').exists(), 'Old failed attempt must not restart'
+    assert not list(failed.glob('*.aedt')), 'Old failed attempt unexpectedly has a project'
+    assert read(OLD_CONTEXT / 'hook/heartbeat/monitor.json')['enabled'] is False
+    assert read(OLD_CONTEXT / 'closure.json')['disposition'] == 'storage_handoff_not_study_complete'
+    return plan
+
+def check_probe_reviews():
+    verify_migration()
+    ledger = read(PROBE_ROOT / 'budget_ledger.json')
+    assert len(ledger['tasks']) == ledger['new_geometry_reserved'] == 4
+    assert {x['case'] for x in ledger['tasks']} == set(ORDER[2:])
+    assert all(x['status'] == 'reviewed' for x in ledger['tasks'])
+    for case in ORDER:
+        run = probe_run(case)
+        event = read(run / 'completion_event.json')
+        ack = read(run / 'receiver_ack.json')
+        assert event['status'] == 'completed' and event['verified_success']
+        assert ack['visual_review_completed'] and ack['operation_success']
+        assert ack['event_sha256'] == sha(run / 'completion_event.json')
+        assert ack['verification_sha256'] == sha(run / 'receiver_verification.json')
+    return ledger
+
+def geometry_runs():
+    runs = [probe_run(c) for c in ORDER]
+    if (CANDIDATE_ROOT / 'plan.json').exists():
+        rows = read(CANDIDATE_ROOT / 'plan.json')['cases']
+        assert len(rows) <= 3
+        runs += [CANDIDATE_BASE / row['case'] / 'g01_initial' for row in rows]
+    assert len(runs) <= 9 and len(set(runs)) == len(runs)
+    return runs
+
+def validate_development(extra_analyze=0):
+    verify_migration()
+    runs = geometry_runs()
+    started = 0
+    analyzes = 0
+    for run in runs:
+        if not (run / 'state.json').exists():
+            continue
+        state = read(run / 'state.json')
+        started += 1
+        segments = state.get('segments', [])
+        assert len(segments) <= 13
+        assert sum(bool(s['adaptive_requested']) for s in segments) <= 12
+        assert sum(not s['adaptive_requested'] for s in segments) <= 1
+        analyzes += len(segments)
+    for context in [ROOT / 'final_review', ROOT / 'reserved_review']:
+        ledger = context / 'case_work_ledger.json'
+        if ledger.exists():
+            for task in read(ledger)['tasks']:
+                state = Path(task['path']).parent / 'state.json'
+                if state.exists():
+                    analyzes += len(read(state).get('segments', []))
+    assert started <= 9 and analyzes + extra_analyze <= 141
+    return dict(actual_geometry_with_state=started, reserved_Analyze=analyzes,
+                migration_preflight_failure_Analyze=0, development_geometry_cap=9,
+                development_Analyze_cap=141)

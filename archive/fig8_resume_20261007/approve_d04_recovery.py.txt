@@ -1,0 +1,76 @@
+"""Select a completed D04 same-geometry recovery without altering failed data.
+
+Default check only. This is numerical acceptance of one existing phase solve,
+not design acceptance, first-three release, or permission to skip a gate.
+"""
+import argparse,json
+from datetime import datetime
+from pathlib import Path
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from recovery_selection import DATA_FILES,hashes,validate_data,resolve_attempt,compatible_protocol
+
+ATTEMPT=ROOT/'D04G05/i00';CANDIDATE=ATTEMPT/'verified_recovery'
+BASE=ROOT/'local_repair/D04G05'
+
+def request_ok(record):
+    request=record['mcp_request'];response=record['mcp_response']
+    assert request['port']==7990 and request['concurrent_tasks']==1 and request['cores_per_task']==16
+    assert request['setup_name']=='Setup19'
+    assert response['started'] and response['resource_plan']['cores_per_task']==16 and response['resource_plan']['concurrent_tasks']==1
+
+def review():
+    protocol=read(ROOT/'production_protocol.json')
+    assert protocol['protocol_id']=='fig8_mode2_broadband_recovery_v2_20261007','Explicit implementation migration is required first'
+    hashes(protocol['implementation_hashes'])
+    assert read(BASE/'recovery_flow/state.json')['status']=='candidate_ready_protocol_review_required'
+    original=read(ATTEMPT/'state.json');spec=read(ATTEMPT/'prediction_frozen.json')
+    compatible_protocol(spec['protocol_sha256'])
+    assert spec['case']=='D04G05' and original['geometry']==spec['geometry']
+    assert original['cores']==16 and original['tasks']==1 and original['cad_verification']['passed']
+    assert original['source_unchanged'];request_ok(original)
+    candidate=validate_data(CANDIDATE)
+    assert candidate['geometry']==spec['geometry'] and candidate['phase_solve_ordinal_including_history']==1
+    verdict=read(CANDIDATE/'recovery_candidate_review.json')
+    assert verdict['numerical_and_port_passed'] and verdict['seams_passed'] and verdict['phase_geometry_unchanged']
+    assert verdict['phase_solves_added']==0;hashes(verdict['evidence_hashes'])
+    recipe=read(CANDIDATE/'assembly_recipe.json');hashes(recipe['input_hashes'])
+    assert set(recipe['per_frequency_source'])=={str(i/100) for i in range(1,1501)}
+    expected=original['convergence'];assert expected['converged'] and expected['final_delta_s']<=.005
+    intervals=[(original['started_at_utc'],original['updated_at_utc'],'original_phase')]
+    files=[ATTEMPT/n for n in DATA_FILES+['state.json','prediction_frozen.json','observed_solver_commands.json']]
+    for label,path in [('direct_v1',BASE/'local_state.json'),('direct_v2',BASE/'cutoff_check/local_state.json'),('direct_fill',BASE/'recovery_fill/local_state.json')]:
+        s=read(path);assert s['status']=='exported_review_required' and s['source_unchanged']
+        assert s['original_convergence']==s['convergence_after']==expected
+        request_ok(s);intervals.append((s['started_at_utc'],s['finished_at_utc'],label));files.append(path)
+    for label,path,segment in [('Zo',BASE/'zo_fullband/state.json','Zo'),('High',BASE/'high_segment/state.json','High'),('Upper',BASE/'upper_segment/state.json','Upper')]:
+        s=read(path);r=s['segments'][segment]
+        assert s['mesh_reuse_verified'] and s['source_unchanged'] and r['status']=='exported' and r['sweep_converged']
+        assert r['convergence']==expected;request_ok(r)
+        intervals.append((r['started_at_utc'],r['finished_at_utc'],label));files.append(path)
+    intervals.sort(key=lambda x:datetime.fromisoformat(x[0]))
+    assert all(datetime.fromisoformat(a[1])<=datetime.fromisoformat(b[0]) for a,b in zip(intervals,intervals[1:])), 'Overlapping solve stages'
+    observed=read(BASE/'resource_observations.json')
+    assert observed['status']=='closed' and observed['observations']
+    assert all(r['single_16_core_task_verified'] for r in observed['observations']), 'Live recovery resource observations require manual review'
+    assert any(any('recovery_fill' in c['path'] for c in r['controllers']) for r in observed['observations'])
+    assert any(any('upper_segment' in c['path'] for c in r['controllers']) for r in observed['observations'])
+    files += [BASE/'resource_observations.json',BASE/'recovery_flow/state.json']
+    files += [CANDIDATE/n for n in DATA_FILES+['assembly_recipe.json','recovery_candidate_review.json']]
+    files += [Path(p) for p in recipe['input_hashes']]
+    return {'approved':True,'case':'D04G05','original_attempt':str(ATTEMPT),'candidate_run':str(CANDIDATE),
+        'protocol_sha256':sha(ROOT/'production_protocol.json'),'geometry':spec['geometry'],
+        'phase_solves_added':0,'phase_geometry_unchanged':True,'mesh_reuse_verified':True,
+        'resource_review':{'passed':True,'cores':16,'tasks':1,'serial_intervals':intervals,
+            'observations_file':str(BASE/'resource_observations.json'),
+            'scope':'Original phase and all repairs retain explicit 16-core/1-task MCP evidence; serial timestamps cover every stage. Live command capture additionally covers the remaining direct fill and upper sweep.'},
+        'evidence_hashes':{str(p):sha(p) for p in dict.fromkeys(files)},'finished_at_utc':now(),
+        'scope':'Numerical recovery of original phase i00 only. Design acceptance remains determined by unchanged peak/valley/passband gates. Original failed files and state are retained.'}
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--apply',action='store_true');a=parser.parse_args()
+    result=review()
+    if a.apply:
+        dest=ATTEMPT/'recovery_acceptance.json';assert not dest.exists(),'Existing acceptance must be audited before replacement'
+        write_json(dest,result)
+        assert resolve_attempt(ATTEMPT)==CANDIDATE
+    print(json.dumps({'ready':True,'written':a.apply,'case':result['case'],'phase_solves_added':0,'design_acceptance_not_evaluated':True},indent=2))

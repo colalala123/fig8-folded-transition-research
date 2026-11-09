@@ -1,0 +1,154 @@
+"""Try power reports from existing adaptive fields; never solve or save the project."""
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import traceback
+from datetime import datetime
+from pathlib import Path
+
+import numpy as np
+
+ROOT = Path('F:/hfss_f8_261002')
+
+
+def digest(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def arrays(data, expression):
+    x, y = data.get_expression_data(expression, formula='real', convert_to_SI=True)
+    return np.asarray(x, dtype=float).reshape(-1), np.asarray(y, dtype=float).reshape(-1)
+
+
+def main(case):
+    run = ROOT / case
+    manifest = json.loads((run / 'manifest.json').read_text(encoding='utf-8'))
+    if manifest['status'] != 'completed' or 'finished_at' not in manifest:
+        raise RuntimeError('Only a finished and released project may be probed.')
+    project = Path(manifest['project'])
+    if project.parent.resolve() != run.resolve():
+        raise RuntimeError('The probe must use an isolated local case copy.')
+    output = run / 'saved_field_power.json'
+    if output.exists():
+        raise FileExistsError(f'Preserve previous field probe: {output}')
+    before = digest(project)
+    result = {
+        'case': case, 'started_at': datetime.now().astimezone().isoformat(),
+        'project': str(project), 'project_sha256_before': before,
+        'method': 'Read existing LastAdaptive fields with port 1 incident power 1 W and port 2 power 0 W.',
+        'new_solve': False, 'project_save_requested': False,
+        'scope': 'Adaptive frequencies only; not a broadband radiation-loss validation.',
+        'status': 'opening',
+    }
+    app = None
+    try:
+        from ansys.aedt.core import Hfss
+
+        app = Hfss(project=str(project), design='Wideband vertical transition',
+                   version='2024.2', non_graphical=True, new_desktop=True, close_on_exit=False)
+        result['desktop_pid'] = app.desktop_class.aedt_process_id
+        result['solve_origin'] = manifest.get('solve_origin', 'fresh_five_case_batch')
+        result['materials'] = {}
+        for name in sorted({app.modeler[n].material_name for n in app.modeler.object_names if app.modeler[n].material_name}):
+            material = app.materials[name]
+            result['materials'][name] = {
+                'permittivity': material.permittivity.value,
+                'dielectric_loss_tangent': material.dielectric_loss_tangent.value,
+                'conductivity': material.conductivity.value,
+            }
+        result['excitation_names'] = list(app.excitation_names)
+        if set(app.excitation_names) != {'1:1', '2:1'}:
+            raise RuntimeError('Unexpected source names; do not guess excitation settings.')
+        result['edit_sources'] = app.edit_sources({'1:1': ('1W', '0deg'), '2:1': ('0W', '0deg')})
+        sphere = app.insert_infinite_sphere(name='Fig8PowerProbe')
+        # Explicit property names avoid the installed wrapper's swapped angle argument mapping.
+        sphere.props['ThetaStart'] = '0deg'
+        sphere.props['ThetaStop'] = '180deg'
+        sphere.props['ThetaStep'] = '5deg'
+        sphere.props['PhiStart'] = '-180deg'
+        sphere.props['PhiStop'] = '180deg'
+        sphere.props['PhiStep'] = '5deg'
+        if not sphere.update():
+            raise RuntimeError('Failed to configure full radiation sphere.')
+        expressions = ['IncidentPower', 'RadiatedPower', 'AcceptedPower']
+        report = app.post.reports_by_category.antenna_parameters(
+            expressions, 'Setup19 : LastAdaptive', sphere.name)
+        report.primary_sweep = 'Freq'
+        report.variations['Freq'] = ['All']
+        data = report.get_solution_data()
+        if not data:
+            raise RuntimeError('No antenna-power report is available from saved adaptive fields.')
+        result['power_report_units'] = dict(data.units_data)
+        result['power_report_sweep_units'] = dict(data.units_sweeps)
+        powers = {expression: arrays(data, expression) for expression in expressions}
+        result['raw_power_report_SI'] = {
+            expression: {'frequencies_Hz': axis.tolist(), 'values_W': values.tolist()}
+            for expression, (axis, values) in powers.items()}
+        if any(not len(pair[0]) or not np.all(np.isfinite(pair[1])) for pair in powers.values()):
+            raise RuntimeError('Missing or non-finite power data.')
+
+        modal = app.post.get_solution_data(
+            expressions=['S(1,1)', 'S(2,1)'], setup_sweep_name='Setup19 : LastAdaptive',
+            domain='Sweep', report_category='Modal Solution Data', variations={'Freq': ['All']})
+        result['modal_report_available'] = bool(modal)
+        samples = []
+        for index, hz in enumerate(powers['IncidentPower'][0]):
+            row = {'frequency_GHz': float(hz / 1e9)}
+            for expression, (axis, values) in powers.items():
+                if len(axis) != len(powers['IncidentPower'][0]) or not np.allclose(axis, powers['IncidentPower'][0]):
+                    raise RuntimeError('Inconsistent power-report frequency axes.')
+                row[expression + '_W'] = float(values[index])
+            incident = row['IncidentPower_W']
+            if incident <= 0:
+                raise RuntimeError('Nonpositive incident power.')
+            row['radiated_fraction_of_incident'] = row['RadiatedPower_W'] / incident
+            if modal:
+                amplitudes = {}
+                for expression in ('S(1,1)', 'S(2,1)'):
+                    axis, values = modal.get_expression_data(expression, formula='mag')
+                    axis = np.asarray(axis, dtype=float).reshape(-1)
+                    unit = modal.units_sweeps.get('Freq', '')
+                    scale = {'GHz': 1e9, 'MHz': 1e6, 'kHz': 1e3, 'Hz': 1}.get(unit)
+                    if scale is None:
+                        raise RuntimeError(f'Unrecognized modal frequency unit: {unit!r}')
+                    matches = np.flatnonzero(np.isclose(axis * scale, hz, rtol=1e-8))
+                    if len(matches) != 1:
+                        raise RuntimeError('No exact adaptive modal frequency match.')
+                    amplitudes[expression] = float(np.asarray(values).reshape(-1)[matches[0]])
+                row['S11_mag'] = amplitudes['S(1,1)']
+                row['S21_mag'] = amplitudes['S(2,1)']
+                row['unaccounted_port_mode_fraction'] = 1 - row['S11_mag']**2 - row['S21_mag']**2
+                row['residual_after_radiation_fraction'] = (
+                    row['unaccounted_port_mode_fraction'] - row['radiated_fraction_of_incident'])
+            samples.append(row)
+        result['samples'] = samples
+        result['status'] = 'exported'
+        result['interpretation'] = (
+            'RadiatedPower is a field-derived quantity. Residual after radiation can include conductor/dielectric '
+            'loss, untracked channels, normalization differences, and numerical error; no separate material-loss '
+            'integrals were evaluated. AcceptedPower is retained as reported and is not assumed to equal '
+            'incident minus reflected power in this two-port network.')
+    except Exception:
+        result['status'] = 'unavailable'
+        result['error'] = traceback.format_exc()
+    finally:
+        if app is not None:
+            try:
+                result['close_without_save'] = app.close_project(save=False)
+                result['release'] = app.release_desktop(close_projects=False, close_desktop=True)
+            except Exception:
+                result['close_error'] = traceback.format_exc()
+        result['project_sha256_after'] = digest(project)
+        result['project_unchanged'] = result['project_sha256_after'] == before
+        result['finished_at'] = datetime.now().astimezone().isoformat()
+        output.write_text(json.dumps(result, indent=2, ensure_ascii=False, default=str) + '\n', encoding='utf-8')
+    print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+    return 0 if result['status'] == 'exported' and result['project_unchanged'] else 1
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('case', choices=['B0', 'F2', 'F3', 'G035', 'G2', 'A0_reference', 'T_G035'])
+    raise SystemExit(main(parser.parse_args().case))

@@ -1,0 +1,47 @@
+"""Read-only command evidence for the remaining D04 recovery; never dispatches."""
+import json,ntpath,os,re,time
+from pathlib import Path
+import psutil
+from broadband_recovery import ROOT,read,write_json,now
+
+BASE=ROOT/'local_repair/D04G05';OUT=BASE/'resource_observations.json'
+
+def sample():
+    processes=[]
+    for p in psutil.process_iter(['pid','ppid','name','cmdline','create_time']):
+        try:
+            if (p.info['name'] or '').lower()=='hf3d.exe':processes.append(p.info)
+        except (psutil.NoSuchProcess,psutil.AccessDenied):pass
+    if not processes:return None
+    controllers=[]
+    for f in [BASE/'recovery_fill/local_state.json',BASE/'upper_segment/state.json']:
+        if f.exists():
+            state=read(f)
+            if state['status']=='solving':controllers.append({'path':str(f),'project':state['project']})
+    commands=[' '.join(p['cmdline'] or []) for p in processes]
+    owners=[c for c in commands if re.search(r'-max_processors\s+16(?:\s|$)',c) and re.search(r'-numParallelGroups\s+1(?:\s|$)',c)]
+    pjts={ntpath.normcase(ntpath.normpath(arg.strip('"'))) for p in processes for arg in p['cmdline'] or [] if '.pjt' in arg and not arg.startswith('-')}
+    valid=len(controllers)==1 and len(owners)==1 and len(pjts)==1 and len(processes)<=2
+    if len(processes)==2:valid=valid and any('-UseSolverWrapper' in c for c in commands) and any('-standalonesolve' in c for c in commands)
+    if any('-solve_broadband_adapt ' in c or '-solve_adapt ' in c for c in commands):valid=False
+    return {'observed_at_utc':now(),'controllers':controllers,'processes':processes,
+            'pjt_paths':sorted(pjts),'single_16_core_task_verified':bool(valid)}
+
+def main():
+    assert not OUT.exists(),'Do not overwrite existing observations'
+    record={'observer_pid':os.getpid(),'started_at_utc':now(),'status':'observing','observations':[],
+        'scope':'Live command observations starting during direct fill, then upper segment. Earlier repair stages are covered by their retained MCP requests/responses and solve records.'}
+    last=None
+    while True:
+        row=sample()
+        if row:
+            signature=json.dumps([p['cmdline'] for p in row['processes']])
+            if signature!=last:record['observations'].append(row);last=signature
+        flow=read(BASE/'recovery_flow/state.json')
+        if flow['status'] in ['candidate_ready_protocol_review_required','review_required']:
+            record.update(status='closed',finished_at_utc=now(),flow_terminal_status=flow['status'])
+        record['updated_at_utc']=now();temp=OUT.with_suffix('.tmp');write_json(temp,record);os.replace(temp,OUT)
+        if record['status']=='closed':break
+        time.sleep(5)
+
+if __name__=='__main__':main()

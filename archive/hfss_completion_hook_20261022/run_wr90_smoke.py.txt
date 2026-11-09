@@ -1,0 +1,147 @@
+"""One real, isolated HFSS run; publish only after terminal evidence is saved."""
+import argparse
+import asyncio
+import csv
+import json
+import os
+from pathlib import Path
+import sys
+import time
+import traceback
+
+import numpy as np
+import psutil
+
+from completion_hook import HERE, DEFAULT_THREAD, now, write_json, digest, deliver, desktop_session
+
+WORK = HERE.parents[1]
+sys.path.insert(0, str(WORK/'output/fig8_handoff_20261002'))
+from mcp_call import connected_client, session_call
+
+
+def solvers():
+    return [p.info for p in psutil.process_iter(['pid', 'name', 'cmdline']) if (p.info['name'] or '').lower() == 'hf3d.exe']
+
+
+def export_and_verify(folder, project, port):
+    from ansys.aedt.core import Hfss
+    app = Hfss(project=project, design='WR90_TE10', version='2024.2', machine='localhost', port=port,
+               non_graphical=False, new_desktop=False, close_on_exit=False)
+    try:
+        if app.are_there_simulations_running:
+            raise RuntimeError('Solver still running: cannot export a completion event')
+        messages = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+        write_json(folder/'hfss_messages.json', messages)
+        if not any('Normal completion' in x for x in messages):
+            raise RuntimeError('No normal-completion evidence')
+        setup = app.get_setup('Setup1')
+        if not setup.is_solved:
+            raise RuntimeError('Setup1 has no solved result')
+        exprs = ['S(WavePort1:1,WavePort1:1)', 'S(WavePort2:1,WavePort1:1)']
+        data = app.post.get_solution_data(expressions=exprs, setup_sweep_name='Setup1 : Sweep8to12GHz', primary_sweep_variable='Freq')
+        if not data:
+            raise RuntimeError('No S-parameter data')
+        f = np.array(data.primary_sweep_values, dtype=float)
+        unit = data.units_sweeps.get('Freq', 'GHz')
+        f *= {'Hz': 1e-9, 'kHz': 1e-6, 'MHz': 1e-3, 'GHz': 1.0}[unit]
+        s11, s21 = [np.asarray(data.get_expression_data(e, formula='real')[1], dtype=float)
+                    + 1j*np.asarray(data.get_expression_data(e, formula='imag')[1], dtype=float) for e in exprs]
+        if len(f) != 81 or not np.allclose(f, np.linspace(8, 12, 81)) or not np.isfinite(np.r_[s11, s21]).all():
+            raise RuntimeError('Unexpected/incomplete sweep data')
+        with (folder/'sparams.csv').open('w', encoding='utf-8', newline='') as out:
+            w = csv.writer(out)
+            w.writerow(['Freq_GHz', 'S11_real', 'S11_imag', 'S21_real', 'S21_imag'])
+            w.writerows(zip(f, s11.real, s11.imag, s21.real, s21.imag))
+        d11 = 20*np.log10(np.maximum(abs(s11), 1e-300))
+        d21 = 20*np.log10(np.maximum(abs(s21), 1e-300))
+        metrics = {'points': len(f), 'frequency_GHz': [float(f.min()), float(f.max())],
+                   'max_S11_dB': float(d11.max()), 'S21_dB_range': [float(d21.min()), float(d21.max())],
+                   'max_power_balance_error': float(np.max(abs(abs(s11)**2+abs(s21)**2-1))),
+                   'model': 'PEC WR90 straight waveguide, 22.86 x 10.16 x 50 mm',
+                   'verification': 'Finite 81-point result; normal HFSS completion; S11<-20dB, |S21_dB|<0.1dB'}
+        metrics['passed'] = bool(d11.max() < -20 and np.max(abs(d21)) < .1)
+        write_json(folder/'metrics.json', metrics)
+        app.export_convergence('Setup1', output_file=str(folder/'convergence.txt'))
+        app.export_profile('Setup1', output_file=str(folder/'profile.prof'))
+        app.save_project()
+        if not metrics['passed']:
+            raise RuntimeError('Solved, but simple-waveguide result sanity check failed')
+        return metrics
+    finally:
+        app.release_desktop(close_projects=False, close_desktop=False)
+
+
+async def main(args):
+    if solvers():
+        raise RuntimeError('An HFSS solve is already running; not starting a concurrent task')
+    await desktop_session('probe')
+    folder = args.run_dir.resolve()
+    folder.mkdir(parents=True, exist_ok=False)  # Explicit new run only; never overwrite or rerun.
+    project = 'HookWR90_' + time.strftime('%m%d_%H%M%S')
+    state = {'run_id': folder.name, 'project': project, 'status': 'building', 'started_at': now(),
+             'target_thread_id': args.thread_id, 'cores': 16, 'concurrent_tasks': 1,
+             'purpose': 'Independent hook smoke test, not uniform/folded research data', 'observed_solvers': []}
+    write_json(folder/'state.json', state)
+    event_status = 'failed'
+    start = time.monotonic()
+    try:
+        async with connected_client() as client:
+            state['build'] = await session_call(client, 'build_wr90_waveguide',
+                {'port': args.port, 'project_name': project, 'design_name': 'WR90_TE10', 'output_dir': str(folder), 'solve': False, 'timeout': 180})
+            write_json(folder/'state.json', state)
+            target = {'port': args.port, 'project_name': project, 'design_name': 'WR90_TE10', 'setup_name': 'Setup1', 'timeout': 120}
+            state.update(status='solving', solve_started_at=now())
+            state['start_response'] = await session_call(client, 'start_analysis',
+                {**target, 'concurrent_tasks': 1, 'cores_per_task': 16, 'blocking': False})
+            if not state['start_response'].get('started'):
+                raise RuntimeError('MCP did not confirm solve start')
+            write_json(folder/'state.json', state)
+            while True:
+                await asyncio.sleep(3)
+                live = solvers()
+                if live and (not state['observed_solvers'] or state['observed_solvers'][-1] != live):
+                    state['observed_solvers'].append(live)
+                status = await session_call(client, 'get_analysis_status', target)
+                state.update(last_status=status, elapsed_seconds=time.monotonic()-start, updated_at=now())
+                write_json(folder/'state.json', state)
+                if not live and not status.get('running'):
+                    break
+                if time.monotonic()-start > 1200:
+                    raise TimeoutError('Supervision timed out; do not kill or automatically restart a potentially running solver')
+        state['status'] = 'exporting'
+        write_json(folder/'state.json', state)
+        metrics = export_and_verify(folder, project, args.port)
+        commands = [' '.join(p['cmdline'] or []) for obs in state['observed_solvers'] for p in obs]
+        state['observed_16_cores_single_task'] = any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+        if not state['observed_16_cores_single_task']:
+            raise RuntimeError('Expected 16-core / 1-task command not observed; retain result for inspection')
+        event_status = 'completed'
+        summary = (f"WR90已求解并校验：{metrics['points']}频点，8–12GHz，"
+                   f"最大S11={metrics['max_S11_dB']:.3f}dB，S21范围={metrics['S21_dB_range']}dB。16核单任务。")
+    except Exception as exc:
+        write_json(folder/'error.json', {'error': str(exc), 'traceback': traceback.format_exc(), 'at': now(), 'live_solvers': solvers()})
+        summary = 'WR90测试任务未完成全部校验，请检查error.json；不能将此通知解释为求解成功。' + str(exc)
+    state.update(status=event_status, finished_at=now(), elapsed_seconds=time.monotonic()-start)
+    write_json(folder/'state.json', state)
+    files = [folder/'state.json'] + [folder/n for n in ['sparams.csv', 'metrics.json', 'convergence.txt', 'profile.prof', 'hfss_messages.json', 'error.json'] if (folder/n).is_file()]
+    event = {'schema_version': 1, 'run_id': folder.name, 'target_thread_id': args.thread_id, 'created_at': now(),
+             'status': event_status, 'verified_success': event_status == 'completed', 'summary': summary,
+             'purpose': '独立WR90通知链路测试，不属于均匀或弯折研究样本',
+             'artifacts': [{'path': str(p), 'sha256': digest(p)} for p in files]}
+    write_json(folder/'completion_event.json', event)
+    # Notification failure must not overwrite the successfully verified solver state.
+    try:
+        receipt = await deliver(folder/'completion_event.json')
+        print(json.dumps(receipt, ensure_ascii=False), flush=True)
+    except Exception as exc:
+        write_json(folder/'notification_error.json', {'error': str(exc), 'traceback': traceback.format_exc(), 'at': now(),
+                  'action': 'Inspect outbox state. Never automatically rerun HFSS or retry uncertain dispatch.'})
+        raise
+
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser()
+    p.add_argument('--run-dir', type=Path, required=True)
+    p.add_argument('--thread-id', default=DEFAULT_THREAD, help='Only specify another thread with user authorization')
+    p.add_argument('--port', type=int, default=7990)
+    asyncio.run(main(p.parse_args()))

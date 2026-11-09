@@ -1,0 +1,35 @@
+import numpy as np, json, re
+from pathlib import Path
+R=Path(r'F:\hfss_f8x_261002')/'R_B0_single_fix'
+rows=[]; freq_mult=1e9; fmt='RI'; z0=50
+for ln in (R/'hfss_50ohm.s2p').read_text(errors='ignore').splitlines():
+ ln=ln.strip()
+ if not ln or ln.startswith('!'): continue
+ if ln.startswith('#'):
+  t=ln.upper().split();
+  if 'GHZ' in t: freq_mult=1e9
+  elif 'MHZ' in t: freq_mult=1e6
+  elif 'KHZ' in t: freq_mult=1e3
+  elif 'HZ' in t: freq_mult=1
+  if 'MA' in t: fmt='MA'
+  elif 'DB' in t: fmt='DB'
+  continue
+ vals=[float(x) for x in ln.replace('D','E').split()]
+ if len(vals)>=9: rows.append(vals[:9])
+a=np.array(rows); f=a[:,0]*freq_mult/1e9; x=a[:,1:9].reshape(-1,4,2)
+if fmt=='RI': c=x[:,:,0]+1j*x[:,:,1]
+elif fmt=='MA': c=x[:,:,0]*np.exp(1j*np.deg2rad(x[:,:,1]))
+else: c=10**(x[:,:,0]/20)*np.exp(1j*np.deg2rad(x[:,:,1]))
+s=np.empty((len(f),2,2),complex); s[:,0,0]=c[:,0]; s[:,1,0]=c[:,1]; s[:,0,1]=c[:,2]; s[:,1,1]=c[:,3]
+sv=np.linalg.svd(s,compute_uv=False); maxsv=float(np.max(sv)); imax=np.unravel_index(np.argmax(sv),sv.shape)
+s11=20*np.log10(np.maximum(np.abs(s[:,0,0]),1e-300)); s21=20*np.log10(np.maximum(np.abs(s[:,1,0]),1e-300)); ok=s21>=-2
+best=(None,None); st=None
+for i,v in enumerate(ok):
+ if v and st is None: st=i
+ if st is not None and (not v or i==len(ok)-1):
+  en=i if v and i==len(ok)-1 else i-1
+  if best[0] is None or en-st>best[1]-best[0]: best=(st,en)
+  st=None
+m={'n_points':int(len(f)),'f_first_GHz':float(f[0]),'f_last_GHz':float(f[-1]),'max_singular_value':maxsv,'max_singular_frequency_GHz':float(f[imax[0]]),'passivity_violation_count':int(np.sum(sv>1+1e-9)),'S11_min_dB':float(np.min(s11)),'S11_max_dB':float(np.max(s11)),'S21_min_dB':float(np.min(s21)),'S21_max_dB':float(np.max(s21))}
+if best[0] is not None:m.update({'IL_le_2dB_band_GHz':[float(f[best[0]]),float(f[best[1]])],'IL_le_2dB_BW_GHz':float(f[best[1]]-f[best[0]]),'IL_le_2dB_point_count':int(best[1]-best[0]+1)})
+print(json.dumps(m,indent=2));(R/'single_fix_metrics.json').write_text(json.dumps(m,indent=2),encoding='utf-8')

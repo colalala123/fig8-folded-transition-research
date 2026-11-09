@@ -1,0 +1,75 @@
+"""Serial GUI 16-core checks, with analysis dispatched through the AEDT MCP."""
+import asyncio,json,os,subprocess,sys,time,traceback
+from pathlib import Path
+import psutil
+from mcp_call import connected_client,session_call
+from pilot_queue import ROOT,OLD,HERE,read,compare
+from pilot_worker import now,sha,write_json
+
+def state(**kw):
+    path=ROOT/'visible_three_mode_status.json'
+    s=read(path) if path.exists() else {}
+    s.update(kw,updated_at_utc=now(),controller_pid=os.getpid());write_json(path,s)
+
+async def invoke(name,args,record):
+    result=await session_call(CLIENT,name,args);write_json(record,{'tool':name,'arguments':args,'result':result,'time':now()});return result
+
+def helper(action,run,port):
+    with (run/(action+'.log')).open('a',encoding='utf-8') as log:
+        subprocess.run([sys.executable,str(HERE/'visible_point.py'),action,str(run),'--port',str(port)],
+                       stdout=log,stderr=subprocess.STDOUT,check=True,creationflags=subprocess.CREATE_NO_WINDOW)
+
+async def main():
+    await invoke('list_aedt_sessions',{},ROOT/'mcp_initial_discovery.json')
+    session=await invoke('launch_aedt',{'version':'2024.2','install_dir':'D:/Program Files/AnsysEM/v242/Win64','timeout':180},ROOT/'mcp_launch_record.json')
+    write_json(ROOT/'mcp_visible_session.json',session);port=session['port'];pid=session['pid']
+    state(status='waiting_existing_double_mode',session=session,cores=16,tasks=1)
+    old_worker=psutil.Process(58504) if psutil.pid_exists(58504) else None
+    if old_worker and not any('pilot_worker.py' in p for p in old_worker.cmdline()):raise RuntimeError('Old worker PID identity changed')
+    while old_worker and old_worker.is_running():await asyncio.sleep(10)
+    if any(p.info['name'].lower()=='hf3d.exe' for p in psutil.process_iter(['name'])):raise RuntimeError('Another solver remains active')
+    results=[]
+    for case in ('B0','T_F3'):
+        run=ROOT/f'M_{case}_3g16';run.mkdir(exist_ok=True)
+        source=OLD/case/(case+'.aedt')
+        spec={'case':run.name,'stage':'visible_mcp_three_mode','source':str(source),'source_sha256':sha(source),
+              'geometry':read(OLD/case/'manifest.json')['geometry'],'modes':3,'rebuild':False,'cores':16,'tasks':1,
+              'non_graphical':False,'mode_impedance_overrides':{},'frozen_at_utc':now(),'transport':'AEDT MCP stdio',
+              'intent':'User-requested original all-Zpi three-mode repeat in visible HFSS, 16 cores serial; all numerical thresholds unchanged.'}
+        if (run/'manifest.json').exists():raise RuntimeError('Existing GUI run requires explicit recovery; do not re-solve')
+        write_json(run/'prediction_frozen.json',spec)
+        state(status='preparing',active_run=str(run))
+        helper('prepare',run,port)
+        await invoke('get_project_info',{'port':port,'timeout':120},run/'mcp_project_info.json')
+        state(status='starting',active_run=str(run))
+        t=time.perf_counter()
+        result=await invoke('start_analysis',{'project_name':'project','design_name':'Wideband vertical transition',
+                  'setup_name':'Setup19','port':port,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120},run/'mcp_start_analysis.json')
+        if not result.get('started'):raise RuntimeError(f'MCP did not start analysis: {result}')
+        m=read(run/'manifest.json');m.update(status='solving',solve_started_at_utc=now(),mcp_analysis_start=result);write_json(run/'manifest.json',m)
+        state(status='solving')
+        while True:
+            await asyncio.sleep(30)
+            status=await invoke('get_analysis_status',{'project_name':'project','design_name':'Wideband vertical transition',
+                               'setup_name':'Setup19','port':port,'timeout':120},run/'mcp_analysis_status.json')
+            if not status['running']:break
+        m=read(run/'manifest.json');m['solve_seconds']=time.perf_counter()-t;write_json(run/'manifest.json',m)
+        await invoke('save_project',{'port':port,'timeout':120},run/'mcp_save_project.json')
+        state(status='collecting');helper('collect',run,port)
+        m=read(run/'manifest.json');entry={'case':case,'run':str(run),'status':m['status'],'convergence':m['convergence'],'sweep_converged':m['sweep_converged']}
+        entry['curve_comparison_only']=compare(ROOT/f'M_{case}_2',run,'stable')
+        entry['protocol_passed']=m['status']=='completed' and entry['curve_comparison_only']['passed']
+        results.append(entry);write_json(ROOT/'visible_three_mode_results.json',results)
+        if case=='B0':
+            await invoke('close_projects',{'project_names':['project'],'save':True,'port':port,'timeout':120},run/'mcp_close_project.json')
+    state(status='checks_finished',active_run=None,results=results)
+    # Keep the MCP process tree and visible result window alive for user inspection.
+    while psutil.pid_exists(pid):await asyncio.sleep(30)
+
+async def connected_main():
+    global CLIENT
+    async with connected_client() as CLIENT:await main()
+
+if __name__=='__main__':
+    try:asyncio.run(connected_main())
+    except Exception:state(status='review_required',error=traceback.format_exc());raise

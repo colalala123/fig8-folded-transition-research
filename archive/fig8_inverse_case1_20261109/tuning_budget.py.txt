@@ -1,0 +1,32 @@
+"""One frozen prospective inverse geometry; old campaigns remain immutable/paused."""
+import json,hashlib,shutil
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+CASE='INV01_A14'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def validate_campaign(extra_analyze=0,case=None,storage=False):
+ assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'closure.json').exists(),'Branch paused/closed'
+ assert extra_analyze in (0,1)
+ snap=read(ROOT/'HISTORICAL_BUDGET_SNAPSHOT.json');assert snap['Analyze_used']==285
+ for p,h in snap['hashes'].items():assert sha(p)==h,'Immutable source changed: '+p
+ plan=read(ROOT/'PLAN.json');assert plan['geometry_cap']==1 and plan['Analyze_cap']==13 and len(plan['cases'])==1
+ frozen=read(ROOT/'PREDICTION_FROZEN.json');row=plan['cases'][0];assert row['case']==CASE and row['geometry']==frozen['geometry'] and row['predicted']==frozen['predicted']
+ assert sha(row['source'])==row['source_sha256']
+ reg=read(ROOT/'runtime_registry.json')['contexts'];assert len(reg)==1
+ e=reg[0];ctx=Path(e['context']);assert sha(ctx/'plan.json')==e['plan_sha256'];rr=read(ctx/'plan.json')['cases'];assert len(rr)==1;rr=rr[0]
+ assert rr['case']==CASE and rr['parent_case']=='INV01' and rr['geometry']==row['geometry'] and rr['target']==frozen['target']
+ assert rr['P_nominal']==frozen['P'] and rr['R_nominal']==frozen['R']
+ run=Path(rr['run_dir']);assert run.resolve()==(ROOT/'data'/CASE/'g01_initial').resolve()
+ n=0
+ if (run/'state.json').exists():
+  st=read(run/'state.json');assert st['case']==CASE and st['geometry']==row['geometry'];seg=st.get('segments',[]);n=len(seg)
+  assert n<=13 and sum(bool(s['adaptive_requested']) for s in seg)<=12 and sum(not s['adaptive_requested'] for s in seg)<=1
+  assert all(s['mcp_request']['cores_per_task']==14 and s['mcp_request']['concurrent_tasks']==1 for s in seg)
+ assert n+extra_analyze<=13 and 285+n+extra_analyze<=2236
+ if case:assert case==CASE
+ if extra_analyze:assert case==CASE
+ if storage:
+  assert shutil.disk_usage(ROOT).free>21*1024**3
+  assert shutil.disk_usage('D:/').free>15*1024**3
+ return dict(Analyze_used=285+n,branch_Analyze_used=n,Analyze_cap=2236,branch_cap=13,per_case_Analyze={CASE:n},new_geometries_declared=1,cores=14,tasks=1,serial=True,old_campaign_paused=True)

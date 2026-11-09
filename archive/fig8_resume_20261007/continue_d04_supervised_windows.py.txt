@@ -1,0 +1,94 @@
+"""Retain the approved D04 controller; recognize Windows venv child PIDs.
+
+Only queue process identification changes. Existing numerical and design gates,
+budget, recovery recipe, and solver dispatch are inherited unchanged.
+"""
+import argparse, json, subprocess, time
+from pathlib import Path
+import psutil
+import continue_d04_supervised as base
+
+HERE = Path(__file__).resolve().parent
+ARCHIVE = base.ROOT / 'continuation_pid_failure'
+original_readiness = base.readiness
+
+
+def belongs_to_launch(process, launched_pid):
+    """Accept the launched interpreter or a verified interpreter descendant."""
+    if process is None:
+        return False
+    command = process.cmdline()
+    script = str(HERE / 'guarded_pilot_queue.py')
+    if not any(Path(arg).resolve() == Path(script).resolve() for arg in command[1:] if not arg.startswith('-')):
+        return False
+    if command[-3:] != ['--stage', 'supervised', '--solve']:
+        return False
+    return process.pid == launched_pid or any(p.pid == launched_pid for p in process.parents())
+
+
+def readiness():
+    result = original_readiness()
+    if result['ready']:
+        result['implementation_and_basis_hashes'][str(Path(__file__).resolve())] = base.sha(__file__)
+        result['scope'] += ' Windows venv launcher descendants are identified by exact script, arguments and ancestry.'
+    return result
+
+
+def launch_queue(attempt):
+    base.idle()
+    log = base.ROOT / f'continue_after_{attempt.name}_v2.log'
+    with log.open('x', encoding='utf-8') as stream:
+        launched = subprocess.Popen([base.sys.executable, str(HERE / 'guarded_pilot_queue.py'), '--stage', 'supervised', '--solve'],
+            cwd='${WORKSPACE}', stdout=stream, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW)
+    deadline = time.monotonic() + 120
+    while launched.poll() is None:
+        state, process = base.current_queue()
+        if belongs_to_launch(process, launched.pid):
+            if state['status'] == 'running':
+                observers = [p for p in psutil.process_iter(['name','cmdline'])
+                    if (p.info['name'] or '').lower() == 'python.exe'
+                    and any(Path(arg).name == 'supervision_observer.py' for arg in (p.info['cmdline'] or [])[1:])]
+                if not observers:
+                    with (base.ROOT / f'observer_after_{attempt.name}_v2.log').open('x', encoding='utf-8') as stream:
+                        subprocess.Popen([base.sys.executable, str(HERE / 'supervision_observer.py')],
+                            cwd='${WORKSPACE}', stdout=stream, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW)
+                return
+            if state['status'] != 'review_required':
+                return
+        assert time.monotonic() < deadline, 'Queue startup timeout: retain live process; do not retry'
+        time.sleep(.5)
+    assert launched.returncode == 0, f'Queue exited {launched.returncode}; inspect {log}'
+
+
+def adopt_existing_queue():
+    """Archive only the known controller timeout; never stop/relaunch the queue."""
+    old = base.read(base.STATE)
+    assert old['status'] == 'review_required'
+    assert 'Queue startup timeout: retain live process; do not retry' in old['error']
+    assert not psutil.pid_exists(old['pid']) and not base.LOCK.exists()
+    state, process = base.current_queue()
+    assert state['status'] == 'running' and state['active_case'] == 'D04G05'
+    assert Path(state['active_run']) == base.ROOT / 'D04G05/i03'
+    assert process is not None
+    assert belongs_to_launch(process, process.pid)
+    assert any((p.info['name'] or '').lower() == 'python.exe' and 'supervision_observer.py' in ' '.join(p.info['cmdline'] or [])
+        for p in psutil.process_iter(['name','cmdline'])), 'Existing observer required'
+    assert readiness()['ready']
+    ARCHIVE.mkdir(exist_ok=False)
+    base.write_json(ARCHIVE / 'adoption.json', {'adopted_at_utc':base.now(), 'queue_pid':process.pid,
+        'queue_command':process.cmdline(), 'queue_state':state, 'prior_controller_sha256':base.sha(base.STATE),
+        'solver_dispatches':0, 'scope':'Retain live i03 and existing observer; only replace stopped continuation controller.'})
+    base.STATE.rename(ARCHIVE / base.STATE.name)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run-adopt-existing', action='store_true')
+    args = parser.parse_args()
+    if args.run_adopt_existing:
+        adopt_existing_queue()
+        base.readiness = readiness
+        base.launch_queue = launch_queue
+        base.main()
+    else:
+        print(json.dumps(readiness(), indent=2))

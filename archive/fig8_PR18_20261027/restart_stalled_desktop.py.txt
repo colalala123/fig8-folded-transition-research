@@ -1,0 +1,40 @@
+"""Explicit human-authorized recovery; no Analyze and no lock deletion."""
+import datetime,hashlib,json,shutil,time
+from pathlib import Path
+import psutil
+ROOT=Path(__file__).resolve().parent
+RUN=Path('J:/f8_PR18_261027/P04G05/g02_probe_Ls1')
+BACKUP=RUN/'restart1_preserved'
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+def main():
+    if BACKUP.exists():
+        assert not (BACKUP/'backup_manifest.json').exists(), 'Shutdown already prepared; inspect'
+    assert not any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name']))
+    identity=json.loads((ROOT/'length_tuning/aedt_identity.json').read_text())
+    desktop=psutil.Process(identity['pid'])
+    assert abs(desktop.create_time()-identity['created'])<.01
+    workers=[]
+    for pid,created in [(47456,1793064874.7157948),(23684,1793064874.6587725)]:
+        p=psutil.Process(pid);assert abs(p.create_time()-created)<.01
+        assert '--spec' in p.cmdline() and str(RUN/'input.json').lower() in ' '.join(p.cmdline()).lower()
+        workers.append(p)
+    BACKUP.mkdir(exist_ok=True)
+    # Copy while the stalled processes are quiescent; retain all originals too.
+    records={}
+    for p in list(RUN.iterdir()):
+        if p==BACKUP:continue
+        if p.is_dir():shutil.copytree(p,BACKUP/p.name,dirs_exist_ok=True,ignore=shutil.ignore_patterns('*.semaphore'))
+        else:
+            shutil.copy2(p,BACKUP/p.name);assert sha(p)==sha(BACKUP/p.name)
+            records[p.name]=sha(p)
+    (BACKUP/'backup_manifest.json').write_text(json.dumps(dict(at=datetime.datetime.now(datetime.timezone.utc).isoformat(),files=records,desktop_identity=identity,user_authorization='你排查一下，实在不行就关掉后重启hfss'),ensure_ascii=False,indent=2),encoding='utf-8')
+    for p in workers:p.terminate()
+    gone,alive=psutil.wait_procs(workers,timeout=15)
+    assert not alive,'Worker did not exit; inspect, do not launch duplicate'
+    desktop.terminate();desktop.wait(timeout=30)
+    assert not any((p.info['name'] or '').lower() in ['hf3d.exe','ansysedt.exe'] for p in psutil.process_iter(['name']))
+    # Locks are preserved, not cleared; next recovery worker will adopt only
+    # these exact dead-owner locks after validating their archived contents.
+    report=dict(at=datetime.datetime.now(datetime.timezone.utc).isoformat(),backup=str(BACKUP),old_desktop_pid=identity['pid'],stopped_workers=[p.pid for p in workers],locks_deleted=False,analyze_requested=False)
+    (ROOT/'restart1_shutdown.json').write_text(json.dumps(report,indent=2),encoding='utf-8');print(report)
+if __name__=='__main__':main()

@@ -1,0 +1,26 @@
+"""Completion-only current-chat hook for V6. Configuration never sends a message."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+def prompt(event,path):
+    return (f'[Fig8 六配置独立验证V6 / 自动完成事件]\n事件ID：{hook.event_id(event)}\n状态：{event["status"]}\n摘要：{event["summary"]}\n事件：{path}\n'
+        f'先读{HERE/"CONTINUATION.md"}、plan.json、authorization.json、budget_ledger.json。'
+        '仅处理这6个V6配置，原24项和预测公式保持冻结。核验真实完成/失败、原始S11/S21、网格和端口参考，实际看图后再写ACK。'
+        '用户已要求用hook把六项跑完。按execution_plan.json先完成6个初值，再仅对未过者有限调Lm/Ls1，最终同网格直接复核；不能把初值六次算作全部验收。'
+        '初始输入和实现冻结后不改写；必要后续阶段在V6内单独冻结、累计计数，遵守每配置7个几何和1个直接工作项上限，达标立即停止调谐。'
+        '保持可见AEDT2024R2、16核单任务串行、10–11万目标网格。不得根据预测带宽挑选调谐结果。'
+        '核验authorization.json已开启并记录人类启动指令，先监督前两个配置，后续逐项串行；不是要求再次询问启动。'
+        '正常求解不周期发消息；完成消息5分钟后仍无下一仿真才检查本聊天是否中断。未知送达状态不盲目重发。')
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] is True
+    assert case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json')
+    assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='V6 initial validation after explicit launch instruction')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

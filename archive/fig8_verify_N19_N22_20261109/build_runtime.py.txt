@@ -1,0 +1,201 @@
+"""Build new fixed-P/R tuning contexts, never modify/reopen closed queues."""
+import argparse,ast,copy,json,shutil,sys
+from pathlib import Path
+from datetime import datetime,timezone
+ROOT=Path(__file__).resolve().parent;OUT=ROOT.parent
+TEMPLATE=OUT/'fig8_next48_b08_20261029';OLD48=OUT/'fig8_next48_20261029'
+TEMP=Path('D:/hfss_fig8_diag2_20261109/solver_temp')
+sys.path.insert(0,str(ROOT));from tuning_budget import read,sha,validate_campaign
+def now():return datetime.now(timezone.utc).isoformat()
+def write(p,d):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+def new(p,d):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8') as f:json.dump(d,f,ensure_ascii=False,indent=2);f.write('\n')
+def init():
+    assert not (ROOT/'campaign.json').exists()
+    index=OLD48/'DATASET48_EFFECTIVE_INDEX_V4.json';data=read(index);assert len(data['rows'])==48
+    passed=[r['case'] for r in data['rows'] if r['scientific_label']['primary']['passed']]
+    todo=sorted([r for r in data['rows'] if r['case'] not in passed],key=lambda r:(r['role']!='training_acquisition_family',r['scientific_label']['primary']['objective']))
+    assert len(todo)==43 and todo[0]['case']=='N17_A18'
+    target=dict(f_low_GHz=3.92,f_high_GHz=9.52,BW_GHz=5.6,S11_max_dB=-20,S21_min_dB=-2)
+    new(ROOT/'campaign.json',dict(at=now(),human_instruction='你把这些都仿真到能通过；都是（固定P/R仅调长度；F新工程/D临时）',
+        baseline_index=str(index),baseline_index_sha256=sha(index),baseline_passed=passed,tuning_order=[r['case'] for r in todo],
+        target=target,width_changes_authorized=False,fixed=['Wm','Ws','Ls2','Ls3','a','g','material'],allowed=['Lm','Ls1'],
+        trust_region_mm=dict(Lm=.10,Ls1=.20),per_parent_geometry_cap=4,new_geometry_cap=172,Analyze_cap=2236,
+        per_geometry_Analyze_cap=13,temp=str(TEMP),cores_per_task=14,concurrent_tasks=1,pilot_parent=todo[0]['case'],
+        old_blind_results_preserved=True,new_curves_are_engineering_not_independent_blind=True))
+    new(ROOT/'runtime_registry.json',dict(contexts=[]))
+    shutil.copyfile(OUT/'fig8_B05_fix14_20261029/b05_corrector.py',ROOT/'b05_corrector.py')
+    shutil.copyfile(OUT/'fig8_theory_ml_20261028/common.py',ROOT/'common.py')
+    plan='''# Fig8原48项固定P/R达标调谐（新阶段）
+
+人类授权：把这些都仿真到能通过；最新明确两题均选第1项。固定Wm/Ws（名义P/R）、折臂a、间隔g及材料，只调Lm、Ls1。新工程放F盘本目录data，D盘独立solver_temp。原48项闭账和首次盲测结果完全保留，不重开旧队列，不操作均匀数据。
+
+## 固定验收目标
+主窗3.92–9.52GHz（5.6GHz），全窗S11≤−20dB且S21≥−2dB；三谷、中心6.72±0.03GHz、两内峰差≤0.5dB全部满足。不能改成5GHz，不把S21带宽或中心/峰差单独通过当联合达标。候选优化尝试留0.4dB反射裕量，但不是稳健性认证。
+
+## 顺序与有限预算
+原5项主窗通过直接复用，不重复仿真；43项逐一调谐，训练采集家族在前，旧前瞻家族在后。新结果是工程调谐，不再作为原模型的未见盲测，不更新原预测/成功率，不做代理模型重训。
+每项先2个长度探针：相对本项旧基准Ls1+0.10mm、Lm+0.05mm；由真实复数响应建立本项Jacobian。在全局|ΔLs1|≤0.20、|ΔLm|≤0.10mm内最多2个候选，C2用C1实测残差做缩放坐标Broyden秩1校正并缩短信赖域。每项最多4个新几何，全轮最多172几何/2236Analyze（上限而非预计；旧365次单独记账）。每几何≤12段自适应+1次插值扫频，技术失败不盲目重新提交。
+首个N17_A18必须先完成真实两探针/候选闭环并实际看图ACK；若首例无支持解，暂停批量扩展，诊断算法或请求更大长度范围，不能批量浪费43套探针。后续单项预算用尽而未通过要如实记局部搜索未找到解，不能据此证明物理不可达，也不能私自改宽度/扩大范围。
+
+## 原生数值设置与资源
+可见AEDT2024R2、受支持本机MCP7990；14核1任务1组，严格串行。实际100000–110000网格，已授权记录轻微超限≤112000。Setup19宽频0.1–15GHz自适应，MaxDeltaS=.005；Sweep1插值0.01–15GHz、输出步长.01GHz、插值容差1%、不强制无源化，2模/端口，原生基模S11/S21并导出4×4矩阵。不是48套直接频点/公差认证授权，不额外增加严格网格复核。
+F存储准入保守按剩余最大几何×.75GiB+19GiB；D临时区每阶段>15GiB。不得删除旧数据腾空间。工程准备先原生ReportSetup清本轮副本报表，再改几何/端口；不先初始化旧post、不创建空报表。准备后实际重开检查，冻结输入后才Analyze。
+
+## Hook与接续
+只终态发当前聊天01a0fbcf-3411-76f0-b776-08ded1ecd6f8。先review_phase_geometry，实际view_image，再acknowledge_review；设计是否通过以response_metrics.full_primary为准。正常求解不周期唤醒；终态消息后5分钟无新真实求解才通过受支持read_thread检查，中断才持久化去重唤醒。进程死亡独立observer不控制HFSS、不清锁。
+首两项监督完成前不放批量。跨上下文后继真实14核启动后才停旧完成心跳。已有state/释放marker不得重复派发；超时先检查原HFSS和缓存，不能把start_analysis超时当作原生求解未启动。用户暂停/取消优先，停本轮心跳和后继，不自行恢复/重启HFSS。
+
+## 交付
+逐项原始/修正后参数、固定P/R/a/g核验、完整主窗指标、实际曲线和网格、资源和成本、真实图审ACK和hook收据。48项全部达标才可写“全部达标”；只要有未达标就说明差距，不把“跑完”当成功。
+'''
+    (ROOT/'EXECUTION_PLAN.md').write_text(plan,encoding='utf-8')
+    new(ROOT/'CURRENT_STATUS.json',dict(at=now(),phase='offline_plan_ready',baseline_passed=5,awaiting_tuning=43,active=0,pilot='N17_A18',widths_fixed=True))
+    (ROOT/'CURRENT_STATUS.md').write_text('# 固定P/R调谐\n\n原5项主窗通过，43项待调谐；尚未启动新求解。首例N17_A18。\n',encoding='utf-8')
+    print(dict(original_passed=5,to_tune=43,pilot='N17_A18',Analyze_started=False))
+
+def make(parent,kind,geometries,decisions=None):
+    campaign=read(ROOT/'campaign.json');assert parent in campaign['tuning_order'] and kind in ('probes','c1','c2')
+    ctx=OUT/f'fig8_diag_{parent}_{kind}_20261109';base=ROOT/'data'/parent/kind
+    assert not ctx.exists() and not base.exists();ctx.mkdir();base.mkdir(parents=True)
+    suffixes=['S','M'] if kind=='probes' else ['D1']
+    assert len(geometries)==len(suffixes)
+    baseline=next(r for r in read(campaign['baseline_index'])['rows'] if r['case']==parent)
+    oldrun=Path(baseline['effective_run']);original=next(r for r in read(OLD48/'campaign_frozen.json')['cases'] if r['case']==parent)
+    ev={str(oldrun/n):sha(oldrun/n) for n in ['input.json','state.json','manifest.json','sparams.csv','convergence.txt','completion_event.json','receiver_ack.json','receiver_verification.json']}
+    assert read(oldrun/'receiver_ack.json')['visual_review_completed']
+    stage='T48_'+parent+'_'+kind.upper();rows=[]
+    for suffix,g in zip(suffixes,geometries):
+        r=copy.deepcopy(original);c=parent+'_'+suffix
+        r.update(case=c,parent_case=parent,role='engineering_tuning_not_blind',original_role=original['role'],geometry=g,initial_geometry=g,
+            category='fixed_PR_length_tuning_not_independent_test',run_dir=str(base/c/'g01_initial'),context=str(ctx),D_batch=None,
+            target=campaign['target'],parent_evidence_hashes=ev,original_source=str(oldrun),probe_stage=kind)
+        r['prepared_project']=str(base/c/'prepared'/f'{c}_{stage}_Prepared.aedt')
+        if decisions:r['correction_decision']=str(decisions);ev[str(decisions)]=sha(decisions)
+        rows.append(r)
+    order=[r['case'] for r in rows]
+    for f in TEMPLATE.glob('*.py'):
+        s=f.read_text(encoding='utf-8')
+        s=s.replace('from effective_budget_v3 import validate_campaign','from tuning_budget import validate_campaign')
+        lines=[]
+        for l in s.splitlines():
+            if l.startswith('sys.path.insert(0,') and 'fig8_next48_20261029' in l:l='sys.path.insert(0,'+repr(str(ROOT))+')'
+            if f.name=='phase_control.py':
+                if l.startswith('BASE='):l='BASE=Path('+repr(str(base))+')'
+                elif l.startswith('ORDER='):l='ORDER='+repr(order)
+            if f.name=='phase_geometry_context.py' and l.startswith('OLD='):l='OLD=Path('+repr(str(ROOT/'coordination'))+');status_report=status'
+            if f.name=='lifecycle_watch.py' and l.startswith('ROOT='):l="ROOT=Path(__file__).resolve().parent;BASE=Path("+repr(str(base))+')'
+            lines.append(l)
+        s='\n'.join(lines)+'\n'
+        s=s.replace("auth['stage']=='N48B08'",f"auth['stage']=={stage!r}")
+        s=s.replace("len(tasks)==ledger['new_geometry_reserved']<=6",f"len(tasks)==ledger['new_geometry_reserved']<={len(rows)}")
+        if f.name=='phase_control.py':s=s.replace('N48B08',stage)
+        if f.name=='configure_projects.py':
+            s=s.replace("Path('D:\\\\hfss_fig8_next48_20261029\\\\solver_temp')",'Path('+repr(str(TEMP))+')')
+        if f.name=='phase_geometry_worker.py':
+            needle='async def solve_stage(project, run, state, label, adaptive):'
+            strict='''_shape_analyze=analyze
+def analyze(path,f0=6.85):
+    from b05_corrector import load_curve,assess
+    metrics=_shape_analyze(path,f0=f0)
+    metrics['full_primary']=assess(*load_curve(path),read(HERE/'plan.json')['cases'][0]['target'])
+    return metrics
+def design_verdict(metrics):return bool(metrics['full_primary']['passed'])
+
+'''
+            s=s.replace(needle,strict+needle).replace('中心与等峰条件=', '原5.6GHz联合目标=')
+        if f.name=='lifecycle_watch.py':s=s.replace('继承48几何624Analyze预算','继承新固定P/R调谐预算（每原项最多4几何、全轮172几何2236Analyze），不重开原48')
+        if f.name=='phase_heartbeat.py':s=s.replace('48几何624Analyze','新阶段172几何2236Analyze，原48不可修改')
+        (ctx/f.name).write_text(s,encoding='utf-8')
+    # Desktop identity has no implicit replacement: known epoch3 only.
+    shutil.copyfile(OLD48/'desktop_epoch3_N23_20261030.json',ctx/'aedt_identity.json')
+    (ctx/'aedt_session_guard.py').write_text('''from pathlib import Path
+import psutil
+import phase_control as pc
+def verify():
+    identity=pc.read(pc.HERE/'aedt_identity.json');p=psutil.Process(identity['pid'])
+    assert p.is_running() and abs(p.create_time()-identity['created'])<.01 and p.name().lower()=='ansysedt.exe' and p.cmdline()==identity['command']
+    desktops=[x for x in psutil.process_iter(['name']) if (x.info['name'] or '').lower()=='ansysedt.exe'];assert len(desktops)==1
+    return identity
+def install(dc):
+    original=dc.app_for
+    def guarded(path):
+        verify();assert Path(path).resolve().is_relative_to(pc.BASE.resolve());return original(path)
+    dc.app_for=guarded
+''',encoding='utf-8')
+    (ctx/'desktop_preflight.py').write_text('''import asyncio,shutil
+import phase_control as pc
+from aedt_session_guard import verify
+async def main():
+    identity=verify()
+    from phase_geometry_worker import dc
+    assert not dc.solvers()
+    async with dc.connected_client() as client:
+        result=await dc.session_call(client,'check_aedt_connection',{'port':7990})
+    pc.write(pc.HERE/'mcp_connection_preflight.json',dict(at=pc.now(),connection=result,Analyze_requested=False))
+    print(dict(visible_existing_desktop_pid=identity['pid'],MCP_checked=True,Analyze_requested=False))
+if __name__=='__main__':asyncio.run(main())
+''',encoding='utf-8')
+    p=read(TEMPLATE/'plan.json');p.update(stage=stage,at=now(),initial_geometry_cap=len(rows),overall_geometry_cap=len(rows),cases=rows,
+       scope='New fixedP/R engineering tuning, not original48blind',old_blind_results_unchanged=True)
+    new(ctx/'plan.json',p)
+    for n in ['mesh_policy_addendum_v2.json','reference_validation.json']:
+        shutil.copyfile(TEMPLATE/n,ctx/n)
+    policy=read(TEMPLATE/'policy.json');policy.update(version=stage,user_authorization='把这些都仿真到能通过；固定P/R仅调长度，F工程/D临时',scope='New fixedP/R length tuning; original blind labels preserved',bounded_tuning='2probes+up to2candidates per parent, fixed widths/a/g, global deltaLs1<=.2/deltaLm<=.1')
+    new(ctx/'policy.json',policy)
+    new(ctx/'desktop_start.json',dict(at=now(),temp_directory=str(TEMP),port=7990,visible_requested=True,analyze_requested=False))
+    new(ctx/'authorization.json',dict(stage=stage,cases=order,configuration_authorized=True,execution_authorized=False,
+          launch_user_instruction='你把这些都仿真到能通过；都是（固定P/R，F盘工程/D临时）',geometry_cap=len(rows)))
+    new(ctx/'execution_plan.json',dict(parent=parent,new_geometry_cap=len(rows),geometry_Analyze_cap=13*len(rows),global_geometry_cap=172,global_Analyze_cap=2236,cores=14,serial=True))
+    new(ctx/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    cfg=read(TEMPLATE/'hook/config.json');cfg['state_dir']=str(ctx/'hook/state');new(ctx/'hook/config.json',cfg)
+    new(ctx/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_terminal'))
+    (ROOT/'coordination').mkdir(exist_ok=True)
+    parents={**ev,str(ROOT/'campaign.json'):sha(ROOT/'campaign.json'),str(ROOT/'EXECUTION_PLAN.md'):sha(ROOT/'EXECUTION_PLAN.md'),
+         str(ROOT/'tuning_budget.py'):sha(ROOT/'tuning_budget.py'),str(Path(__file__)):sha(__file__),
+         str(ROOT/'b05_corrector.py'):sha(ROOT/'b05_corrector.py'),str(ROOT/'common.py'):sha(ROOT/'common.py'),
+         str(OLD48/'ACQUISITION_CLOSURE_V4.json'):sha(OLD48/'ACQUISITION_CLOSURE_V4.json')}
+    new(ctx/'parent_evidence.json',dict(hashes=parents))
+    (ctx/'CONTINUATION.md').write_text(f'''# 固定P/R达标调谐：{parent} {kind}
+先读{ROOT/'EXECUTION_PLAN.md'}和{ROOT/'CURRENT_STATUS.json'}，尊重最新暂停/取消。此上下文为新阶段，原48闭账不可改；Wm/Ws/Ls2/Ls3固定，只调Lm/Ls1。ORDER={order}；F工程、D临时；14核串行、10–11万网格（≤11.2万记录）。
+终态后先review_phase_geometry.py --run RUN，实际view_image看图，再acknowledge_review.py --run RUN --visual-reviewed --note实际联合目标结论。response_metrics.full_primary才是3.92–9.52GHz完整−20dB目标，不能只用三谷/中心/峰差。探针失败只是有效开发数据，不伪造通过。
+完成实际ACK后运行{ROOT/'continue_tuning.py'} --context {ctx}。它审核本上下文所有ACK；若还有未启动项仅给出唯一后继，须用本目录launch_one.py --case CASE并保持到真实14核hf3d/observer证据写出。不存在自动看图ACK。两个探针全ACK后才允许本项候选，候选预测不是仿真达标；C1/C2都须实测。每原项最多4新几何（2探针+2候选），全轮172/2236上限；无支持解/预算尽则如实报告，不私改P/R/窗口/搜索半径。
+首例{read(ROOT/'campaign.json')['pilot_parent']}有真实完整目标通过及图审ACK后才可放剩余批量；首例无解暂停扩展。旧前瞻点的调谐结果标工程开发，不覆盖首次盲测或训练原预测模型。
+启动/配置前验证唯一已知7990桌面PID/创建时间/命令，无其他hf3d；已有state/释放记录不重派；超时先查原生进程与缓存，MCP超时不等于未开始；不清工程锁，不自动重启。
+终态hook发当前聊天，运行中静默。通知5分钟无后继才检查对话中断并去重唤醒；不要手工发送第二条继续。跨上下文后继真实开始后停旧心跳。本轮已通过5项保留，不重算原/均匀/旧B05/C9。全部48均完整通过才可称全部达标。
+''',encoding='utf-8')
+    (ctx/'phase_geometry_publish.py').write_text('''from phase_control import HERE,TARGET,ORDER,read,write,now
+from phase_publish import hook
+def prompt(event,path):
+    return (f'[Fig8固定P/R达标调谐终态] {path}\\n{event["summary"]}\\n'
+      f'先读{HERE/"CONTINUATION.md"}。这是新阶段，不重开原48。14核串行，P/R/a/g固定，仅Lm/Ls1。'
+      '先review_phase_geometry、实际view_image、acknowledge_review，再continue_tuning.py。完整−20dB固定5.6GHz目标以full_primary为准。'
+      '每原项最多4新几何，全轮172几何2236Analyze；失败先查进程/缓存，不重复Analyze、不清锁、不自动重启。正常运行静默，用户暂停优先。')
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='New fixedP/R length engineering tuning, not independent blind test')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt
+''',encoding='utf-8')
+    registry=read(ROOT/'runtime_registry.json');registry['contexts'].append(dict(context=str(ctx),base=str(base),parent=parent,kind=kind,plan_sha256=sha(ctx/'plan.json')))
+    write(ROOT/'runtime_registry.json',registry)
+    for f in ctx.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    validate_campaign(storage=False)
+    print(dict(context=str(ctx),cases=order,Analyze_started=False));return ctx
+
+def probes(parent):
+    c=read(ROOT/'campaign.json');base=next(r for r in read(c['baseline_index'])['rows'] if r['case']==parent)
+    a=copy.deepcopy(base['geometry_mm']);b=copy.deepcopy(a);a['Ls1']+=.10;b['Lm']+=.05
+    return make(parent,'probes',[a,b])
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('action',choices=['init','probes']);p.add_argument('--parent');a=p.parse_args()
+    if a.action=='init':init()
+    else:assert a.parent;probes(a.parent)

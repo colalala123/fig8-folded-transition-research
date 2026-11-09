@@ -1,0 +1,253 @@
+{
+  "status": "exploratory_response_calibration_not_geometry_prediction",
+  "derivation": {
+    "normalized_series_impedance_each_arm": "Z=-j*zm*cot(theta_m)",
+    "normalized_shunt_admittance": "Y=-2j*cot(theta_s)/zs",
+    "ABCD": "series(Z) @ shunt(Y) @ series(Z)",
+    "characteristic_function": "F=(B-C)/2=j*(-zm*um+(zm^2*um^2+1)*us/zs)",
+    "phase_definitions": "um=cot(pi*f/(2*fm)), us=cot(pi*f/(2*fs))",
+    "uniform_limit": "fm=fs reduces algebraically to the paper characteristic function."
+  },
+  "fixed_fit_band_GHz": [
+    3.8,
+    9.6
+  ],
+  "objective": "Unweighted S11 linear magnitude error; S21 was not fitted.",
+  "limitations": [
+    "The extra phase parameter makes this a more flexible fitted model, not an independent proof.",
+    "No geometry-to-phase map, physical local impedance, or total-loss law is identified by this fit.",
+    "The model assumes lossless symmetric T sections and linear phase versus frequency.",
+    "P_circuit_fit and R_circuit_fit are fitted T-network coefficients; they are not formal peak/BW-extracted labels.",
+    "A prediction for a new phase-corrected geometry still requires an independent HFSS solve."
+  ],
+  "rows": [
+    {
+      "case": "F2",
+      "curve_sha256": "1bd83fe09456d3f25e4cc296dd32c10c524b2dbefd136ace6ed2e9bc9cb6a07e",
+      "equal_phase_3_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.133088469159334,
+          "R_circuit_fit": 0.7771478329090385,
+          "f0_GHz": 6.709167961911882
+        },
+        "S11_magnitude_RMSE": 0.025130254561423454,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 2.0679520719247497,
+        "all_start_RMSE": [
+          0.025130254561423454,
+          0.025130254561426597,
+          0.025130254561424703
+        ],
+        "parameters_at_bounds": false
+      },
+      "separate_phase_4_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.170972454425208,
+          "R_circuit_fit": 0.7755854459733539,
+          "fm_GHz": 6.7607531947646216,
+          "fs_GHz": 6.658178600802923
+        },
+        "S11_magnitude_RMSE": 0.010369223140710385,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 3.125320577293043,
+        "all_start_RMSE": [
+          0.010442129844044908,
+          0.01036922314071039,
+          0.010369223140710385
+        ],
+        "parameters_at_bounds": false
+      },
+      "relative_fit_RMSE_reduction": 0.5873808951928483
+    },
+    {
+      "case": "B0",
+      "curve_sha256": "8ded91edfe45e2510cc07db0b8f6437fd2489761f962c7af6c7ffc9f3392eee0",
+      "equal_phase_3_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.1236907722874587,
+          "R_circuit_fit": 0.8210111740661133,
+          "f0_GHz": 6.718313194593395
+        },
+        "S11_magnitude_RMSE": 0.007055600393345835,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 2.1781959400061046,
+        "all_start_RMSE": [
+          0.007055600393345838,
+          0.007055600393345835,
+          0.007055600393345838
+        ],
+        "parameters_at_bounds": false
+      },
+      "separate_phase_4_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.1234801032893227,
+          "R_circuit_fit": 0.8210053630738424,
+          "fm_GHz": 6.718001049881716,
+          "fs_GHz": 6.718578248442229
+        },
+        "S11_magnitude_RMSE": 0.007054363012790325,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 3.153182613306731,
+        "all_start_RMSE": [
+          0.0070543630127903245,
+          0.007054363012790341,
+          0.00705436301279033
+        ],
+        "parameters_at_bounds": false
+      },
+      "relative_fit_RMSE_reduction": 0.00017537565714131897
+    },
+    {
+      "case": "F3",
+      "curve_sha256": "c39f4cbf7f2205aebc7e2f4929d758cc718eba097b67f619e37289d807301233",
+      "equal_phase_3_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.0795457252541714,
+          "R_circuit_fit": 0.875490184882061,
+          "f0_GHz": 6.738046876425858
+        },
+        "S11_magnitude_RMSE": 0.01754947619329798,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 2.2698916188806892,
+        "all_start_RMSE": [
+          0.01755503255570541,
+          0.01755503255570558,
+          0.01754947619329798
+        ],
+        "parameters_at_bounds": false
+      },
+      "separate_phase_4_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.0537504648696085,
+          "R_circuit_fit": 0.8757110972606624,
+          "fm_GHz": 6.6980503409222685,
+          "fs_GHz": 6.770683765752405
+        },
+        "S11_magnitude_RMSE": 0.005594985323417924,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 3.1662045232363676,
+        "all_start_RMSE": [
+          0.00559498532341793,
+          0.005594985323417924,
+          0.005594985323417922
+        ],
+        "parameters_at_bounds": false
+      },
+      "relative_fit_RMSE_reduction": 0.6811879020323918
+    },
+    {
+      "case": "G035",
+      "curve_sha256": "ea2717c548e7a32ff8ba24cdb2041332c8ad76e2495a43390d0395d6a5150e28",
+      "equal_phase_3_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.145309323862703,
+          "R_circuit_fit": 0.822517035074559,
+          "f0_GHz": 6.743092239985275
+        },
+        "S11_magnitude_RMSE": 0.012688934155867745,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 2.0840967074951737,
+        "all_start_RMSE": [
+          0.012688934155867814,
+          0.012688934155867745,
+          0.012688934155867757
+        ],
+        "parameters_at_bounds": false
+      },
+      "separate_phase_4_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.127599488117923,
+          "R_circuit_fit": 0.8253491130213637,
+          "fm_GHz": 6.720239719664382,
+          "fs_GHz": 6.77004709609882
+        },
+        "S11_magnitude_RMSE": 0.00591063552354169,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 3.1023742402367676,
+        "all_start_RMSE": [
+          0.00591063552354169,
+          0.005921973547956711,
+          0.005921973547956703
+        ],
+        "parameters_at_bounds": false
+      },
+      "relative_fit_RMSE_reduction": 0.534189755346123
+    },
+    {
+      "case": "G2",
+      "curve_sha256": "1b65294bf395e8619924decbe26e2a631c6f29fc1d500b5212b4fa5ff62fb031",
+      "equal_phase_3_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.077779868331124,
+          "R_circuit_fit": 0.8486332165925239,
+          "f0_GHz": 6.641399625716092
+        },
+        "S11_magnitude_RMSE": 0.02685317692956601,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 2.7078901000474316,
+        "all_start_RMSE": [
+          0.02685317692956612,
+          0.026853176929566302,
+          0.026853176929566007
+        ],
+        "parameters_at_bounds": false
+      },
+      "separate_phase_4_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.114775808608375,
+          "R_circuit_fit": 0.8331243029260552,
+          "fm_GHz": 6.708298100010679,
+          "fs_GHz": 6.592777130105068
+        },
+        "S11_magnitude_RMSE": 0.006547015734502818,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 3.373678971903241,
+        "all_start_RMSE": [
+          0.006547015734502818,
+          0.006547015734502824,
+          0.0065470157345028255
+        ],
+        "parameters_at_bounds": false
+      },
+      "relative_fit_RMSE_reduction": 0.7561921350432697
+    },
+    {
+      "case": "T_G035",
+      "curve_sha256": "d47ba560403de26aaf81c434d1c0c89032ba7336f148cecce60b06977524511b",
+      "equal_phase_3_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.128842731691554,
+          "R_circuit_fit": 0.8137192973813049,
+          "f0_GHz": 6.717521028537694
+        },
+        "S11_magnitude_RMSE": 0.008216545044064213,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 2.1566092224822824,
+        "all_start_RMSE": [
+          0.008216545044064215,
+          0.008216545044064218,
+          0.008216545044064213
+        ],
+        "parameters_at_bounds": false
+      },
+      "separate_phase_4_parameters": {
+        "parameters": {
+          "P_circuit_fit": 2.130769844005238,
+          "R_circuit_fit": 0.8137722822771377,
+          "fm_GHz": 6.720390570391059,
+          "fs_GHz": 6.71512442121388
+        },
+        "S11_magnitude_RMSE": 0.008129025476838227,
+        "optimizer_success": true,
+        "jacobian_condition_number_raw_units": 3.146282481618812,
+        "all_start_RMSE": [
+          0.008129025476838228,
+          0.008129025476838227,
+          0.008129025476838235
+        ],
+        "parameters_at_bounds": false
+      },
+      "relative_fit_RMSE_reduction": 0.010651626292636496
+    }
+  ]
+}

@@ -1,0 +1,72 @@
+{
+  "stage": "IV1_20261109",
+  "at": "2026-11-09T05:12:41.201227+00:00",
+  "seed": "F:\\hfss_f8_261002\\B0\\B0.aedt",
+  "seed_sha256": "95ab17f8078e39ad35884a824360e7b5dd3f26afa404089077c3b0d65b9bf06b",
+  "prediction_source": "${WORKSPACE}\\output\\fig8_inverse_case1_20261109\\PREDICTION_FROZEN.json",
+  "prediction_source_sha256": "351eed5149e26afad2a7dab8c43825dea15834c9dcd9e635f491b37c3a83df78",
+  "training_source": "${WORKSPACE}\\output\\fig8_response_v2_20261109\\DATASET.json",
+  "training_source_sha256": "a6b20e5ab2dacdfd5dd74dbc17125f12d0fb4ad9f8d54190beb382a0b2ec9cbc",
+  "source_validation_result": "${WORKSPACE}\\output\\fig8_response_v2_20261109\\CURVE_GATE.json",
+  "source_validation_sha256": "689d78e2e59a11554c339c8511c918200a13cc97ed318de905724713a6f46686",
+  "initial_geometry_cap": 1,
+  "overall_geometry_cap_per_case": 1,
+  "overall_geometry_cap": 1,
+  "predictions_refitted": false,
+  "cases": [
+    {
+      "case": "INV01_A14",
+      "group": "INV01",
+      "family_id": "INV01",
+      "role": "single_prospective_inverse_validation",
+      "ordinal": 1,
+      "batch": 1,
+      "context": "${WORKSPACE}\\output\\fig8_inverse_case1_runtime_20261109",
+      "D_batch": null,
+      "run_dir": "${WORKSPACE}\\output\\fig8_inverse_case1_20261109\\data\\INV01_A14\\g01_initial",
+      "target_P": 2.0489487194444234,
+      "target_R": 0.44744305689527486,
+      "P_nominal": 2.0489487194444234,
+      "R_nominal": 0.44744305689527486,
+      "a_mm": 1.4,
+      "g_mm": 0.55,
+      "geometry": {
+        "Wm": 1.9136201833872932,
+        "Ws": 0.34596701899421023,
+        "Lm": 6.584499793266415,
+        "Ls1": 12.619994699196244,
+        "Ls2": 1.2419340379884205,
+        "Ls3": 1.74596701899421
+      },
+      "initial_geometry": {
+        "Wm": 1.9136201833872932,
+        "Ws": 0.34596701899421023,
+        "Lm": 6.584499793266415,
+        "Ls1": 12.619994699196244,
+        "Ls2": 1.2419340379884205,
+        "Ls3": 1.74596701899421
+      },
+      "category": "new_geometry_frozen_prediction_not_refit_after_HFSS",
+      "target": {
+        "f_low_GHz": 3.92,
+        "f_high_GHz": 9.52,
+        "BW_GHz": 5.6,
+        "S11_max_dB": -20,
+        "S21_min_dB": -2
+      },
+      "parent_case": "INV01",
+      "original_role": "new_prospective_candidate",
+      "parent_evidence_hashes": {
+        "${WORKSPACE}\\output\\fig8_inverse_case1_20261109\\PREDICTION_FROZEN.json": "351eed5149e26afad2a7dab8c43825dea15834c9dcd9e635f491b37c3a83df78"
+      },
+      "original_source": null,
+      "probe_stage": "single_inverse",
+      "prepared_project": "${WORKSPACE}\\output\\fig8_inverse_case1_20261109\\data\\INV01_A14\\prepared\\INV01_A14_IV1_20261109_Prepared.aedt",
+      "correction_decision": "${WORKSPACE}\\output\\fig8_inverse_case1_20261109\\PREDICTION_FROZEN.json"
+    }
+  ],
+  "scope": "one new width geometry within existing development hull; not old batch resume; no automatic retuning/retry",
+  "study_plan": "${WORKSPACE}\\output\\fig8_inverse_case1_20261109\\EXECUTION_PLAN.md",
+  "study_plan_sha256": "4caef8c282e0e054534bf1797e354f21fa490f79df7645e2942a13b4551f73f2",
+  "old_blind_results_unchanged": true
+}

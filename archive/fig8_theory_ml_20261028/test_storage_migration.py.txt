@@ -1,0 +1,63 @@
+import ast
+import unittest
+from pathlib import Path
+import storage_routes as r
+
+
+class StorageMigrationTests(unittest.TestCase):
+    def test_completed_data_stays_on_J(self):
+        for case in r.ORDER[:2]:
+            self.assertEqual(r.probe_run(case).drive.upper(), 'J:')
+            self.assertTrue((r.probe_run(case) / 'receiver_ack.json').exists())
+
+    def test_remaining_probes_and_scratch_are_on_D(self):
+        for case in r.ORDER[2:]:
+            self.assertEqual(r.probe_run(case).drive.upper(), 'D:')
+        for path in [r.TEMP, r.CANDIDATE_BASE, r.DIRECT_BASE]:
+            self.assertEqual(path.drive.upper(), 'D:')
+
+    def test_preserved_inputs_and_events_hash_match(self):
+        self.assertEqual(r.verify_migration()['previous_Analyze_for_failed_attempt'], 0)
+
+    def test_no_geometry_change(self):
+        old = {x['case']: x for x in r.read(r.OLD_CONTEXT / 'plan.json')['cases']}
+        new = r.read(r.PROBE_ROOT / 'plan.json')['cases']
+        self.assertEqual([x['case'] for x in new], r.ORDER[2:])
+        for row in new:
+            for key in ['geometry', 'target', 'target_P', 'target_R', 'a_mm', 'g_mm', 'probe']:
+                self.assertEqual(row[key], old[row['case']][key])
+
+    def test_failed_preflight_not_counted_as_new_geometry(self):
+        count = r.validate_development()
+        self.assertEqual(count['migration_preflight_failure_Analyze'], 0)
+        self.assertEqual(count['development_geometry_cap'], 9)
+        self.assertEqual(count['development_Analyze_cap'], 141)
+        with self.assertRaises(AssertionError):
+            r.validate_development(extra_analyze=142)
+
+    def test_old_queue_closed_not_false_study_completion(self):
+        closure = r.read(r.OLD_CONTEXT / 'closure.json')
+        self.assertEqual(closure['disposition'], 'storage_handoff_not_study_complete')
+        self.assertTrue(closure['restart_old_queue_forbidden'])
+
+    def test_new_runtime_and_adapters_parse(self):
+        for file in list(r.PROBE_ROOT.glob('*.py')) + list(r.ROOT.glob('*_D.py')):
+            ast.parse(file.read_text(encoding='utf-8'), filename=str(file))
+        candidate = (r.ROOT / 'prepare_candidates_D.py').read_text(encoding='utf-8')
+        self.assertIn('check_probe_reviews()', candidate)
+        self.assertIn("rs=probe_run(case+'S');rm=probe_run(case+'M')", candidate)
+        final = (r.ROOT / 'prepare_final_review_D.py').read_text(encoding='utf-8')
+        self.assertIn('BASE=DIRECT_BASE', final)
+        self.assertNotIn('J:/f8_MLD_261028', final)
+
+    def test_temp_path_checked_and_retry_recorded(self):
+        configure = (r.PROBE_ROOT / 'configure_projects.py').read_text(encoding='utf-8')
+        self.assertIn('app.set_temporary_directory(temp_target)', configure)
+        worker = (r.PROBE_ROOT / 'phase_geometry_worker.py').read_text(encoding='utf-8')
+        self.assertIn('validate_development(extra_analyze=1)', worker)
+        finalize = (r.PROBE_ROOT / 'finalize_and_authorize.py').read_text(encoding='utf-8')
+        self.assertIn("spec['technical_recovery_attempt']=1 if case=='B05S' else 0", finalize)
+
+
+if __name__ == '__main__':
+    unittest.main()

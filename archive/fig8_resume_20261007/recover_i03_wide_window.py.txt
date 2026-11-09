@@ -1,0 +1,145 @@
+"""Explicit, single-attempt layout review for D04G05/i03; no precision change.
+
+The original high window is retained and expanded to include this attempt's
+two observed impedance branches plus the original 0.15 GHz guards. This is
+not a general relaxation of the frozen same-port planner.
+"""
+import argparse, asyncio, json, os, shutil
+from pathlib import Path
+import numpy as np
+import run_same_port_recovery_io as io
+from export_modal_segment import load_segment
+from check_external_normalization import transform
+
+r = io.r
+ATTEMPT = r.ROOT / 'D04G05/i03'
+HERE = Path(__file__).resolve().parent
+REVIEW = HERE / 'i03_wide_window_review.json'
+ORIGINAL_LAYOUT = r.frequency_layout
+ORIGINAL_PLAN = io.v2.plan
+ORIGINAL_SNAPSHOT = r.snapshot
+
+
+def derive():
+    manifest = r.read(ATTEMPT / 'manifest.json')
+    assert manifest['status'] == 'numerical_or_port_review_required'
+    assert manifest['convergence']['converged'] and manifest['convergence']['final_delta_s'] <= .005
+    assert manifest['sweep_converged'] and manifest['source_unchanged']
+    assert r.read(ATTEMPT / 'port_review.json')['passed']
+    assert not r.read(ATTEMPT / 'normalization_recovery_review.json')['passed']
+    try:
+        ORIGINAL_LAYOUT(ATTEMPT)
+    except AssertionError as error:
+        assert str(error) == 'High-band branch region requires a separately reviewed wider plan'
+    else:
+        raise AssertionError('This override is only for the documented i03 layout rejection')
+    f, s, z, _ = load_segment(ATTEMPT)
+    assert len(f) == 1500 and np.allclose(f, np.arange(1,1501)/100, rtol=0, atol=1e-9)
+    events = []
+    for idx, mode in [(1,'1:2'),(3,'2:2')]:
+        v = z[:,idx]
+        change = abs(np.diff(v))/np.maximum(np.minimum(abs(v[:-1]),abs(v[1:])),1.)
+        for i in np.where(change > .20)[0]:
+            key = int(i)+2
+            if key >= 1200:
+                events.append({'mode':mode,'GHz':key/100,'relative_adjacent_Zo_change':float(change[i])})
+    lower = min([1420] + [round(e['GHz']*100)-15 for e in events])
+    upper = max([1460] + [round(e['GHz']*100)+15 for e in events])
+    assert (lower,upper) == (1269,1460), 'New evidence requires another explicit review'
+    fixed = transform(s,z,'traveling')
+    residual = np.max(abs(fixed-fixed.transpose(0,2,1)),axis=(1,2))
+    bad = np.where(residual > 1e-6)[0]
+    worst = int(np.argmax(residual))+1
+    assert worst == 828 and len(bad) == 263
+    anchors = [1,300,600,801,828,832,853,875,900,1100,1141,1200,1300,1480,1500]
+    windows = [(930,965),(lower,upper)]
+    segments = {'Low':(1,930),'Middle':(965,lower),'Upper':(upper,1500)}
+    points = sorted(set(anchors) | {k for lo,hi in windows for k in range(lo,hi+1)})
+    assert all(sum(lo <= k <= hi for k in points) >= 3 for lo,hi in segments.values())
+    assert all(any(lo <= round(e['GHz']*100)-15 and hi >= round(e['GHz']*100)+15 for lo,hi in windows) for e in events)
+    files = [ATTEMPT/n for n in ['manifest.json','prediction_frozen.json','all_modes_sparams.csv',
+        'mode_impedance_gamma.csv','normalization_recovery_review.json','port_review.json','state.json']]
+    files += [r.ROOT/'continue_recovery_i03_v2.log', Path(__file__).resolve()]
+    return {'review_id':'D04G05_i03_explicit_wide_window_20261008',
+        'attempt':str(ATTEMPT),'windows_indices':windows,'segments_indices':segments,'direct_indices':points,
+        'high_window_width_GHz':(upper-lower)/100,'original_limit_GHz':1.5,
+        'retains_original_windows':True,'observed_high_Zo_jumps':events,'guard_GHz':.15,
+        'original_reciprocity':{'maximum':float(residual.max()),'worst_GHz':worst/100,
+            'violating_points':len(bad),'frequency_range_GHz':[float(f[bad[0]]),float(f[bad[-1]])]},
+        'reason':'The old 14.20–14.60 GHz window plus newly observed 12.84–13.54 GHz branches needs a 12.69–14.60 GHz direct window. Retain both old windows; independently check 8.28 GHz worst reciprocity and remaining interpolation segments.',
+        'precision_and_acceptance_unchanged':True,'phase_solves_added':0,'production_approved':False,
+        'evidence_hashes':{str(p):r.sha(p) for p in files}}
+
+
+def validate_review():
+    review = r.read(REVIEW); r.hashes(review['evidence_hashes'])
+    expected = json.loads(json.dumps(derive()))
+    assert review == expected, 'Layout review or source evidence changed'
+    return review
+
+
+def reviewed_layout(attempt):
+    assert Path(attempt).resolve() == ATTEMPT
+    review = validate_review()
+    evidence = {'source':str(ATTEMPT/'mode_impedance_gamma.csv'),
+        'sha256':r.sha(ATTEMPT/'mode_impedance_gamma.csv'),
+        'observed_high_Zo_jumps':review['observed_high_Zo_jumps'],'guard_GHz':.15,
+        'original_export_available':True,'explicit_layout_review':str(REVIEW),
+        'explicit_layout_review_sha256':r.sha(REVIEW),
+        'note':'Case-specific wider direct window; original planner refusal retained. No precision or numerical gate change.'}
+    return review['windows_indices'],review['segments_indices'],review['direct_indices'],evidence
+
+
+def reviewed_plan(attempt):
+    result = ORIGINAL_PLAN(attempt)
+    result['layout_review_id'] = validate_review()['review_id']
+    for p in [Path(__file__).resolve(),REVIEW]:result['implementation_hashes'][str(p)] = r.sha(p)
+    return result
+
+
+def install():
+    r.frequency_layout = reviewed_layout
+    io.v2.plan = reviewed_plan
+    r.snapshot = snapshot_with_metadata_dir
+
+
+def snapshot_with_metadata_dir(attempt, base, project, plan):
+    # The I/O journal creates the folder before the frozen snapshot routine.
+    # Supply only its expected preparation files, then run every original
+    # cached-curve, cutoff, source and mesh check without alteration.
+    assert Path(attempt).resolve() == ATTEMPT
+    assert {p.name for p in base.iterdir()} == {'metadata_io_adapter.json'}
+    journal = r.read(base/'metadata_io_adapter.json')
+    assert journal['status']=='running' and journal['kind']=='new_diagnostic'
+    assert journal['pid']==os.getpid() and journal['plan_at_start']==plan
+    assert journal['recipe_invocations']==1
+    source = Path(r.read(attempt/'manifest.json')['project'])
+    assert not project.exists()
+    r.write_json(base/'plan.json',plan)
+    shutil.copy2(source,project)
+    ORIGINAL_SNAPSHOT(attempt,base,project,plan)
+
+
+def validate_candidate_plan():
+    install(); expected = reviewed_plan(ATTEMPT)
+    base = r.ROOT/'local_repair/D04G05_i03'
+    assert r.read(base/'plan.json') == expected
+    assert r.read(base/'metadata_io_adapter.json')['plan_at_start'] == expected
+    return expected
+
+
+if __name__ == '__main__':
+    parser=argparse.ArgumentParser();group=parser.add_mutually_exclusive_group()
+    group.add_argument('--prepare-review',action='store_true');group.add_argument('--run',action='store_true')
+    args=parser.parse_args()
+    if args.prepare_review:
+        value=derive()
+        with REVIEW.open('x',encoding='utf-8') as stream:json.dump(value,stream,indent=2)
+        print(json.dumps({'review':str(REVIEW),'points':len(value['direct_indices']),'windows':value['windows_indices']},indent=2))
+    else:
+        validate_review();install()
+        if args.run:asyncio.run(io.run(ATTEMPT))
+        else:
+            base,plan,kind=io.readiness(ATTEMPT)
+            print(json.dumps({'ready':True,'points':len(plan['direct_frequencies_GHz']),
+                'windows_GHz':plan['windows_GHz'],'segments_GHz':plan['segments_GHz'],'kind':kind},indent=2))

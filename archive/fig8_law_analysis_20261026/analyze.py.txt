@@ -1,0 +1,246 @@
+"""Read-only analysis of frozen effective Fig8 data. No HFSS or hook calls.
+
+Use bundled Python/NumPy. Analysis outputs are separate from frozen evidence.
+All validation is retrospective grouped cross-validation, not a new experiment.
+"""
+from pathlib import Path
+import csv
+import hashlib
+import json
+import sys
+import numpy as np
+
+sys.stdout.reconfigure(encoding='utf-8')
+ROOT = Path(__file__).resolve().parent
+SOURCE = ROOT.parent / 'fig8_remediation_C3_20261025/deliverables'
+TRACK = {}
+
+def read(p):
+    p = Path(p)
+    b = p.read_bytes()
+    TRACK[str(p)] = hashlib.sha256(b).hexdigest()
+    return json.loads(b)
+
+def write(name, data):
+    (ROOT/name).write_text(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
+
+data = read(SOURCE/'effective_all24_results.json')
+curves = read(SOURCE/'effective_selected_curves.json')['curves']
+manifest = read(SOURCE/'manifest.json')
+for name in ['effective_all24_results.json', 'effective_selected_curves.json']:
+    assert hashlib.sha256((SOURCE/name).read_bytes()).hexdigest() == manifest['files'][name]
+rows = data['rows']
+assert len(rows) == len({r['case'] for r in rows}) == 24
+assert all(r['included_in_accepted_subset'] for r in rows)
+curves = {c['case']: c for c in curves}
+
+def bandwidth(f, s, threshold=-2):
+    # Continuous region around 6.72 GHz, with linearly interpolated crossings.
+    center = np.argmin(abs(f-6.72))
+    assert s[center] >= threshold
+    left = right = center
+    while left > 0 and s[left-1] >= threshold:
+        left -= 1
+    while right < len(f)-1 and s[right+1] >= threshold:
+        right += 1
+    assert left > 0 and right < len(f)-1
+    def cross(i,j):
+        return float(f[i] + (threshold-s[i])*(f[j]-f[i])/(s[j]-s[i]))
+    lo, hi = cross(left-1,left), cross(right,right+1)
+    return lo,hi,hi-lo
+
+flat = []
+recompute_errors = []
+for r in rows:
+    case = r['case']
+    g, m, c = r['geometry_mm'], r['selected_curve_metrics'], curves[case]
+    assert c['source_sha256'] == r['selected_curve_sha256']
+    f = np.array(c['frequency_GHz'])
+    # Key names are explicitly checked against the frozen bundle schema.
+    s21 = np.array(c['S21_dB'])
+    s11 = np.array(c['S11_dB'])
+    assert len(f) == len(s21) == len(s11) == 1500
+    assert np.all(np.isfinite(f)) and np.all(np.isfinite(s21)) and np.all(np.isfinite(s11))
+    lo,hi,bw = bandwidth(f,s21)
+    error = abs(bw - m['passband_2dB']['BW_GHz'])
+    recompute_errors.append(error)
+    assert error < 1e-10
+    native = r['source_reference'].get('normalization_recovery_review') is None
+    mesh = r.get('actual_elements')
+    a = g['Ls3']-g['Ws']
+    gap = g['Ls2']-2*g['Ws']
+    assert abs(gap-.55) < 1e-9
+    d = dict(case=case, group=case[:3], **g, a=a, gap=gap,
+             path=g['Ls1']+2*g['Ls2']+2*g['Ls3']-4*g['Ws'],
+             BW_GHz=bw, joint_BW_GHz=m['passband_joint']['BW_GHz'],
+             f_low_GHz=lo, f_high_GHz=hi, central_GHz=m['central_valley_GHz'],
+             band_center_GHz=(lo+hi)/2,
+             peak_level_dB=m['peak_level_dB'], peak_difference_dB=m['peak_difference_dB'],
+             min_S21_between_valleys_dB=m['min_S21_between_valleys_dB'],
+             min_S21_fixed_4to9_dB=float(s21[(f>=4)&(f<=9)].min()),
+             mean_S21_fixed_4to9_dB=float(s21[(f>=4)&(f<=9)].mean()),
+             P_response=(m.get('formal_response_PR') or {}).get('P_response'),
+             R_BW=(m.get('formal_response_PR') or {}).get('R_BW'),
+             mesh=mesh, no_reference_recovery=native,
+             near_100k_native=bool(native and mesh and 100000 <= mesh <= 112000),
+             acceptance_tier=r['acceptance_tier'])
+    flat.append(d)
+
+n = len(flat)
+Wm = np.array([d['Wm'] for d in flat])
+Ws = np.array([d['Ws'] for d in flat])
+A = np.array([d['a'] for d in flat])
+U, V, H = np.log(Wm/1.2), np.log(Ws/.44), A-1.6
+one = np.ones(n)
+models = {
+    'mean': (['intercept'], [one]),
+    'width_linear': (['intercept','Wm-1.2','Ws-.44'], [one,Wm-1.2,Ws-.44]),
+    'log_width_sum': (['intercept','ln(Wm/1.2)+ln(Ws/.44)'],[one,U+V]),
+    'log_width_difference': (['intercept','ln(Wm/1.2)-ln(Ws/.44)'],[one,U-V]),
+    'log_widths': (['intercept','ln(Wm/1.2)','ln(Ws/.44)'], [one,U,V]),
+    'log_widths_arm': (['intercept','ln(Wm/1.2)','ln(Ws/.44)','a-1.6'],[one,U,V,H]),
+    'log_widths_interaction': (['intercept','ln(Wm/1.2)','ln(Ws/.44)','log_width_product','a-1.6'],[one,U,V,U*V,H]),
+    'quadratic_widths_arm': (['intercept','Wm-1.2','Ws-.44','(Wm-1.2)^2','(Ws-.44)^2','width_product','a-1.6'],[one,Wm-1.2,Ws-.44,(Wm-1.2)**2,(Ws-.44)**2,(Wm-1.2)*(Ws-.44),H]),
+}
+
+def scores(y,p):
+    e = p-y
+    return dict(MAE=float(np.mean(abs(e))),RMSE=float(np.sqrt(np.mean(e*e))),
+                max_abs=float(np.max(abs(e))),R2=float(1-np.sum(e*e)/np.sum((y-y.mean())**2)))
+
+def fitcv(X,y,groups,mask):
+    pred = np.full(n,np.nan)
+    folds=[]
+    for group in sorted(set(groups[mask])):
+        test=mask & (groups==group)
+        train=mask & (groups!=group)
+        beta,_,rank,_=np.linalg.lstsq(X[train],y[train],rcond=None)
+        if rank < X.shape[1]:
+            return dict(unidentifiable=True, reason='rank-deficient training fold', group=str(group))
+        pred[test]=X[test]@beta
+        fs = scores(y[test],pred[test]) if np.ptp(y[test]) else {'max_abs':float(np.max(abs(pred[test]-y[test])))}
+        folds.append(dict(group=str(group),test_cases=[flat[i]['case'] for i in np.flatnonzero(test)], **fs))
+    sc=scores(y[mask],pred[mask])
+    sc['predictions']={flat[i]['case']:float(pred[i]) for i in np.flatnonzero(mask)}
+    sc['folds']=folds
+    return sc
+
+def model_results(target, mask):
+    y=np.array([d[target] for d in flat])
+    output={}
+    for name,(terms,cols) in models.items():
+        X=np.column_stack(cols)
+        beta,_,rank,_=np.linalg.lstsq(X[mask],y[mask],rcond=None)
+        result=dict(terms=terms, coefficients=beta.tolist(), n=int(mask.sum()), rank=int(rank),
+                    fit=scores(y[mask],X[mask]@beta))
+        for key,groups in [('leave_width_pair_out',np.array([d['group'] for d in flat])),
+                           ('leave_Wm_level_out',Wm),('leave_Ws_level_out',Ws),
+                           ('leave_arm_level_out',np.round(A,8))]:
+            # The arm covariate cannot be learned if only one arm level remains.
+            result[key]=fitcv(X,y,groups,mask)
+        output[name]=result
+    return output
+
+allmask=np.ones(n,dtype=bool)
+cleanmask=np.array([d['near_100k_native'] for d in flat])
+results={target:model_results(target,allmask) for target in ['BW_GHz','peak_level_dB','joint_BW_GHz']}
+results['near_100k_native_BW_GHz']=model_results('BW_GHz',cleanmask)
+
+pairs=[]
+for group in sorted({d['group'] for d in flat}):
+    short,long=sorted([d for d in flat if d['group']==group],key=lambda x:x['a'])
+    assert abs(long['a']-short['a']-.4)<1e-9
+    p=dict(group=group,Wm=short['Wm'],Ws=short['Ws'],both_near_100k_native=short['near_100k_native'] and long['near_100k_native'])
+    for key in ['BW_GHz','joint_BW_GHz','Lm','Ls1','path','peak_level_dB','central_GHz','min_S21_between_valleys_dB','min_S21_fixed_4to9_dB','mean_S21_fixed_4to9_dB']:
+        p['delta_'+key]=long[key]-short[key]
+    pairs.append(p)
+
+def descr(values):
+    a=np.array(values)
+    return dict(n=len(a),mean=float(a.mean()),median=float(np.median(a)),min=float(a.min()),max=float(a.max()),positive=int((a>0).sum()),negative=int((a<0).sum()))
+
+pair_summary={k:descr([p['delta_'+k] for p in pairs]) for k in ['BW_GHz','joint_BW_GHz','Lm','Ls1','path','peak_level_dB','central_GHz','min_S21_between_valleys_dB','min_S21_fixed_4to9_dB','mean_S21_fixed_4to9_dB']}
+pair_summary['near_100k_native_BW']=descr([p['delta_BW_GHz'] for p in pairs if p['both_near_100k_native']])
+pair_summary['near_100k_native_Ls1']=descr([p['delta_Ls1'] for p in pairs if p['both_near_100k_native']])
+# Cluster bootstrap is descriptive sampling sensitivity, not solver uncertainty.
+rng=np.random.default_rng(261026)
+diffs=np.array([p['delta_BW_GHz'] for p in pairs])
+boot=rng.choice(diffs,size=(20000,len(diffs)),replace=True).mean(axis=1)
+pair_summary['mean_BW_bootstrap_percentile_95_GHz']=np.quantile(boot,[.025,.975]).tolist()
+
+width_effects={}
+for axis,other in [('Wm','Ws'),('Ws','Wm')]:
+    shifts=[]
+    all_steps=[]
+    for val in sorted({d[other] for d in flat}):
+        for arm in [1.4,1.8]:
+            group=sorted([d for d in flat if d[other]==val and abs(d['a']-arm)<1e-9],key=lambda d:d[axis])
+            shifts.append(group[-1]['BW_GHz']-group[0]['BW_GHz'])
+            all_steps.extend(np.diff([d['BW_GHz'] for d in group]).tolist())
+    width_effects[axis]=dict(endpoint_BW_change_GHz=descr(shifts),every_adjacent_step_positive=all(x>0 for x in all_steps),adjacent_step_count=len(all_steps))
+
+summary=dict(n=24,independent_width_pairs=12,near_100k_native_n=int(cleanmask.sum()),
+             near_100k_native_cases=[d['case'] for d in flat if d['near_100k_native']],
+             BW_range_GHz=[min(d['BW_GHz'] for d in flat),max(d['BW_GHz'] for d in flat)],
+             mesh_range=[min(d['mesh'] for d in flat),max(d['mesh'] for d in flat)],
+             high_mesh_count=sum(d['mesh']>112000 for d in flat),
+             reference_recovery_count=sum(not d['no_reference_recovery'] for d in flat),
+             max_recomputed_BW_error_GHz=max(recompute_errors),
+             width_effects=width_effects,arm_pair_summary=pair_summary)
+
+# Finite-difference probes: same center and numeric policy, new adaptive mesh.
+# These are local measured secants, not exact derivatives or global constants.
+local=[]
+for case in ['D01G02','D04G02','D12G05']:
+    cycle=read(ROOT.parent/f'fig8_remediation_C3_20261025/cases/{case}/cycle01.json')
+    cp=Path(cycle['center'])
+    cm=read(cp/'response_metrics.json')
+    ci=read(cp/'input.json')
+    cs=read(cp/'state.json')
+    for prop in cycle['probe_proposal']['probes']:
+        paths=list(Path(f'J:/f8_remC3_261025/{case}').glob('*_'+prop['role']))
+        assert len(paths)==1
+        p=paths[0]
+        pm=read(p/'response_metrics.json'); pi=read(p/'input.json'); ps=read(p/'state.json')
+        parameter=prop['parameter'];step=prop['step_mm']
+        assert all(abs(pi['geometry'][k]-ci['geometry'][k]-(step if k==parameter else 0))<1e-9 for k in ci['geometry'])
+        local.append(dict(case=case,parameter=parameter,step_mm=step,
+                          center=str(cp),probe=str(p),center_elements=cs['actual_elements'],probe_elements=ps['actual_elements'],
+                          d_peak_difference_dB_per_mm=(pm['signed_peak_difference_dB']-cm['signed_peak_difference_dB'])/step,
+                          d_central_GHz_per_mm=(pm['central_valley_GHz']-cm['central_valley_GHz'])/step,
+                          d_BW_GHz_per_mm=(pm['passband_2dB']['BW_GHz']-cm['passband_2dB']['BW_GHz'])/step))
+
+# Freeze predictions for the already-planned three unseen width pairs, at g=.55.
+# This is a proposal only; no new geometry/solver jobs are created here.
+beta=np.array(results['BW_GHz']['log_widths']['coefficients'])
+proposed=[]
+for i,(wm,ws) in enumerate([(1.05,.35),(1.40,.49),(1.85,.53)],1):
+    for arm in [1.4,1.8]:
+        prediction=float(np.array([1,np.log(wm/1.2),np.log(ws/.44)])@beta)
+        proposed.append(dict(proposed_case=f'V{i:02d}_a{arm:.1f}',Wm_mm=wm,Ws_mm=ws,a_mm=arm,g_mm=.55,
+                             predicted_BW_GHz=prediction,status='proposal_not_simulated',
+                             note='Lm/Ls1 must be independently tuned to original design gates; no target-conditioned BW fitting.'))
+write('prospective_predictions.json',dict(model='log_widths',coefficients=beta.tolist(),
+                                        inputs_only='Wm and Ws; no S-parameter-derived P/R inputs',
+                                        source_curve_sha256=TRACK[str(SOURCE/'effective_selected_curves.json')],
+                                        scope='Proposed new tests, not performed and not counted as validation',rows=proposed))
+write('analysis.json',dict(summary=summary,models=results,arm_pairs=pairs,rows=flat,
+                          local_sensitivities=local,proposed_validation=proposed,
+                          source_hashes=TRACK,notes=[
+                              'No solver or hook started. Frozen source files read only.',
+                              'Full24 mixed historical numerical/reference policies; separate100k native sensitivity analysis.',
+                              'All lengths tuned to acceptance. Width/arm effects are along tuned design family, not isolated fixed-other-dimensions derivatives.',
+                              'g=.55mm for all24. No gap law estimable.',
+                              'CV is retrospective and candidate-model-comparison dependent. No prospective independent validation.',
+                              'P_response and R_BW explicitly excluded as prediction inputs.',
+                              'Width changes also change Ls2 and Ls3 to preserve gap and arm definitions.'
+                          ]))
+with (ROOT/'analysis_data.csv').open('w',encoding='utf-8-sig',newline='') as f:
+    w=csv.DictWriter(f,fieldnames=list(flat[0]));w.writeheader();w.writerows(flat)
+print(json.dumps(summary,ensure_ascii=False,indent=2))
+for target,mods in results.items():
+    print('\nTARGET',target)
+    for name,r in mods.items():
+        cv=r['leave_width_pair_out']
+        print(name,'coef',np.round(r['coefficients'],6),'fit',r['fit'],'pairCV', {k:v for k,v in cv.items() if k not in ['predictions','folds']})
+

@@ -1,0 +1,56 @@
+"""Preliminary I4 inverse-design comparison; no refit and no acceptance claim."""
+import math
+from pathlib import Path
+import phase_control as pc
+
+def measure(case, source, geometry, arm, predicted=None):
+    source=Path(source);m=pc.read(source/'response_metrics.json');s=pc.read(source/'state.json')
+    peaks=[p['S11_dB'] for p in m['peaks']]
+    return dict(case=case,source=str(source),Wm=geometry['Wm'],Ws=geometry['Ws'],a=arm,
+        BW_GHz=m['passband_2dB']['BW_GHz'],joint_BW_GHz=m['passband_joint']['BW_GHz'],
+        peak_mean_dB=20*math.log10(sum(10**(p/20) for p in peaks)/2),worse_peak_dB=max(peaks),
+        central_GHz=m['central_valley_GHz'],peak_difference_dB=m['peak_difference_dB'],mesh=s['actual_elements'],
+        predicted_BW_GHz=predicted,error_MHz=(m['passband_2dB']['BW_GHz']-predicted)*1000 if predicted else None,
+        metrics_sha256=pc.sha(source/'response_metrics.json'))
+
+def main():
+    assert not (pc.HERE/'initial_summary.json').exists(), 'Preserve the preliminary snapshot'
+    plan=pc.read(pc.HERE/'plan.json');rows=[]
+    for r in plan['cases']:
+        src=pc.BASE/r['case']/'g01_initial';a=pc.read(src/'receiver_ack.json')
+        assert a['design_passed'] and a['visual_review_completed']
+        rows.append(measure(r['case'],src,r['geometry'],r['a_mm'],r['predicted_BW_GHz']))
+    old=pc.read(plan['source_validation_result']);assert pc.sha(plan['source_validation_result'])==plan['source_validation_sha256']
+    controls=[measure(r['case'],r['source'],r['geometry'],r['a_mm'],r['predicted_BW_GHz'])
+              for r in old['cases'] if r['case'] in ['V02G02','V02G05']]
+    comparison=[]
+    for arm in [1.4,1.8]:
+        triple=sorted([r for r in rows+controls if abs(r['a']-arm)<1e-9],key=lambda r:r['Wm'])
+        assert len(triple)==3
+        comparison.append(dict(a=arm,cases=[r['case'] for r in triple],
+            BW_spread_MHz=1000*(max(r['BW_GHz'] for r in triple)-min(r['BW_GHz'] for r in triple)),
+            endpoint_peak_mean_change_dB=triple[-1]['peak_mean_dB']-triple[0]['peak_mean_dB'],
+            endpoint_joint_BW_change_MHz=1000*(triple[-1]['joint_BW_GHz']-triple[0]['joint_BW_GHz']),
+            matching_monotonic=all(b['peak_mean_dB']<a['peak_mean_dB'] and b['worse_peak_dB']<a['worse_peak_dB']
+                                   for a,b in zip(triple,triple[1:]))))
+    err=[r['error_MHz'] for r in rows]
+    result=dict(at=pc.now(),status='all4_initial_design_passed_final_direct_pending',rows=rows,controls=controls,
+        errors=dict(MAE_MHz=sum(abs(e) for e in err)/4,RMSE_MHz=math.sqrt(sum(e*e for e in err)/4),
+                    max_absolute_MHz=max(abs(e) for e in err)),by_arm=comparison,refitted=False,
+        new_width_pairs=2,source_validation_sha256=plan['source_validation_sha256'])
+    pc.write(pc.HERE/'initial_summary.json',result)
+    lines=['# I4四点：初始结果（最终直接复核待完成）','',
+        '四个初值全部通过原设计条件，没有追加几何调参。冻结公式未重拟合。', '',
+        '|配置|网格|BW/GHz|预测误差/MHz|S11内峰平均/dB|联合BW/GHz|',
+        '|---|---:|---:|---:|---:|---:|']
+    for r in rows:
+        lines.append(f"|{r['case']}|{r['mesh']}|{r['BW_GHz']:.6f}|{r['error_MHz']:+.3f}|{r['peak_mean_dB']:.3f}|{r['joint_BW_GHz']:.6f}|")
+    lines+=['',f"MAE={result['errors']['MAE_MHz']:.3f} MHz，最大误差={result['errors']['max_absolute_MHz']:.3f} MHz。",'',
+        '加入已有V02控制组后，同折臂三种宽度搭配：']
+    for c in comparison:
+        lines.append(f"- a={c['a']:.1f} mm：−2dB带宽跨度{c['BW_spread_MHz']:.3f} MHz；窄微带/宽槽到宽微带/窄槽的S11内峰平均变化{c['endpoint_peak_mean_change_dB']:.3f} dB；联合带宽变化{c['endpoint_joint_BW_change_MHz']:+.3f} MHz。")
+    lines+=['','当前支持等−2dB带宽下内峰匹配可改善；不能把它写成联合带宽同步扩大。这里仍是初值插值曲线的比较，最终结论须结合缓存同网格直接频点审查。']
+    (pc.HERE/'INITIAL_RESULTS.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    print(result['errors']);print(comparison)
+
+if __name__=='__main__':main()

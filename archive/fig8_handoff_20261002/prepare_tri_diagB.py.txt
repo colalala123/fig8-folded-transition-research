@@ -1,0 +1,21 @@
+import json,shutil,traceback,os
+from pathlib import Path
+from ansys.aedt.core import Hfss
+ROOT=Path(r'F:\hfss_f8x_261002'); SRC=ROOT/'M_B0_3w16'; NAME='R_tri_diagB'; R=ROOT/NAME; P=R/(NAME+'.aedt'); PORT=12704
+if R.exists():
+ if R.resolve()!= (ROOT/NAME).resolve(): raise SystemExit('unsafe')
+ shutil.rmtree(R)
+R.mkdir(); shutil.copy2(SRC/'M_B0_3w16.aedt',P)
+def copytree_skip(src,dst):
+ for root,dirs,files in os.walk(src):
+  rel=Path(root).relative_to(src); out=dst/rel; out.mkdir(parents=True,exist_ok=True)
+  for fn in files:
+   if fn.endswith('.semaphore') or fn.endswith('.lock'): continue
+   try: shutil.copy2(Path(root)/fn,out/fn)
+   except PermissionError: pass
+copytree_skip(SRC/'M_B0_3w16.aedtresults',R/(NAME+'.aedtresults'))
+app=Hfss(project=str(P),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ s=app.create_setup(name='TriDiagB',setup_type='HFSSDriven'); s.auto_update=False; s.props.update({'SolveType':'Single','Frequency':'15GHz','MaxDeltaS':.005,'MaximumPasses':40,'MinimumPasses':6,'MinimumConvergedPasses':2,'PercentRefinement':30,'PortAccuracy':2,'BasisOrder':1,'DrivenSolverType':'Direct Solver','SaveAnyFields':True}); assert s.update(); s.auto_update=True
+ sw=s.add_sweep('SweepDiagB','Interpolating'); sw.props.update({'RangeType':'LinearStep','RangeStart':'6.25GHz','RangeEnd':'6.5GHz','RangeStep':'0.01GHz','InterpTolerance':.5,'InterpMaxSolns':500,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':False,'InterpUsePropConst':False,'UseDerivativeConvergence':False,'InterpDerivTolerance':.2,'UseFullBasis':True,'EnforcePassivity':True,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SMatrixOnlySolveMode':'Auto','SMatrixOnlySolveAbove':'15GHz','SaveFields':True,'SaveRadFields':False}); assert sw.update(); app.save_project(); print(json.dumps({'status':'prepared','name':NAME,'sweep_props':json.loads(json.dumps(sw.props,default=str))},indent=2))
+finally: app.release_desktop(close_projects=False,close_desktop=False)

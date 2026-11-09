@@ -1,0 +1,40 @@
+"""Offline window and pristine diagnostic preparation tests; no AEDT."""
+import json,os,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import recover_i03_wide_window as w
+
+class WideWindowTests(unittest.TestCase):
+    def test_measured_layout_preserves_old_windows_and_guards(self):
+        result=w.derive();points=set(result['direct_indices'])
+        self.assertEqual(len(points),242)
+        self.assertTrue(set(range(930,966)) <= points)
+        self.assertTrue(set(range(1420,1461)) <= points)
+        for event in result['observed_high_Zo_jumps']:
+            index=round(event['GHz']*100)
+            self.assertTrue(set(range(index-15,index+16)) <= points)
+        self.assertIn(828,points)
+        self.assertTrue(result['precision_and_acceptance_unchanged'])
+
+    def test_pristine_metadata_directory_gets_original_snapshot_checks(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);attempt=root/'i03';attempt.mkdir();source=attempt/'source.aedt';source.write_bytes(b'unchanged source')
+            base=root/'repair';base.mkdir();project=base/'repair.aedt';plan={'test':'plan'}
+            w.r.write_json(attempt/'manifest.json',{'project':str(source)})
+            w.r.write_json(base/'metadata_io_adapter.json',{'status':'running','kind':'new_diagnostic','pid':os.getpid(),'plan_at_start':plan,'recipe_invocations':1})
+            with patch.object(w,'ATTEMPT',attempt),patch.object(w,'ORIGINAL_SNAPSHOT') as original:
+                w.snapshot_with_metadata_dir(attempt,base,project,plan)
+                original.assert_called_once_with(attempt,base,project,plan)
+                self.assertEqual(project.read_bytes(),source.read_bytes())
+                self.assertEqual(w.r.read(base/'plan.json'),plan)
+                with self.assertRaises(AssertionError):w.snapshot_with_metadata_dir(attempt,base,project,plan)
+                self.assertEqual(original.call_count,1)
+
+    def test_existing_unexpected_content_refuses_preparation(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);base=root/'repair';base.mkdir();(base/'partial.aedt').write_bytes(b'retain')
+            with patch.object(w,'ATTEMPT',root),patch.object(w,'ORIGINAL_SNAPSHOT') as original:
+                with self.assertRaises(AssertionError):w.snapshot_with_metadata_dir(root,base,base/'new.aedt',{})
+                original.assert_not_called();self.assertEqual((base/'partial.aedt').read_bytes(),b'retain')
+
+if __name__=='__main__':unittest.main(verbosity=2)

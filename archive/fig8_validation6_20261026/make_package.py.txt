@@ -1,0 +1,93 @@
+"""Freeze V6 geometry/settings/notification package. No AEDT calls or solves."""
+import csv,json,shutil
+from pathlib import Path
+import phase_control as pc
+
+def interpolate(rows,wm,ws,arm):
+    xs=sorted({r['geometry_mm']['Wm'] for r in rows});ys=sorted({r['geometry_mm']['Ws'] for r in rows})
+    x0=max(x for x in xs if x<=wm);x1=min(x for x in xs if x>=wm)
+    y0=max(y for y in ys if y<=ws);y1=min(y for y in ys if y>=ws)
+    tx=(wm-x0)/(x1-x0);ty=(ws-y0)/(y1-y0)
+    terms=[]
+    for x,wx in [(x0,1-tx),(x1,tx)]:
+        for y,wy in [(y0,1-ty),(y1,ty)]:
+            r=next(r for r in rows if r['geometry_mm']['Wm']==x and r['geometry_mm']['Ws']==y and abs(r['geometry_mm']['Ls3']-y-arm)<1e-9)
+            terms.append(dict(case=r['case'],weight=wx*wy,Lm=r['geometry_mm']['Lm'],Ls1=r['geometry_mm']['Ls1'],result_sha256=r['result_sha256']))
+    assert abs(sum(t['weight'] for t in terms)-1)<1e-12
+    return {k:sum(t['weight']*t[k] for t in terms) for k in ['Lm','Ls1']},terms
+
+def main():
+    assert not (pc.HERE/'plan.json').exists(),'Preserve existing V6 plan'
+    parent=pc.HERE.parent/'fig8_D12_polish_20261025'
+    predpath=pc.HERE.parent/'fig8_law_analysis_20261026/prospective_predictions.json'
+    datapath=pc.HERE.parent/'fig8_remediation_C3_20261025/deliverables/effective_all24_results.json'
+    predictions=pc.read(predpath);data=pc.read(datapath)
+    seed=Path('F:/hfss_f8_261002/B0/B0.aedt')
+    assert pc.sha(seed)=='95ab17f8078e39ad35884a824360e7b5dd3f26afa404089077c3b0d65b9bf06b'
+    cases=[]
+    for name,p in zip(pc.ORDER,predictions['rows'],strict=True):
+        wm,ws,a,g=p['Wm_mm'],p['Ws_mm'],p['a_mm'],p['g_mm']
+        lengths,terms=interpolate(data['rows'],wm,ws,a)
+        geom=dict(Wm=wm,Ws=ws,**lengths,Ls2=g+2*ws,Ls3=a+ws)
+        rho=2*geom['Ls3']/geom['Ls1'];clearance=(geom['Ls1']-2*geom['Ls3']-wm)/2
+        assert .35<=g<=.75 and 1.4-1e-9<=a<=2.3 and rho<=.5 and clearance>=.813 and 5.5<=geom['Lm']<=7.5
+        cases.append(dict(case=name,original_prediction_id=p['proposed_case'],initial_geometry=geom,geometry=geom,
+                          a_mm=a,g_mm=g,predicted_BW_GHz=p['predicted_BW_GHz'],
+                          initialization=dict(method='Bilinear interpolation of accepted Lm/Ls1 only, same arm; no BW used',parents=terms),
+                          geometry_gate=dict(passed=True,rho=rho,projected_clearance_mm=clearance),
+                          prepared_project=str(pc.BASE/name/'prepared'/f'{name}_V6_Prepared.aedt'),
+                          run_dir=str(pc.BASE/name/'g01_initial'),status='configuration_pending'))
+    policy=pc.read(parent/'policy.json')
+    policy.update(version='fig8_V6_configuration_v1',created_at=pc.now(),scope='Only six independent held-out Fig8 width/arm cases; initial run preparation only',
+                  user_authorization='Current user asked to configure these six simulations. No launch in this turn.',
+                  bounded_tuning='Initial6 only, one initial geometry per case. Lm/Ls1 tuning and one same-mesh direct review per passing case planned separately after observations; no automatic retries.')
+    policy.pop('matrix_sha256',None)
+    pc.write(pc.HERE/'policy.json',policy)
+    addon=pc.read(parent/'mesh_policy_addendum_v2.json')
+    addon.update(created_at=pc.now(),base_policy_sha256=pc.sha(pc.HERE/'policy.json'),scope='Configured V6 inheritance of previously accepted mesh policy; no solve authorized')
+    pc.write(pc.HERE/'mesh_policy_addendum_v2.json',addon)
+    provenance={}
+    for name in ['phase_geometry_worker.py','phase_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py','review_phase_geometry.py','case_reference.py','test_phase_heartbeat.py']:
+        src=parent/name;text=src.read_text(encoding='utf-8')
+        if name=='phase_geometry_worker.py':
+            text=text.replace('from pilot_worker import set_modes, inspect_rebuilt_geometry, check_settings','from pilot_worker import set_modes, inspect_rebuilt_geometry\nfrom prepared_settings import check_settings')
+            needle="    spec=read(spec_path);case=spec['case'];run=Path(spec['run_dir']);job=HERE/'cases'/case"
+            assert text.count(needle)==1
+            text=text.replace(needle,needle+"\n    validate_geometry_budget(spec,spec_path)  # Before any locks, state changes or failure hook.")
+            # Completed old stages are read-only: coordinate using one shared protocol lock,
+            # without creating new lock files inside their frozen folders.
+            start="locks=[HERE/'worker.lock',HERE.parent/'fig8_remediation_A_20261025/worker.lock',HERE.parent/'fig8_remediation_B_20261025/worker.lock',HERE.parent/'fig8_remediation_C3_20261025/worker.lock',ORIGINAL/'worker.lock',OLD/'protocol.lock']"
+            assert start in text;text=text.replace(start,"locks=[HERE/'worker.lock',OLD/'protocol.lock']")
+        if name=='case_reference.py':
+            text=text.replace("assert case in ('D04G02','D01G02','D12G05')","assert case in pc.ORDER")
+            text=text.replace("validation['legacy_selected_native_reference_verified']","validation['native_fundamental_mapping_required']")
+            text=text.replace('D12 legacy50ohm calibration was a separate matrix diagnostic. Selected legacy sparams exactly equal raw fundamental entries; no second conversion.','V6 native fundamental entries checked directly against exported4x4; no renormalization or response fitting.')
+        if name=='phase_heartbeat.py':
+            text=text.replace('仅在新P12阶段D12小步修正范围接续；旧C3有限执行段已冻结23通过/1失败，不重开旧账本。','仅在V6这6个验证配置的已授权执行范围内接续；原24项已完成，不重开旧账本。')
+            text=text.replace('保持16核串行、原网格及P12阶段2新配置+1缓存预算，历史D12=11不清零，历史计数保留；','保持16核串行及10–11万目标网格，首轮6个初始几何每项一次；调谐/最终直接另按结果准备，不静默增加预算；')
+        (pc.HERE/name).write_text(text,encoding='utf-8')
+        provenance[name]=dict(source=str(src),source_sha256=pc.sha(src),local_sha256=pc.sha(pc.HERE/name),modified=text!=src.read_text(encoding='utf-8'))
+    pc.write(pc.HERE/'implementation_provenance.json',provenance)
+    pc.write(pc.HERE/'reference_validation.json',dict(native_fundamental_mapping_required=True,adapter_sha256=pc.sha(pc.HERE/'case_reference.py'),
+             runtime_checks='Every exported selected S entry must equal its native4x4 entry within1e-10; full matrix not approved.',
+             mapping={'S11':'S(1:1,1:1)','S21':'S(2:1,1:1)','S12':'S(1:1,2:1)','S22':'S(2:1,2:1)'}))
+    pc.write(pc.HERE/'predictions_frozen.json',predictions)
+    pc.write(pc.HERE/'plan.json',dict(stage='V6',at=pc.now(),configuration_only=True,cases=cases,
+             policy_sha256=pc.sha(pc.HERE/'policy.json'),seed=str(seed),seed_sha256=pc.sha(seed),
+             prediction_source=str(predpath),prediction_source_sha256=pc.sha(predpath),training_source=str(datapath),training_source_sha256=pc.sha(datapath),
+             order=pc.ORDER,first_supervised=pc.ORDER[:2],initial_geometry_cap=6,
+             final_direct_plan='One same-mesh critical-frequency sweep after each passing tuned geometry; frequencies generated from observed peaks/valleys/band edges, not from predicted BW.',
+             no_new_solve=True))
+    pc.write(pc.HERE/'authorization.json',dict(stage='V6',cases=pc.ORDER,configuration_authorized=True,execution_authorized=False,
+             user_request='你先把这6个的仿真都配置好',geometry_cap=6,cached_task_cap=0,at=pc.now()))
+    pc.write(pc.HERE/'budget_ledger.json',dict(stage='V6',case_cumulative_geometry={c:0 for c in pc.ORDER},new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    pc.write(pc.HERE/'hook/config.json',dict(schema_version=1,host_id='local',authorized_threads=[pc.TARGET],default_thread_id=pc.TARGET,
+             state_dir=str(pc.HERE/'hook/state'),created_at=pc.now(),authorization='Preconfigured only. Completion messages for these6 only after human launch instruction; preparation sends nothing.',node_path=None,app_tools_server=None))
+    pc.write(pc.HERE/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_configuration_only',attempts=[]))
+    pc.write(pc.HERE/'active.json',dict(stage='configuration_pending',solver_started=False,at=pc.now()));pc.status()
+    with (pc.HERE/'configurations.csv').open('w',encoding='utf-8-sig',newline='') as f:
+        out=[dict(case=r['case'],**r['geometry'],a_mm=r['a_mm'],g_mm=r['g_mm'],predicted_BW_GHz=r['predicted_BW_GHz']) for r in cases]
+        w=csv.DictWriter(f,fieldnames=out[0]);w.writeheader();w.writerows(out)
+    print(json.dumps([dict(case=r['case'],geometry=r['geometry'],prediction=r['predicted_BW_GHz']) for r in cases],indent=2))
+
+if __name__=='__main__':main()

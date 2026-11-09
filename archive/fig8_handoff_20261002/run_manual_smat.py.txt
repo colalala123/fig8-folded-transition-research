@@ -1,0 +1,83 @@
+import asyncio, hashlib, json, time, traceback
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+
+ROOT = Path(r"F:\hfss_f8x_261002\R_B0_manualSMat")
+PROJECT = ROOT / "R_B0_manualSMat.aedt"
+MANIFEST = ROOT / "manual_smat_manifest.json"
+PORT = 12704
+NAME = "R_B0_manualSMat"
+
+def sha(path):
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+def save(data):
+    MANIFEST.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+
+async def main():
+    if any((p.info.get("name") or "").lower() == "hf3d.exe" for p in psutil.process_iter(["name"])):
+        raise RuntimeError("hf3d is already active")
+    data = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    data.update({"status": "starting", "started_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())})
+    save(data)
+    start = await call("start_analysis", {
+        "project_name": NAME, "design_name": "Wideband vertical transition",
+        "setup_name": "ModalManual", "port": PORT,
+        "concurrent_tasks": 1, "cores_per_task": 16, "blocking": False, "timeout": 120,
+    })
+    data["mcp_start"] = start
+    if not start.get("started"):
+        raise RuntimeError(start)
+    data["status"] = "solving"
+    save(data)
+    deadline = time.time() + 5 * 3600
+    while time.time() < deadline:
+        await asyncio.sleep(30)
+        st = await call("get_analysis_status", {
+            "project_name": NAME, "design_name": "Wideband vertical transition",
+            "setup_name": "ModalManual", "port": PORT, "timeout": 120,
+        })
+        data["last_status"] = st
+        save(data)
+        if not st.get("running"):
+            break
+    else:
+        raise TimeoutError("SweepManualSMat solve timed out")
+
+    app = Hfss(project=str(PROJECT), design="Wideband vertical transition", version="2024.2",
+               machine="localhost", port=PORT, non_graphical=False, new_desktop=False,
+               close_on_exit=False)
+    try:
+        data["messages"] = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+        for renorm, name in ((False, "hfss_native_manual_smat.s6p"), (True, "hfss_50ohm_manual_smat.s6p")):
+            ok = app.export_touchstone(setup="ModalManual", sweep="SweepManualSMat",
+                                       output_file=str(ROOT / name), renormalization=renorm,
+                                       impedance=50, gamma_impedance_comments=True)
+            if not ok:
+                raise RuntimeError(f"touchstone export failed: {name}")
+        app.export_convergence("ModalManual", output_file=str(ROOT / "convergence_manual_smat.txt"))
+        data["project_sha256_after"] = sha(PROJECT)
+        data["source_unchanged"] = data["project_sha256_after"] == data["project_sha256_before"]
+        data["finished_at_utc"] = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+        data["status"] = "exported_needs_review"
+        save(data)
+    finally:
+        app.release_desktop(close_projects=False, close_desktop=False)
+
+if __name__ == "__main__":
+    try:
+        asyncio.run(main())
+    except Exception:
+        try:
+            data = json.loads(MANIFEST.read_text(encoding="utf-8"))
+        except Exception:
+            data = {}
+        data.update({"status": "failed", "error": traceback.format_exc()})
+        save(data)
+        raise

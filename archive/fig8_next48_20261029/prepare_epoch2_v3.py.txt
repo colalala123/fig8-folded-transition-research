@@ -1,0 +1,109 @@
+"""Prepare a five-case effective context; one cached recovery, four never-started frozen cases."""
+import ast,copy,json,shutil
+from pathlib import Path
+from datetime import datetime,timezone
+from effective_budget_v2 import read,sha
+ROOT=Path(__file__).resolve().parent;OLD=ROOT.parent/'fig8_next48_b02_20261029'
+CTX=ROOT.parent/'fig8_next48_n07r1_20261030';BASE=Path('D:/hfss_fig8_next48_20261029/n07_recovery1')
+CASE='N07_A18';ORDER=[CASE,'N08_A14','N08_A18','N09_A14','N09_A18']
+
+def write(p,d):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8') as h:json.dump(d,h,ensure_ascii=False,indent=2);h.write('\n')
+
+def replace(p,old,new):
+    s=p.read_text(encoding='utf-8');assert old in s,(str(p),old)
+    p.write_text(s.replace(old,new),encoding='utf-8')
+
+def main():
+    assert not CTX.exists() and not BASE.exists() and not (ROOT/'session_epoch2_overlay_v3.json').exists()
+    auth=read(ROOT/'replacement_sweep_authorization.json');assert auth['approved'] and auth['new_sweep_requests_max']==1
+    preservation=read(ROOT/'N07_A18_crash_preservation.json');original=Path(preservation['source_run'])
+    for p,h in preservation['original_hashes'].items():assert sha(p)==h,p
+    oldstate=read(original/'state.json');assert len(oldstate['segments'])==7 and len(oldstate['mesh_stages'])==6
+    assert oldstate['actual_elements']==102882 and oldstate['actual_passes']==21 and oldstate['resource_recovery_attempt']==0
+    assert all(s['adaptive_requested'] and s['observed_14core_process'] for s in oldstate['segments'][:6])
+    assert not oldstate['segments'][6]['adaptive_requested'] and 'mcp_response' not in oldstate['segments'][6]
+    frozen=read(ROOT/'campaign_frozen.json');plan=read(OLD/'plan.json');oldrows=[next(r for r in plan['cases'] if r['case']==c) for c in ORDER]
+    for row in oldrows:
+        fc=next(r for r in frozen['cases'] if r['case']==row['case']);assert row['geometry']==fc['geometry'] and row['role']==fc['role']
+        if row['case']!=CASE:assert not (Path(row['run_dir'])/'state.json').exists()
+        proof=read(OLD/'cases'/row['case']/'configuration.json');assert proof['passed'] and not proof['solved']
+        assert sha(row['prepared_project'])==proof['project_sha256']
+    CTX.mkdir();BASE.mkdir(parents=True)
+    source_hashes={}
+    for p in OLD.glob('*.py'):shutil.copyfile(p,CTX/p.name);source_hashes[str(p)]=sha(p)
+    for n in ['policy.json','mesh_policy_addendum_v2.json','reference_validation.json','desktop_start.json']:
+        shutil.copyfile(OLD/n,CTX/n)
+    shutil.copyfile(ROOT/'desktop_epoch2_20261030.json',CTX/'aedt_identity.json')
+    p=CTX/'phase_control.py';s=p.read_text(encoding='utf-8')
+    lines=[('BASE=Path('+repr(str(BASE))+')') if l.startswith('BASE=') else ('ORDER='+repr(ORDER)) if l.startswith('ORDER=') else l.replace('N48B02','N48B02R1') for l in s.splitlines()]
+    p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    replace(CTX/'phase_geometry_context.py',"auth['stage']=='N48B02'","auth['stage']=='N48B02R1'")
+    replace(CTX/'phase_geometry_context.py','<=6','<=5')
+    replace(CTX/'dispatch.py',"len(ledger['tasks'])<6","len(ledger['tasks'])<5")
+    replace(CTX/'lifecycle_watch.py','BASE=Path('+repr(str(Path('D:/hfss_fig8_next48_20261029/b02')))+')','BASE=Path('+repr(str(BASE))+')')
+    for n in ['phase_geometry_context.py','phase_geometry_worker.py','launch_one.py']:
+        replace(CTX/n,'from effective_budget_v2 import validate_campaign','from effective_budget_v3 import validate_campaign')
+    replace(CTX/'aedt_session_guard.py',"assert p.name().lower()=='ansysedt.exe'","assert p.name().lower()=='ansysedt.exe'\n    assert p.cmdline()==identity['command'] and '7990' in p.cmdline()")
+    # A resumed checkpoint MUST already be in the sweep region. Never enter the adaptive loop for N07.
+    replace(CTX/'phase_geometry_worker.py',"    assert not dc.solvers(),'Another HFSS solver active'","    assert state['case']!='N07_A18' or not adaptive, 'N07 recovery forbids any new adaptive Analyze'\n    assert not dc.solvers(),'Another HFSS solver active'")
+    replace(CTX/'phase_geometry_worker.py',"        action=decide(history[-1][1],history[-1][0],stage,budget)\n        app=dc.app_for(project)","        action=decide(history[-1][1],history[-1][0],stage,budget)\n        assert case!='N07_A18' or action['action']=='sweep', 'Never remesh N07 recovery'\n        app=dc.app_for(project)")
+    replace(CTX/'phase_geometry_worker.py',"    while action['action'] in ('initial_adaptive','continue_adaptive'):","    assert case!='N07_A18' or spec.get('resume_checkpoint'), 'N07 recovery requires cached checkpoint'\n    while action['action'] in ('initial_adaptive','continue_adaptive'):")
+    replace(CTX/'phase_geometry_worker.py',"    if spec.get('resume_checkpoint'):\n        checkpoint=", "    if spec.get('resume_checkpoint'):\n        for relative,digest in read(HERE/'cache_reopen_proof.json')['cache_hashes_after'].items():\n            assert sha(run/relative)==digest, 'Cached recovery bytes changed before reopening: '+relative\n        checkpoint=")
+    # Inherited observations are evidence for old adaptive stages, NEVER evidence of a new sweep start.
+    replace(CTX/'supervise_start.py',"            recorded=[p for seg in s.get('segments',[]) for obs in seg.get('observations',[]) for p in obs]", "            own_segments=s.get('segments',[])[frozen.get('inherited_successful_segments',0):]\n            recorded=[p for seg in own_segments for obs in seg.get('observations',[]) for p in obs]\n            live=live if any(seg.get('mcp_response',{}).get('started') for seg in own_segments) else []")
+    replace(CTX/'supervise_start.py',"mcp_requests=[x['mcp_request'] for x in s['segments']]","mcp_requests=[x['mcp_request'] for x in own_segments],inherited_observations_excluded=True")
+    # Freeze checkpoint/cache evidence into the new spec, leaving raw failed input and state intact.
+    replace(CTX/'finalize_and_authorize.py',"        pc.write(path,spec);entries.append", "        spec['original_frozen_input_sha256']=pc.sha(Path(row['original_input']))\n        spec['original_frozen_input']=row['original_input']\n        spec['session_epoch2_overlay_sha256']=pc.sha(Path("+repr(str(ROOT/'session_epoch2_overlay_v3.json'))+"))\n        if case=='N07_A18':\n            checkpoint=run/'resume_checkpoint.json'\n            spec.update(technical_recovery_attempt=1,inherited_successful_segments=6,\n                resume_checkpoint=str(checkpoint),resume_checkpoint_sha256=pc.sha(checkpoint),\n                resume_project_sha256=pc.sha(pc.read(checkpoint)['project']),\n                project_name=Path(pc.read(checkpoint)['project']).stem)\n        else:spec['technical_recovery_attempt']=0\n        pc.write(path,spec);entries.append")
+    for n in ['phase_geometry_publish.py','phase_heartbeat.py','lifecycle_watch.py']:
+        p=CTX/n;s=p.read_text(encoding='utf-8').replace('continuation_v2.py','continuation_v3.py').replace('CONTINUATION_V2.md','CONTINUATION_V3.md')
+        if n=='phase_geometry_publish.py':
+            s=s.replace('失败先查真实进程/缓存，一次技术恢复继承预算，','N07_A18已使用唯一技术恢复，原7次加新扫频最多1次，总8；不再恢复、不重算网格。其他失败先查真实进程/缓存，')
+        p.write_text(s,encoding='utf-8')
+    (CTX/'CONTINUATION.md').write_text((ROOT/'CONTINUATION_V3.md').read_text(encoding='utf-8'),encoding='utf-8')
+    localrows=[];routes={};immutable={**source_hashes}
+    for row in oldrows:
+        c=row['case'];r=copy.deepcopy(row);newrun=BASE/c/'g01_initial';src=Path(row['prepared_project']);dst=BASE/c/'prepared'/src.name
+        dst.parent.mkdir(parents=True);shutil.copy2(src,dst);assert sha(src)==sha(dst)
+        r.update(context=str(CTX),D_batch=str(BASE),run_dir=str(newrun),prepared_project=str(dst),original_input=str(Path(row['run_dir'])/'input.json'))
+        localrows.append(r);routes[c]=dict(context=str(CTX),original_run=row['run_dir'],effective_run=str(newrun),original_input_sha256=sha(r['original_input']))
+        proof=read(OLD/'cases'/c/'configuration.json');proof.update(project=str(dst),copied_prepared_bytes=True,original_configuration_sha256=sha(OLD/'cases'/c/'configuration.json'))
+        write(CTX/'cases'/c/'configuration.json',proof)
+        for f in [Path(r['original_input']),src,OLD/'cases'/c/'configuration.json']:immutable[str(f)]=sha(f)
+    # Copy substantive cached results. Runtime semaphores are not carried to another directory.
+    snapshot=Path(preservation['snapshot']);newrun=BASE/CASE/'g01_initial';newrun.mkdir(parents=True)
+    prj=Path(oldstate['project']).name;source_project=snapshot/prj
+    assert sha(source_project)==preservation['snapshot_hashes'][prj]
+    shutil.copy2(source_project,newrun/prj)
+    shutil.copytree(source_project.with_suffix('.aedtresults'),(newrun/prj).with_suffix('.aedtresults'),ignore=shutil.ignore_patterns('*.semaphore','*.lock','*.lck'))
+    for i in range(6):shutil.copyfile(original/f'convergence_stage_{i:02d}.txt',newrun/f'convergence_stage_{i:02d}.txt')
+    shutil.copyfile(original/'convergence_stage_05.txt',newrun/'resume_convergence.txt')
+    checkpoint=copy.deepcopy(oldstate);checkpoint.update(project=str(newrun/prj),segments=copy.deepcopy(oldstate['segments'][:6]),
+        resource_recovery_attempt=1,inherited_successful_segments=6,cache_copied=True,original_failed_sweep_retained_at=str(original/'state.json'))
+    write(newrun/'resume_checkpoint.json',checkpoint)
+    cache_hashes={str(p.relative_to(newrun)):sha(p) for p in newrun.rglob('*') if p.is_file()}
+    write(CTX/'cache_copy_manifest.json',dict(source_snapshot=str(snapshot),source_preservation_sha256=sha(ROOT/'N07_A18_crash_preservation.json'),
+        copied_files=cache_hashes,Analyze_requested=False,inherited_successful_segments=6,failed_sweep_request_preserved=True))
+    plan.update(stage='N48B02R1',initial_geometry_cap=5,overall_geometry_cap=5,cases=localrows);write(CTX/'plan.json',plan)
+    a=read(OLD/'authorization.json');a.update(stage='N48B02R1',segment='N48B02R1',cases=ORDER,geometry_cap=5,execution_authorized=False,
+        N07_A18_recovery_authorization=str(ROOT/'replacement_sweep_authorization.json'));write(CTX/'authorization.json',a)
+    ep=read(OLD/'execution_plan.json');ep.update(geometries_this_segment=5,geometry_Analyze_cap=53,N07_A18_new_Analyze_cap=1,N07_A18_cumulative_request_cap=8);write(CTX/'execution_plan.json',ep)
+    cfg=read(OLD/'hook/config.json');cfg['state_dir']=str(CTX/'hook/state');write(CTX/'hook/config.json',cfg)
+    write(CTX/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_completion'))
+    write(CTX/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    for p in CTX.glob('*.py'):ast.parse(p.read_text(encoding='utf-8'),filename=str(p))
+    for name in ['case_reference.py','reference_validation.json']:assert sha(CTX/name)==sha(OLD/name)
+    for n in ['input.json','state.json','completion_event.json','worker_error.json','notification_receipt.json','supervised_start.json']:
+        immutable[str(original/n)]=sha(original/n)
+    for p in [ROOT/'effective_budget_v3.py',ROOT/'continuation_v3.py',ROOT/'CONTINUATION_V3.md',Path(__file__),ROOT/'verify_cached_preflight_v3.py',ROOT/'replacement_sweep_authorization.json',ROOT/'desktop_epoch2_20261030.json',ROOT/'N07_A18_post_restart_cache_proof.json',CTX/'cache_copy_manifest.json']+list(CTX.glob('*.py')):
+        immutable[str(p)]=sha(p)
+    manifest=dict(version=3,recovery_case=CASE,technical_recovery_attempt=1,inherited_successful_segments=6,original_requests=7,
+        replacement_sweep_cap=1,case_request_cap=8,Analyze_cap=624,geometry_cap=48,routes=routes,immutable_hashes=immutable,
+        note='N07 inherited6 not counted twice; original failed sweep request retained. Other four maps have no original state and are same frozen physical geometries.')
+    write(ROOT/'session_epoch2_overlay_v3.json',manifest)
+    parents=read(OLD/'parent_evidence.json');parents['hashes'].update(immutable);parents['hashes'][str(ROOT/'session_epoch2_overlay_v3.json')]=sha(ROOT/'session_epoch2_overlay_v3.json')
+    write(CTX/'parent_evidence.json',parents)
+    print(dict(context=str(CTX),base=str(BASE),cases=ORDER,cached_mesh=102882,new_Analyze_requested=False))
+
+if __name__=='__main__':main()

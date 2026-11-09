@@ -1,0 +1,24 @@
+"""Current-chat terminal event, completion-triggered heartbeat, no normal-run messages."""
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    assert case in pc.ORDER and pc.read(pc.HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(pc.HERE/'hook/config.json');assert cfg['authorized_threads']==[pc.TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='PR18 selected18 same-mesh final review; <=24points/case, <=4points/Analyze, <=6launches/case')
+    def prompt(event,event_path):
+        return (f'[Fig8 PR18同网格离散复核完成事件]\n事件：{event_path}\n状态：{status}\n{summary}\n'
+          f'先读{pc.HERE/"CONTINUATION.md"}、continuation_plan.json、case_work_ledger.json。'
+          '这是原18项补点的最终复核，不是新批次或第4步盲测。用户已授权前三步及hook接续。'
+          '运行receive_verified.py --run事件目录，核验原生基模参考、每批来源、网格未变、全部实际频点和16核资源；实际看叠图后才ACK。'
+          '按ORDER继续尚未复核项，dispatch_smallbatch.py --case CASE --solve后用supervise_smallbatch.py核验真实16核单组启动。'
+          '每项最多24频点/6次Analyze，每次最多4点；只用已有缓存，禁止新自适应、调几何、重复点或无界重试。'
+          '保留-20dB科学负例，最终比较冻结预测与实测；有限直接抽查不等于全曲线/完整多模矩阵验收。'
+          '正常求解安静，完成送达5分钟无后继真实求解才检测AI状态；用户暂停优先，不重开旧队列。')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(at=pc.now(),error=traceback.format_exc()))

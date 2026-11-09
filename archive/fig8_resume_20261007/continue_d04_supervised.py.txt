@@ -1,0 +1,143 @@
+"""Continue bounded D04 trials after the first real v2 recovery is accepted.
+
+This does not release the remaining pilot stage. It only joins the existing
+supervised queue, uses the explicit same-port recovery/approval tools, and
+returns control when another width configuration becomes active. Unknown
+errors stop; existing diagnostic failures are never restarted automatically.
+Default: read-only readiness. --run is gated on accepted D04 i02 v2 evidence.
+"""
+import argparse,json,os,subprocess,sys,time,traceback
+from pathlib import Path
+import psutil
+from broadband_recovery import ROOT,HERE,read,write_json,sha,now
+from recovery_selection import hashes,resolve_attempt,validate_data
+from run_broadband_case import solvers
+from run_same_port_recovery_v2 import VERSION
+
+STATE=ROOT/'d04_continuation_v2.json'
+LOCK=ROOT/'d04_continuation_v2.lock'
+
+def readiness():
+    protocol=read(ROOT/'production_protocol.json');hashes(protocol['implementation_hashes'])
+    validation=read(HERE/'same_port_io_offline_validation.json');hashes(validation['evidence_hashes'])
+    basis=ROOT/'D04G05/i02';path=basis/'recovery_acceptance.json'
+    if not path.exists():return {'ready':False,'reason':'First real i02 v2 recovery is not accepted yet'}
+    assert resolve_attempt(basis)==basis/'verified_recovery'
+    recipe=read(ROOT/'local_repair/D04G05_i02/plan.json')
+    assert recipe['recovery_recipe_version']==VERSION;hashes(recipe['implementation_hashes'])
+    from run_same_port_recovery_io import validate_record
+    validate_record(ROOT/'local_repair/D04G05_i02')
+    files=[HERE/n for n in ['continue_d04_supervised.py','approve_same_port_recovery.py',
+        'run_same_port_recovery_v2.py','run_same_port_recovery_io.py','review_same_port_direct.py','supervision_observer.py']]
+    files += [path,HERE/'same_port_io_offline_validation.json',ROOT/'production_protocol.json']
+    return {'ready':True,'basis':str(path),'implementation_and_basis_hashes':{str(p):sha(p) for p in files},
+        'scope':'Same-port D04 only. No remaining-stage release; no retry of existing failed diagnostics.'}
+
+def current_queue():
+    state=read(ROOT/'pilot_queue_state.json');pid=state['pid']
+    try:
+        process=psutil.Process(pid)
+        assert process.name().lower()=='python.exe'
+        command=' '.join(process.cmdline())
+        assert 'guarded_pilot_queue.py' in command and '--stage supervised' in command
+        return state,process
+    except psutil.NoSuchProcess:return state,None
+
+def idle():
+    assert not solvers(),'Retain active solver; never overlap a diagnostic'
+    assert not any((ROOT/n).exists() for n in ['pilot_queue.lock','protocol.lock'])
+    _,process=current_queue();assert process is None,'Queue still live'
+
+def stopped_action(state):
+    """Classify stopped evidence without dispatching anything."""
+    if state.get('status')=='supervised_review_required':return ('supervised_finished',None)
+    if state.get('active_case')!='D04G05':return ('other_case_requires_supervision',None)
+    assert state['status']=='review_required','Unexpected queue exit needs review'
+    attempt=Path(state['active_run']).resolve()
+    assert attempt.parent==ROOT/'D04G05' and attempt.name in [f'i{i:02d}' for i in range(2,8)]
+    accepted=resolve_attempt(attempt)
+    if accepted!=attempt:
+        validate_data(accepted);return ('resume_queue',attempt)
+    m=read(attempt/'manifest.json')
+    assert m['status']=='numerical_or_port_review_required'
+    assert m['convergence']['converged'] and m['convergence']['final_delta_s']<=.005
+    assert m['sweep_converged'] and m['source_unchanged']
+    assert read(attempt/'port_review.json')['passed']
+    assert not read(attempt/'normalization_recovery_review.json')['passed']
+    base=ROOT/'local_repair'/f'D04G05_{attempt.name}'
+    if base.exists():
+        assert read(base/'flow.json')['status']=='candidate_ready_review_required','Existing diagnostic requires manual recovery'
+        assert read(base/'plan.json')['recovery_recipe_version']==VERSION
+        return ('approve_candidate',attempt)
+    return ('recover_once',attempt)
+
+def execute(script,args,log):
+    with log.open('x',encoding='utf-8') as stream:
+        result=subprocess.run([sys.executable,str(HERE/script),*args],cwd='${WORKSPACE}',
+            stdout=stream,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW)
+    assert result.returncode==0,f'{script} stopped, exit={result.returncode}; existing results retained at {log}'
+
+def launch_queue(attempt):
+    idle()
+    log=ROOT/f'continue_after_{attempt.name}_v2.log'
+    with log.open('x',encoding='utf-8') as stream:
+        process=subprocess.Popen([sys.executable,str(HERE/'guarded_pilot_queue.py'),'--stage','supervised','--solve'],
+            cwd='${WORKSPACE}',stdout=stream,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW)
+    deadline=time.monotonic()+120
+    while process.poll() is None:
+        state=read(ROOT/'pilot_queue_state.json')
+        if state.get('pid')==process.pid:
+            if state['status']=='running':
+                observers=[p for p in psutil.process_iter(['name','cmdline']) if (p.info['name'] or '').lower()=='python.exe'
+                    and 'supervision_observer.py' in ' '.join(p.info['cmdline'] or [])]
+                if not observers:
+                    with (ROOT/f'observer_after_{attempt.name}_v2.log').open('x',encoding='utf-8') as stream:
+                        subprocess.Popen([sys.executable,str(HERE/'supervision_observer.py')],cwd='${WORKSPACE}',
+                            stdout=stream,stderr=subprocess.STDOUT,creationflags=subprocess.CREATE_NO_WINDOW)
+                return
+            if state['status']!='review_required':return
+        assert time.monotonic()<deadline,'Queue startup timeout: retain live process; do not retry'
+        time.sleep(.5)
+    assert process.returncode==0,f'Queue exited {process.returncode}; inspect {log}'
+
+def main():
+    ready=readiness();assert ready['ready'],ready
+    assert not STATE.exists(),'Existing continuation state requires inspection, not duplicate startup'
+    with LOCK.open('x',encoding='utf-8') as h:h.write(str(os.getpid()))
+    def save(status,**extra):
+        tmp=STATE.with_suffix('.tmp');write_json(tmp,{'status':status,'pid':os.getpid(),'updated_at_utc':now(),
+            'evidence':ready,**extra});os.replace(tmp,STATE)
+    try:
+        for _ in range(8):
+            hashes(ready['implementation_and_basis_hashes'])
+            while True:
+                state,process=current_queue()
+                if state.get('active_case')!='D04G05':
+                    save('handed_back_other_case',queue_state=state,queue_is_live=process is not None);return
+                if process is None:break
+                save('observing_supervised_queue',queue_pid=process.pid,active_run=state.get('active_run'))
+                try:process.wait(timeout=45)
+                except psutil.TimeoutExpired:pass
+            idle();action,attempt=stopped_action(state)
+            save(action,attempt=str(attempt) if attempt else None)
+            if action in ['supervised_finished','other_case_requires_supervision']:return
+            if action=='recover_once':
+                execute('run_same_port_recovery_io.py',[str(attempt),'--run'],ROOT/f'continue_recovery_{attempt.name}_v2.log')
+                idle();action,checked=stopped_action(read(ROOT/'pilot_queue_state.json'))
+                assert action=='approve_candidate' and checked==attempt
+            if action=='approve_candidate':
+                execute('approve_same_port_recovery.py',[str(attempt)],ROOT/f'continue_review_{attempt.name}_v2.log')
+                execute('approve_same_port_recovery.py',[str(attempt),'--apply'],ROOT/f'continue_apply_{attempt.name}_v2.log')
+                assert resolve_attempt(attempt)==attempt/'verified_recovery'
+            assert resolve_attempt(attempt)!=attempt
+            save('resuming_supervised_queue',attempt=str(attempt));launch_queue(attempt)
+        raise RuntimeError('Bounded continuation count exhausted; inspect without another dispatch')
+    except Exception:
+        save('review_required',error=traceback.format_exc());raise
+    finally:
+        if LOCK.exists() and LOCK.read_text()==str(os.getpid()):LOCK.unlink()
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--run',action='store_true');args=parser.parse_args()
+    if args.run:main()
+    else:print(json.dumps(readiness(),indent=2))

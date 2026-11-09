@@ -1,0 +1,197 @@
+"""New bounded correction context, reusing verified B6 machinery; no Analyze."""
+from common import *
+import ast, copy, shutil
+
+AUTH='你现在去把这个做好，我想做到在这个弯折模型上和我给你的md文件的均匀模型一样的效果'
+PROBE_ROOT=OUT/'fig8_ml_probes_20261028'
+PROBE_BASE=Path('J:/f8_MLP_261028')
+
+def runtime(folder,base,rows,segment):
+    folder=Path(folder);base=Path(base);assert not folder.exists(),'Do not overwrite a running/frozen context'
+    assert 1<=len(rows)<=6 and len({r['case'] for r in rows})==len(rows)
+    folder.mkdir();order=[r['case'] for r in rows];provenance={}
+    def cp(name,transform=lambda s:s):
+        src=PREVIOUS/name;dst=folder/name
+        # Preserve inherited JSON byte-identically; reference validation binds bytes.
+        if name.endswith('.json'):shutil.copyfile(src,dst)
+        else:dst.write_text(transform(src.read_text(encoding='utf-8')),encoding='utf-8')
+        provenance[name]=dict(source=str(src),source_sha256=sha(src),local_sha256=sha(dst))
+    def control(s):
+        s=s.replace("BASE=Path('J:/f8_B6_261027')",f'BASE=Path({str(base)!r})')
+        i=s.index('ORDER=');j=s.index('\n',i);s=s[:i]+'ORDER='+repr(order)+s[j:]
+        return s.replace("stage='B6'",f"stage='{segment}'").replace('18配置独立验证',f'{segment}有界长度校正').replace('B6 preparation','length correction preparation')
+    cp('phase_control.py',control)
+    def context(s):
+        s=s.replace("auth['stage']=='B6'",f"auth['stage']=='{segment}'").replace('<=6',f'<={len(order)}')
+        s=s.replace("stage_B6_closure.json","closure.json")
+        return s.replace('six new cases, one geometry each, no tuning','bounded correction jobs; one geometry per uniquely identified probe/candidate')
+    cp('phase_geometry_context.py',context)
+    for name in ['aedt_session_guard.py','case_reference.py','reference_validation.json','prepared_settings.py',
+                 'phase_publish.py','phase_heartbeat_transport.py','verify_live_hook.py','supervise_start.py',
+                 'target_metrics.py','desktop_preflight.py','review_phase_geometry.py','acknowledge_review.py',
+                 'mesh_policy_addendum_v2.json','test_phase_heartbeat.py']:
+        cp(name)
+    cp('configure_projects.py',lambda s:s.replace('B6_S11_S21',f'{segment}_S11_S21'))
+    cp('dispatch.py',lambda s:s.replace("len(ledger['tasks'])<6",f"len(ledger['tasks'])<{len(order)}"))
+    cp('phase_geometry_worker.py',lambda s:s.replace('blind_initial_baseline_failed_no_tuning_authorized','correction_probe_requires_target_review')
+        .replace('未通过、保留盲测失败，不调参','未通过，按有限校正方案评估').replace('B6 initial Analyze','bounded geometry Analyze'))
+    cp('phase_geometry_publish.py',lambda s:(s[:s.index('def prompt(')]+PUBLISH+'\n'+s[s.index('async def publish'):])
+        .replace('B6 blind initial6 after explicit execution instruction;16cores serial; no retuning','Bounded length development after human instruction;16cores serial;6probes+3candidates cap'))
+    cp('phase_heartbeat.py',lambda s:s.replace('仅执行B6六个独立盲测首轮；不调参、不重训，不重开PR18及其他旧账本。',
+           '仅执行本目录有界长度校正，按主研究方案继续；旧B6/PR18队列已完成不可重开。')
+        .replace('六个初始几何后完成有界同网格直接复核；6新几何，最多32点/8次离散Analyze每项，无额外调谐',
+           '开发总计最多6探针加3候选；3个选中项各最多32点/8次直接复核。不超预算、不自动扩大训练批次'))
+    cp('lifecycle_watch.py',lambda s:s.replace("BASE=Path('J:/f8_B6_261027')",f'BASE=Path({str(base)!r})')
+        .replace('Fig8 B6','Fig8长度校正').replace('B6工作','长度校正工作')
+        .replace('人类已授权按{ROOT.parent/"fig8_step4_plan_20261027/EXECUTION_PLAN.md"}完成B6。',
+                 f'人类已授权按{(ROOT / "EXECUTION_PLAN.md").as_posix()}进行有界长度校正，先读当前CONTINUATION.md。'))
+    cfg=read(PREVIOUS/'hook/config.json');cfg.update(state_dir=str(folder/'hook/state'),authorization=AUTH)
+    write(folder/'hook/config.json',cfg);write(folder/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_completion'))
+    policy=read(PREVIOUS/'policy.json');policy.update(version=segment,user_authorization=AUTH,
+         scope='Fixed-width bounded length probes/candidates; preserve old B6 first-output results',
+         bounded_tuning='Development9 geometries total:6 probes+at most3 candidates; no second cycle',
+         blind_target_source=None)
+    write(folder/'policy.json',policy)
+    old=read(PREVIOUS/'plan.json')
+    plan={k:v for k,v in old.items() if k!='cases'}
+    plan.update(stage=segment,at=now(),initial_geometry_cap=len(rows),overall_geometry_cap=len(rows),
+                overall_geometry_cap_per_case=1,predictions_refitted=False,cases=rows,
+                original_blind_results_unchanged=True,study_plan=str(ROOT/'EXECUTION_PLAN.md'),
+                study_plan_sha256=sha(ROOT/'EXECUTION_PLAN.md'))
+    for r in rows:r['prepared_project']=str(base/r['case']/'prepared'/f"{r['case']}_{segment}_Prepared.aedt")
+    write(folder/'plan.json',plan)
+    write(folder/'authorization.json',dict(stage=segment,cases=order,configuration_authorized=True,execution_authorized=False,
+         launch_user_instruction=AUTH,geometry_cap=len(rows),combined_development_cap=9,segment=segment,
+         geometry_tuning_authorized=True,batch_expansion_authorized_by_this_runtime=False))
+    write(folder/'execution_plan.json',dict(study_plan=str(ROOT/'EXECUTION_PLAN.md'),study_plan_sha256=sha(ROOT/'EXECUTION_PLAN.md'),
+         geometries_this_segment=len(rows),development_geometry_cap=9,adaptive_stages_per_geometry=12,
+         interpolating_sweep_per_geometry=1,geometry_Analyze_cap=13*len(rows),
+         selected_final_direct_cases_max=3,direct_points_per_selected_case=32,direct_launches_per_selected_case=8,
+         total_development_Analyze_cap=141))
+    write(folder/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    write(folder/'active.json',dict(stage='prepared_offline_no_AEDT_calls'))
+    frozen={str(ROOT/'EXECUTION_PLAN.md'):sha(ROOT/'EXECUTION_PLAN.md'),str(WEEKLY):sha(WEEKLY),
+       str(PREVIOUS/'blind_results.json'):sha(PREVIOUS/'blind_results.json'),
+       str(PREVIOUS/'closure.json'):sha(PREVIOUS/'closure.json'),str(PREVIOUS/'predictions_frozen.json'):sha(PREVIOUS/'predictions_frozen.json')}
+    frozen.update(read(PREVIOUS/'blind_results.json')['source_evidence_hashes'])
+    for r in rows:frozen.update(r.get('parent_evidence_hashes',{}))
+    for f,h in frozen.items():assert sha(f)==h,f
+    write(folder/'parent_evidence.json',dict(hashes=frozen))
+    write(folder/'implementation_provenance.json',provenance)
+    (folder/'finalize_and_authorize.py').write_text(FINALIZE,encoding='utf-8')
+    (folder/'launch_one.py').write_text(LAUNCH,encoding='utf-8')
+    (folder/'CONTINUATION.md').write_text(CONTINUATION.format(root=ROOT,folder=folder,base=base,order=', '.join(order),segment=segment),encoding='utf-8')
+    for f in folder.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    return dict(folder=str(folder),cases=order,base=str(base),Analyze_started=False)
+
+def probes():
+    blind=read(PREVIOUS/'blind_results.json')['results'];rows=[]
+    for b in ['B02','B05','B06']:
+        r=next(x for x in blind if x['case']==b)
+        for suffix,key,step in [('S','Ls1',.10),('M','Lm',.05)]:
+            g=copy.deepcopy(r['geometry']);g[key]+=step
+            rows.append(dict(case=b+suffix,group=b,family_id='B6_'+b,parent_case=b,target_P=r['P'],target_R=r['R'],
+                 P_nominal=r['P'],R_nominal=r['R'],geometry=g,initial_geometry=g,a_mm=r['a_mm'],g_mm=.55,
+                 category='development_probe_not_independent_blind',target={**r['target'],'S11_max_dB':-20,'S21_min_dB':-2},
+                 probe=dict(parameter=key,step_mm=step,parent_geometry=r['geometry']),
+                 original_source=str(Path('J:/f8_B6_261027')/b/'g01_initial')))
+    return runtime(PROBE_ROOT,PROBE_BASE,rows,'C9P')
+
+PUBLISH='''def prompt(event,path):
+    return (f'[Fig8有界长度校正完成事件]\\n{path}\\n状态：{event["status"]}\\n{event["summary"]}\\n'
+       f'先读{HERE/"CONTINUATION.md"}和authorization/plan/budget_ledger。'
+       '用户已要求达到均匀模型同类理论加学习修正效果。本阶段是开发探针/候选，不是新的盲测。'
+       '完成后review_phase_geometry.py --run RUN，实际看S11/S21图，再acknowledge_review.py --run RUN --visual-reviewed --note实际观察。'
+       '用launch_one.py --case下一项启动唯一后继，先监督实际16核1组。正常运行不要重复Analyze。'
+       '所有探针完成后执行主研究目录prepare_candidates.py，最多3候选，开发总计9几何；完整达标需同网格直接复核。'
+       '不得把基准design_passed当联合-20dB达标；保留原B6首次结果。失败先检查真实进程与缓存，不清工程锁。')
+'''
+
+FINALIZE='''"""Freeze verified prepared projects for this bounded segment; no Analyze."""
+from pathlib import Path
+import phase_control as pc
+def main():
+    assert not (pc.HERE/'initial_inputs.json').exists()
+    plan=pc.read(pc.HERE/'plan.json');auth=pc.read(pc.HERE/'authorization.json')
+    assert auth['configuration_authorized'] and not auth['execution_authorized']
+    assert pc.read(pc.HERE/'budget_ledger.json')['tasks']==[]
+    assert pc.read(pc.HERE/'hook_live_read_preflight.json')['supported_read_thread_verified']
+    hashes=dict(pc.read(pc.HERE/'parent_evidence.json')['hashes'])
+    for key in ['seed','prediction_source','training_source','source_validation_result']:
+        hk='source_validation_sha256' if key=='source_validation_result' else key+'_sha256'
+        assert pc.sha(plan[key])==plan[hk];hashes[plan[key]]=plan[hk]
+    for p in pc.HERE.glob('*.py'):hashes[str(p)]=pc.sha(p)
+    for f in ['plan.json','policy.json','mesh_policy_addendum_v2.json','reference_validation.json',
+              'parent_evidence.json','hook/config.json','execution_plan.json','CONTINUATION.md','aedt_identity.json']:
+        hashes[str(pc.HERE/f)]=pc.sha(pc.HERE/f)
+    hashes[str(pc.ORIGINAL/'mesh_budget.py')]=pc.sha(pc.ORIGINAL/'mesh_budget.py')
+    for f,h in hashes.items():assert pc.sha(f)==h,f
+    entries=[]
+    for row in plan['cases']:
+        case=row['case'];proofpath=pc.HERE/'cases'/case/'configuration.json';proof=pc.read(proofpath)
+        source=Path(row['prepared_project']);run=pc.BASE/case/'g01_initial';path=run/'input.json'
+        assert not path.exists() and not (run/'state.json').exists()
+        assert proof['passed'] and not proof['solved'] and not proof['analyze_requested']
+        assert proof['geometry']==row['geometry'] and pc.sha(source)==proof['project_sha256']
+        assert not source.with_suffix('.aedt.lock').exists()
+        spec=dict(case=case,role='initial',geometry=row['geometry'],source=str(source),source_sha256=pc.sha(source),
+            source_seed=plan['seed'],source_seed_sha256=plan['seed_sha256'],run_dir=str(run),input_path=str(path),
+            project_name=case+'_'+plan['stage']+'_g01',policy_sha256=pc.sha(pc.HERE/'policy.json'),
+            mesh_addendum_sha256=pc.sha(pc.HERE/'mesh_policy_addendum_v2.json'),new_phase_geometry_ordinal=1,
+            historical_geometry_attempts=0,phase_solve_ordinal_including_history=1,
+            original_B6_history_retained=True,development_family=row['family_id'],
+            worker_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),controller_sha256=pc.sha(pc.ORIGINAL/'mesh_budget.py'),
+            parent_evidence_hashes={**hashes,str(proofpath):pc.sha(proofpath)},created_at=pc.now(),scope=plan['stage'])
+        pc.write(path,spec);entries.append(dict(case=case,input_path=str(path),input_sha256=pc.sha(path)))
+    pc.write(pc.HERE/'initial_inputs.json',dict(entries=entries))
+    auth.update(execution_authorized=True,launch_authorized_at=pc.now());pc.write(pc.HERE/'authorization.json',auth)
+    pc.write(pc.HERE/'configuration_readiness.json',dict(at=pc.now(),prepared_projects=len(entries),simulation_started=False))
+    print(dict(prepared=len(entries),execution_authorized=True,solver_started=False))
+if __name__=='__main__':main()
+'''
+
+LAUNCH='''"""One serial release plus actual-start supervision and quiet exit observer."""
+import argparse,subprocess,sys
+import phase_control as pc
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--case',choices=pc.ORDER,required=True);a=p.parse_args()
+    assert not (pc.HERE/'closure.json').exists()
+    subprocess.run([sys.executable,str(pc.HERE/'dispatch.py'),'--case',a.case,'--solve'],check=True)
+    run=pc.BASE/a.case/'g01_initial'
+    subprocess.run([sys.executable,str(pc.HERE/'supervise_start.py'),'--run',str(run),'--seconds','600'],check=True)
+    subprocess.run([sys.executable,str(pc.HERE/'lifecycle_watch.py'),'ensure','--run',str(run)],check=True)
+if __name__=='__main__':main()
+'''
+
+CONTINUATION='''# {segment} 有界长度校正接续
+
+人类最新授权：你现在去把这个做好，我想做到在这个弯折模型上和我给你的md文件的均匀模型一样的效果。
+本主方案：{root}/EXECUTION_PLAN.md。只操作当前运行目录 {folder} 与 {base}，不重开原B6/PR18/原24项或均匀模型。
+ORDER：{order}。探针与候选是旧B02/B05/B06的同一家族开发，不是新增独立盲测，不回填首次成功率。
+16核串行、可见AEDT2024R2本机MCP、100000–110000网格（记录可至112000），每几何最多12自适应Analyze+1插值扫频。整个开发最多6探针+3候选，最多3项选中结果做32点/8批直接检查。
+
+## 当前项完成
+1. 检查active/账本/事件与真实进程。运行本目录review_phase_geometry.py --run RUN。
+2. 实际view_image查看生成PNG；acknowledge_review.py --run RUN --visual-reviewed --note实际观察。仅operation成功不代表目标达标。
+3. 若ORDER仍有未启动项：本目录launch_one.py --case CASE。该脚本单项派发、监督实际hf3d16核1组、启动外部死亡观察；不自动ACK。前两项监督gate保留。
+4. 启动时保持当前进程到supervised_start写出为止，不把Python worker当HFSS运行。
+5. 已有state的任务不可重新派发；错误先看worker_error/PID创建时间/缓存，最多一次技术恢复、继承预算，不清工程锁、不重算已完成频点。
+
+## 全部探针完成之后
+主目录 {root}/prepare_candidates.py 读取六个真实看图ACK、原B6曲线和实际探针曲线，生成三项有界候选决策。若脚本已存在输出，只审查不可覆盖。最多一个候选/原目标；预测不可行则保留负例，不悄悄扩宽度或跑第二周期。
+主目录的选点脚本是离线候选器，不直接Analyze；新候选运行上下文准备后先desktop_preflight、verify_live_hook、configure_projects --all、finalize_and_authorize，再launch_one逐项执行。
+候选阶段结束，优先选择实际满足完整目标的探针/候选；最多3个选中结果建立新的同网格direct上下文，复用原B6已验证smallbatch代码但更新实际路径和target。不得调用旧B6的队列。
+直接验收首轮24点/6批，预留8点/2批，<=4点/批；保留实际违例，预算尽记未解决。研究主方案要求每项原目标端点和内部峰都检查，不能仅校正等峰而牺牲带边。
+
+## Hook
+终态才发当前聊天。通知后5分钟无新仿真才查对话是否已中断；运行中不反复发。不要手动发第二条继续消息或重置发件箱。进入后继上下文时用受支持stop停旧段心跳，后继真实终态会自动arm新段，保留原monitor审计。
+本地外部lifecycle_watch不控制HFSS，只捕获无终态worker退出；正常仿真静默。
+全部开发/验收终态后报告首次/校正后结果分别统计、预算、数据缺口，写闭账并停所有本段心跳/observer。
+
+## 后续机器学习
+已建 {root}/benchmark_v1：52条/26家族，40训练12留出；固定分组，训练内CV选模型。不能把小样本MLP结果写成达到周报1000条效果。
+48个新几何的采样计划可离线生成；只有当前校正闭环有证据可用且分组误差支持后才准备下一阶段，必须另写有界授权/计划/账本，当前脚本不自动放大至1000次。
+用户暂停优先，立即停心跳不恢复仿真。
+'''
+
+if __name__=='__main__':print(probes())

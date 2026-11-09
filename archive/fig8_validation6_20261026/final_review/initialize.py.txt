@@ -1,0 +1,51 @@
+"""Freeze final review only after six initial responses have real receiver ACKs."""
+import argparse,ast
+from pathlib import Path
+import phase_control as pc
+from phase_direct_context import reviewed_source
+
+def initialize(selection=None):
+    assert not (pc.HERE/'authorization.json').exists(),'Already initialized; inspect, do not reset'
+    a=pc.read(pc.PARENT/'authorization.json');execution=pc.read(pc.PARENT/'execution_plan.json')
+    assert a['execution_authorized'] and a['cases']==pc.ORDER
+    assert pc.sha(pc.PARENT/'execution_plan.json')==a['execution_plan_sha256']
+    assert execution['total_cached_direct_cap']==6
+    ledger=pc.read(pc.PARENT/'budget_ledger.json')
+    assert ledger['new_geometry_reserved']==6 and len(ledger['tasks'])==6
+    assert all(t['status']=='reviewed' for t in ledger['tasks'])
+    from solver_runtime import dc
+    assert not dc.solvers() and not (pc.PARENT/'worker.lock').exists()
+    selected=pc.read(selection) if selection else {c:str(pc.BASE/c/'g01_initial') for c in pc.ORDER}
+    assert set(selected)==set(pc.ORDER)
+    rows=[]
+    for case in pc.ORDER:
+        source=Path(selected[case]).resolve();spec,state,metrics=reviewed_source(source,case)
+        project=Path(state['project']);cache=project.with_suffix('.aedtresults')
+        assert project.is_file() and cache.is_dir() and any(f.is_file() for f in cache.rglob('*'))
+        rows.append(dict(case=case,source=str(source),project=str(project),project_sha256=pc.sha(project),
+            geometry=spec['geometry'],actual_elements=state['actual_elements'],
+            cumulative_geometry_used=state['cumulative_geometry_ordinal'],
+            evidence_hashes={str(source/f):pc.sha(source/f) for f in ['input.json','state.json','receiver_ack.json','receiver_verification.json','completion_event.json','response_metrics.json','sparams.csv','convergence.txt','reference_review.json']}))
+    for f in pc.HERE.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    for case in pc.ORDER:(pc.HERE/'cases'/case).mkdir(parents=True,exist_ok=True)
+    pc.write(pc.HERE/'plan.json',dict(stage='V6D',at=pc.now(),cases=rows,parent_execution_plan_sha256=a['execution_plan_sha256'],
+        operation='One cached-mesh critical-frequency review per V6 case; zero new geometry or adaptive meshing'))
+    pc.write(pc.HERE/'initial_ledger_snapshot.json',ledger)
+    cfg=pc.read(pc.PARENT/'hook/config.json');cfg.update(state_dir=str(pc.HERE/'hook/state'),authorization=a['launch_user_instruction']+'：六项最终同网格直接复核及完成接续。')
+    pc.write(pc.HERE/'hook/config.json',cfg)
+    pc.write(pc.HERE/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_direct_completion',attempts=[]))
+    auth=dict(stage='V6D',cases=pc.ORDER,execution_authorized=True,geometry_cap=0,cached_task_cap=6,
+        launch_user_instruction=a['launch_user_instruction'],parent_authorization_sha256=pc.sha(pc.PARENT/'authorization.json'),
+        parent_execution_plan_sha256=a['execution_plan_sha256'],at=pc.now())
+    pc.write(pc.HERE/'authorization.json',auth)
+    pc.write(pc.HERE/'budget_ledger.json',dict(stage='V6D',new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    files=list(pc.HERE.glob('*.py'))+[pc.HERE/f for f in ['plan.json','policy.json','mesh_policy_addendum_v2.json','reference_validation.json','authorization.json','implementation_provenance.json','initial_ledger_snapshot.json','CONTINUATION.md','hook/config.json']]
+    manifest={str(f):pc.sha(f) for f in files}
+    manifest[str(pc.PARENT/'execution_plan.json')]=pc.sha(pc.PARENT/'execution_plan.json')
+    pc.write(pc.HERE/'implementation_manifest.json',manifest)
+    pc.write(pc.HERE/'readiness.json',dict(at=pc.now(),selected_reviewed_candidates=6,new_geometry=0,cached_direct_cap=6,started=False))
+    print({'ready_candidates':6,'new_geometry':0,'started':False})
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--candidates',type=Path)
+    initialize(ap.parse_args().candidates)

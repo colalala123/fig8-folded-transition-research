@@ -1,0 +1,48 @@
+{
+  "stage": "V6",
+  "created_at": "2026-10-25T16:28:20.367405+00:00",
+  "launch_user_instruction": "你还是接着用hook，把这6个按照我一直以来的要求跑完",
+  "cases": [
+    "V01G02",
+    "V01G05",
+    "V02G02",
+    "V02G05",
+    "V03G02",
+    "V03G05"
+  ],
+  "objective": "Run and independently validate all six held-out Fig8 configurations; keep old24 and frozen predictions unchanged",
+  "initial_geometry_cap": 6,
+  "geometry_cap_per_case": 7,
+  "total_geometry_cap": 42,
+  "tuning_cycles_max_per_case": 2,
+  "tuning_roles_per_cycle": [
+    "Ls1_probe",
+    "Lm_probe",
+    "joint_candidate"
+  ],
+  "cached_direct_cap_per_case": 1,
+  "total_cached_direct_cap": 6,
+  "early_stop_when_design_passes": true,
+  "tuning_variables": [
+    "Lm",
+    "Ls1"
+  ],
+  "fixed_variables": [
+    "Wm",
+    "Ws",
+    "Ls2",
+    "Ls3"
+  ],
+  "initial_stage_release_only": true,
+  "post_initial_action": "Create separately frozen bounded V6 subphase after reviewing actual initial responses; count initial and all failed attempts toward total cap; do not alter initial frozen inputs or policy",
+  "prediction_used_for_tuning": false,
+  "serial_tasks": 1,
+  "cores": 16,
+  "first_supervised": [
+    "V01G02",
+    "V01G05"
+  ],
+  "completion_hook_target": "REDACTED-ID",
+  "heartbeat_trigger": "Only accepted completion delivery, then no next real solve after300s; active AI waits; stopped idle AI gets deduplicated reminder",
+  "normal_solve_periodic_messages": false
+}

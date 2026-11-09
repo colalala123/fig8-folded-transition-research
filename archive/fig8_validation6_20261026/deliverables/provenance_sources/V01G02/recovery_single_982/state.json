@@ -1,0 +1,97 @@
+{
+  "case": "V01G02",
+  "input_sha256": "613b56c314461e1665b377b89097df8a1edaf4d8ca1a747c29273dc8aef6e77c",
+  "status": "completed",
+  "project": "J:\\f8_V6_261026\\V01G02\\recovery_single_982\\V01G02_V6Diag982.aedt",
+  "segments": [
+    {
+      "label": "diagnostic_9p82_only",
+      "adaptive_requested": false,
+      "started_at": "2026-10-25T19:40:25.066352+00:00",
+      "mcp_request": {
+        "project_name": "V01G02_V6Diag982",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 16,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 35096,
+            "cmdline": [
+              "133960_0",
+              "133960_1",
+              "J:\\f8_finish24_261023\\solver_temp\\hfss_DESKTOP-94969B0_133960.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 9820000000 -max_processors 16 -DonotRestartOnEachFreqGroup -UseSolverWrapper -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ],
+            "name": "hf3d.exe"
+          },
+          {
+            "pid": 103828,
+            "cmdline": [
+              "D:\\Program Files\\AnsysEM\\v242\\Win64\\hf3d.exe",
+              "-standalonesolve",
+              "9820000000.000000",
+              "J:\\f8_finish24_261023\\solver_temp\\hfss_DESKTOP-94969B0_133960.pjt/",
+              "-1"
+            ],
+            "name": "hf3d.exe"
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "V01G02_V6Diag982",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 16,
+          "total_cores": 16
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "V01G02_V6Diag982",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 27.639999999955762,
+      "finished_at": "2026-10-25T19:40:52.879478+00:00",
+      "observed_16core_process": true,
+      "observed_adaptive_process": false
+    }
+  ],
+  "actual_elements": 100114,
+  "reference_treatment": {
+    "case": "V01G02",
+    "treatment": "native_fundamental",
+    "sparams_sha256": "c710e3e63a13b286f41de9b2c38e76af4d3e5433a95f5dc2b5c744ae862cd9cf",
+    "adapter_sha256": "ab769599e5bb7871508a69c345ef12b42dfcc4044e84687d5c66d5e4814b88c2",
+    "validation_sha256": "9ee8739a4d634fb1c0859103d9f3886cd57ba3a4d1ff4ad1661021707fd7d878",
+    "raw_matrix_sha256": "09fd0d25c9b81e05399cf0ba08cb2fbdac0e4e9a45fbc26ad5a867aed7c08a16",
+    "Zo_sha256": "b7cd94a3e49c47f89752f42e2578935fc8f81db3a9980deafc14f2f454492c1d",
+    "no_conversion": true,
+    "points": 1,
+    "full_matrix_approved": false,
+    "note": "V6 native fundamental entries checked directly against exported4x4; no renormalization or response fitting."
+  },
+  "finished_at": "2026-10-25T19:41:00.510567+00:00"
+}

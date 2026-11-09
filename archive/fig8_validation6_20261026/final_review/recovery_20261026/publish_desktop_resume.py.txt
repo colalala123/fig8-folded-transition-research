@@ -1,0 +1,20 @@
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(pc.FINAL/'hook/config.json')
+    path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Remainder-only V01G05 recovery after recorded native AEDT crash;44 valid points preserved')
+    def prompt(event,event_path):
+        return (f'[Fig8 V6 AEDT桌面崩溃恢复]\n事件：{event_path}\n状态：{status}\n{summary}\n'
+            f'先读{pc.HERE/"RESUME1.md"}、resume1_plan.json和case_work_ledger.json。'
+            '本次保留V01G05前11批44点，仅在恢复副本补19点5批，原失败工程锁/事件/输入都保留。'
+            '用receive_desktop_resume.py --run实际事件目录核验并看叠图，再用acknowledge_desktop_resume.py记录真实结论；这个入口会将有效结果路径保存到主账本。'
+            '通过后正常dispatch_smallbatch.py按序启动V02G02等余下4项，16核串行，supervise_smallbatch.py核实实际启动。无需再次询问启动。'
+            '普通小批次的接收入口使用receive_verified.py，参见RECEIVER_NOTE.md。'
+            '最终closeout必须使用finish_effective_report.py以识别本恢复结果并累计实际Analyze次数；不要用固定路径的旧汇总入口。'
+            '保持原网格/验收标准、不清锁、不重跑已完成点，完成hook接续；用户已暂停则停止。')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(at=pc.now(),error=traceback.format_exc()))

@@ -1,0 +1,26 @@
+import json,hashlib,traceback
+from pathlib import Path
+from ansys.aedt.core import Hfss
+ROOT=Path(r'F:\hfss_f8x_261002\R_B0_allzwave'); PROJ=ROOT/'R_B0_allzwave.aedt'; MF=ROOT/'allzwave_trial_manifest.json'; PORT=7393
+def sha(p):
+ h=hashlib.sha256();
+ with open(p,'rb') as f:
+  for b in iter(lambda:f.read(1<<20),b''):h.update(b)
+ return h.hexdigest()
+def plain(x):return json.loads(json.dumps(x,default=str))
+m={'status':'preparing','project':str(PROJ),'project_sha256_before':sha(PROJ),'cores':16,'tasks':1,'modes':3,'port_charimp':'Zwave_all_modes_text_patch','diagnostic_only':True,'range_GHz':[6.25,6.5],'sweep_name':'SweepAllZwave'}
+try:
+ app=Hfss(project=str(PROJ),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+ try:
+  if 'AllZwaveSetup' in [s.name for s in app.setups]: raise RuntimeError('setup exists')
+  setup=app.create_setup(name='AllZwaveSetup',setup_type='HFSSDriven'); setup.auto_update=False; setup.props.update({'SolveType':'Single','Frequency':'15GHz','MaxDeltaS':.005,'MaximumPasses':40,'MinimumPasses':6,'MinimumConvergedPasses':2,'PercentRefinement':30,'PortAccuracy':2,'BasisOrder':1,'DrivenSolverType':'Direct Solver','SaveAnyFields':True});
+  if not setup.update():raise RuntimeError('setup update failed')
+  setup.auto_update=True
+  if not setup.add_mesh_link(design=app.design_name,solution='Setup19 : LastAdaptive',project=str(PROJ),force_source_to_solve=False,preserve_partner_solution=True,adapt_port=True):raise RuntimeError('mesh link failed')
+  sw=setup.add_sweep('SweepAllZwave','Interpolating'); sw.props.update({'RangeType':'LinearStep','RangeStart':'6.25GHz','RangeEnd':'6.5GHz','RangeStep':'0.01GHz','InterpTolerance':.5,'InterpMaxSolns':500,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':True,'InterpUsePropConst':True,'UseFullBasis':True,'EnforcePassivity':True,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SaveFields':True,'SaveRadFields':False});
+  if not sw.update():raise RuntimeError('sweep update failed')
+  m['setup']=plain(setup.props);m['sweep']=plain(sw.props);m['messages_before']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));app.save_project()
+ finally:app.release_desktop(close_projects=False,close_desktop=False)
+ m['status']='prepared';MF.write_text(json.dumps(m,indent=2),encoding='utf-8');print(json.dumps(m,indent=2))
+except Exception:
+ m['status']='prepare_failed';m['error']=traceback.format_exc();MF.write_text(json.dumps(m,indent=2),encoding='utf-8');raise

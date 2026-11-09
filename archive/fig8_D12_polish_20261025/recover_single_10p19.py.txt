@@ -1,0 +1,194 @@
+"""One disclosed missing-point recovery; never reruns the 63-point sweep."""
+import argparse
+import asyncio
+import csv
+import os
+from pathlib import Path
+import shutil
+import traceback
+import numpy as np
+import phase_control as pc
+from phase_geometry_worker import dc, solve_stage, passes, snapshot, canonical_ports
+from preserve_discrete_ranges import restore_properties
+from phase_final_direct import compare
+from case_reference import apply_reference
+from phase_publish import hook
+
+SWEEP = 'D12P_Recovery10p19'
+RUN = pc.BASE/'D12G05'/'recover_single_10p19'
+
+
+def validate(path):
+    p = pc.read(path)
+    assert Path(path).resolve() == (RUN/'input.json').resolve()
+    assert p['case'] == 'D12G05' and p['role'] == 'missing_point_recovery'
+    assert p['frequencies_GHz'] == [10.19]
+    assert p['geometry_budget_increment'] == 0 and not p['adaptive_allowed']
+    assert p['recovery_ordinal'] == 1
+    assert p['worker_sha256'] == pc.sha(__file__)
+    assert pc.read(pc.HERE/'recovery_authorization.json')['additional_single_point_cap'] == 1
+    assert pc.read(pc.HERE/'recovery_budget.json')['reserved'] == 1
+    rel = pc.read(pc.HERE/'supervised_release.json')
+    assert rel['input_sha256'] == pc.sha(path) and not rel['bulk_dispatch_released']
+    assert Path(rel['input_path']).resolve() == Path(path).resolve()
+    for file, digest in p['parent_evidence_hashes'].items():
+        assert pc.sha(file) == digest, file
+    prev = Path(p['previous_direct'])
+    assert pc.read(prev/'completion_event.json')['status'] == 'failed'
+    assert pc.read(prev/'recovery_readonly/coverage.json')['missing_GHz'] == [10.19]
+    return p
+
+
+def assemble(p, run):
+    """Union measured rows only. Missing/duplicate/nonfinite values fail closed."""
+    out = run/'assembled_review'
+    assert not out.exists()
+    out.mkdir()
+    previous = Path(p['previous_direct'])/'recovery_readonly'
+    evidence = {}
+    for name in ['sparams.csv', 'all_modes_sparams.csv', 'mode_impedance_gamma.csv']:
+        tables = []
+        headers = []
+        for root in [previous, run]:
+            with (root/name).open(encoding='utf-8-sig', newline='') as f:
+                reader = csv.DictReader(f)
+                headers.append(reader.fieldnames)
+                tables.append(list(reader))
+            evidence[str(root/name)] = pc.sha(root/name)
+        assert headers[0] == headers[1]
+        assert len(tables[0]) == 62 and len(tables[1]) == 1
+        assert float(tables[1][0]['Freq_GHz']) == 10.19
+        rows = sorted(tables[0]+tables[1], key=lambda x: float(x['Freq_GHz']))
+        f = [float(x['Freq_GHz']) for x in rows]
+        assert f == p['original_expected_frequencies_GHz'] and len(set(f)) == 63
+        assert all(np.isfinite([float(v) for v in row.values()]).all() for row in rows)
+        with (out/name).open('w', encoding='utf-8', newline='') as file:
+            w = csv.DictWriter(file, fieldnames=headers[0]); w.writeheader(); w.writerows(rows)
+    reference = apply_reference(out, case='D12G05')
+    result = compare(Path(p['source']), out)
+    assert result['points'] == 63
+    pc.write(out/'comparison.json', result)
+    pc.write(out/'assembly_provenance.json', dict(at=pc.now(), source_files_sha256=evidence,
+        original_failed_event=str(Path(p['previous_direct'])/'completion_event.json'),
+        original_failed_event_sha256=pc.sha(Path(p['previous_direct'])/'completion_event.json'),
+        interpolation_or_filling_used=False, duplicate_or_missing_points=False,
+        reference=reference, scope='62 original finite solved points plus one separately solved point; original failed event preserved.'))
+    return result
+
+
+async def execute(path):
+    p = validate(path); run = RUN; source = Path(p['project_source'])
+    project = run/'D12G05_D12P_Recovery10p19.aedt'
+    assert not project.exists() and not (run/'state.json').exists()
+    cache = source.with_suffix('.aedtresults')
+    files = [f for f in cache.rglob('*') if f.is_file() and not f.name.endswith(('.lock', '.semaphore'))]
+    assert files and shutil.disk_usage(pc.BASE).free > sum(f.stat().st_size for f in files)+15*1024**3
+    shutil.copy2(source, project)
+    for f in files:
+        dest = project.with_suffix('.aedtresults')/f.relative_to(cache)
+        dest.parent.mkdir(exist_ok=True, parents=True); shutil.copy2(f, dest)
+    state = dict(case='D12G05', input_sha256=pc.sha(path), project=str(project),
+                 actual_elements=100013, status='copied', segments=[])
+    pc.write(run/'state.json', state)
+    app = dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running and Path(app.project_file).resolve() == project.resolve()
+        setup = app.get_setup('Setup19'); assert setup.is_solved
+        app.export_convergence('Setup19', output_file=str(run/'convergence_before.txt'))
+        assert passes(run/'convergence_before.txt') == passes(Path(p['source'])/'convergence.txt')
+        assert passes(run/'convergence_before.txt')[-1][1] == 100013
+        f, v, _, _ = dc.get_data(app, 'Sweep1')
+        original = np.genfromtxt(Path(p['source'])/'sparams.csv', delimiter=',', names=True)
+        assert len(f) == 1500 and np.allclose(f, original['Freq_GHz'])
+        for k, e in [('S11', 'S(1:1,1:1)'), ('S21', 'S(2:1,1:1)')]:
+            assert np.max(abs(v[e]-(original[k+'_real']+1j*original[k+'_imag']))) < 1e-10
+        state['ports_before'] = canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        assert state['ports_before'] == p['expected_ports']
+        for sw in setup.sweeps:
+            assert sw.name == 'Sweep1'
+            sw.props['IsEnabled'] = False; assert sw.update()
+        sw = setup.add_sweep(SWEEP, sweep_type='Discrete'); sw.auto_update = False
+        restore_properties(sw, [10.19])
+        sw.props.update({'IsEnabled':True, 'SaveFields':False, 'SaveRadFields':False}); assert sw.update()
+        app.odesktop.ClearMessages(app.project_name, app.design_name, 3)
+        app.save_project(); assert setup.is_solved
+    finally:
+        app.release_desktop(close_projects=False, close_desktop=False)
+    segment = await solve_stage(project, run, state, 'single_missing_10p19', False)
+    app = dc.app_for(project)
+    try:
+        messages = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+        pc.write(run/'solver_messages.json', messages)
+        assert any('Discrete frequency sweep complete.' in m for m in messages)
+        assert not any('[error]' in m.lower() for m in messages)
+        dc.SWEEP = SWEEP; dc.export(app, run, [10.19])
+        state['reference_treatment'] = apply_reference(run, case='D12G05')
+        app.export_convergence('Setup19', output_file=str(run/'convergence_after.txt'))
+        assert passes(run/'convergence_after.txt') == passes(run/'convergence_before.txt')
+        assert state['ports_before'] == canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        app.save_project()
+    finally:
+        app.release_desktop(close_projects=False, close_desktop=False)
+    assert not segment['observed_adaptive_process'] and segment['observed_16core_process']
+    for file, digest in p['parent_evidence_hashes'].items(): assert pc.sha(file) == digest, file
+    result = assemble(p, run)
+    state.update(status='completed', same_mesh_verified=True, source_unchanged=True,
+                 finished_at=pc.now(), direct_review=result, automatic_acceptance=False)
+    pc.write(run/'state.json', state)
+    return result
+
+
+async def publish(run, status, summary, artifacts):
+    cfg = hook.load_config(pc.HERE/'hook/config.json')
+    assert cfg['default_thread_id'] == pc.TARGET and cfg['authorized_threads'] == [pc.TARGET]
+    event = hook.create_event(run, status, summary, artifacts, config=cfg,
+        verified_success=status=='completed', purpose='Disclosed one-point D12 recovery under existing all3 human goal; not a whole-sweep retry.')
+    def prompt(e, path):
+        return (f'[Fig8 D12 单点恢复 / 自动完成事件]\n状态：{e["status"]}\n摘要：{e["summary"]}\n事件：{path}\n'
+            f'先读{pc.HERE/"CONTINUATION.md"}、recovery_authorization.json及recovery_budget.json。'
+            '原P12 63点任务失败事件必须保留，只额外补10.19GHz一次、原网格16核串行，不得自动再次重算。'
+            'completed仅表示62+1组装成功，需独立核验原始行、全部63有限点、native/网格/父SHA、实际看图及写ACK。'
+            '仅设计与数值均通过后接受D12并整合C3已通过的D04/D01形成有效24交付。'
+            '原C3 9几何+3直接、P12 1几何+1直接、本次额外1单点必须分开记账；原C3 D12 6.76失败不能覆盖。'
+            '若失败检查现有结果和日志，不得无上限追加。完成通知5分钟后仍无新仿真才检查AI是否中断，正常仿真不周期发消息。')
+    old = hook.prompt_for; hook.prompt_for = prompt
+    try: receipt = await hook.deliver(event, config=cfg)
+    finally: hook.prompt_for = old
+    pc.write(run/'notification_receipt.json', receipt)
+    if receipt.get('state') == 'accepted':
+        from phase_heartbeat import arm
+        arm(event)
+
+
+async def main(path):
+    p = validate(path); assert not dc.solvers()
+    locks = [pc.HERE/'worker.lock', pc.ORIGINAL/'worker.lock', Path('J:/f8_261007/protocol.lock')]
+    locks += [pc.HERE.parent/name/'worker.lock' for name in ['fig8_remediation_A_20261025','fig8_remediation_B_20261025','fig8_remediation_C3_20261025']]
+    assert not any(f.exists() for f in locks) and not Path('J:/f8_261007/pilot_queue.lock').exists()
+    held = []
+    try:
+        for lock in locks:
+            with lock.open('x') as f: f.write(str(os.getpid()))
+            held.append(lock)
+        pc.write(pc.HERE/'active.json', dict(case='D12G05', stage='candidate_cached_direct', pid=os.getpid(), run_dir=str(RUN), started_at=pc.now()))
+        pc.status(); status = 'failed'
+        try:
+            result = await execute(path); status = 'completed'
+            summary = f'D12缺失10.19GHz恢复，62+1直接点已组装；设计={result["sampled_design_supported"]}，数值={result["numerical_review_passed"]}，待独立验收。'
+            artifacts = ['input.json','state.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','reference_review.json',
+                'solver_messages.json','convergence_before.txt','convergence_after.txt','assembled_review/comparison.json',
+                'assembled_review/sparams.csv','assembled_review/all_modes_sparams.csv','assembled_review/mode_impedance_gamma.csv',
+                'assembled_review/reference_review.json','assembled_review/assembly_provenance.json']
+        except BaseException:
+            pc.write(RUN/'worker_error.json', dict(at=pc.now(),error=traceback.format_exc(),live_solvers=dc.solvers()))
+            summary = 'D12单点恢复异常；保留原失败和已解数据，不自动追加求解。'; artifacts=['input.json','worker_error.json']
+    finally:
+        for lock in held:
+            if lock.exists() and lock.read_text() == str(os.getpid()): lock.unlink()
+    pc.write(pc.HERE/'active.json', dict(case='D12G05',stage='awaiting_recovery_review',run_dir=str(RUN),operation_status=status,finished_at=pc.now()))
+    pc.status(); await publish(RUN, status, summary, artifacts)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(); parser.add_argument('--spec', type=Path, required=True)
+    asyncio.run(main(parser.parse_args().spec.resolve()))

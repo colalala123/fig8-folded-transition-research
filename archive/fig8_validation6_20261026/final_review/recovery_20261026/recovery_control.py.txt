@@ -1,0 +1,20 @@
+"""Bounded small-batch continuation, keeping failed attempts immutable."""
+from pathlib import Path
+import sys
+HERE=Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE.parent))
+import phase_control as original
+PARENT=original.PARENT
+FINAL=original.HERE
+BASE=original.BASE;OLD=original.OLD;ORIGINAL=original.ORIGINAL
+ORDER=original.ORDER;TARGET=original.TARGET;HOOK=original.HOOK
+read=original.read;write=original.write;sha=original.sha;now=original.now
+def release(case,path):
+    r=dict(case=case,input_path=str(path.resolve()),input_sha256=sha(path),bulk_dispatch_released=False,at=now())
+    for folder in [HERE,FINAL,PARENT]:write(folder/'supervised_release.json',r)
+def active(value):
+    for folder in [HERE,FINAL,PARENT]:
+        write(folder/'active.json',value)
+        write(folder/'status.json',dict(at=now(),stage='V6R',active=value,cases=ORDER))
+        (folder/'STATUS.md').write_text('# Fig8 同网格小批次直接复核\n\n'+__import__('json').dumps(value,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+def ledger_path():return HERE/'case_work_ledger.json'

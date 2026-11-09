@@ -1,0 +1,48 @@
+"""Dry-run by default. A launch requires a later recorded human instruction.
+
+Each call dispatches exactly one initial case. Never calls the solver itself.
+"""
+import argparse,subprocess,sys
+from pathlib import Path
+import phase_control as pc
+def check(case):
+    path=pc.BASE/case/'g01_initial/input.json';p=pc.read(path)
+    assert p['case']==case and pc.sha(p['source'])==p['source_sha256']
+    for f,h in p['parent_evidence_hashes'].items():assert pc.sha(f)==h,f
+    assert pc.sha(pc.HERE/'phase_geometry_worker.py')==p['worker_sha256']
+    assert not (path.parent/'state.json').exists(),'Existing attempt: inspect, never dispatch again'
+    return path
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--case',choices=pc.ORDER);p.add_argument('--solve',action='store_true');a=p.parse_args()
+    cases=[a.case] if a.case else pc.ORDER
+    paths=[check(c) for c in cases]
+    if not a.solve:
+        print({'ready_initial_inputs':len(paths),'execution_authorized':pc.read(pc.HERE/'authorization.json')['execution_authorized'],'started':False});return
+    assert a.case,'Exactly one serial initial case must be specified'
+    auth=pc.read(pc.HERE/'authorization.json');assert auth['execution_authorized'] is True,'Only configuration has been requested'
+    assert auth.get('launch_user_instruction'),'Record the subsequent human launch instruction before execution'
+    from phase_geometry_worker import dc
+    assert not dc.solvers() and not (pc.HERE/'worker.lock').exists()
+    ledger=pc.read(pc.HERE/'budget_ledger.json')
+    assert all(t['status']=='reviewed' for t in ledger['tasks'])
+    for task in ledger['tasks']:
+        old=Path(task['path']).parent
+        ack=pc.read(old/'receiver_ack.json');review=pc.read(old/'receiver_verification.json')
+        assert ack['event_sha256']==pc.sha(old/'completion_event.json')
+        assert ack['verification_sha256']==pc.sha(old/'receiver_verification.json')
+        assert ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+        assert ack['design_passed']==review['design_passed']
+    assert a.case==pc.ORDER[len(ledger['tasks'])] and len(ledger['tasks'])<4
+    if a.case not in pc.ORDER[:2]:
+        supervised=pc.read(pc.HERE/'supervised_first_review.json')
+        assert supervised['passed'] and supervised['cases']==pc.ORDER[:2]
+        for file,digest in supervised['evidence_hashes'].items():assert pc.sha(file)==digest
+    path=paths[0]
+    pc.write(pc.HERE/'supervised_release.json',dict(case=a.case,input_path=str(path.resolve()),input_sha256=pc.sha(path),bulk_dispatch_released=False,at=pc.now()))
+    ledger['new_geometry_reserved']+=1
+    ledger['tasks'].append(dict(case=a.case,role='initial',path=str(path.resolve()),input_sha256=pc.sha(path),new_phase_geometry_ordinal=1,status='reserved'))
+    pc.write(pc.HERE/'budget_ledger.json',ledger)
+    with (pc.HERE/f'{a.case}.stdout.log').open('ab') as out,(pc.HERE/f'{a.case}.stderr.log').open('ab') as err:
+        proc=subprocess.Popen([sys.executable,str(pc.HERE/'phase_geometry_worker.py'),'--spec',str(path)],cwd=str(pc.HERE),stdin=subprocess.DEVNULL,stdout=out,stderr=err,creationflags=subprocess.CREATE_NO_WINDOW)
+    print({'worker_launched':proc.pid,'actual_solver_started':False,'note':'Requires actual hf3d16core/1group observation after preparation'})
+if __name__=='__main__':main()

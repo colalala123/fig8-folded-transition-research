@@ -1,0 +1,19 @@
+{
+  "version": "mesh_budget_v2_user_approved_112k_exception",
+  "created_at": "2026-10-25T16:07:53.454118+00:00",
+  "user_authorized": true,
+  "user_reply": "允许轻微超限，优先收尾24配置",
+  "target_elements": [
+    100000,
+    110000
+  ],
+  "reviewed_exception_upper": 112000,
+  "rule": "Record slight overshoot; no rerun only to shave counts. Final candidates near design thresholds require direct review. More than112000 requires review; no silent further relaxation.",
+  "base_policy_sha256": "a56d29a5f284805f82cab0e5dce37b9f9c49a18cd0d1adba04b0fc5e6caaf726",
+  "resources": {
+    "cores": 16,
+    "tasks": 1
+  },
+  "full_matrix_approval": false,
+  "scope": "V6 inherits mesh rule under latest request to run these six with all prior requirements"
+}

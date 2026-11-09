@@ -1,0 +1,33 @@
+"""Stage-A-only geometry accounting; original8attempt worker stays unchanged."""
+from pathlib import Path
+import sys
+from phase_control import HERE,BASE,ORIGINAL,PLAN,read,write,sha,now,status
+sys.path.insert(0,str(ORIGINAL))
+OLD=Path('J:/f8_261007')
+status_report=status
+
+def validate_budget(spec, ledger, authorization):
+    assert authorization['execution_authorized'] and authorization['stage']=='A'
+    assert not authorization['stage_B_C_released'] and spec['case']=='D09G02'
+    n=spec['new_phase_geometry_ordinal']
+    assert n in (1,2,3) and spec['role']=={1:'probe_Ls1',2:'probe_Lm',3:'candidate'}[n]
+    assert spec['historical_geometry_attempts']==7
+    assert spec['phase_solve_ordinal_including_history']==7+n
+    assert not spec.get('resume_checkpoint'), 'Recovery needs a separate evidenced decision'
+    assert ledger['new_geometry_reserved']==n and ledger['new_geometry_reserved']<=authorization['geometry_cap']==3
+    assert ledger['new_cached_tasks_reserved']<=authorization['cached_task_cap']==4
+    assert ledger['case_cumulative_geometry']['D09G02']==7
+    tasks=[t for t in ledger['tasks'] if t.get('new_phase_geometry_ordinal')]
+    assert sorted(t['new_phase_geometry_ordinal'] for t in tasks)==list(range(1,n+1))
+    assert all(t['case']=='D09G02' for t in tasks)
+    assert len({t['path'] for t in tasks})==n
+    own=tasks[-1]
+    assert own['new_phase_geometry_ordinal']==n and Path(own['path']).resolve()==Path(spec['input_path']).resolve()
+    assert own['input_sha256']==sha(spec['input_path'])
+
+def validate_geometry_budget(spec, spec_path):
+    assert Path(spec_path).resolve()==Path(spec['input_path']).resolve()
+    assert Path(spec['run_dir']).resolve().is_relative_to((BASE/'D09G02').resolve())
+    assert sha(HERE/'phase_geometry_worker.py')==spec['worker_sha256']
+    assert sha(ORIGINAL/'mesh_budget.py')==spec['controller_sha256']
+    validate_budget(spec,read(HERE/'budget_ledger.json'),read(HERE/'authorization.json'))

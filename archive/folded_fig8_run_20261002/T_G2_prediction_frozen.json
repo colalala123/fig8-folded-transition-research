@@ -1,0 +1,78 @@
+{
+  "frozen_at": "2026-10-02T19:19:35+08:00",
+  "case": "T_G2",
+  "parent": "G2",
+  "source": "F:\\hfss_f8_261002\\G2\\G2.aedt",
+  "source_sha256": "7fbf66d20589d3b103e42ac83bff2f8b96c6b7fcf553ada91a35044105597675",
+  "parent_curve_sha256": "1b65294bf395e8619924decbe26e2a631c6f29fc1d500b5212b4fa5ff62fb031",
+  "method": "Historical Q1/Q2 local Ls1 sensitivity; independent prospective correction.",
+  "geometry": {
+    "Wm": 1.103314,
+    "Lm": 6.499465,
+    "Ws": 0.437335,
+    "Ls1": 10.891636862092323,
+    "Ls2": 1.62467,
+    "Ls3": 2.24
+  },
+  "geometry_check": {
+    "gap_mm": 0.7500000000000001,
+    "arm_net_mm": 1.8026650000000002,
+    "middle_opening_mm": 6.4116368620923225,
+    "microstrip_projection_clearance_mm": 2.654161431046161,
+    "fold_occupancy": 0.4113247675005,
+    "geometric_path_mm": 16.871636862092323,
+    "minimum_allowed_Ls1_mm": 8.96,
+    "inside_research_window": true,
+    "failed_rules": ""
+  },
+  "changes_mm": {
+    "Ls1": -0.26902313790767707,
+    "Lm": 0.0
+  },
+  "parent_response": {
+    "BW_2dB_GHz": 6.703179561992437,
+    "f_low_GHz": 3.218363284454957,
+    "f_high_GHz": 9.921542846447394,
+    "signed_peak_difference_dB": 1.9682137446312087,
+    "peak_level_dB": -14.08016660257083,
+    "central_valley_GHz": 6.83,
+    "S21_at_9p5GHz_dB": -1.0229981946371376
+  },
+  "slopes_per_mm": {
+    "BW_2dB_GHz": -0.21109921224978123,
+    "f_low_GHz": -0.1314493094884206,
+    "f_high_GHz": -0.3425485217382018,
+    "signed_peak_difference_dB": 7.316150424602732,
+    "peak_level_dB": -0.6881105544011223,
+    "central_valley_GHz": 0.3500000000000014,
+    "S21_at_9p5GHz_dB": -0.1576019140688334
+  },
+  "prediction": {
+    "BW_2dB_GHz": 6.759970134481712,
+    "f_low_GHz": 3.2537261901693295,
+    "f_high_GHz": 10.013696324651042,
+    "signed_peak_difference_dB": -2.220446049250313e-15,
+    "peak_level_dB": -13.89504894199845,
+    "central_valley_GHz": 6.735841901732313,
+    "S21_at_9p5GHz_dB": -0.9805996331740839
+  },
+  "slope_training": [
+    {
+      "case": "Q1",
+      "curve_sha256": "cbb8cb36c5602483edb2ae546dd966e2b70dcc707335978bd2f2318f3f5fddca"
+    },
+    {
+      "case": "Q2",
+      "curve_sha256": "5da2de1416c9f1b8abd1a840a640acc2bcebf0a33e7fba1553b44eea25b07def"
+    }
+  ],
+  "acceptance": {
+    "absolute_peak_difference_max_dB": 0.5,
+    "central_valley_target_GHz": 6.74,
+    "central_valley_deviation_max_GHz": 0.03,
+    "solver_and_sweep_converged": true,
+    "frequency_points": 1500
+  },
+  "cores": 4,
+  "tasks": 1
+}

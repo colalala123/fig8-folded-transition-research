@@ -1,0 +1,17 @@
+import asyncio,json,traceback
+from pathlib import Path
+from mcp_call import call
+from pilot_worker import write_json,now
+ROOT=Path('F:/hfss_f8x_261002/R_B0_rebuild_max500');NAME='R_B0_rebuild_max500';PORT=12704;mf=ROOT/'repair_noportimp_manifest.json'
+async def main():
+ m=json.loads(mf.read_text(encoding='utf-8'));m['retry_started_at_utc']=now();m['retry_start']=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120});write_json(mf,m)
+ if not m['retry_start'].get('started'):raise RuntimeError(m['retry_start'])
+ for _ in range(240):
+  await asyncio.sleep(30)
+  try: st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','port':PORT,'timeout':120})
+  except Exception as e:
+   (ROOT/'retry_status_error.txt').write_text(traceback.format_exc(),encoding='utf-8');continue
+  if not st.get('running'):break
+ m['status_poll_complete']=now();write_json(mf,m)
+ print(json.dumps(m,indent=2))
+if __name__=='__main__':asyncio.run(main())

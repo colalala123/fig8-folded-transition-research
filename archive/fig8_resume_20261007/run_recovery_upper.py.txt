@@ -1,0 +1,109 @@
+"""Check the smooth 14.60–15 GHz tail after the direct windows finish.
+
+Requires the direct fill to pass, keeps the original mesh, and stops after
+export/review. It does not dispatch any pilot geometry.
+"""
+import argparse,asyncio,json
+import numpy as np
+from broadband_recovery import ROOT,read,sha,write_json,now
+from local_direct_check import idle,connect,persisted_sweeps
+from pilot_worker import convergence
+from export_modal_segment import export,load_segment
+from audit_existing import touchstone
+from check_external_normalization import impedance,transform
+import run_protocol_tf3 as backend
+from preserve_discrete_ranges import restore_properties
+
+BASE=ROOT/'local_repair/D04G05';RUN=BASE/'upper_segment'
+PROJECT=BASE/'D04G05_repair.aedt';SOURCE=ROOT/'D04G05/i00/D04G05_00.aedt'
+NAME='RecoveryUpperZoV1'
+
+def prepare():
+    idle();assert not (ROOT/'protocol.lock').exists()
+    assert not (RUN/'state.json').exists(),'Inspect/recover an existing upper segment'
+    fill=read(BASE/'recovery_fill/fill_review.json')
+    assert fill['passed'] and fill['mesh_reuse_verified']
+    for f,h in fill['evidence_hashes'].items():assert sha(f)==h
+    original=read(SOURCE.parent/'manifest.json');RUN.mkdir(exist_ok=True)
+    app=connect(PROJECT,7990)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        saved=persisted_sweeps(PROJECT);assert NAME not in saved
+        for sw in setup.sweeps:
+            if saved[sw.name]['IsEnabled']=='false':continue
+            if saved[sw.name]['Type']=='Discrete':
+                assert sw.name=='RecoveryFillV1'
+                frequencies,_=touchstone(BASE/'recovery_fill/native_direct.s4p',4)
+                restore_properties(sw,frequencies)
+            sw.props['Type']=saved[sw.name]['Type'];sw.props['IsEnabled']=False;assert sw.update()
+        sw=setup.add_sweep(NAME,sweep_type='Interpolating');sw.auto_update=False
+        expected={**original['settings']['sweep'],'IsEnabled':False,
+                  'RangeStart':'14.6GHz','RangeEnd':'15GHz','InterpUsePortImped':True}
+        sw.props.update(expected);assert sw.update();sw.auto_update=True
+        assert dict(sw.props)==expected
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence_before.txt'))
+        conv=convergence(RUN/'convergence_before.txt');assert conv==original['convergence']
+        app.save_project();assert setup.is_solved
+        write_json(RUN/'state.json',{'status':'prepared','source':str(SOURCE),'source_sha256':sha(SOURCE),
+            'project':str(PROJECT),'cores':16,'tasks':1,'port':7990,'setup':'Setup19','modes_per_port':2,
+            'segments':{},'sweep_names':{'Upper':NAME},'diagnostic_sweep':expected,
+            'adaptive_convergence_before':conv,'prepared_at_utc':now(),
+            'scope':'Existing-mesh upper-tail diagnostic, with independent boundary/interior direct checks. No production approval.'})
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+
+def review():
+    state=read(RUN/'state.json');assert state['mesh_reuse_verified']
+    rec=state['segments']['Upper'];assert rec['status']=='exported' and rec['sweep_converged']
+    export(PROJECT,'Setup19 : '+NAME,RUN,np.arange(1460,1501)*.01)
+    f,s,z,_=load_segment(RUN);fixed=transform(s,z,'traveling')
+    sv=np.linalg.svd(fixed,compute_uv=False)[:,0]
+    reciprocity=float(abs(fixed-fixed.transpose(0,2,1)).max())
+    assert np.isfinite(fixed).all()
+    np.savez_compressed(RUN/'scalar_reference_50ohm.npz',frequency_GHz=f,S=fixed,modal_Zo=z)
+    samples=[]
+    for direct in [BASE/'recovery_fill',BASE/'cutoff_check']:
+        df,ds=touchstone(direct/'native_direct.s4p',4)
+        dz=impedance(direct/'native_direct.s4p',4);d50=transform(ds,dz,'traveling')
+        for i,freq in enumerate(df):
+            if freq<14.6-1e-9:continue
+            j=int(np.argmin(abs(f-freq)));assert abs(f[j]-freq)<1e-9
+            samples.append({'GHz':float(freq),
+                'S11_magnitude_error':float(abs(abs(s[j,0,0])-abs(ds[i,0,0]))),
+                'S21_magnitude_error':float(abs(abs(s[j,2,0])-abs(ds[i,2,0]))),
+                'full_50ohm_complex_error':float(abs(fixed[j]-d50[i]).max())})
+    assert sorted(round(x['GHz'],2) for x in samples)==[14.6,14.8,15.0]
+    result={'points':len(f),'max_sv':float(max(sv)),'passivity_violations':int(sum(sv>1.001)),
+        'reciprocity_error':reciprocity,'matrix_passed':bool(max(sv)<=1.001 and reciprocity<=1e-6),
+        'direct_samples':samples,'all_sample_full_matrix_errors_le_0p005':all(x['full_50ohm_complex_error']<=.005 for x in samples),
+        'mesh_reuse_verified':True,'production_approved':False,'reviewed_at_utc':now()}
+    files=[RUN/n for n in ['state.json','manifest.json','all_modes_sparams.csv','mode_impedance_gamma.csv','sparams.csv','mode_map.json','scalar_reference_50ohm.npz']]
+    files += [BASE/'recovery_fill/fill_review.json',BASE/'cutoff_check/direct_comparison.json']
+    result['evidence_hashes']={str(p):sha(p) for p in files}
+    write_json(RUN/'upper_review.json',result);print(json.dumps(result,indent=2))
+
+async def main():
+    prepare()
+    backend.RUN=RUN;backend.PROJECT=PROJECT;backend.SOURCE=SOURCE;backend.STATE=RUN/'state.json'
+    backend.SETUP='Setup19';backend.MODE_COUNT=2;backend.SEGMENTS=[('Upper','Interpolating',14.6,15.)]
+    backend.persisted_sweeps=lambda:persisted_sweeps(PROJECT)
+    original_active=backend.active_solvers
+    def check_active():
+        processes=original_active()
+        if any('-solve_broadband_adapt ' in ' '.join(p['cmdline'] or []) or '-solve_adapt ' in ' '.join(p['cmdline'] or []) for p in processes):
+            app=connect(PROJECT,7990)
+            try:app.stop_simulations(clean_stop=True)
+            finally:app.release_desktop(close_projects=False,close_desktop=False)
+            raise RuntimeError('Unexpected adaptive rerun stopped')
+        return processes
+    backend.active_solvers=check_active
+    await backend.main()
+    state=read(RUN/'state.json');assert state['segments']['Upper']['convergence']==state['adaptive_convergence_before']
+    state['mesh_reuse_verified']=True;write_json(RUN/'state.json',state);review()
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--run',action='store_true');parser.add_argument('--review',action='store_true');a=parser.parse_args()
+    assert not (a.run and a.review)
+    if a.run:asyncio.run(main())
+    elif a.review:review()
+    else:print(json.dumps({'dry_run':True,'range_GHz':[14.6,15.0],'points':41,'required':str(BASE/'recovery_fill/fill_review.json')}))

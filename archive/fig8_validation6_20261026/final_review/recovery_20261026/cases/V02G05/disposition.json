@@ -1,0 +1,56 @@
+{
+  "case": "V02G05",
+  "state": "scoped_accepted",
+  "source": "J:\\f8_V6_261026\\V02G05\\g01_initial",
+  "direct_run": "J:\\f8_V6_261026\\V02G05\\direct_smallbatch",
+  "comparison": {
+    "points": 63,
+    "max_complex_error": 0.0009865039301184741,
+    "max_nearband_S21_error_dB": 0.0019190358121796702,
+    "peak_height_errors_dB": [
+      0.0005597610904999328,
+      0.010561985797902906
+    ],
+    "direct_peaks": [
+      {
+        "GHz": 4.78,
+        "dB": -15.296650260061469,
+        "interior": true
+      },
+      {
+        "GHz": 8.52,
+        "dB": -14.982276748882551,
+        "interior": true
+      }
+    ],
+    "direct_peak_difference_dB": 0.31437351117891765,
+    "direct_central_valley": {
+      "GHz": 6.73,
+      "interior": true
+    },
+    "direct_edges_GHz": {
+      "f_low_GHz": 3.058729612973036,
+      "f_high_GHz": 10.103189374488318
+    },
+    "edge_shifts_GHz": {
+      "f_low_GHz": 3.0077639614045637e-05,
+      "f_high_GHz": 0.00010128474237269813
+    },
+    "direct_BW_GHz": 7.044459761515283,
+    "BW_shift_GHz": 0.00013136238198718786,
+    "numerical_review_passed": true,
+    "sampled_design_supported": true,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite direct samples on unchanged mesh; not full-curve independent convergence or continuous-extrema proof. Requires receiver review; no automatic acceptance."
+  },
+  "actual_elements": 103343,
+  "event_sha256": "333b364a536cf3b2e9b5e8e16bf57bb3aa328e0add7b38741cec73bf3a868a2e",
+  "ack_sha256": "63c09197417f8af36b148bcb425f97a9cd92d01c7bad03574615990975da4ded"
+}

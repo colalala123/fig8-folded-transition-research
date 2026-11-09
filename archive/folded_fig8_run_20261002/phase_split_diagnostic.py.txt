@@ -1,0 +1,80 @@
+"""Exploratory lossless T-network fit with separate microstrip and slot phases."""
+from pathlib import Path
+import hashlib
+import json
+import numpy as np
+from scipy.optimize import least_squares
+
+ROOT=Path('F:/hfss_f8_261002')
+
+
+def reflection(frequency,p,r,fm,fs):
+    zm,zs=np.sqrt(p*r),np.sqrt(p/r)
+    um=1/np.tan(np.pi*frequency/(2*fm))
+    us=1/np.tan(np.pi*frequency/(2*fs))
+    characteristic=-zm*um+(zm*zm*um*um+1)*us/zs
+    return np.abs(characteristic)/np.hypot(1,characteristic)
+
+
+def fit(frequency,measured,separate):
+    def predict(x):
+        return reflection(frequency,x[0],x[1],x[2],x[3] if separate else x[2])
+    results=[]
+    for center in (6.65,6.75,6.85):
+        start=[2.1,.83,center,center] if separate else [2.1,.83,center]
+        lower=[1.05,.2,5.8,5.8] if separate else [1.05,.2,5.8]
+        upper=[4,1.8,7.8,7.8] if separate else [4,1.8,7.8]
+        result=least_squares(lambda x:predict(x)-measured,start,bounds=(lower,upper),
+                             max_nfev=1500,xtol=1e-11,ftol=1e-11,gtol=1e-11)
+        results.append(result)
+    best=min(results,key=lambda s:s.cost)
+    return {
+        'parameters':dict(zip(['P_circuit_fit','R_circuit_fit','fm_GHz','fs_GHz'] if separate
+                              else ['P_circuit_fit','R_circuit_fit','f0_GHz'],best.x.tolist())),
+        'S11_magnitude_RMSE':float(np.sqrt(np.mean(best.fun**2))),
+        'optimizer_success':bool(best.success),
+        'jacobian_condition_number_raw_units':float(np.linalg.cond(best.jac)),
+        'all_start_RMSE':[float(np.sqrt(2*s.cost/len(frequency))) for s in results],
+        'parameters_at_bounds':bool(np.any(abs(best.active_mask)>0)),
+    }
+
+
+def main():
+    rows=[]
+    for case in ['F2','B0','F3','G035','G2','T_G035']:
+        path=ROOT/case/'sparams.csv'
+        if not path.exists():continue
+        data=np.genfromtxt(path,delimiter=',',names=True,encoding='utf-8-sig')
+        mask=(data['Freq_GHz']>=3.8)&(data['Freq_GHz']<=9.6)
+        f,y=data['Freq_GHz'][mask],data['S11_mag'][mask]
+        equal=fit(f,y,False)
+        split=fit(f,y,True)
+        rows.append({'case':case,'curve_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),
+                     'equal_phase_3_parameters':equal,'separate_phase_4_parameters':split,
+                     'relative_fit_RMSE_reduction':1-split['S11_magnitude_RMSE']/equal['S11_magnitude_RMSE']})
+    report={
+        'status':'exploratory_response_calibration_not_geometry_prediction',
+        'derivation':{
+            'normalized_series_impedance_each_arm':'Z=-j*zm*cot(theta_m)',
+            'normalized_shunt_admittance':'Y=-2j*cot(theta_s)/zs',
+            'ABCD':'series(Z) @ shunt(Y) @ series(Z)',
+            'characteristic_function':'F=(B-C)/2=j*(-zm*um+(zm^2*um^2+1)*us/zs)',
+            'phase_definitions':'um=cot(pi*f/(2*fm)), us=cot(pi*f/(2*fs))',
+            'uniform_limit':'fm=fs reduces algebraically to the paper characteristic function.',
+        },
+        'fixed_fit_band_GHz':[3.8,9.6],
+        'objective':'Unweighted S11 linear magnitude error; S21 was not fitted.',
+        'limitations':[
+            'The extra phase parameter makes this a more flexible fitted model, not an independent proof.',
+            'No geometry-to-phase map, physical local impedance, or total-loss law is identified by this fit.',
+            'The model assumes lossless symmetric T sections and linear phase versus frequency.',
+            'P_circuit_fit and R_circuit_fit are fitted T-network coefficients; they are not formal peak/BW-extracted labels.',
+            'A prediction for a new phase-corrected geometry still requires an independent HFSS solve.',
+        ],
+        'rows':rows,
+    }
+    (ROOT/'phase_split_diagnostic.json').write_text(json.dumps(report,indent=2)+'\n',encoding='utf-8')
+    print(json.dumps({'rows':rows},indent=2))
+
+
+if __name__=='__main__':main()

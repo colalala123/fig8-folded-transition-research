@@ -1,0 +1,31 @@
+"""Frozen48 acquisition bounds only; never inspects/reopens old solve queues."""
+import json,shutil
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def validate_campaign(extra_analyze=0,case=None,storage=False):
+ assert not (ROOT/'closure.json').exists(),'Campaign closed'
+ assert not (ROOT/'PAUSE.json').exists(),'Explicit pause requires review before any further solve'
+ plan=read(ROOT/'campaign_frozen.json');rows=plan['cases']
+ assert len(rows)==48 and len({r['case'] for r in rows})==48
+ count=0;analyzes=0
+ for row in rows:
+  run=Path(row['run_dir']);s=read(run/'state.json') if (run/'state.json').exists() else None
+  if s is None:continue
+  count+=1;assert s['case']==row['case'] and s.get('geometry')==row['geometry']
+  segs=s.get('segments',[]);assert len(segs)<=13
+  assert sum(bool(x['adaptive_requested']) for x in segs)<=12
+  assert sum(not x['adaptive_requested'] for x in segs)<=1
+  assert all(x['mcp_request']['cores_per_task']==14 and x['mcp_request']['concurrent_tasks']==1 for x in segs)
+  assert s.get('resource_recovery_attempt',0)<=1
+  analyzes+=len(segs)
+ assert count<=48 and analyzes+extra_analyze<=624
+ if case:
+  own=next(r for r in rows if r['case']==case)
+  if own['ordinal']>2:
+   gate=read(ROOT/'pilot_gate.json');assert gate['passed'] and gate['actual_visual_ACKs']==2
+ if storage:
+  free=shutil.disk_usage(plan['D_base']).free/1024**3
+  needed=(48-count)*plan['storage_admission']['per_remaining_geometry_GiB']+19
+  assert free>=needed,f'D space gate: {free:.2f}GiB free, {needed:.2f}GiB projected reserve required'
+ return dict(geometries_started=count,geometry_cap=48,Analyze_used=analyzes,Analyze_cap=624,cores=14,tasks=1,serial=True)

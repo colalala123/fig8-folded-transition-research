@@ -1,0 +1,48 @@
+"""Freeze actual reviewed I4 sources and a finite four-frequency batch schedule. No solve."""
+from pathlib import Path
+import phase_control as pc
+from phase_direct_context import reviewed_source
+from phase_final_direct import frequencies
+
+def main():
+    assert not (pc.HERE/'continuation_plan.json').exists()
+    auth=pc.read(pc.PARENT/'authorization.json');assert auth['execution_authorized'] and auth['cases']==pc.ORDER
+    ledger=pc.read(pc.PARENT/'budget_ledger.json')
+    assert len(ledger['tasks'])==4 and all(t['status']=='reviewed' and t['design_passed'] for t in ledger['tasks'])
+    assert ledger['new_geometry_reserved']==4 and ledger['new_cached_tasks_reserved']==0
+    from solver_runtime import dc
+    assert not dc.solvers() and not (pc.PARENT/'worker.lock').exists()
+    prior={str(pc.PARENT/f):pc.sha(pc.PARENT/f) for f in ['authorization.json','plan.json','execution_plan.json','budget_ledger.json','predictions_frozen.json']}
+    cases=[]
+    for case in pc.ORDER:
+        src=pc.BASE/case/'g01_initial';p,s,m=reviewed_source(src,case);ff=frequencies(m)
+        evidence={str(src/f):pc.sha(src/f) for f in ['input.json','state.json','manifest.json','sparams.csv',
+            'all_modes_sparams.csv','mode_impedance_gamma.csv','response_metrics.json','convergence.txt',
+            'reference_review.json','completion_event.json','receiver_verification.json','receiver_ack.json','supervised_start.json']}
+        project=Path(s['project']);assert project.exists()
+        cases.append(dict(case=case,source=str(src),project=str(project),project_sha256=pc.sha(project),
+            geometry=s['geometry'],requested_frequencies_GHz=ff,existing_frequencies_GHz=[],
+            missing_frequencies_GHz=ff,chunks=[ff[i:i+4] for i in range(0,len(ff),4)],evidence_hashes=evidence))
+        (pc.HERE/'cases'/case).mkdir(parents=True,exist_ok=True)
+    maximum=sum(len(r['chunks']) for r in cases)
+    assert maximum<=4*18
+    pc.write(pc.HERE/'continuation_plan.json',dict(stage='I4D',at=pc.now(),cases=cases,prior_evidence_hashes=prior,
+        maximum_new_analyze_launches=maximum,geometry_budget_increment=0,frequency_cap_per_case=70,chunk_cap=4,
+        adaptive_allowed=False,retry_budget=0,reason='Validate native fundamental S11/S21 on unchanged accepted mesh.'))
+    pc.write(pc.HERE/'authorization.json',dict(stage='I4D',cases=pc.ORDER,execution_authorized=True,cached_task_cap=4,
+        user_instruction=auth['launch_user_instruction'],at=pc.now(),scope='I4 final direct checks only; no new geometry'))
+    pc.write(pc.HERE/'execution_plan.json',dict(stage='I4D',cases=pc.ORDER,cores=16,serial_tasks=1,
+        new_geometry_cap=0,adaptive_allowed=False,cached_task_cap=4,frequency_cap_per_case=70,
+        chunk_frequency_cap=4,maximum_new_analyze_launches=maximum,retry_budget=0,
+        completion_hook_target=pc.TARGET,normal_solve_periodic_messages=False))
+    pc.write(pc.HERE/'case_work_ledger.json',dict(stage='I4D',new_geometry_reserved=0,new_cached_tasks_reserved=0,
+        analyze_launches_reserved=0,tasks=[]))
+    cfg=pc.read(pc.PARENT/'hook/config.json');cfg.update(state_dir=str(pc.HERE/'hook/state'),created_at=pc.now())
+    pc.write(pc.HERE/'hook/config.json',cfg)
+    pc.write(pc.HERE/'hook/heartbeat/monitor.json',dict(enabled=False,status='waiting_first_direct_completion',at=pc.now()))
+    files=[p for p in pc.HERE.iterdir() if p.suffix in ('.py','.json') and p.name not in ('case_work_ledger.json','implementation_hashes.json','active.json','status.json')]
+    files += [pc.HERE/'CONTINUATION.md',pc.HERE/'hook/config.json']
+    pc.write(pc.HERE/'implementation_hashes.json',{str(p):pc.sha(p) for p in files})
+    print(dict(cases=4,points=[len(r['requested_frequencies_GHz']) for r in cases],max_Analyze_launches=maximum,solver_started=False))
+
+if __name__=='__main__':main()

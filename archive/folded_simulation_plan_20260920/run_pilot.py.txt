@@ -1,0 +1,93 @@
+"""Run one isolated case; do not mutate or overwrite source projects."""
+from pathlib import Path
+import argparse,csv,hashlib,json,math,shutil,sys,time,traceback
+
+WORK=Path(r'${WORKSPACE}')
+HERE=Path(__file__).resolve().parent
+RUNROOT=Path(r'F:\hfss_fold_260920')
+sys.path.insert(0,str(WORK/'tmp/folded_plan_review/automation'))
+sys.path.insert(0,str(WORK))
+
+def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
+def safe(fn,*a,**kw):
+    try:return fn(*a,**kw)
+    except Exception as e:return {'error':repr(e)}
+
+def main():
+    ap=argparse.ArgumentParser()
+    ap.add_argument('--case',required=True)
+    ap.add_argument('--cores',type=int,default=8)
+    ap.add_argument('--build-only',action='store_true')
+    args=ap.parse_args()
+    row=next(r for r in json.loads((HERE/'pilot_matrix_15.json').read_text(encoding='utf-8'))['rows'] if r['case']==args.case)
+    run=RUNROOT/args.case
+    run.mkdir(parents=True,exist_ok=True)
+    project=run/(args.case+'.aedt')
+    if project.exists():raise FileExistsError('Existing case is preserved: '+str(project))
+    source=Path(r'F:\hfss_rfold\r052_b2.aedt') if args.case=='B0' else WORK/'Wideband vertical transition.aedt'
+    shutil.copy2(source,project)
+    m={'case':args.case,'geometry':row,'source':str(source),'source_sha256':sha(source),'project':str(project),
+       'version':'2024.2','cores':args.cores,'tasks':1,'use_auto_settings':False,'status':'opening','created':time.strftime('%Y-%m-%d %H:%M:%S')}
+    def save(): (run/'manifest.json').write_text(json.dumps(m,indent=2,ensure_ascii=False,default=str),encoding='utf-8')
+    save(); app=None
+    try:
+        from ansys.aedt.core import Hfss
+        from folded_transition import apply_folded_geometry
+        app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',non_graphical=True,new_desktop=True,close_on_exit=True)
+        m['desktop_pid']=app.desktop_class.aedt_process_id
+        m['status']='building';save()
+        if args.case!='B0':
+            if row['structure']=='folded':
+                m['build']=apply_folded_geometry(app,wm=row['Wm'],lm=row['Lm'],ws=row['Ws'],ls1=row['Ls1'],ls2=row['Ls2'],ls3=row['Ls3'])
+            else:
+                from hfss_structure_a_run import apply_structure_a_slot,read_structure_a_slot_from_modeler
+                ed=app.oeditor
+                for name,sign in [('Substrate_3',1),('Substrate_18',-1)]:
+                    node=ed.GetChildObject(name).GetChildObject('CreateBox:1')
+                    node.SetPropValue('XSize',f"{row['Wm']:.9g}mm")
+                    node.SetPropValue('Position/X',f"{-row['Wm']/2:.9g}mm")
+                    node.SetPropValue('YSize',f"{sign*row['Lm']:.9g}mm")
+                m['build']=apply_structure_a_slot(app,row['Ls'],row['Ws'])
+                m['measured_slot']=read_structure_a_slot_from_modeler(app)
+        app.save_project()
+        setup=app.get_setup('Setup19')
+        m['setup_props']=dict(setup.props)
+        m['sweeps']={s.name:dict(s.props) for s in setup.sweeps}
+        m['boundaries']={b.name:{'type':b.type,'props':dict(b.props)} for b in app.boundaries}
+        m['objects']={n:{'bbox':list(app.modeler[n].bounding_box),'material':app.modeler[n].material_name} for n in app.modeler.object_names}
+        m['setup_hash']=hashlib.sha256(json.dumps({'setup':m['setup_props'],'sweeps':m['sweeps']},sort_keys=True,default=str).encode()).hexdigest()
+        m['status']='built';save()
+        if args.build_only:return 0
+        m['status']='solving';m['solve_started']=time.time();save()
+        ok=app.analyze_setup('Setup19',cores=args.cores,tasks=1,use_auto_settings=False,blocking=True)
+        m['analyze_result']=ok;m['solve_wall_seconds']=time.time()-m['solve_started']
+        m['messages']=safe(lambda:list(app.odesktop.GetMessages(app.project_name,app.design_name,0)))
+        save()
+        if ok is not True:raise RuntimeError('HFSS solve failed; see manifest messages')
+        app.save_project()
+        data=app.post.get_solution_data(expressions=['S(1,1)','S(2,1)','S(1,2)','S(2,2)'],setup_sweep_name='Setup19 : Sweep1',domain='Sweep',report_category='Modal Solution Data')
+        if not data:raise RuntimeError('Solved project returned no S parameters')
+        f=[float(v) for v in data.primary_sweep_values]
+        rows=[{'Freq_GHz':v} for v in f]
+        for exp,label in [('S(1,1)','S11'),('S(2,1)','S21'),('S(1,2)','S12'),('S(2,2)','S22')]:
+            for formula,suffix in [('mag','mag'),('real','real'),('imag','imag')]:
+                _,v=data.get_expression_data(exp,formula=formula)
+                assert len(v)==len(f)
+                for r,x in zip(rows,v):r[label+'_'+suffix]=float(x)
+            for r in rows:r[label+'_dB']=20*math.log10(max(r[label+'_mag'],1e-300))
+        assert len(rows)==1500 and abs(f[0]-0.01)<1e-7 and abs(f[-1]-15)<1e-7
+        with (run/'sparams.csv').open('w',encoding='utf-8',newline='') as handle:
+            w=csv.DictWriter(handle,fieldnames=list(rows[0]));w.writeheader();w.writerows(rows)
+        m['convergence_export']=safe(app.export_convergence,'Setup19',output_file=str(run/'convergence.txt'))
+        m['mesh_export']=safe(app.export_mesh_stats,'Setup19',output_file=str(run/'mesh_stats.txt'))
+        m['curve_sha256']=sha(run/'sparams.csv');m['status']='completed'
+        app.save_project();save()
+        print(json.dumps({'case':args.case,'status':m['status'],'seconds':m['solve_wall_seconds']},ensure_ascii=False),flush=True)
+        return 0
+    except Exception:
+        m['status']='failed';m['error']=traceback.format_exc();save();print(m['error'],flush=True);return 1
+    finally:
+        if app:m['release']=safe(app.release_desktop,close_projects=True,close_desktop=True)
+        m['source_unchanged']=sha(source)==m['source_sha256'];save()
+
+if __name__=='__main__':raise SystemExit(main())

@@ -1,0 +1,18 @@
+import copy,unittest
+from technical_request_gate import check_recovery_request as gate
+class Tests(unittest.TestCase):
+    def setUp(self):self.old=dict(geometry={'Lm':6.5},segments=[dict(adaptive_requested=True)])
+    def state(self,n):return dict(geometry={'Lm':6.5},segments=[dict(adaptive_requested=True)]*n)
+    def test_fresh_retry_counts_old(self):self.assertEqual(gate(self.old,self.state(0),True)['combined_after_next'],2)
+    def test_eleven_adaptives_then_sweep_reaches13(self):self.assertEqual(gate(self.old,self.state(11),False)['combined_after_next'],13)
+    def test_twelfth_new_adaptive_forbidden(self):
+        with self.assertRaises(AssertionError):gate(self.old,self.state(11),True)
+    def test_fourteenth_request_forbidden(self):
+        with self.assertRaises(AssertionError):gate(self.old,self.state(12),False)
+    def test_second_sweep_forbidden(self):
+        s=self.state(1);s['segments'].append(dict(adaptive_requested=False))
+        with self.assertRaises(AssertionError):gate(self.old,s,False)
+    def test_geometry_change_forbidden(self):
+        s=self.state(0);s['geometry']['Lm']=6.6
+        with self.assertRaises(AssertionError):gate(self.old,s,True)
+if __name__=='__main__':unittest.main()

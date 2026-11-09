@@ -1,0 +1,144 @@
+{
+  "at": "2026-10-26T09:52:34.265380+00:00",
+  "status": "all4_initial_design_passed_final_direct_pending",
+  "rows": [
+    {
+      "case": "I01G02",
+      "source": "J:\\f8_I4_261026\\I01G02\\g01_initial",
+      "Wm": 1.25,
+      "Ws": 0.543938,
+      "a": 1.4,
+      "BW_GHz": 7.015277938508029,
+      "joint_BW_GHz": 6.845082867262348,
+      "peak_mean_dB": -13.3384166937571,
+      "worse_peak_dB": -13.334001283178107,
+      "central_GHz": 6.72,
+      "peak_difference_dB": 0.008833066842361958,
+      "mesh": 100129,
+      "predicted_BW_GHz": 7.020839154224243,
+      "error_MHz": -5.56121571621393,
+      "metrics_sha256": "50ba45c66d98896c34d300ca57193e4da5bf1131985e8a8b8e523392cdc2358a"
+    },
+    {
+      "case": "I02G02",
+      "source": "J:\\f8_I4_261026\\I02G02\\g01_initial",
+      "Wm": 1.9,
+      "Ws": 0.369815,
+      "a": 1.4,
+      "BW_GHz": 7.008330487141038,
+      "joint_BW_GHz": 6.728984907646384,
+      "peak_mean_dB": -20.317815537570763,
+      "worse_peak_dB": -20.141422911926163,
+      "central_GHz": 6.7,
+      "peak_difference_dB": 0.35644180965868344,
+      "mesh": 103694,
+      "predicted_BW_GHz": 7.020840354009155,
+      "error_MHz": -12.509866868117392,
+      "metrics_sha256": "bddea416e03f130e71dbff38a7c680f87cf1fe5077ad7e88dd9358e30595a651"
+    },
+    {
+      "case": "I01G05",
+      "source": "J:\\f8_I4_261026\\I01G05\\g01_initial",
+      "Wm": 1.25,
+      "Ws": 0.543938,
+      "a": 1.8,
+      "BW_GHz": 7.0353357504393115,
+      "joint_BW_GHz": 6.855706952680215,
+      "peak_mean_dB": -13.585647728433228,
+      "worse_peak_dB": -13.51327245399434,
+      "central_GHz": 6.73,
+      "peak_difference_dB": 0.1453586875477857,
+      "mesh": 101478,
+      "predicted_BW_GHz": 7.020839154224243,
+      "error_MHz": 14.496596215068713,
+      "metrics_sha256": "5d853f3d322aeb2e5c51a3b39cc3033a3f285446d82ee876288d727ecf3bcb31"
+    },
+    {
+      "case": "I02G05",
+      "source": "J:\\f8_I4_261026\\I02G05\\g01_initial",
+      "Wm": 1.9,
+      "Ws": 0.369815,
+      "a": 1.8,
+      "BW_GHz": 7.013707518295499,
+      "joint_BW_GHz": 6.682819414127512,
+      "peak_mean_dB": -20.772345770404183,
+      "worse_peak_dB": -20.59438490764172,
+      "central_GHz": 6.7,
+      "peak_difference_dB": 0.35964427941900823,
+      "mesh": 102532,
+      "predicted_BW_GHz": 7.020840354009155,
+      "error_MHz": -7.132835713655972,
+      "metrics_sha256": "370c59acd582ad98224002c89343293774870f5cea32578ae4c27e8d0e2b1bc9"
+    }
+  ],
+  "controls": [
+    {
+      "case": "V02G02",
+      "source": "J:\\f8_V6_261026\\V02G02\\g01_initial",
+      "Wm": 1.4,
+      "Ws": 0.49,
+      "a": 1.4,
+      "BW_GHz": 7.029157982565774,
+      "joint_BW_GHz": 6.841400954663274,
+      "peak_mean_dB": -14.855882663801909,
+      "worse_peak_dB": -14.831058646151561,
+      "central_GHz": 6.73,
+      "peak_difference_dB": 0.049719185006884103,
+      "mesh": 101436,
+      "predicted_BW_GHz": 7.020839495401333,
+      "error_MHz": 8.31848716444128,
+      "metrics_sha256": "421ee67be60a6600fe7ec03a2d353ccc7798f21b80970569e90a8a6a4f0d6b44"
+    },
+    {
+      "case": "V02G05",
+      "source": "J:\\f8_V6_261026\\V02G05\\g01_initial",
+      "Wm": 1.4,
+      "Ws": 0.49,
+      "a": 1.8,
+      "BW_GHz": 7.0443283991332954,
+      "joint_BW_GHz": 6.84787271431678,
+      "peak_mean_dB": -15.143691222299537,
+      "worse_peak_dB": -14.992838734680454,
+      "central_GHz": 6.73,
+      "peak_difference_dB": 0.3043712864715147,
+      "mesh": 103343,
+      "predicted_BW_GHz": 7.020839495401333,
+      "error_MHz": 23.48890373196255,
+      "metrics_sha256": "9b726369f86180f122b5488a09b8175236ffded584baa54039bacedfed206557"
+    }
+  ],
+  "errors": {
+    "MAE_MHz": 9.925128628264002,
+    "RMSE_MHz": 10.588348979432968,
+    "max_absolute_MHz": 14.496596215068713
+  },
+  "by_arm": [
+    {
+      "a": 1.4,
+      "cases": [
+        "I01G02",
+        "V02G02",
+        "I02G02"
+      ],
+      "BW_spread_MHz": 20.827495424736497,
+      "endpoint_peak_mean_change_dB": -6.979398843813662,
+      "endpoint_joint_BW_change_MHz": -116.09795961596348,
+      "matching_monotonic": true
+    },
+    {
+      "a": 1.8,
+      "cases": [
+        "I01G05",
+        "V02G05",
+        "I02G05"
+      ],
+      "BW_spread_MHz": 30.62088083779635,
+      "endpoint_peak_mean_change_dB": -7.1866980419709545,
+      "endpoint_joint_BW_change_MHz": -172.88753855270312,
+      "matching_monotonic": true
+    }
+  ],
+  "refitted": false,
+  "new_width_pairs": 2,
+  "source_validation_sha256": "3878d960de4227adaf63bad642b0736128628692886ee0153d7462280d3a27bf"
+}

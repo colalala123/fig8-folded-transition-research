@@ -1,0 +1,38 @@
+import asyncio,json,time,traceback,hashlib
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+ROOT=Path(r'F:\hfss_f8x_261002\R_B0_rebuild_max500'); PROJ=ROOT/'R_B0_rebuild_max500.aedt'; MF=ROOT/'repair_discrete_target_manifest.json'; PORT=7393; NAME='R_B0_rebuild_max500'
+def sha(p):
+ h=hashlib.sha256(); f=open(p,'rb')
+ for b in iter(lambda:f.read(1<<20),b''):h.update(b)
+ f.close(); return h.hexdigest()
+def write(d):MF.write_text(json.dumps(d,indent=2,default=str),encoding='utf-8')
+def attach():return Hfss(project=str(PROJ),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+async def main():
+ if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])):raise RuntimeError('hf3d already active')
+ before=sha(PROJ); m={'status':'prepared','started_at_utc':time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),'project':str(PROJ),'project_sha256_before':before,'cores':16,'tasks':1,'setup':'ModalRepair','sweep':'SweepRepairDiscrete','sweep_type':'Discrete','range_GHz':[6.25,6.5,0.01],'points':26,'diagnostic_only':True,'rationale':'Strict discrete sweep of the interpolation failure interval; combine with previously verified segments for full response.'};write(m)
+ r=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120});m['mcp_start']=r
+ if not r.get('started'):raise RuntimeError(r)
+ m['status']='solving';write(m);deadline=time.time()+2*3600
+ while time.time()<deadline:
+  await asyncio.sleep(30);st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'timeout':120});m['last_status']=st;write(m)
+  if not st.get('running'):break
+ else:raise TimeoutError('target discrete sweep timeout')
+ app=attach()
+ try:
+  msgs=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));m['messages']=msgs
+  for norm,name in ((False,'hfss_native_discrete_target.s6p'),(True,'hfss_50ohm_discrete_target.s6p')):
+   ok=app.export_touchstone(setup='ModalRepair',sweep='SweepRepairDiscrete',output_file=str(ROOT/name),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+   if not ok:raise RuntimeError('export failed '+name)
+  app.export_convergence('ModalRepair',output_file=str(ROOT/'convergence_discrete_target.txt'));m['project_sha256_after']=sha(PROJ);m['source_unchanged']=m['project_sha256_after']==before;m['finished_at_utc']=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime());m['status']='exported_needs_review';write(m)
+ finally:app.release_desktop(close_projects=False,close_desktop=False)
+if __name__=='__main__':
+ try:asyncio.run(main())
+ except Exception:
+  m={}
+  if MF.exists():
+   try:m=json.loads(MF.read_text(encoding='utf-8'))
+   except Exception:pass
+  m.update(status='failed',error=traceback.format_exc());write(m);raise

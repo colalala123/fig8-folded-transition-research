@@ -1,0 +1,29 @@
+from pathlib import Path
+import json
+
+src = Path(r"F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt")
+dst_dir = Path(r"F:\hfss_f8x_261align")
+dst_dir.mkdir(exist_ok=True)
+dst = dst_dir / "R_tri_linealign.aedt"
+text = src.read_text(errors="ignore")
+begin = "$begin 'HFSSModel'"
+end = "$end 'HFSSModel'"
+start = text.rfind(begin)
+stop = text.find(end, start)
+block = text[start : stop + len(end)]
+
+for pname, old_id, old_z, new_id, new_z in [
+    ("1", "12113", "0.883", "12393", "6.504"),
+    ("2", "12152", "-0.883", "19893", "-6.504"),
+]:
+    ps = block.rfind(f"$begin '{pname}'")
+    pe = block.find(f"$end '{pname}'", ps) + len(f"$end '{pname}'")
+    port = block[ps:pe]
+    port = port.replace("UseLineModeAlignment=false", "UseLineModeAlignment=true", 1)
+    port = port.replace(f"EntityID={old_id}", f"EntityID={new_id}", 1)
+    port = port.replace(f"ZPosition='{old_z}'", f"ZPosition='{new_z}'", 1)
+    port = port.replace("AlignmentGroup=0", "AlignmentGroup=1", 1)
+    block = block[:ps] + port + block[pe:]
+
+dst.write_text(text[:start] + block + text[stop + len(end) :], encoding="utf-8")
+print(json.dumps({"dst": str(dst), "flags": block.count("UseLineModeAlignment=true"), "groups": block.count("AlignmentGroup=1")}, indent=2))

@@ -1,0 +1,38 @@
+import json
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+RUN = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+PORT = 7393
+NAME = "R_B0_rebuild_max500"
+app = Hfss(
+    project=str(RUN / f"{NAME}.aedt"),
+    design="Wideband vertical transition",
+    version="2024.2",
+    machine="localhost",
+    port=PORT,
+    non_graphical=False,
+    new_desktop=False,
+    close_on_exit=False,
+)
+out = {}
+try:
+    out["messages"] = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+    out["setup_names"] = [str(s.name) for s in app.setups]
+    setup = app.get_setup("ModalRepairBB")
+    out["sweeps"] = [str(s.name) for s in setup.sweeps]
+    for renorm, fn in ((False, "bb_native.s6p"), (True, "bb_50ohm.s6p")):
+        path = RUN / fn
+        out[fn] = bool(app.export_touchstone(
+            setup="ModalRepairBB",
+            sweep="SweepRepairBB",
+            output_file=str(path),
+            renormalization=renorm,
+            impedance=50,
+            gamma_impedance_comments=True,
+        ))
+    out["status"] = "exported"
+finally:
+    (RUN / "bb_touchstone_export.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    app.release_desktop(close_projects=False, close_desktop=False)
+print(json.dumps(out, indent=2))

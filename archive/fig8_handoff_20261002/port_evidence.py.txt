@@ -1,0 +1,93 @@
+"""Archive and compare native port-field signatures without changing AEDT projects.
+
+The .tvc/.tvz arrays are used as native numeric fingerprints; their undocumented
+normalization is not interpreted as radiated power or physical field energy.
+"""
+import csv,json,re,shutil
+from pathlib import Path
+import numpy as np
+from pilot_worker import sha,write_json
+
+def collect(run):
+    run=Path(run);m=json.loads((run/'manifest.json').read_text(encoding='utf-8'))
+    if m['status']!='completed':raise RuntimeError('Only completed results can be archived')
+    project=Path(m['project'])
+    base=project.with_suffix('.aedtresults')/'Wideband vertical transition.results'
+    if 'port_settings' in m:
+        boundary=m['port_settings']['before']
+    else:
+        boundary={k:v['props'] for k,v in m['boundaries'].items() if v['type']=='Wave Port'}
+    records=[]
+    for header in base.glob(m.get('field_header_glob','*/fields.evtrs')):
+        text=header.read_text(encoding='utf-8',errors='replace')
+        match=re.search(r'Frequency=([^\s]+)',text)
+        if not match:continue
+        freq=float(match[1])/1e9
+        files=[]
+        for port,props in boundary.items():
+            for field in sorted(header.parent.glob(str(props['ID'])+'_*.tvc')):
+                mode=int(field.stem.split('_')[-1])
+                real=np.fromstring(field.read_text(),sep=' ')
+                imaginary=np.fromstring(field.with_suffix('.tvz').read_text(),sep=' ')
+                if len(real)!=886 or len(imaginary)!=886 or not np.allclose(real[:4],imaginary[:4]):
+                    raise RuntimeError('Unexpected native port-display format; manual review required')
+                dest=run/'mode_fields'/f'{freq:g}GHz'
+                dest.mkdir(parents=True,exist_ok=True)
+                for source in (field,field.with_suffix('.tvz'),header,header.parent/(str(props['ID'])+'.nvc')):
+                    target=dest/source.name
+                    if target.exists() and sha(target)!=sha(source):
+                        raise RuntimeError('Ambiguous duplicate port-field frequency')
+                    if not target.exists():shutil.copy2(source,target)
+                files.append({'port':port,'boundary_id':props['ID'],'mode':mode,
+                              'tvc':str(dest/field.name),'tvz':str(dest/field.with_suffix('.tvz').name),
+                              'tvc_sha256':sha(field),'tvz_sha256':sha(field.with_suffix('.tvz')),
+                              'grid_bounds_native_units':real[:4].tolist()})
+        if files:records.append({'frequency_GHz':freq,'header':str(header),'fields':files})
+    if not records:raise RuntimeError('No saved port-field signatures')
+    write_json(run/'native_port_fields.json',records)
+    return records
+
+def signature(record):
+    real=np.fromstring(Path(record['tvc']).read_text(),sep=' ')
+    imag=np.fromstring(Path(record['tvz']).read_text(),sep=' ')
+    # Both native tables are retained. Their component/normalization semantics
+    # are deliberately not inferred from the filename suffixes.
+    return np.r_[real[4:],imag[4:]]
+
+def compare_fields(a,b):
+    aa=collect(a);bb=collect(b);results=[]
+    for ra in aa:
+        matches=[x for x in bb if abs(x['frequency_GHz']-ra['frequency_GHz'])<1e-8]
+        if len(matches)!=1:raise RuntimeError('Port-field frequency mismatch')
+        rb=matches[0]
+        for port in ('1','2'):
+            left=[x for x in ra['fields'] if x['port']==port]
+            right=[x for x in rb['fields'] if x['port']==port]
+            cor=[]
+            for x in left:
+                row=[];vx=signature(x)
+                for y in right:
+                    if not np.allclose(x['grid_bounds_native_units'],y['grid_bounds_native_units'],atol=1e-10):
+                        raise RuntimeError('Port grids differ')
+                    vy=signature(y);row.append(float(vx@vy/(np.linalg.norm(vx)*np.linalg.norm(vy))))
+                cor.append(row)
+            c=np.array(cor)
+            i=next(i for i,x in enumerate(left) if x['mode']==1)
+            j=next(j for j,x in enumerate(right) if x['mode']==1)
+            other=max((abs(v) for k,v in enumerate(c[i]) if k!=j),default=0.)
+            results.append({'frequency_GHz':ra['frequency_GHz'],'port':port,
+                            'reference_modes':[x['mode'] for x in left],'candidate_modes':[x['mode'] for x in right],
+                            'signed_normalized_correlation_matrix':cor,
+                            'fundamental_signed_correlation':float(c[i,j]),
+                            'fundamental_margin_over_other_modes':float(c[i,j]-other),
+                            'fundamental_identity_gate':bool(c[i,j]>=.98 and c[i,j]-other>=.10)})
+    return {'reference':str(a),'candidate':str(b),'evidence':results,
+            'passed':bool(results) and all(x['fundamental_identity_gate'] for x in results),
+            'scope':'Saved adaptive-frequency native port-display signatures; use with full-band Zo/Gamma continuity and preserved integration-line direction.',
+            'thresholds':{'signed_fundamental_correlation_min':.98,'separation_from_other_modes_min':.10}}
+
+if __name__=='__main__':
+    import argparse
+    p=argparse.ArgumentParser();p.add_argument('reference');p.add_argument('candidate');p.add_argument('output')
+    args=p.parse_args();result=compare_fields(Path(args.reference),Path(args.candidate));write_json(Path(args.output),result)
+    print(json.dumps(result,indent=2))

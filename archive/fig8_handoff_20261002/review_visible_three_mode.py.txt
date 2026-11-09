@@ -1,0 +1,58 @@
+"""Review GUI/MCP results without performing further HFSS solves."""
+import csv,json
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from pilot_queue import ROOT,OLD,read,compare
+from pilot_worker import sha,write_json,now
+from pilot_supervisor import verify_boundaries,aux_compare
+from port_evidence import compare_fields
+
+def main():
+    evidence=[];fig,axes=plt.subplots(1,2,figsize=(13,5),constrained_layout=True)
+    for case,ax in zip(('B0','T_F3'),axes):
+        run=ROOT/f'M_{case}_3g16';base=ROOT/f'M_{case}_2';m=read(run/'manifest.json');b=read(base/'manifest.json')
+        metrics=read(run/'response_metrics.json');source=OLD/case/(case+'.aedt')
+        item={'case':case,'run':str(run),'status':m['status'],'convergence':m['convergence'],
+              'sweep_converged':m['sweep_converged'],'solve_seconds':m['solve_seconds'],
+              'source_unchanged':sha(source)==m['source_sha256'],'export':m['export'],
+              'source_curve_sha256':m['curve_sha256'],'curve_comparison_only':compare(base,run,'stable'),
+              'boundaries':verify_boundaries(run),'settings_equal_to_double':m['settings']==b['settings'],
+              'auxiliary_continuity':aux_compare(base,run),'passband_2dB':metrics['passband_2dB'],
+              'central_valley_GHz':metrics.get('central_valley_GHz'),'mcp_start':read(run/'mcp_start_analysis.json'),
+              'solver_messages':[s for s in m['messages'] if any(k in s.lower() for k in ('converg','passiv','error','fatal'))]}
+        if m['status']=='completed':item['fields']=compare_fields(base,run)
+        else:item['fields']={'passed':False,'reason':'Unconverged solve excluded from protocol'}
+        item['protocol_passed']=bool(m['status']=='completed' and b['status']=='completed' and item['source_unchanged']
+             and item['curve_comparison_only']['passed'] and item['boundaries']['passed']
+             and item['auxiliary_continuity']['passed'] and item['fields']['passed'] and item['settings_equal_to_double'])
+        prior=ROOT/f'M_{case}_3'
+        if (prior/'sparams.csv').exists():item['prior_headless_comparison_diagnostic_only']=compare(prior,run,'stable')
+        evidence.append(item)
+        for rr,style,label,alpha in [(base,'--','2 modes / 4 cores',.65),(run,'-',f'3 modes / GUI / 16 cores ({m["status"]})',1.)]:
+            with (rr/'sparams.csv').open(encoding='utf-8-sig') as f:rows=list(csv.DictReader(f))
+            x=np.array([float(r['Freq_GHz']) for r in rows])
+            for key,color in [('S21','red'),('S11','blue')]:
+                y=20*np.log10(np.maximum([float(r[key+'_mag']) for r in rows],1e-15))
+                ax.plot(x,y,style,c=color,alpha=alpha,lw=1.2,label=f'{key}: {label}')
+        for y in (-2,-10):ax.axhline(y,c='gray',ls=':',lw=.8)
+        ax.set(xlim=(0,15),ylim=(-60,2),xlabel='Frequency (GHz)',ylabel='S parameter (dB)',title=case)
+        ax.grid(alpha=.25);ax.legend(fontsize=7,loc='lower right')
+    fig.savefig(ROOT/'visible_three_mode_comparison.png',dpi=180);plt.close(fig)
+    write_json(ROOT/'visible_three_mode_review.json',{'reviewed_at_utc':now(),'checks':evidence,'all_passed':all(x['protocol_passed'] for x in evidence)})
+    lines=['# 可见HFSS / AEDT MCP / 串行16核三模复核','',
+           '实际分析由本机 AEDT MCP start_analysis 发起；可见 AEDT 2024 R2；每端口3模式，全部沿用Zpi。未修改几何、材料、网格和扫频精度。',
+           '每个独立副本申请1任务×16核；原始源工程及之前失败结果保留。1500点为插值输出网格。','',
+           '|配置|状态|自适应轮数 / 最终ΔS|扫频收敛|带宽GHz|协议全部门槛|',
+           '|---|---|---|---|---|---|']
+    for e in evidence:
+        c=e['convergence'];bw=e['passband_2dB']['BW_GHz']
+        lines.append(f'|{e["case"]}|{e["status"]}|{c["passes"]} / {c["final_delta_s"]}|{e["sweep_converged"]}|{bw:.6f}|{e["protocol_passed"]}|')
+    lines+=['','未收敛数据的带宽和曲线比较只作诊断，不作为合格样本；不能由曲线接近推断完整三模扫频已通过。',
+            '本轮是模式复核；24个pilot仍未执行。定时任务保持停用。',
+            '详细端口、收敛、源哈希、辅助量与数值门槛见 visible_three_mode_review.json；请求响应在各运行目录 mcp_*.json。']
+    (ROOT/'visible_three_mode_report.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    print(json.dumps([{k:x[k] for k in ('case','status','sweep_converged','protocol_passed','passband_2dB')} for x in evidence],indent=2))
+
+if __name__=='__main__':main()

@@ -1,0 +1,46 @@
+"""Merge only real finite native S/Zo/Gamma rows, never interpolate missing data."""
+import csv
+from pathlib import Path
+import numpy as np
+MODES=['1:1','1:2','2:1','2:2']
+PAIRS={'S11':('1:1','1:1'),'S21':('2:1','1:1'),'S12':('1:1','2:1'),'S22':('2:1','2:1')}
+EXPRESSIONS=[f'S({a},{b})' for a in MODES for b in MODES]+[f'{kind}({a})' for kind in ['Zo','Gamma'] for a in MODES]
+def partial_rows(data):
+    out={}
+    for i,f in enumerate(data['frequencies_GHz']):
+        if not data['all_expressions_finite'][i]:continue
+        values={e:complex(data['expressions'][e]['real'][i],data['expressions'][e]['imag'][i]) for e in EXPRESSIONS}
+        assert all(np.isfinite(z) for z in values.values())
+        key=round(float(f),8);assert key not in out;out[key]=values
+    return out
+def exported_rows(folder):
+    def table(path):
+        with Path(path).open(encoding='utf-8-sig',newline='') as h:return list(csv.DictReader(h))
+    s=table(Path(folder)/'all_modes_sparams.csv');z=table(Path(folder)/'mode_impedance_gamma.csv')
+    assert len(s)==len(z) and s
+    out={}
+    for a,b in zip(s,z):
+        f=round(float(a['Freq_GHz']),8);assert f==round(float(b['Freq_GHz']),8) and f not in out
+        row={e:complex(float((a if e.startswith('S(') else b)[e+'_real']),float((a if e.startswith('S(') else b)[e+'_imag'])) for e in EXPRESSIONS}
+        assert all(np.isfinite(v) for v in row.values());out[f]=row
+    return out
+def add_disjoint(all_rows,new):
+    assert not (set(all_rows)&set(new)),'Duplicated frequency provenance'
+    all_rows.update(new)
+def export(folder,rows,expected):
+    assert sorted(rows)==sorted(round(float(f),8) for f in expected),'Missing or unexpected actual frequency'
+    folder=Path(folder)
+    groups=[('all_modes_sparams.csv',{e:e for e in EXPRESSIONS if e.startswith('S(')}),
+        ('mode_impedance_gamma.csv',{e:e for e in EXPRESSIONS if not e.startswith('S(')}),
+        ('sparams.csv',{k:f'S({a},{b})' for k,(a,b) in PAIRS.items()})]
+    for name,labels in groups:
+        output=[]
+        for f,values in sorted(rows.items()):
+            row={'Freq_GHz':f}
+            for label,expr in labels.items():
+                z=values[expr];assert np.isfinite(z)
+                row[label+'_real']=float(z.real);row[label+'_imag']=float(z.imag)
+                if name=='sparams.csv':row[label+'_dB']=float(20*np.log10(max(abs(z),1e-300)))
+            output.append(row)
+        with (folder/name).open('w',encoding='utf-8',newline='') as h:
+            w=csv.DictWriter(h,fieldnames=output[0]);w.writeheader();w.writerows(output)

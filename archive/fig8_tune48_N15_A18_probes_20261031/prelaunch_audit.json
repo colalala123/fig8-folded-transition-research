@@ -1,0 +1,121 @@
+{
+  "at": "2026-10-31T04:55:56.284645+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N15_A18_probes_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 1.091s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 1.914s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 31,
+    "new_geometries_declared": 33,
+    "geometry_cap": 172,
+    "Analyze_used": 265,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 9,
+      "N11_A18_M": 7,
+      "N11_A18_C1": 1,
+      "N11_A18_C2": 7,
+      "N11_A14_S": 10,
+      "N11_A14_M": 8,
+      "N11_A14_C1": 9,
+      "N19_A14_S": 7,
+      "N19_A14_M": 10,
+      "N10_A18_S": 11,
+      "N10_A18_M": 11,
+      "N10_A18_C1": 8,
+      "N17_A14_S": 7,
+      "N17_A14_M": 9,
+      "N18_A18_S": 9,
+      "N18_A18_M": 7,
+      "N22_A18_S": 9,
+      "N22_A18_M": 7,
+      "N20_A14_S": 10,
+      "N20_A14_M": 10,
+      "N20_A14_C1": 8,
+      "N20_A14_C2": 1,
+      "N22_A14_S": 9,
+      "N22_A14_M": 9,
+      "N14_A18_S": 10,
+      "N14_A18_M": 9,
+      "N18_A14_S": 8,
+      "N18_A14_M": 7,
+      "N15_A18_S": 0,
+      "N15_A18_M": 0,
+      "N20_A14_C2_TR1": 0,
+      "N20_A14_C2_TR1B": 10
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 4,
+      "N11_A14": 3,
+      "N19_A14": 2,
+      "N10_A18": 3,
+      "N17_A14": 2,
+      "N18_A18": 2,
+      "N22_A18": 2,
+      "N20_A14": 4,
+      "N22_A14": 2,
+      "N14_A18": 2,
+      "N18_A14": 2,
+      "N15_A18": 2
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true,
+    "technical_recovery_slots_declared": 1,
+    "technical_recovery_Analyze": 10,
+    "original_design_geometry_cap": 172,
+    "attempt_slot_cap_including_technical": 173,
+    "combined_N20_C2_Analyze": 11,
+    "budget_overlay": "tuning_budget_recovery_v2",
+    "frozen_original_budget_unchanged": true,
+    "zero_Analyze_startups_closed": 1,
+    "same_single_recovery_slot": true
+  },
+  "native": [
+    {
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "pid": 94084,
+      "name": "ansysedt.exe",
+      "create_time": 1793412433.4871595
+    }
+  ],
+  "projects": [
+    {
+      "case": "N15_A18_S",
+      "configuration_sha256": "7598071f13595b2b7dba541df9bc35fddb42d54076618351572fe42154a5223a",
+      "project_sha256": "6401dd82f566c2ec480ce55e6c390892bc8ded9f6f4533e4a200e9f1a363a849"
+    },
+    {
+      "case": "N15_A18_M",
+      "configuration_sha256": "abb0587e0b74bffb72cbf88cfa367789ffd1b5e556a5d7540d83108dba99f358",
+      "project_sha256": "26354e309899f685230b965fc7900bb3dbca2e61ee31c194c65d8825e5d20262"
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+from ansys.aedt.core import Hfss
+for p,d in [(r'F:\hfss_f8x_261002\M_B0_2\project.aedt','Wideband vertical transition'),(r'F:\hfss_f8x_261002\M_B0_3g16\project.aedt','Wideband vertical transition'),(r'F:\hfss_f8x_261002\M_B0_3w16\M_B0_3w16.aedt','Wideband vertical transition')]:
+ try:
+  a=Hfss(project=p,design=d,version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+  print('P',p,'project',a.project_name,'design',a.design_name,'design_type',a.design_type,'solution_type',a.solution_type,'setups',[x.name for x in a.setups]);
+  for x in a.setups: print(' setup',x.name,'props SolveType',x.props.get('SolveType'),'Sweep keys',list(x.sweeps))
+  a.release_desktop(close_projects=False,close_desktop=False)
+ except Exception as e:print('ERR',p,repr(e))

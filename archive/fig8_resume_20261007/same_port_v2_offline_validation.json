@@ -1,0 +1,31 @@
+{
+  "checked_at_utc": "2026-10-07T16:25:50+00:00",
+  "offline_regressions_passed": 6,
+  "real_fixtures": [
+    "D04G05/cutoff_check scalar-vector exports",
+    "D04G05_i01/direct matrix exports and accepted scalar review"
+  ],
+  "negative_checks": [
+    "partial impedance matrix",
+    "wrong calibration counts or frequency exception",
+    "unknown review method",
+    "excessive Gamma or conversion error",
+    "wrong project or port",
+    "no live solver",
+    "invalid resource audit",
+    "start_analysis error propagated once without retry",
+    "already accepted attempt",
+    "watcher port failure or orphan solver or recovery error"
+  ],
+  "production_implementation_hashes_verified": true,
+  "i00_i01_accepted_data_resolve_unchanged": true,
+  "solver_started_by_tests": false,
+  "evidence_hashes": {
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\review_same_port_direct.py": "9b7b13cdbb9e63a66be93387227471af7dc76a31a31bd2f8ab0558fb00198584",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\run_same_port_recovery_v2.py": "4d315b05e1b861be86d3f44d5d5ba8e7daec01f7b10ea77350a91a261da36c9b",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\approve_same_port_recovery.py": "61051a18b1d40f64adb9a34396e48ee8cc05c7dd7022696e91140070a50828c9",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\watch_same_port_recovery_v2.py": "2dcf3fd9e9a7ad77ad54e0ed3862ee11a0c616579bd230a58bcd6fd2850a7856",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\test_same_port_recovery_v2.py": "626c6d4dc0c0698fa6f13580320a9eff8ccd93639c46a776c27f42adbcfd3956"
+  },
+  "scope": "Offline validation only; new recipe has not yet completed a live recovery and does not release remaining pilot queue."
+}

@@ -1,0 +1,9 @@
+from pathlib import Path
+from ansys.aedt.core import Hfss
+P=Path(r'F:\hfss_f8x_261002\R_tri_align\R_tri_align.aedt')
+app=Hfss(project=str(P),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ for name in ['1','2']:
+  b=next(x for x in app.boundaries if x.name==name)
+  print(name, 'props=',b.props)
+finally: app.release_desktop(close_projects=False,close_desktop=False)

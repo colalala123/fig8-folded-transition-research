@@ -1,0 +1,23 @@
+from models import *
+from scipy.spatial import ConvexHull
+from scipy.optimize import minimize,brentq
+m=joblib.load(ROOT/'model_C.joblib');assert m['config']['degree']==1
+# A single arm only, within convex hull of actual development inputs. No solver calls.
+idx=dev[np.isclose(X[dev,2],1.4)];cols=[0,1,3,4];mu=X[idx][:,cols].mean(axis=0);sd=X[idx][:,cols].std(axis=0);u=(X[idx][:,cols]-mu)/sd
+h=ConvexHull(u);A=h.equations[:,:-1];b=h.equations[:,-1]
+def raw(v):
+ x=np.zeros(5);x[2]=1.4;x[cols]=mu+v*sd;return x
+z0=decode(predict(m,raw(np.zeros(4))[None]))[0];J=np.stack([decode(predict(m,raw(np.eye(4)[j])[None]))[0]-z0 for j in range(4)],axis=-1)
+def zp(v):return z0+np.einsum('fkd,d->fk',J,v)
+def maggrad(v):
+ z=zp(v)[band,0];return (np.conj(z)[:,None]*J[band,0]).real/np.maximum(abs(z),1e-15)[:,None]
+def cons(v):return v[4]-abs(zp(v[:4])[band,0])
+starts=[np.zeros(4)]+[u[j] for j in range(len(u)) if rows[idx[j]]['case'] in ['N19_A14','N21_A14','N10_A14']]
+solutions=[]
+for st in starts:
+ o=minimize(lambda v:v[4],np.r_[st,max(abs(zp(st)[band,0]))],jac=lambda v:np.r_[np.zeros(4),1.],constraints=[{'type':'ineq','fun':cons,'jac':lambda v:np.c_[-maggrad(v[:4]),np.ones(band.sum())]},{'type':'ineq','fun':lambda v:-b-A@v[:4],'jac':lambda v:np.c_[-A,np.zeros(len(b))]}],method='SLSQP',options={'ftol':1e-12,'maxiter':600})
+ v=o.x[:4];x=raw(v);q=label(f,zp(v));P,R=np.exp(x[:2]);wm=brentq(lambda w:microstrip(3.55,w)['Z_ohm']-50*np.sqrt(P*R),.9,2);ws=brentq(lambda w:slotline(3.55,w)['Z_ohm']-50*np.sqrt(P/R),.30,.58)
+ g={'Wm':wm,'Ws':ws,'Lm':0.,'Ls1':0.,'Ls2':.55+2*ws,'Ls3':1.4+ws};_,co=features(g);g['Lm']=co['Lm_nominal']+x[3];g['Ls1']=co['Ls1_nominal']+x[4];assert np.max(abs(features(g)[0]-x))<1e-8
+ solutions.append({'success':bool(o.success),'message':o.message,'features':x.tolist(),'P':float(P),'R':float(R),'geometry':g,'predicted':q,'hull_max_violation':float(max(A@v+b)),'nearest_train_distance':float(min(np.linalg.norm(u-v,axis=1)))})
+write('PR_INVERSE_OFFLINE_ONLY.json',{'status':'offline candidates only; changing P/R awaits explicit reply; no HFSS authorized by this file','arm':1.4,'target':TARGET,'model_hash':sha(ROOT/'model_C.joblib'),'solutions':solutions})
+for s in solutions:print(s,flush=True)

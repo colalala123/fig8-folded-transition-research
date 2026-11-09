@@ -1,0 +1,33 @@
+import re,csv,collections,json
+from pathlib import Path
+from audit import HERE,read,sha,write
+WORK=HERE.parents[1]
+def main():
+    runs=['target_s11m12_bw58_cand22_wm094_lm730_ws041_ls1690','target_s11m25_bw73_cand25_wm205_lm610_ws026_ls1440','target_s11m12_bw73_cand03_wm098_lm580_ws048_ls1390']
+    evidence=[]
+    for name in runs:
+        folder=Path('F:/hfss_runs')/name;m=read(folder/'manifest.json');p=Path(m['eval_project'])
+        if not p.exists():continue
+        text=p.read_text(encoding='utf-8',errors='replace')
+        models=re.findall(r"\$begin 'HFSSModel'(.*?)\$end 'HFSSModel'",text,re.S)
+        blocks=[s for s in models if re.search(r"(?m)^\s*Name='Wideband vertical transition'\s*$",s)]
+        assert len(blocks)==1
+        b=blocks[0];setup=re.search(r"\$begin 'Setup19'(.*?)\$end 'Setup19'",b,re.S).group(1)
+        # Preserve complete active setup text to distinguish this from other designs in the project.
+        (HERE/(name+'_Setup19.txt')).write_text(setup,encoding='utf-8')
+        properties={k:re.findall(r'(?m)^\s*'+k+r'=(.*?)\s*$',setup) for k in ['SolveType','MaxDeltaS','MaximumPasses','MinimumPasses','MinimumConvergedPasses','Type','RangeStart','RangeEnd','RangeStep','InterpTolerance','InterpMaxSolns','EnforcePassivity']}
+        evidence.append({'run':name,'project':str(p),'project_sha256':sha(p),'modes_in_active_design':re.findall(r'(?m)^\s*NumModes=(.*?)\s*$',b),'setup19':properties,'analyze_result':m.get('analyze_result'),'point_count':m.get('metrics',{}).get('point_count'),'model_scope':'Representative archived uniform target designs, not an audit of every one of 1000 source solves.'})
+    index=WORK/'tmp/folded_plan_review/data/uniform_1000_authoritative_index.csv'
+    rows=list(csv.DictReader(index.open(encoding='utf-8-sig')))
+    summary={k:dict(collections.Counter(r.get(k,'') for r in rows)) for k in ['quality_level','curve_status','normal_completion']}
+    for group in ['hard','general_only']:
+        r=[x for x in rows if x['quality_level']==group]
+        summary[group]={k:{'min':min(float(x[k]) for x in r if x[k]),'max':max(float(x[k]) for x in r if x[k])} for k in ['S11_peak_diff_dB','worst_S11_between_outer_valleys_dB','min_S21_between_outer_valleys_dB']}
+    files=[WORK/'hfss_structure_a_run.py',WORK/'build_structure_a_em_dataset_index.py',index]
+    write(HERE/'uniform_evidence.json',{'representative_projects':evidence,'index_summary':summary,
+      'curve_export':'Native Modal Solution Data mag(S(1,1)), mag(S(2,1)); no extra 50-ohm postprocessing in extract_solution_rows.',
+      'historical_pass_flags':['has_three_valleys','two_peaks_within_0p5dB','s11_below_minus10_between_outer_valleys','s21_above_minus2_between_outer_valleys'],
+      'historical_band_edges':'Archived case_summary uses sampled frequency edges; folded response_metrics linearly interpolates -2 dB crossings. Compare both when needed.',
+      'source_hashes':{str(x):sha(x) for x in files}})
+    print(json.dumps({'representative_projects':evidence,'index_summary':summary},ensure_ascii=False,indent=2))
+if __name__=='__main__':main()

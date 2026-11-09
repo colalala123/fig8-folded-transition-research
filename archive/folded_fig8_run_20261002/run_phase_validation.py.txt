@@ -1,0 +1,130 @@
+"""One prospective Ls1 correction, launched only after the fold pair frees capacity."""
+from __future__ import annotations
+import json
+import shutil
+import sys
+import time
+import traceback
+from pathlib import Path
+
+HERE=Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE))
+from run_batch import ROOT,WORK,now,sha,write_json,check_settings,postprocess
+from freeze_prediction import features
+from prepare_geometry_scope import derive
+
+
+def main():
+    case='T_G035'
+    run=ROOT/case
+    run.mkdir(exist_ok=False)
+    parent=ROOT/'G035'
+    parent_manifest=json.loads((parent/'manifest.json').read_text(encoding='utf-8'))
+    geometry=dict(parent_manifest['geometry'])
+    current=features(parent/'sparams.csv')
+    q1=features(Path('F:/hfss_fold_260920/Q1/sparams.csv'))
+    q2=features(Path('F:/hfss_fold_260920/Q2/sparams.csv'))
+    slopes={key:(q2[key]-q1[key])/0.2 for key in current}
+    delta=-current['signed_peak_difference_dB']/slopes['signed_peak_difference_dB']
+    if abs(delta)>.35:
+        raise ValueError('Predicted correction is outside the local step bound.')
+    geometry['Ls1']+=delta
+    geometry_check=derive(geometry)
+    if not geometry_check['inside_research_window']:
+        raise ValueError(geometry_check)
+    baseline=features(ROOT/'B0/sparams.csv')
+    prediction={key:current[key]+slopes[key]*delta for key in current}
+    frozen={
+        'frozen_at':now(),'case':case,'parent':'G035',
+        'method':'Transfer the historical B0 Q1/Q2 single-Ls1 finite-difference response slope to G035.',
+        'parent_curve_sha256':sha(parent/'sparams.csv'),
+        'slope_training':[{'case':name,'curve_sha256':sha(Path('F:/hfss_fold_260920')/name/'sparams.csv')} for name in ('Q1','Q2')],
+        'geometry':geometry,'delta_Ls1_mm':delta,'slopes_per_mm':slopes,'prediction':prediction,
+        'acceptance':{'absolute_peak_difference_max_dB':.5,'central_valley_target_GHz':baseline['central_valley_GHz'],
+                      'central_valley_deviation_max_GHz':.03,'three_valleys':True,'solver_and_sweep_converged':True},
+        'bandwidth_prediction_tolerance_GHz':.05,
+        'limitation':'A single local transfer check; this is not a guaranteed equal-ripple root or a universal law.',
+    }
+    frozen_path=ROOT/'T_G035_prediction_frozen.json'
+    if frozen_path.exists():raise FileExistsError(frozen_path)
+    write_json(frozen_path,frozen)
+    source=parent/'G035.aedt'
+    project=run/(case+'.aedt')
+    manifest={'case':case,'scope':'Fig8_single_transition_phase_validation','started_at':now(),
+              'source':str(source),'source_sha256':sha(source),'project':str(project),'geometry':geometry,
+              'geometry_check':geometry_check,'cores':6,'tasks':1,'aedt_version':'2024.2',
+              'fresh_solve_requested':True,'status':'waiting_for_fold_pair','prediction_file':str(frozen_path)}
+    def save():write_json(run/'manifest.json',manifest)
+    save()
+    print(json.dumps({'event':'prediction_frozen','case':case,'delta_Ls1_mm':delta,'prediction':prediction}),flush=True)
+    wait_started=time.monotonic()
+    while True:
+        finished=[]
+        for name in ('F2','F3'):
+            path=ROOT/name/'manifest.json'
+            data=json.loads(path.read_text(encoding='utf-8')) if path.exists() else {}
+            finished.append(bool(data.get('finished_at')) and data.get('status') in ('completed','completed_unconverged','failed')
+                            and data.get('started_at','')>=parent_manifest['started_at'])
+        if all(finished):break
+        if time.monotonic()-wait_started>7200:
+            manifest['status']='failed';manifest['error']='Capacity wait exceeded two hours.';save();return 1
+        time.sleep(20)
+    shutil.copy2(source,project)
+    app=None
+    try:
+        from ansys.aedt.core import Hfss
+        from folded_transition import apply_folded_geometry
+        from resume_folded_case import export_sparams
+        manifest['status']='opening';save()
+        app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',
+                 non_graphical=True,new_desktop=True,close_on_exit=True)
+        manifest['desktop_pid']=app.desktop_class.aedt_process_id
+        if Path(app.project_path).resolve()!=run.resolve():raise RuntimeError('Unexpected project location.')
+        manifest['build']=apply_folded_geometry(app,wm=geometry['Wm'],lm=geometry['Lm'],ws=geometry['Ws'],
+                                              ls1=geometry['Ls1'],ls2=geometry['Ls2'],ls3=geometry['Ls3'])
+        manifest['settings']=check_settings(app)
+        manifest['materials']=parent_manifest['materials']
+        manifest['material_provenance']='Copied from fresh G035; geometry builder does not change substrate material.'
+        manifest['boundaries']={b.name:{'type':b.type,'props':dict(b.props)} for b in app.boundaries}
+        app.save_project()
+        manifest['status']='solving';manifest['solve_started_at']=now();save()
+        started=time.perf_counter()
+        ok=app.analyze_setup('Setup19',cores=6,tasks=1,use_auto_settings=False,revert_to_initial_mesh=True,blocking=True)
+        manifest['solve_wall_seconds']=time.perf_counter()-started
+        manifest['analyze_result']=ok
+        manifest['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        app.save_project()
+        if ok is not True:raise RuntimeError('HFSS phase-validation solve failed.')
+        manifest['status']='exporting';save()
+        manifest['export']=export_sparams(app,'Setup19 : Sweep1',run)
+        app.export_convergence('Setup19',output_file=str(run/'convergence.txt'))
+        app.export_mesh_stats('Setup19',output_file=str(run/'mesh_stats.txt'))
+        metrics=postprocess(run)
+        actual=features(run/'sparams.csv')
+        validation={'case':case,'prediction':prediction,'actual':actual,
+                    'errors':{key:actual[key]-prediction[key] for key in actual},
+                    'equal_ripple_gate':metrics['validity']['equal_ripple'],
+                    'center_gate':abs(actual['central_valley_GHz']-baseline['central_valley_GHz'])<=.03+1e-10,
+                    'bandwidth_prediction_gate':abs(actual['BW_2dB_GHz']-prediction['BW_2dB_GHz'])<=.05,
+                    'converged':metrics['convergence']['converged'],
+                    'sweep_converged':any('Interpolating frequency sweep complete. Converged.' in m for m in manifest['messages'])}
+        validation['acceptance_passed']=all(validation[k] for k in ('equal_ripple_gate','center_gate','converged','sweep_converged'))
+        write_json(run/'prospective_validation.json',validation)
+        manifest['status']='completed' if metrics['convergence']['converged'] else 'completed_unconverged'
+        manifest['curve_sha256']=sha(run/'sparams.csv')
+        app.save_project();save()
+        print(json.dumps(validation,ensure_ascii=False),flush=True)
+        return 0 if manifest['status']=='completed' else 2
+    except Exception:
+        manifest['status']='failed';manifest['error']=traceback.format_exc()
+        print(manifest['error'],flush=True)
+        return 1
+    finally:
+        if app is not None:
+            try:manifest['release']=app.release_desktop(close_projects=True,close_desktop=True)
+            except Exception as exc:manifest['release_error']=repr(exc)
+        manifest['source_unchanged']=sha(source)==manifest['source_sha256']
+        manifest['finished_at']=now();save()
+
+
+if __name__=='__main__':raise SystemExit(main())

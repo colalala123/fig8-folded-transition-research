@@ -1,0 +1,123 @@
+"""Offline regression of cached HFSS exports and fail-closed MCP handling.
+
+No connection to AEDT, no solver dispatch, no production artifact changes.
+"""
+import asyncio,copy,json,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import numpy as np
+import review_same_port_direct as reader
+import run_same_port_recovery_v2 as runner
+import approve_same_port_recovery as approval
+import watch_same_port_recovery_v2 as watcher
+from check_external_normalization import impedance,transform
+from audit_existing import touchstone
+from export_modal_segment import load_segment
+
+class RecoveryTests(unittest.TestCase):
+    def test_cached_scalar_vector(self):
+        folder=reader.ROOT/'local_repair/D04G05/cutoff_check'
+        path=folder/'native_direct.s4p'
+        matrices,gamma,formats=reader.impedance_comments(path)
+        self.assertEqual(set(formats),{'scalar_vector'})
+        old=impedance(path,4)
+        np.testing.assert_array_equal(np.diagonal(matrices,axis1=1,axis2=2),old)
+        f,s=touchstone(path,4);ef,es,ez,_=load_segment(folder/'explicit_modal')
+        np.testing.assert_allclose(f,ef,rtol=0,atol=1e-9)
+        np.testing.assert_allclose(s,es,rtol=0,atol=1e-10)
+        np.testing.assert_allclose(old,ez,rtol=0,atol=1e-8)
+        _,reference=touchstone(folder/'50ohm_original_direct.s4p',4)
+        self.assertLess(float(abs(transform(s,old,'traveling')-reference).max()),1e-10)
+
+    def test_cached_matrix_and_old_acceptance(self):
+        base=reader.ROOT/'local_repair/D04G05_i01'
+        result=reader.review(reader.ROOT/'D04G05/i01')
+        self.assertEqual(result['points'],104)
+        self.assertEqual(result['retained_terminal_export_exception_GHz'],[15.])
+        self.assertEqual(result['HFSS_50ohm_calibrated_points'],103)
+        approval.schema_review(reader.read(base/'direct/review.json'),reader.read(base/'plan.json'))
+        # Verify the new explicit method, then corrupt counts and method.
+        plan=runner.plan(reader.ROOT/'D04G05/i01')
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'schema.json';reader.write_json(path,result)
+            record={'review_method':reader.METHOD,'schema_review':str(path),
+                    'points':104,'max_sv':result['max_sv'],'reciprocity_error':result['reciprocity_error']}
+            approval.schema_review(record,plan)
+            for change in [{'HFSS_50ohm_calibrated_points':104},
+                           {'retained_terminal_export_exception_GHz':[14.5]},
+                           {'Gamma_vs_explicit_error':.01},
+                           {'independent_impedance_route_error':.01}]:
+                reader.write_json(path,{**result,**change})
+                with self.assertRaises(AssertionError):approval.schema_review(record,plan)
+            with self.assertRaises(AssertionError):approval.schema_review({**record,'review_method':'unknown'},plan)
+
+    def test_incomplete_matrix_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'bad.s4p'
+            path.write_text('! Gamma 1 0 2 0 3 0 4 0\n! Port Impedance 50 0 0 0 0 0 0 0\n! 0 0 50 0 0 0 0 0\n# GHz S RI R 50\n')
+            with self.assertRaises(AssertionError):reader.impedance_comments(path)
+
+    def test_timeout_never_restarts(self):
+        args={'project_name':'trial','design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990}
+        error=RuntimeError('get_analysis_status: AEDT broker timed out after 120s for port:7990')
+        processes=[{'pid':123,'name':'hf3d.exe','cmdline':['hf3d.exe','trial.pjt','-max_processors 16 -numParallelGroups 1 -solve_frequency_sweep']}]
+        calls=[]
+        async def fail(client,name,arguments):
+            calls.append(name);raise error
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp);reader.write_json(base/'flow.json',{'status':'direct_check'})
+            wrapped=runner.timeout_wrapper(fail,base,Path('trial.aedt'))
+            with patch.object(runner.legacy.direct,'solvers',return_value=processes),patch.object(runner.legacy,'audit_observations'):
+                result=asyncio.run(wrapped(None,'get_analysis_status',args))
+                self.assertTrue(result['running']);self.assertFalse(result['status_query_succeeded'])
+                self.assertEqual(calls,['get_analysis_status'])
+                for name,arg in [('start_analysis',args),('get_analysis_status',{**args,'port':7393})]:
+                    with self.assertRaises(RuntimeError):asyncio.run(wrapped(None,name,arg))
+                with self.assertRaises(AssertionError):asyncio.run(wrapped(None,'get_analysis_status',{**args,'project_name':'other'}))
+            with patch.object(runner.legacy.direct,'solvers',return_value=[]):
+                with self.assertRaises(RuntimeError):asyncio.run(wrapped(None,'get_analysis_status',args))
+            with patch.object(runner.legacy.direct,'solvers',return_value=processes),patch.object(runner.legacy,'audit_observations',side_effect=AssertionError('resources')):
+                with self.assertRaises(AssertionError):asyncio.run(wrapped(None,'get_analysis_status',args))
+            record=reader.read(base/'status_query_fallbacks.json');self.assertEqual(len(record['events']),1)
+            event=record['events'][0];stamp=event['observed_at_utc']
+            obs=[{'processes':processes,'stage':'direct_check','single_16_core_task_verified':True}]
+            plan={'recovery_recipe_version':runner.VERSION}
+            approval.timeout_review(base,plan,Path('trial.aedt'),[(stamp,stamp,'direct')],obs)
+            bad=copy.deepcopy(record);bad['events'][0]['operation']='start_analysis';reader.write_json(base/'status_query_fallbacks.json',bad)
+            with self.assertRaises(AssertionError):approval.timeout_review(base,plan,Path('trial.aedt'),[(stamp,stamp,'direct')],obs)
+            self.assertEqual(calls.count('start_analysis'),1)  # Passed through once, never retried.
+
+    def test_accepted_attempt_refuses_run(self):
+        with self.assertRaisesRegex(AssertionError,'Existing recipe differs|Do not rerun accepted'):
+            asyncio.run(runner.run(reader.ROOT/'D04G05/i01'))
+
+    def test_watcher_dispatch_and_stops(self):
+        for situation in ['success','port_failure','active_solver','recover','recovery_failure']:
+            with self.subTest(situation=situation),tempfile.TemporaryDirectory() as tmp:
+                root=Path(tmp);attempt=root/'D04G05/i02';attempt.mkdir(parents=True)
+                reader.write_json(attempt/'state.json',{'status':'solving'})
+                reader.write_json(attempt/'manifest.json',{
+                    'status':'completed' if situation=='success' else 'numerical_or_port_review_required',
+                    'convergence':{'converged':True},'sweep_converged':True,'source_unchanged':True})
+                reader.write_json(attempt/'port_review.json',{'passed':situation!='port_failure'})
+                reader.write_json(attempt/'normalization_recovery_review.json',{'passed':False})
+                base=root/'local_repair/D04G05_i02'
+                def dispatch(*args,**kwargs):
+                    base.mkdir(parents=True)
+                    reader.write_json(base/'flow.json',{'status':'candidate_ready_review_required'})
+                    return 1 if situation=='recovery_failure' else 0
+                with patch.object(watcher,'ROOT',root),patch.object(watcher,'plan',return_value={
+                        'implementation_hashes':{},'layout_evidence':{'original_export_available':True}}),\
+                     patch.object(watcher,'live_controllers',side_effect=[[{'pid':123}],[]]),\
+                     patch.object(watcher,'solvers',return_value=[{'pid':123}] if situation=='active_solver' else []),\
+                     patch.object(watcher.subprocess,'call',side_effect=dispatch) as solve:
+                    if situation in ['port_failure','active_solver','recovery_failure']:
+                        with self.assertRaises(AssertionError):watcher.main(attempt)
+                    else:watcher.main(attempt)
+                    self.assertEqual(solve.call_count,1 if situation in ['recover','recovery_failure'] else 0)
+                    state=reader.read(root/'trial_recovery_watch_i02_v2.json')
+                    if situation=='recover':self.assertFalse(state['production_approved'])
+                    if situation in ['port_failure','active_solver','recovery_failure']:
+                        self.assertEqual(state['status'],'review_required')
+
+if __name__=='__main__':unittest.main(verbosity=2)

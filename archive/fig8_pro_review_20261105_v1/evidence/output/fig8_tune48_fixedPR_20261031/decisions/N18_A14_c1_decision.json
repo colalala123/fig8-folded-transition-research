@@ -1,0 +1,77 @@
+{
+  "at": "2026-10-31T04:53:19.207652+00:00",
+  "parent": "N18_A14",
+  "proposal": {
+    "action": "no_supported_length_candidate",
+    "geometry": {
+      "Wm": 1.771862,
+      "Ws": 0.369088,
+      "Lm": 6.619944845488376,
+      "Ls1": 12.719747776694962,
+      "Ls2": 1.288176,
+      "Ls3": 1.769088
+    },
+    "delta_mm": [
+      0.10650907184527887,
+      0.039999056727126406
+    ],
+    "predicted": {
+      "worst_S11_dB": -19.396075544108378,
+      "min_S21_dB": -1.053469201922887,
+      "shape_valid": true,
+      "passed": false,
+      "central_valley_GHz": 6.7,
+      "peak_difference_dB": 4.855207748732937e-06,
+      "inner_peaks": [
+        {
+          "GHz": 5.03,
+          "S11_dB": -19.396075544108378
+        },
+        {
+          "GHz": 8.2,
+          "S11_dB": -19.396080399316126
+        }
+      ],
+      "objective": 100.78643131372897,
+      "nominal_buffer_satisfied": false
+    },
+    "baseline": {
+      "worst_S11_dB": -19.350883891018963,
+      "min_S21_dB": -0.9975280633323637,
+      "shape_valid": true,
+      "passed": false,
+      "central_valley_GHz": 6.73,
+      "peak_difference_dB": 0.014595850098650942,
+      "inner_peaks": [
+        {
+          "GHz": 5.09,
+          "S11_dB": -19.365479741117614
+        },
+        {
+          "GHz": 8.25,
+          "S11_dB": -19.350883891018963
+        }
+      ],
+      "objective": 110.06446101235105,
+      "nominal_buffer_satisfied": false
+    },
+    "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+    "trust_region_mm": {
+      "Ls1": 0.2,
+      "Lm": 0.1
+    },
+    "prediction_is_HFSS": false,
+    "complex_sensitivity_condition": 1.5097538662645993,
+    "reflection_buffer_dB": 0.4,
+    "buffer_is_certified": false,
+    "strict_R_screen_not_changed": true,
+    "keep_original_blind_outcome": true,
+    "reason": "No predicted target pass/improvement in trust region"
+  },
+  "original_target_preserved": true,
+  "not_HFSS_prediction": true,
+  "source_ACKs": {
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N18_A14\\probes\\N18_A14_S\\g01_initial\\receiver_ack.json": "8edd0113dfa492340fd37d5a56d70fc0291a51194fb91b1ee7af7a56a03eef30",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N18_A14\\probes\\N18_A14_M\\g01_initial\\receiver_ack.json": "291bc9f6eabafd80b16ab24cd8a0baddd0362ace723018dc0c99ce63b53657a1"
+  }
+}

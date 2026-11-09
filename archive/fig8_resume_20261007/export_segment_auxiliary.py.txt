@@ -1,0 +1,35 @@
+"""Export explicit port:mode Zo/Gamma from completed segments, no solves."""
+import sys,csv,json
+from pathlib import Path
+import numpy as np
+from ansys.aedt.core import Hfss
+from audit_existing import write,sha
+
+def export(project,setup,segments,output,port=7990,count=3):
+    project=Path(project);output=Path(output);output.mkdir(parents=True,exist_ok=True)
+    app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=port,non_graphical=False,new_desktop=False,close_on_exit=False)
+    expressions=[f'{kind}({p}:{mode})' for kind in ['Zo','Gamma'] for p in [1,2] for mode in range(1,count+1)]
+    record={'expressions':expressions,'segments':{}}
+    try:
+        for segment in segments:
+            actual=segments[segment] if isinstance(segments,dict) else segment
+            d=app.post.get_solution_data(expressions=expressions,setup_sweep_name=f'{setup} : {actual}',domain='Sweep',report_category='Modal Solution Data')
+            if not d:raise RuntimeError(f'Missing auxiliary quantities {segment}')
+            units=d.units_sweeps.get('Freq');f=np.asarray(d.primary_sweep_values)*{'GHz':1.,'MHz':1e-3,'kHz':1e-6,'Hz':1e-9}[units]
+            rows=[{'Freq_GHz':float(ff)} for ff in f]
+            for expr in expressions:
+                _,re=d.get_expression_data(expr,formula='real');_,im=d.get_expression_data(expr,formula='imag');z=np.asarray(re)+1j*np.asarray(im)
+                assert len(z)==len(f) and np.isfinite(z).all()
+                for i,v in enumerate(z):rows[i][expr+'_real']=float(v.real);rows[i][expr+'_imag']=float(v.imag)
+            dest=output/(segment+'_auxiliary.csv')
+            with dest.open('w',newline='',encoding='utf-8') as h:
+                w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+            record['segments'][segment]={'file':str(dest),'sha256':sha(dest),'points':len(rows),'actual_sweep':actual}
+        record['status']='exported'
+    except Exception as e:record.update(status='failed',error=repr(e));raise
+    finally:
+        write(output/'auxiliary_export.json',record);app.release_desktop(close_projects=False,close_desktop=False)
+if __name__=='__main__':
+    import argparse
+    p=argparse.ArgumentParser();p.add_argument('project');p.add_argument('setup');p.add_argument('output');p.add_argument('--segments',nargs='+',required=True);p.add_argument('--port',type=int,default=7990);p.add_argument('--modes',type=int,default=3);a=p.parse_args()
+    export(a.project,a.setup,a.segments,a.output,a.port,a.modes)

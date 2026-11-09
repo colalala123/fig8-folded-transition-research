@@ -1,0 +1,32 @@
+import json, shutil, sys
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+ROOT = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+start, end = map(float, sys.argv[1:3])
+minsol = int(sys.argv[3]) if len(sys.argv) > 3 else 26
+tag = f"{start:g}".replace('.', 'p') + "_" + f"{end:g}".replace('.', 'p')
+sweep_name = f"SweepBB_Dense{minsol}_" + tag
+project = ROOT / "R_B0_rebuild_max500.aedt"
+snapshot = ROOT / f"R_B0_rebuild_max500.before_{sweep_name}.aedt"
+shutil.copy2(project, snapshot)
+app = Hfss(project=str(project), design="Wideband vertical transition", version="2024.2", machine="localhost", port=7393, non_graphical=False, new_desktop=False, close_on_exit=False)
+out = {"snapshot": str(snapshot), "cores": 16, "tasks": 1, "start_GHz": start, "end_GHz": end, "min_solutions": minsol, "sweep_name": sweep_name}
+try:
+    setup = app.get_setup("ModalRepairBB")
+    for old in list(setup.sweeps):
+        old.props["IsEnabled"] = False
+        old.update()
+    sw = setup.add_sweep(sweep_name, "Interpolating")
+    sw.props.update({
+        "RangeType": "LinearStep", "RangeStart": f"{start}GHz", "RangeEnd": f"{end}GHz", "RangeStep": "0.01GHz",
+        "InterpTolerance": 0.5, "InterpMaxSolns": 500, "InterpMinSolns": minsol, "InterpMinSubranges": 1,
+        "InterpUseS": True, "InterpUsePortImped": True, "InterpUsePropConst": True,
+        "UseFullBasis": True, "EnforcePassivity": True, "PassivityErrorTolerance": 0.0001,
+        "EnforceCausality": False, "SaveFields": True, "SaveRadFields": False,
+    })
+    sw.update(); out["sweep"] = json.loads(json.dumps(sw.props, default=str)); app.save_project()
+finally:
+    (ROOT / f"repair_{sweep_name}_manifest.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    app.release_desktop(close_projects=False, close_desktop=False)
+print(json.dumps(out, indent=2))

@@ -1,0 +1,93 @@
+"""Configure/reopen/freeze/launch ONE new authorized case, with actual native14core proof. No retries."""
+import argparse,ast,json,subprocess,sys,time
+from pathlib import Path
+import psutil
+from build_runtime import ROOT,OUT,read,write,new,sha,now
+from tuning_budget import validate_campaign
+def gate(ctx):
+    assert not (ROOT/'PAUSE.json').exists()
+    identity=read(ctx/'aedt_identity.json')
+    native=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+    assert len(native)==1 and native[0]['name'].lower()=='ansysedt.exe','Another solver/desktop exists; no configuration or dispatch'
+    p=native[0];assert p['pid']==identity['pid'] and abs(p['create_time']-identity['created'])<.01 and p['cmdline']==identity['command']
+    return native
+def run(script,*args,cwd=None):
+    result=subprocess.run([sys.executable,str(script),*map(str,args)],cwd=str(cwd or script.parent))
+    assert result.returncode==0,f'Stopped at {script.name}; inspect existing state, never blind retry'
+def main(context,requested):
+    ctx=Path(context).resolve();reg=read(ROOT/'runtime_registry.json');entry=next(e for e in reg['contexts'] if Path(e['context']).resolve()==ctx)
+    parent=entry['parent'];campaign=read(ROOT/'campaign.json')
+    if parent!=campaign['pilot_parent']:
+        pilot=read(ROOT/'pilot_success_gate.json');assert pilot['passed']
+        selected=ROOT/'decisions'/f'{campaign["pilot_parent"]}_selected.json';assert sha(selected)==pilot['selected_sha256']
+    validate_campaign(storage=True);gate(ctx)
+    initial=ctx/'initial_inputs.json'
+    if not initial.exists():
+        assert not (ROOT/'releases').exists() or not any(p.stem.startswith(parent+'_') for p in (ROOT/'releases').glob('*.json')),'Existing release requires inspection'
+        p=ctx/'parent_evidence.json';parents=read(p);updates={}
+        for path,h in list(parents['hashes'].items()):
+            q=Path(path)
+            if q.parent==ROOT and q.name=='tuning_budget.py':
+                if sha(q)!=h:updates[path]=dict(before=h,after=sha(q));parents['hashes'][path]=sha(q)
+            else:assert sha(path)==h,path
+        for q in [ROOT/'continue_tuning.py',ROOT/'test_tuning_contract.py',ROOT/'run_context.py',ROOT/'run_context_v2.py',ROOT/'finish_start_and_monitor_v2.py',ROOT/'observer_retry_v2.py']:
+            parents['hashes'][str(q)]=sha(q)
+        if updates and not (ctx/'unfrozen_preparation_amendments.json').exists():new(ctx/'unfrozen_preparation_amendments.json',dict(at=now(),before_any_input_frozen=True,updates=updates))
+        write(p,parents)
+        run(ctx/'desktop_preflight.py');run(ctx/'verify_live_hook.py')
+        run(ctx/'configure_projects.py','--all')
+        if not (ctx/'prepared_reopen_gate.json').exists():run(ctx/'prepared_reopen.py')
+        # Offline observer and resource/geometry contract regression; no native Analyze.
+        tests=[]
+        for folder,names in [(ctx,['test_phase_heartbeat','test_lifecycle_watch']),(ROOT,['test_tuning_contract'])]:
+            result=subprocess.run([sys.executable,'-m','unittest',*names],cwd=str(folder),capture_output=True,text=True)
+            tests.append(dict(folder=str(folder),modules=names,returncode=result.returncode,output=result.stdout+result.stderr))
+            assert result.returncode==0,result.stdout+result.stderr
+        rowproofs=[]
+        for row in read(ctx/'plan.json')['cases']:
+            proof=read(ctx/'cases'/row['case']/'configuration.json');project=Path(row['prepared_project'])
+            assert proof['passed'] and not proof['solved'] and not proof['analyze_requested']
+            assert proof['geometry']==row['geometry'] and sha(project)==proof['project_sha256']
+            assert proof['material']['er']==3.55 and proof['material']['tand']==.0027
+            assert not (Path(row['run_dir'])/'state.json').exists()
+            rowproofs.append(dict(case=row['case'],configuration_sha256=sha(ctx/'cases'/row['case']/'configuration.json'),project_sha256=sha(project)))
+        for f in ctx.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+        assert read(ctx/'prepared_reopen_gate.json')['passed']
+        native=gate(ctx);budget=validate_campaign(storage=True)
+        write(ctx/'prelaunch_audit.json',dict(at=now(),passed=True,Analyze_requested=False,tests=tests,geometry_contract=budget,native=native,projects=rowproofs))
+        parents=read(p);parents['hashes'][str(ctx/'prelaunch_audit.json')]=sha(ctx/'prelaunch_audit.json');write(p,parents)
+        run(ctx/'finalize_and_authorize.py')
+    else:
+        assert read(ctx/'authorization.json')['execution_authorized']
+        assert read(ctx/'prelaunch_audit.json')['passed']
+    candidates=[r for r in read(ctx/'plan.json')['cases'] if not (Path(r['run_dir'])/'state.json').exists()]
+    assert candidates,'No unstarted case in this context; do not duplicate dispatch'
+    row=candidates[0];case=row['case'];assert not requested or requested==case
+    marker=ROOT/'releases'/f'{case}.json';assert not marker.exists(),'A release attempt already exists; inspect only'
+    path=Path(row['run_dir'])/'input.json';spec=read(path)
+    for p,h in spec['parent_evidence_hashes'].items():assert sha(p)==h,p
+    gate(ctx);validate_campaign(case=case,storage=True)
+    new(marker,dict(at=now(),case=case,parent=parent,input_sha256=sha(path),context=str(ctx),native=gate(ctx)))
+    run(ctx/'launch_one.py','--case',case)
+    proof=read(path.parent/'supervised_start.json');assert proof['actual_14core_single_group_observed'] and proof['input_sha256']==sha(path)
+    worker=psutil.Process(proof['worker_pid']);assert abs(worker.create_time()-proof['worker_created'])<.01 and worker.cmdline()==proof['worker_command']
+    time.sleep(1)  # Let the legacy ensure release its startup mutex.
+    from finish_start_and_monitor_v2 import ensure_observer
+    observer=ensure_observer(ctx,path.parent)
+    (ROOT/'decisions').mkdir(exist_ok=True)
+    from continue_tuning import refresh
+    state=refresh();state.update(phase='actual14core_solving',active=1,current_case=case,current_parent=parent,current_context=str(ctx),current_run=str(path.parent),
+        worker_pid=worker.pid,worker_created=worker.create_time(),observer_pid=observer['pid'],actual14core=True,hook_configured=True,
+        next_action='Wait for terminal hook; independent review then actual image ACK and continue_tuning.py. No normal periodic wakeups.')
+    write(ROOT/'CURRENT_STATUS.json',state)
+    (ROOT/'CURRENT_STATUS.md').write_text('# 固定P/R达标调谐正在运行\n\n'
+        f'当前{case}：真实HFSS14核1组串行已核验，外部observer和完成hook已挂。\n\n'
+        '首例N17_A18，原48项保持不变。固定P/R/a/g，仅调Lm/Ls1；新工程F盘、临时区D盘。终态后实际看图再继续。\n',encoding='utf-8')
+    # Stop only PREVIOUS completed-event heartbeats, after the actual successor is proven.
+    for e in reg['contexts']:
+        oldctx=Path(e['context']);monitor=oldctx/'hook/heartbeat/monitor.json'
+        if monitor.exists() and read(monitor).get('enabled'):
+            run(oldctx/'phase_heartbeat.py','stop')
+    print(json.dumps(dict(actual14core_started=True,case=case,worker_pid=worker.pid,observer_pid=observer['pid'],hook_current_chat=True,budget=validate_campaign()),ensure_ascii=False,indent=2))
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);p.add_argument('--case');a=p.parse_args();main(a.context,a.case)

@@ -1,0 +1,24 @@
+import json, sys
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+ROOT = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+NAME = "R_B0_rebuild_max500"
+PORT = 7393
+start = float(sys.argv[1])
+end = float(sys.argv[2])
+tag = f"{start:g}".replace('.', 'p') + "_" + f"{end:g}".replace('.', 'p')
+sweep = "SweepBB_" + tag
+outdir = ROOT / "bb_segments" / ("seg_" + tag)
+outdir.mkdir(parents=True, exist_ok=True)
+app = Hfss(project=str(ROOT / f"{NAME}.aedt"), design="Wideband vertical transition", version="2024.2", machine="localhost", port=PORT, non_graphical=False, new_desktop=False, close_on_exit=False)
+out = {"sweep": sweep, "start_GHz": start, "end_GHz": end}
+try:
+    for renorm, fn in ((False, "native.s6p"), (True, "50ohm.s6p")):
+        out[fn] = bool(app.export_touchstone(setup="ModalRepairBB", sweep=sweep, output_file=str(outdir / fn), renormalization=renorm, impedance=50, gamma_impedance_comments=True))
+    out["messages"] = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+    out["status"] = "exported"
+finally:
+    (outdir / "export_manifest.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    app.release_desktop(close_projects=False, close_desktop=False)
+print(json.dumps(out, indent=2))

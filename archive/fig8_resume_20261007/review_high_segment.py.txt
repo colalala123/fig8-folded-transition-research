@@ -1,0 +1,42 @@
+"""Audit the candidate high segment and compare every available direct sample."""
+import json
+import numpy as np
+from broadband_recovery import ROOT,read,write_json,sha,now
+from export_modal_segment import export,load_segment
+from check_external_normalization import impedance,transform
+from audit_existing import touchstone
+
+RUN=ROOT/'local_repair/D04G05/high_segment'
+
+def main():
+    state=read(RUN/'state.json');assert state['mesh_reuse_verified']
+    rec=state['segments']['High'];assert rec['status']=='exported' and rec['sweep_converged']
+    export(state['project'],'Setup19 : RecoveryHighZoV1',RUN,np.arange(965,1421)*.01)
+    f,s,z,_=load_segment(RUN);fixed=transform(s,z,'traveling')
+    assert np.isfinite(fixed).all()
+    sv=np.linalg.svd(fixed,compute_uv=False)[:,0]
+    reciprocity=float(abs(fixed-fixed.transpose(0,2,1)).max())
+    np.savez_compressed(RUN/'scalar_reference_50ohm.npz',frequency_GHz=f,S=fixed,modal_Zo=z)
+    direct=RUN.parent/'cutoff_check'
+    df,ds=touchstone(direct/'native_direct.s4p',4)
+    dz=impedance(direct/'native_direct.s4p',4);d50=transform(ds,dz,'traveling')
+    samples=[]
+    for i,freq in enumerate(df):
+        if freq<9.65-1e-9 or freq>14.2+1e-9:continue
+        j=int(np.argmin(abs(f-freq)));assert abs(f[j]-freq)<1e-9
+        samples.append({'GHz':float(freq),'S11_magnitude_error':float(abs(abs(s[j,0,0])-abs(ds[i,0,0]))),
+            'S21_magnitude_error':float(abs(abs(s[j,2,0])-abs(ds[i,2,0]))),
+            'full_50ohm_complex_error':float(abs(fixed[j]-d50[i]).max()),
+            'Zo_max_relative_error':float((abs(z[j]-dz[i])/abs(dz[i])).max())})
+    result={'reviewed_at_utc':now(),'points':len(f),'max_sv':float(max(sv)),
+        'passivity_violations':int(sum(sv>1.001)),'reciprocity_error':reciprocity,
+        'matrix_passed':bool(max(sv)<=1.001 and reciprocity<=1e-6),'direct_samples':samples,
+        'all_sample_full_matrix_errors_le_0p005':all(x['full_50ohm_complex_error']<=.005 for x in samples),
+        'mesh_reuse_verified':True,'production_approved':False}
+    files=[RUN/n for n in ['state.json','all_modes_sparams.csv','mode_impedance_gamma.csv','sparams.csv','mode_map.json','scalar_reference_50ohm.npz']]
+    files += [direct/'native_direct.s4p',direct/'direct_comparison.json']
+    result['evidence_hashes']={str(p):sha(p) for p in files}
+    write_json(RUN/'high_review.json',result)
+    print(json.dumps({k:v for k,v in result.items() if k!='evidence_hashes'},indent=2))
+
+if __name__=='__main__':main()

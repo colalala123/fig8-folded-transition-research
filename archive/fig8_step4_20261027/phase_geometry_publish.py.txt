@@ -1,0 +1,26 @@
+"""Actual terminal-only B6 notifications; completion+5min state-aware recovery."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+
+def prompt(event,path):
+    return (f'[Fig8 B6独立逆向首测完成事件]\n事件：{path}\n状态：{event["status"]}\n{event["summary"]}\n'
+      f'人类已授权“你按照这个方案跑完他”。先读{HERE/"CONTINUATION.md"}及本目录plan/authorization/budget_ledger/active。'
+      '这是六个新目标的首次盲测，六项均为E类探索候选，不是严格可靠推荐。模型/六项预测已冻结，不调几何、不重训，不换目标。'
+      '若完成，review_phase_geometry.py --run事件目录，实际查看S11/S21图，之后acknowledge_review.py --run RUN --visual-reviewed --note实际观察。'
+      '按ORDER用dispatch.py启动下一尚未开跑项，用supervise_start.py核验实际16核1组。前两项监督后才放行其余。'
+      '基础design_passed不是联合-20dB验收；失败保留，不能为凑通过改几何。初始六项后建本目录独立final_review，最多32直接点/8次Analyze每项(每批4点)、0新自适应。'
+      '若技术失败，先读worker_error/真实进程，保留成功阶段，不清工程锁、不重复Analyze；每项最多1次受控恢复且不扩预算。'
+      '全部完成应交付六项请求终态及预测误差/首测命中统计，停止心跳；失败后调谐不在本次授权。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B6 blind initial6 after explicit execution instruction;16cores serial; no retuning')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

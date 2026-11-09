@@ -1,0 +1,108 @@
+"""Offline only. No project module imports, AEDT, process control or dispatch."""
+import ast,json,hashlib,sys
+from pathlib import Path
+import numpy as np
+import scipy
+from scipy.optimize import minimize,linprog
+from scipy.signal import find_peaks
+R=Path('${WORKSPACE}/output/fig8_tune48_fixedPR_20261031')
+O=Path(__file__).resolve().parent
+sources={}
+def track(p):
+ p=Path(p);sources[str(p)]=hashlib.sha256(p.read_bytes()).hexdigest();return p
+def read(p):return json.loads(track(p).read_text(encoding='utf-8-sig'))
+def save(n,d):
+ with (O/n).open('x',encoding='utf8') as f:json.dump(d,f,indent=2,ensure_ascii=False,allow_nan=False)
+def pure_functions(p,names):
+ s=track(p).read_text(encoding='utf-8-sig');tree=ast.parse(s)
+ nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names]
+ assert len(nodes)==len(names)
+ exec(compile(ast.Module(body=nodes,type_ignores=[]),str(p),'exec'),globals())
+pure_functions(R.parent/'fig8_inverse_PR_20261027/model.py',{'intervals','band_score'})
+pure_functions(R/'b05_corrector.py',{'load_curve','assess'})
+pause=read(R/'PAUSE.json');status=read(R/'CURRENT_STATUS.json');assert status['phase']=='user_paused'
+c=read(R/'campaign.json');rows=read(c['baseline_index'])['rows'];registry=read(R/'runtime_registry.json')['contexts'];target=c['target']
+def curve(p):return load_curve(track(p))
+def model(parent):
+ b=next(x for x in rows if x['case']==parent)
+ ctx=next(x for x in registry if x['parent']==parent and x['kind']=='probes')
+ plan=read(Path(ctx['context'])/'plan.json')['cases']
+ f,s=curve(Path(b['effective_run'])/'sparams.csv')
+ fs,ss=curve(Path(plan[0]['run_dir'])/'sparams.csv');fm,sm=curve(Path(plan[1]['run_dir'])/'sparams.csv')
+ assert np.array_equal(f,fs) and np.array_equal(f,fm)
+ for r in plan:
+  a=read(Path(r['run_dir'])/'receiver_ack.json');assert a['artifacts_verified'] and a['visual_review_completed']
+ J=np.stack([(ss-s)*2,(sm-s)*2],axis=-1)
+ return b,f,s,J
+
+def solve(s,J):
+ def vals(u):return abs(s+J@u)
+ def grad(u):
+  z=s+J@u;return (np.conj(z)[:,None]*J).real/np.maximum(abs(z),1e-30)[:,None]
+ fits=[]
+ for u in [[0,0],[-.2,-.2],[.5,.5]]:
+  x=np.r_[u,max(vals(u))+.001]
+  opt=minimize(lambda x:x[2],x,jac=lambda x:np.array([0.,0.,1.]),bounds=[(-1,1),(-1,1),(0,None)],constraints=[{'type':'ineq','fun':lambda x:x[2]-vals(x[:2]),'jac':lambda x:np.c_[-grad(x[:2]),np.ones(len(s))]}],method='SLSQP',options={'maxiter':1000,'ftol':1e-12})
+  fits.append(opt)
+ opt=min(fits,key=lambda x:max(vals(np.clip(x.x[:2],-1,1))))
+ u=np.clip(opt.x[:2],-1,1);upper=float(max(vals(u)))
+ # Supporting planes under-estimate each convex magnitude everywhere.
+ # ANY nonnegative weights summing to one give a valid box-wide lower bound.
+ G=grad(u);b=vals(u)-G@u
+ lp=linprog([0,0,1],A_ub=np.c_[G,-np.ones(len(s))],b_ub=-b,bounds=[(-1,1),(-1,1),(None,None)],method='highs')
+ assert lp.success
+ lam=np.maximum(-lp.ineqlin.marginals,0);lam/=lam.sum()
+ lower=float(lam@b-np.abs(lam@G).sum())-1e-9
+ active=np.where(lam>1e-8)[0]
+ cert={'weights':lam[active].tolist(),'indices':active.tolist(),'lower_amplitude':lower,'upper_amplitude':upper,'gap_amplitude':upper-lower,'u':u.tolist(),'solver_success':[bool(v.success) for v in fits],'solver_messages':[str(v.message) for v in fits]}
+ assert lower<=upper+1e-8
+ return u,cert
+
+# Analytic regression tests: constant norm and exactly cancellable response.
+_,t=solve(np.array([.11+0j]),np.zeros((1,2),complex));assert abs(t['upper_amplitude']-.11)<1e-10 and t['lower_amplitude']>.109999
+_,t2=solve(np.array([.08+0j,.08+0j]),np.array([[.02,0],[-.02,0]],complex));assert abs(t2['upper_amplitude']-.08)<1e-8 and t2['lower_amplitude']>.079999
+results=[]
+for parent in ['N19_A14','N22_A18','N18_A18','N17_A14','N14_A18','N22_A14','N18_A14']:
+ b,f,s,J=model(parent);band=(f>=3.92)&(f<=9.52)
+ assert np.min(abs(f-3.92))<1e-10 and np.min(abs(f-9.52))<1e-10
+ u,cert=solve(s[band,0],J[band,0,:]);prediction=s+np.einsum('nkd,d->nk',J,u)
+ cert['active_frequencies_GHz']=f[band][cert['indices']].tolist()
+ cert['best_worst_S11_dB']=float(20*np.log10(cert['upper_amplitude']))
+ cert['lower_S11_dB']=float(20*np.log10(cert['lower_amplitude'])) if cert['lower_amplitude']>0 else None
+ old=read(R/'decisions'/f'{parent}_c1_decision.json')['proposal']
+ old_u=np.array(old['delta_mm'])/[.2,.1];replay=assess(f,s+np.einsum('nkd,d->nk',J,old_u),target,True)
+ assert abs(replay['worst_S11_dB']-old['predicted']['worst_S11_dB'])<1e-8
+ feasible=[];reflection_count=0
+ # Full 201x201 grid only if reflection infeasibility is NOT established.
+ if cert['lower_amplitude']<=.1:
+  for x in np.linspace(-1,1,201):
+   us=np.array([[x,y] for y in np.linspace(-1,1,201)])
+   mags=np.max(abs(s[band,0,None]+J[band,0,:]@us.T),axis=0)
+   for v in us[mags<=.1]:
+    reflection_count+=1;q=assess(f,s+np.einsum('nkd,d->nk',J,v),target)
+    if q['passed']:feasible.append({'u':v.tolist(),'score':q})
+ q=assess(f,prediction,target)
+ if q['passed']:feasible.append({'u':u.tolist(),'score':q})
+ result={'parent':parent,'certificate':cert,'minimax_score':q,'delta_mm':(u*[.2,.1]).tolist(),'saved_candidate_replayed':True,'reflection_grid_count':reflection_count,'joint_candidates':feasible,'classification':'affine_model_reflection_infeasible' if cert['lower_amplitude']>.1 else ('joint_candidate_found' if feasible else 'reflection_feasible_joint_unresolved'),'HFSS_verified':False}
+ results.append(result);print(parent,result['classification'],cert['best_worst_S11_dB'],cert['gap_amplitude'],flush=True)
+save('FEASIBILITY.json',results)
+errors=[];inventory=[]
+for entry in registry:
+ planpath=Path(entry['context'])/'plan.json'
+ if not planpath.exists():continue
+ for rr in read(planpath)['cases']:
+  run=Path(rr['run_dir']);p=run/'sparams.csv'
+  if not p.exists():continue
+  state=read(run/'state.json');inventory.append({'parent':entry['parent'],'kind':entry['kind'],'case':rr['case'],'run':str(run),'geometry':state.get('geometry',rr.get('geometry')),'technical_status':state.get('status')})
+  if entry['kind'] not in ['c1','c2']:continue
+  decision=R/'decisions'/f"{entry['parent']}_{entry['kind']}_decision.json"
+  if not decision.exists():continue
+  d=read(decision)['proposal'];fa,sa=curve(p);actual=assess(fa,sa,target)
+  geometry=state.get('geometry',rr.get('geometry'))
+  if any(abs(geometry[k]-d['geometry'][k])>1e-8 for k in ['Lm','Ls1','Wm','Ws']):continue
+  pred=d['predicted']
+  errors.append({'parent':entry['parent'],'case':rr['case'],'kind':entry['kind'],'actual':actual,'predicted':pred,'actual_minus_predicted_S11_dB':actual['worst_S11_dB']-pred['worst_S11_dB'],'actual_minus_predicted_center_GHz':actual.get('central_valley_GHz',0)-pred.get('central_valley_GHz',0),'run':str(run),'curve_sha256':sources[str(p)]})
+save('HISTORICAL_ERRORS.json',errors);save('RESPONSE_DATA_INVENTORY.json',inventory)
+assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in sources.items())
+save('VALIDATION.json',{'numpy':np.__version__,'scipy':scipy.__version__,'analytic_tests_passed':2,'all7_saved_predictions_replayed':True,'source_hashes':sources,'source_files_unchanged':True,'HFSS_calls':0,'pause_preserved':True,'global_bound_method':'convex supporting planes; nonnegative normalized LP weights; analytic minimization over box; 1e-9 amplitude allowance; floating point not interval arithmetic','project_modules_imported':False})
+print('ERRORS',json.dumps(errors,ensure_ascii=True));print('INVENTORY',len(inventory))

@@ -1,0 +1,87 @@
+"""Technical deliverables and frozen predictions. No simulation calls."""
+import hashlib
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from model import HERE,read,write,Forward
+
+def main():
+    data=read(HERE/'dataset.json');v=read(HERE/'validation.json');m=read(HERE/'metrics34.json');p=read(HERE/'supplement_plan.json')
+    model=Forward(data['rows'])
+    target=HERE/'predicted_curves18.json'
+    if not target.exists():
+        curves=[]
+        for r in p['cases']:
+            g=r['geometry'];q=model.predict(g['Wm'],g['Ws'],r['a_mm'])
+            curves.append(dict(case=r['case'],frequency_GHz=q['f'].tolist(),S11_dB=q['s11'].tolist(),S21_dB=q['s21'].tolist(),parents=q['parents']))
+        write(target,dict(frozen_before_any_new_HFSS=True,curves=curves,
+            model_sha256=hashlib.sha256((HERE/'model.py').read_bytes()).hexdigest(),
+            dataset_sha256=hashlib.sha256((HERE/'dataset.json').read_bytes()).hexdigest()))
+    assert len(read(target)['curves'])==18
+    rows=m['cases'];fig,axs=plt.subplots(1,2,figsize=(12,4.8),layout='constrained')
+    sc=axs[0].scatter([r['P'] for r in rows],[r['R'] for r in rows],c=[r['worse_inner_peak_dB'] for r in rows],s=55,cmap='viridis',vmin=-24,vmax=-10)
+    pp=p['cases'][:9];axs[0].scatter([r['P_nominal'] for r in pp],[r['R_nominal'] for r in pp],marker='x',s=65,color='#dc2626',label='9 new P/R cells (2 arms each)')
+    axs[0].set(xlabel='Nominal P',ylabel='Nominal R',title='Existing34 and new18 configurations');axs[0].legend(fontsize=8)
+    fig.colorbar(sc,ax=axs[0],label='Worse inner S11 peak (dB)')
+    xx=np.arange(len(rows));axs[1].bar(xx,[r['transmission2_center_band_GHz'][2] for r in rows],color='#cbd5e1',label='S21 >= -2dB')
+    axs[1].bar(xx,[r['joint20_center_band_GHz'][2] for r in rows],color='#2563eb',label='S11 <= -20 AND S21 >= -2')
+    axs[1].set(xticks=xx,xticklabels=[r['case'] for r in rows],ylabel='Center-connected bandwidth (GHz)',title='Do not confuse these two bandwidths')
+    axs[1].tick_params(axis='x',labelsize=6,rotation=90);axs[1].legend(fontsize=8)
+    for ax in axs:ax.grid(alpha=.15)
+    fig.savefig(HERE/'coverage20.png',dpi=160);plt.close(fig)
+    fig,axs=plt.subplots(1,2,figsize=(12,4.5),layout='constrained')
+    for ax,case in zip(axs,['D07G02','D07G05']):
+        r=next(r for r in data['rows'] if r['case']==case)
+        for key in ['S11_dB','S21_dB']:ax.plot(r['frequency_GHz'],r[key],label=key)
+        ax.axhline(-20,color='red',ls='--');ax.axhline(-2,color='gray',ls=':')
+        for lo,hi in r['metrics20']['joint20_intervals_GHz']:ax.axvspan(lo,hi,alpha=.12,color='green')
+        ax.set(xlim=(3,10),ylim=(-40,1),xlabel='GHz',ylabel='dB',title=f"{case}: inner worst {r['metrics20']['worse_inner_peak_dB']:.3f} dB")
+        ax.grid(alpha=.2);ax.legend()
+    fig.savefig(HERE/'threshold_split_example.png',dpi=160);plt.close(fig)
+    near=[r['case'] for r in rows if abs(r['worse_inner_peak_dB']+20)<.1]
+    errors=[x['joint20_BW_error_GHz'] for x in v['previous10']]
+    peak=v['descriptive_formulas']['worse_inner_peak_dB'];bw=v['descriptive_formulas']['transmission2_BW_GHz']
+    lines=['# Fig8：−20 dB整理、P/R反向设计原型与18点补充方案','',
+        '## 执行范围','',
+        '已获用户授权执行前三步。步骤1、2离线成果已生成；步骤3的18个配置已冻结，实际求解状态以相邻fig8_PR18_20261027/STATUS.md与active.json为准。不能把计划或配置完成当成仿真完成。第4步独立逆向盲测尚不在本次范围。','',
+        '## 1 已有34项重新按−20 dB整理','',
+        '使用全部原始频率采样曲线，未混入均匀模型数据。S11≤−20 dB、S21≥−2 dB按每一频率段两条线性约束的交集找带边，保存所有独立区间、含6.72GHz的区间及最大区间，不把分裂频带的总跨度叫连续带宽。', '',
+        f"两个内峰均≤−20dB的曲线有{m['peaks_pass_count']}/34项；在4–9GHz完整频段满足联合条件的曲线有{m['fixed_4to9_pass_count']}/34项。含6.72GHz的联合带宽范围为{m['center_joint20_BW_range'][0]:.3f}–{m['center_joint20_BW_range'][1]:.3f}GHz。",'',
+        f"距内峰−20dB阈值不足0.1dB的配置：{', '.join(near)}。这些是插值曲线分类，不是已经完成新−20dB带边直接复核的稳健通过声明。",'',
+        '![带宽口径与覆盖](coverage20.png)','',
+        '![峰值越过阈值导致连续频带分裂](threshold_split_example.png)','',
+        '## 2 反向设计原型','',
+        '### A. 明确频带的全带约束反算','',
+        'model.py接受f-low/f-high或以6.72GHz为中心的对称bandwidth、S11限值、S21限值；输出已有曲线支持的尺寸、代理预测候选、是否通过不确定性筛选，以及尺寸父记录。只在固定材料/g=.55、a=1.4或1.8、现有宽度范围内使用，禁止外推。','',
+        '算法：在独立理论名义lnP/lnR坐标中，以分片线性凸权重插值S参数幅值，再搜索宽度候选。不是深度神经网络，也不宣称完整电磁理论。长度取已接受几何插值初值；未检查真实CAD的新候选明确标记为未验证。','',
+        f"从原24项预测既有后10项的回顾性检查，−20dB中心连续联合带宽MAE为{1000*np.mean(abs(np.array(errors))):.2f}MHz、最大绝对误差{1000*max(abs(np.array(errors))):.2f}MHz。但留整组宽度检查出现约3GHz的连通性分类误差；边界角点留出时无法插值，未伪造外推分数。",'',
+        f"近阈值反射的最大乐观偏差加0.1dB得到{v['screening_margin_S11_dB']:.2f}dB探索性筛选余量。该余量并非置信界，也不保证未知点。5GHz全带示例在如此保守筛选下无新候选获准保证，仍列出6个已有曲线支持的方案和需HFSS核验的探索候选；这说明模型尚不能承诺自动达标，不能为了出答案静默放松余量。",'',
+        '### B. 内峰目标＋−2dB传输带宽的公式反算','',
+        'formula_inverse.py联立两条局部经验式求P/R，再由Zm=50√(PR)、Zs=50√(P/R)和当前材料线模型反求Wm/Ws，输出全部尺寸初值。', '',
+        f"S11较差内峰/dB ≈ {peak['coefficients'][0]:.6f} + {peak['coefficients'][1]:.6f}lnP {peak['coefficients'][2]:+.6f}lnR {peak['coefficients'][3]:+.6f}(a/mm−1.6)。",'',
+        f"BW_S21/GHz ≈ {bw['coefficients'][0]:.6f} + {bw['coefficients'][1]:.6f}lnP {bw['coefficients'][2]:+.6f}lnR {bw['coefficients'][3]:+.6f}(a/mm−1.6)。",'',
+        f"较差内峰后10项回顾性MAE={peak['retrospective_previous10_MAE']:.3f}dB，最大误差{peak['max_error']:.3f}dB。新模型并非预注册盲测，原冻结宽度公式未改动。",'',
+        '示例：内峰目标−20.5dB、传输带宽7GHz、a1.8，得到Wm≈1.883074、Ws≈.361836、Lm≈6.565946、Ls1≈12.042004、Ls2≈1.273673、Ls3≈2.161836mm；这只是未仿真的候选。其代理联合−20dB带宽约5.873GHz，绝不能宣称−20dB带宽就是7GHz。', '',
+        '## 3 冻结补点与执行约束','',
+        'P=2.04/2.16/2.28；R=.430/.455/.475；两折臂a1.4/1.8，共18配置、9独立宽度。P/R来自独立直线解析模型（已通过TXLINE核对），不使用响应反推值。尺寸取微米级小数并核验目标相对误差<1e−5。', '',
+        '该网格同时提供同P改变R、同R改变P、同宽度改变折臂的对照，并覆盖−20dB附近会分裂的区域。不同配置的长度为中心/等峰条件调谐，因此研究对象是调谐后的设计族，不是冻结所有尺寸的因果实验。', '',
+        '|配置组|P|R|Wm mm|Ws mm|折臂|','|---|---:|---:|---:|---:|---|']
+    for r in p['cases'][:9]:lines.append(f"|{r['group']}|{r['target_P']}|{r['target_R']}|{r['geometry']['Wm']:.6f}|{r['geometry']['Ws']:.6f}|1.4/1.8mm|")
+    lines += ['', '可见HFSS2024R2、本机MCP、16核1任务串行，网格目标10–11万、记录允许到11.2万。先监督前两个。18初值之外共享最多12次长度调谐，总几何上限30且每项最多4；实际达标立即停止长度调谐。−20dB未通过作为有效负例保留，不更改P/R宽度强迫达标。', '',
+        '初值通过仍不是最终数值验收；后续只使用同网格抽查，优先两内峰及新的−20dB带边，最多24频点/配置、4点/次、6次调用，不盲目无限加严。', '',
+        '完成或失败后由hook发当前聊天；正常求解不周期发消息。送达后5分钟无下一真实求解，才检查聊天运行/中断状态并去重继续。全批结束关闭心跳。', '',
+        '## 使用命令','',
+        '```powershell',
+        '${WORKSPACE}/.venv/Scripts/python.exe ${WORKSPACE}/output/fig8_inverse_PR_20261027/model.py --f-low 4.22 --f-high 9.22 --s11 -20 --s21 -2',
+        '${WORKSPACE}/.venv/Scripts/python.exe ${WORKSPACE}/output/fig8_inverse_PR_20261027/formula_inverse.py --peak -20.5 --transmission-bw 7 --arm 1.8',
+        '```', '',
+        '模型/区间单元测试5项通过；hook状态与去重测试23项通过。实际hook送达将在首次真实完成事件后检查，预检不发送假完成消息。','']
+    (HERE/'REPORT.md').write_text('\n'.join(lines),encoding='utf-8')
+    write(HERE/'manifest.json',dict(files={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in HERE.iterdir() if p.is_file() and p.name!='manifest.json'},
+        source_hashes=data['source_hashes'],step1_completed=True,step2_prototype_completed=True,step3_plan_frozen=True,
+        step3_HFSS_complete=False,step4_blind_test_complete=False))
+    print('Report and frozen18 spectra saved.')
+
+if __name__=='__main__':main()

@@ -1,0 +1,90 @@
+{
+  "at": "2026-11-09T00:47:54.333915+00:00",
+  "scope": "Only N19_A14 and N22_A18 diagnostic verification; do not resume entire paused campaign",
+  "human_instruction": "那你验证N19和N22",
+  "cores": 14,
+  "serial": true,
+  "geometry_cap": 2,
+  "Analyze_cap": 26,
+  "per_case_Analyze_cap": 13,
+  "cases": [
+    {
+      "parent": "N19_A14",
+      "case": "N19_A14_D1",
+      "geometry": {
+        "Wm": 1.845816,
+        "Ws": 0.371911,
+        "Lm": 6.5751697119085115,
+        "Ls1": 12.66547939139962,
+        "Ls2": 1.293822,
+        "Ls3": 1.7719109999999998
+      },
+      "predicted": {
+        "worst_S11_dB": -19.95551133580896,
+        "min_S21_dB": -0.9866924431346431,
+        "shape_valid": true,
+        "passed": false,
+        "central_valley_GHz": 6.75,
+        "peak_difference_dB": 0.014838280614011268,
+        "inner_peaks": [
+          {
+            "GHz": 5.17,
+            "S11_dB": -19.970349616422972
+          },
+          {
+            "GHz": 8.22,
+            "S11_dB": -19.95551133580896
+          }
+        ],
+        "objective": 20.757017259433507,
+        "nominal_buffer_satisfied": false
+      },
+      "source": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\decisions\\N19_A14_c1_decision.json",
+      "source_sha256": "ffab9861930c232bc3f6423cb58db00d9613101b06a3d7b6d42640143199006e",
+      "reason": "Original joint-target candidate; not reflection-only optimum which may violate center constraint",
+      "HFSS_verified": false
+    },
+    {
+      "parent": "N22_A18",
+      "case": "N22_A18_D1",
+      "geometry": {
+        "Wm": 1.748808,
+        "Ws": 0.358396,
+        "Lm": 6.537386016024348,
+        "Ls1": 11.955989141633564,
+        "Ls2": 1.2667920000000001,
+        "Ls3": 2.158396
+      },
+      "predicted": {
+        "worst_S11_dB": -19.852825017927202,
+        "min_S21_dB": -0.9031646075959905,
+        "shape_valid": true,
+        "passed": false,
+        "central_valley_GHz": 6.74,
+        "peak_difference_dB": 7.786127298459178e-11,
+        "inner_peaks": [
+          {
+            "GHz": 5.2,
+            "S11_dB": -19.852825018005063
+          },
+          {
+            "GHz": 8.2,
+            "S11_dB": -19.852825017927202
+          }
+        ],
+        "objective": 29.940046100636668,
+        "nominal_buffer_satisfied": false
+      },
+      "source": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\decisions\\N22_A18_c1_decision.json",
+      "source_sha256": "e1d0d5b64b33f950766299a9bdebb942f680fc86d72388f119d303bf3e9962ee",
+      "reason": "Original joint-target candidate; not reflection-only optimum which may violate center constraint",
+      "HFSS_verified": false
+    }
+  ],
+  "old_pause_preserved": true,
+  "no_reverse_probes": true,
+  "no_automatic_retry": true,
+  "no_N15_recovery": true,
+  "phase": "preflight",
+  "Analyze_started": false
+}

@@ -1,0 +1,49 @@
+"""Requires all six physically solved probes with real visual ACK; no Analyze."""
+from common import *
+from prepare_runtime import runtime,PROBE_ROOT,PROBE_BASE
+from correction import load_curve,propose,assess
+
+def review_source(run):
+    e=read(run/'completion_event.json');a=read(run/'receiver_ack.json');s=read(run/'state.json')
+    assert e['status']=='completed' and e['verified_success'] and s['status']=='completed'
+    assert a['operation_success'] and a['visual_review_completed'] and a['artifacts_verified']
+    assert a['event_sha256']==sha(run/'completion_event.json') and a['verification_sha256']==sha(run/'receiver_verification.json')
+    for item in e['artifacts']:assert sha(run/item['path'])==item['sha256']
+    return {str(run/f):sha(run/f) for f in ['completion_event.json','receiver_ack.json','receiver_verification.json','input.json',
+           'state.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt']}
+
+def main():
+    target=ROOT/'candidate_decisions.json';assert not target.exists(),'Existing frozen proposal: inspect, never overwrite'
+    ledger=read(PROBE_ROOT/'budget_ledger.json')
+    assert len(ledger['tasks'])==ledger['new_geometry_reserved']==6 and all(t['status']=='reviewed' for t in ledger['tasks'])
+    old=read(PREVIOUS/'blind_results.json')['results'];results=[];rows=[]
+    for case in ['B02','B05','B06']:
+        r=next(x for x in old if x['case']==case)
+        base=Path('J:/f8_B6_261027')/case/'g01_initial'
+        rs=PROBE_BASE/(case+'S')/'g01_initial';rm=PROBE_BASE/(case+'M')/'g01_initial'
+        ev={**review_source(base),**review_source(rs),**review_source(rm)}
+        parent=r['geometry']
+        for run,key,h in [(rs,'Ls1',.10),(rm,'Lm',.05)]:
+            g=read(run/'input.json')['geometry']
+            assert all(abs(g[k]-parent[k]-(h if k==key else 0))<1e-9 for k in parent)
+        scores=[dict(run=str(run),score=assess(*load_curve(run/'sparams.csv'),r['target'])) for run in [rs,rm]]
+        passing=[x for x in scores if x['score']['passed']]
+        if passing:
+            chosen=min(passing,key=lambda x:x['score']['worst_S11_dB'])
+            proposal=dict(action='select_passing_probe',selected_run=chosen['run'],score=chosen['score'],final_direct_pending=True)
+        else:proposal=propose(load_curve(base/'sparams.csv'),load_curve(rs/'sparams.csv'),load_curve(rm/'sparams.csv'),parent,r['target'])
+        results.append(dict(parent_case=case,target=r['target'],proposal=proposal,probe_scores=scores,evidence_hashes=ev))
+        if proposal['action']=='candidate':
+            g=proposal['geometry'];rows.append(dict(case=case+'C',group=case,family_id='B6_'+case,parent_case=case,
+              target_P=r['P'],target_R=r['R'],P_nominal=r['P'],R_nominal=r['R'],geometry=g,initial_geometry=g,
+              a_mm=r['a_mm'],g_mm=.55,category='development_correction_not_blind',
+              target={**r['target'],'S11_max_dB':-20,'S21_min_dB':-2},parent_evidence_hashes=ev,
+              original_source=str(base),correction=proposal))
+    write(target,dict(at=now(),cases=results,additional_candidates=len(rows),max_development_geometries=6+len(rows),
+         runtime_created=False,old_blind_results_unchanged=True))
+    if rows:
+        result=runtime(OUT/'fig8_ml_candidates_20261028',Path('J:/f8_MLC_261028'),rows,'C9C')
+        write(ROOT/'candidate_runtime.json',result);print(result)
+    else:print(dict(candidates=0,read_decisions=str(target),Analyze_started=False))
+
+if __name__=='__main__':main()

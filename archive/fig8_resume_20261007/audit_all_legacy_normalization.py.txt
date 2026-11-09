@@ -1,0 +1,27 @@
+"""Recover diagnostic 50-ohm matrices from preserved modal S and explicit Zo.
+No curve clipping, passivity projection, or solver-state promotion is performed.
+"""
+import json
+from pathlib import Path
+import numpy as np
+from audit_existing import HERE,read,write,sha
+from check_legacy_scalar_reference import load_modal,transform
+def main():
+    inventory=read(HERE/'existing_inventory.json');records=[]
+    for case in inventory:
+        for it in case['iterations']:
+            run=Path(it['run']);out=HERE/'legacy_scalar_recovery'/case['case']/run.name;out.mkdir(parents=True,exist_ok=True)
+            record={'case':case['case'],'run':str(run),'source_curve_sha256':sha(run/'all_modes_sparams.csv'),'source_aux_sha256':sha(run/'mode_impedance_gamma.csv'),'status':'diagnostic_only','solver_status':it['status']}
+            try:
+                f,s,z,modes=load_modal(run);fixed=transform(s,z,'traveling');assert np.isfinite(fixed).all()
+                sv=np.linalg.svd(fixed,compute_uv=False)[:,0];recip=float(abs(fixed-fixed.transpose(0,2,1)).max())
+                n=len(modes);lines=['! Diagnostic re-normalization from preserved HFSS native S and explicit diagonal modal Zo; not solver re-run.','# GHz S RI R 50']+[f'! Port[{i+1}] = {m}' for i,m in enumerate(modes)]
+                for ff,mat in zip(f,fixed):
+                    pairs=np.stack([mat.real,mat.imag],axis=-1).reshape(-1);lines.append(' '.join([f'{ff:.12g}']+[f'{v:.16g}' for v in pairs]))
+                dest=out/f'scalar_reference_50ohm.s{n}p';dest.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+                record.update(max_sv=float(max(sv)),violations=int(sum(sv>1.001)),max_reciprocity=recip,numerical_passivity_passed=bool(max(sv)<=1.001 and recip<=1e-6),output=str(dest),output_sha256=sha(dest))
+            except Exception as e:record.update(status='recovery_failed',error=repr(e))
+            write(out/'diagnostic.json',record);records.append(record)
+    write(HERE/'all_legacy_normalization_diagnostic.json',{'records':records,'count':len(records),'numerical_checks_passed':sum(r.get('numerical_passivity_passed',False) for r in records),'scope':'Normalization checks only. Original convergence, interpolation error and port protocol gates remain mandatory.'})
+    print(json.dumps({'count':len(records),'numerical_checks_passed':sum(r.get('numerical_passivity_passed',False) for r in records),'failed':[r for r in records if not r.get('numerical_passivity_passed')]},indent=2))
+if __name__=='__main__':main()

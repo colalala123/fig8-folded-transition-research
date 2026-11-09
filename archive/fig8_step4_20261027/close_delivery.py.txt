@@ -1,0 +1,111 @@
+"""Audit executed budgets, preserve all evidence, write versioned delivery. No solves."""
+import json,subprocess,sys,time
+from pathlib import Path
+import numpy as np
+import psutil
+import phase_control as pc
+
+def run(args,cwd=pc.HERE):
+    r=subprocess.run([sys.executable,*map(str,args)],cwd=str(cwd),capture_output=True,text=True,encoding='utf-8',errors='replace')
+    assert r.returncode==0,r.stdout+'\n'+r.stderr
+    return dict(command=args,exit_code=0,stdout=r.stdout,stderr=r.stderr)
+def main():
+    from phase_geometry_worker import dc
+    assert not dc.solvers()
+    results=pc.read(pc.HERE/'blind_results.json');assert results['requested']==6 and len(results['results'])==6
+    tests=[run(['-m','unittest','test_blind_freeze','test_phase_heartbeat','test_direct_science','test_lifecycle_watch','test_reserved_acquisition','-q']),
+           run(['-m','unittest','test_design_tool','-q'],pc.HERE.parent/'fig8_PR18_delivery_20261027')]
+    hashes={};receipts=[];mesh=[];points=0;direct_launches=0;initial_launches=0
+    for row in results['results']:
+        case=row['case'];initial=pc.BASE/case/'g01_initial';first=pc.BASE/case/'direct_smallbatch';last=Path(row['direct_run'])
+        for folder in {initial,first,last}:
+            a=pc.read(folder/'receiver_ack.json');s=pc.read(folder/'state.json');event=pc.read(folder/'completion_event.json');receipt=pc.read(folder/'notification_receipt.json')
+            assert a['visual_review_completed'] and a['artifacts_verified'] and a['operation_success']
+            assert a['event_sha256']==pc.sha(folder/'completion_event.json')
+            assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']==pc.TARGET
+            assert receipt['state']=='accepted';receipts.append(dict(run=str(folder),event_sha256=a['event_sha256'],delivery_state=receipt['state']))
+            for seg in s['segments']:
+                assert seg['mcp_request']['cores_per_task']==16 and seg['mcp_request']['concurrent_tasks']==1
+                commands=[' '.join(p.get('cmdline') or []) for obs in seg['observations'] for p in obs]
+                assert any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+                if folder!=initial:assert not seg['observed_adaptive_process']
+            p=pc.read(folder/'input.json');frozen=p.get('parent_evidence_hashes',p.get('input_parent_hashes',{}))
+            for f,h in frozen.items():assert pc.sha(f)==h,f;hashes[f]=h
+        im=pc.read(initial/'state.json');firstp=pc.read(first/'input.json');mesh.append(im['actual_elements']);initial_launches+=len(im['segments'])
+        unique=len(firstp['requested_frequencies_GHz']);calls=len(pc.read(first/'state.json')['segments'])
+        if last!=first:
+            lp=pc.read(last/'input.json');unique+=sum(map(len,lp['chunks']));calls+=len(pc.read(last/'state.json')['segments'])
+            assert set(lp['existing_frequencies_GHz'])==set(firstp['requested_frequencies_GHz'])
+            assert set(lp['existing_frequencies_GHz']).isdisjoint(x for c in lp['chunks'] for x in c)
+        assert unique<=32 and calls<=8 and 100000<=im['actual_elements']<=112000
+        assert unique==len(np.atleast_1d(np.genfromtxt(last/'sparams.csv',delimiter=',',names=True)))
+        points+=unique;direct_launches+=calls
+    assert len(receipts)==16 and points==150 and direct_launches==42 and initial_launches==50
+    assert initial_launches+direct_launches<=126
+    for f,h in pc.read(pc.HERE/'model_freeze.json')['source_hashes'].items():assert pc.sha(f)==h,f;hashes[f]=h
+    heartbeats=[]
+    for context in [pc.HERE,pc.HERE/'final_review',pc.HERE/'reserved_review']:
+        heartbeats.append(run([str(context/'phase_heartbeat.py'),'stop'],context))
+        assert pc.read(context/'hook/heartbeat/monitor.json')['enabled'] is False
+    watched=[]
+    for folder in pc.BASE.glob('*/*/lifecycle_observer'):
+        watched.append(str(folder.parent));run([str(pc.HERE/'lifecycle_watch.py'),'stop','--run',str(folder.parent)])
+    time.sleep(6)
+    assert not dc.solvers()
+    for folder in [pc.HERE,pc.HERE/'final_review',pc.HERE/'reserved_review']:
+        assert not (folder/'worker.lock').exists()
+    pc.write(pc.HERE/'dataset_index_v3.json',dict(previous52_index=str(pc.HERE/'dataset_index_v2.json'),previous52_index_sha256=pc.sha(pc.HERE/'dataset_index_v2.json'),
+        total_geometries_available=58,total_width_groups_available=32,frozen_fullcurve_training_rows=50,blind_rows=results['results'],new_rows_added_to_training=False,uniform_data_used=False))
+    successful=[r for r in results['results'] if r['design_status']=='passed_with_finite_evidence']
+    target_only=[r for r in results['results'] if r.get('target_finite_coverage_supported')]
+    pc.write(pc.HERE/'validated_designs.json',dict(material=dict(er=3.55,tand=.0027,h_mm=.813,t_mm=.035,g_mm=.55),complete_pass_cases=successful,target_coverage_cases=target_only,
+        original_candidate_classification='All were E before HFSS; do not relabel as screened R',scope='Only stated band/arm/material; finite HFSS evidence, not manufacturing tolerance or arbitrary inverse-design guarantee'))
+    pc.write(pc.HERE/'issues_register_final.json',dict(execution_complete=True,
+        closed=['Previous three steps versioned and indexed','Two old local edge correction labels linked without recertifying old full curves','Six first-output blind requests simulated and reviewed','150 actual direct points/42launches completed','One lost-worker cached export recovered without Analyze','All B6 completion heartbeats stopped'],
+        scientific_failures_retained=['B02 equal-peak gap0.541871dB exceeds0.5','B05 upper target edge9.52GHz S11 about-19.4966dB','B06 inner S11 about-19.97395dB and gap0.596913dB'],
+        deferred=['Optional step9 geometry tuning needs new approval','Original P04G05/P05G05 full-curve re-certification','Large ANN training and robust generalization','Radiation-loss mechanism and higher-order guarantees','Other materials/center frequencies/gaps','Root cause of hard worker exit remains unknown; observer is mitigation not root-cause proof']))
+    audit=dict(at=pc.now(),requests=6,new_geometry_solves=6,geometry_tuning=0,model_refitting=0,initial_Analyze=initial_launches,direct_Analyze=direct_launches,total_Analyze=initial_launches+direct_launches,
+        total_Analyze_cap=126,unique_native_direct_points=points,direct_point_cap=192,mesh_range=[min(mesh),max(mesh)],cores=16,serial_tasks=1,
+        recovery=dict(case='B02',attempts=1,new_Analyze=0,method='Read-only real cached last-point export'),
+        terminal_events=receipts,source_hashes_rechecked=len(hashes),solver_running=False,all_current_heartbeats_disabled=True,watched_runs=watched,
+        visual_QA=dict(complete=True,figures={str(pc.HERE/x):pc.sha(pc.HERE/x) for x in ['predicted_vs_actual.png','target_reflection_detail.png']},note='Actual view_image inspected; requested-band shading added after visual QA'),tests=tests)
+    pc.write(pc.HERE/'execution_audit.json',audit)
+    for context in [pc.HERE/'final_review',pc.HERE/'reserved_review']:
+        ledger=pc.read(context/'case_work_ledger.json');assert all(t['status']=='reviewed' for t in ledger['tasks'])
+        pc.write(context/'closure.json',dict(at=pc.now(),bounded_stage_complete=True,reviewed=len(ledger['tasks']),new_geometry=0,new_adaptive=0,final_assessment=str(pc.HERE/'blind_results.json')))
+        pc.write(context/'active.json',dict(stage='B6_execution_complete',at=pc.now(),solver_running=False,final_report=str(pc.HERE/'FINAL_REPORT.md')))
+    rootclosure=pc.read(pc.HERE/'closure.json');rootclosure['execution_audit']=str(pc.HERE/'execution_audit.json');pc.write(pc.HERE/'closure.json',rootclosure)
+    summary=['# Fig8弯折模型：前三步与第四步最终总结','',
+        '前三步：52条曲线/26个宽度组合已分层整理；理论P/R来自独立直传输线阻抗映射。固定P时R增大→S21带宽减小且匹配改善，固定R时P增大趋势相反。联合−20 dB通带会因门限分裂，不能只拟合一个全局单调带宽。',
+        '旧两项带边已有修正离散标签；原插值全曲线未重新认证，旧数据和旧结论保留。',
+        '第四步：6个新宽度组合、预先冻结模型/几何、未调参未重训；联合目标覆盖4/6，含原三谷/中心/等峰约束的完整首测3/6通过，3项设计失败，0项待判定。',
+        'B01（a1.4，5GHz）、B03（a1.4，5.3GHz）、B04（a1.8，5.3GHz）完整通过；B02覆盖5GHz但等峰差超限；两项5.6GHz未通过完整要求。',
+        f"新6项的局部P/R公式S21带宽MAE/max为{results['error_summary']['local_PR_formula_S21_BW_MAE_MHz']:.3f}/{results['error_summary']['local_PR_formula_S21_BW_max_error_MHz']:.3f}MHz；全曲线代理相应为{results['error_summary']['frozen_curve_proxy_S21_BW_MAE_MHz']:.3f}/{results['error_summary']['frozen_curve_proxy_S21_BW_max_error_MHz']:.3f}MHz。",
+        '因此已能用P/R＋局部代理生成有HFSS支持的新弯折结构，但不能保证任意−20 dB/带宽目标一键达标；尤其接近门限时还需要可行性、带边位置和等峰/长度预测的可靠余量。',
+        f'执行：6新几何，150个原生直接点，42次直接Analyze＋50次初始分阶段/插值Analyze，共92/126上限；网格{min(mesh):,}–{max(mesh):,}。16核串行，结束已停心跳。','',
+        f"[完整盲测报告]({(pc.HERE/'FINAL_REPORT.md').as_posix()})；[可用参数与证据目录]({(pc.HERE/'validated_designs.json').as_posix()})；[最终遗留事项]({(pc.HERE/'issues_register_final.json').as_posix()})。",'']
+    (pc.HERE/'SUMMARY_FINAL.md').write_text('\n'.join(summary),encoding='utf-8')
+    report=pc.HERE/'FINAL_REPORT.md';report.write_text(report.read_text(encoding='utf-8').replace('\\','/'),encoding='utf-8')
+    (pc.HERE/'README.md').write_text('''# Fig8 B6交付目录
+
+当前入口：SUMMARY_FINAL.md、FINAL_REPORT.md。执行已结束，不要重新dispatch旧队列。
+
+- predictions_frozen.json / model_freeze.json：首个Analyze前冻结的6项目标、全部参数与预测、50条模型输入的原始哈希。
+- SUMMARY_V2.md / dataset_index_v2.json：前三步版本化收尾及旧两项修正标签链接，保留旧52条接受级别。
+- blind_results.json：6项盲测原始结果、完整/仅目标覆盖/数值状态、代理与P/R公式误差。
+- validated_designs.json：3个完整通过的新参数；另列4个目标覆盖配置（B02不满足等峰）。不得把任意新候选标成已验证。
+- dataset_index_v3.json：58条可用几何/32个宽度组合的索引关联；新6条仍独立存放，未加入50条冻结模型训练。
+- execution_audit.json：真实资源、预算、16个送达回执、测试、实际图片QA与停心跳核验。
+- issues_register_final.json：执行已闭账、科学失败保留、未来研究和可选调谐待新授权。
+
+数值支持是目标相关的原网格有限审查，不是全曲线连续极值、完整多模矩阵或制造容差保证。旧prototype工具仍是冻结历史版本，当前验证状态以本目录报告为准；没有覆盖旧工具、旧原始曲线或均匀数据。
+
+lifecycle_watch.py是运行级外部只读监护扩展，正常求解安静，硬退出且无终态才发单独故障hook；stop只停监护，不终止HFSS。现有hook便携包本轮未重打包。代码依赖本工程的Python/MCP环境，整个目录不是脱离项目的独立便携安装包。
+''',encoding='utf-8')
+    # Explicitly index stable deliverables; hook outboxes/timers are not a dataset.
+    names=['README.md','SUMMARY_FINAL.md','SUMMARY_V2.md','FINAL_REPORT.md','blind_results.json','validated_designs.json','dataset_index_v2.json','dataset_index_v3.json','model_freeze.json','predictions_frozen.json','execution_audit.json','issues_register_final.json','predicted_vs_actual.png','target_reflection_detail.png','closure.json']
+    manifest={str(pc.HERE/x):pc.sha(pc.HERE/x) for x in names}
+    for path in pc.HERE.glob('*.py'):manifest[str(path)]=pc.sha(path)
+    pc.write(pc.HERE/'manifest.json',dict(files=manifest,raw_evidence_index=str(pc.HERE/'blind_results.json'),old_data_preserved=True))
+    print(dict(delivery=str(pc.HERE),complete=3,target_only=4,failed=3,unresolved=0,native_points=points,total_Analyze=initial_launches+direct_launches,mesh_range=audit['mesh_range'],terminal_receipts=len(receipts),solver_running=False))
+if __name__=='__main__':main()

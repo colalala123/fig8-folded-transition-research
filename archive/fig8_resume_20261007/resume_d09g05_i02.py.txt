@@ -1,0 +1,84 @@
+"""Continue an interrupted, unchanged setup; preserve its archived pre-resume data."""
+from run_broadband_case import *
+from run_guarded_case import validate
+from collect_completed_exports import collect
+
+async def main():
+    run=ROOT/'D09G05/i02'; state_path=run/'state.json'
+    spec=read(run/'prediction_frozen.json'); s=read(state_path)
+    protocol,_=validate(spec)
+    probe=read(run/'interruption_probe.json')
+    assert probe['settings_match'] and probe['geometry']['passed'] and probe['sweep_points']==0
+    assert (ROOT/'D09G05_i02_interruption_20261013/state.json').exists()
+    assert not solvers() and s['status'] in ['solving','review_required']
+    assert 'interruption_recovery' not in s, 'A previous continuation was already dispatched'
+    project=Path(s['project']); locks=[]
+    try:
+        for name in ['pilot_queue.lock','protocol.lock']:
+            lock=ROOT/name
+            with lock.open('x') as h:h.write(str(os.getpid()))
+            locks.append(lock)
+        app=connect(project,7990)
+        try:
+            assert not app.are_there_simulations_running
+            assert check_settings(app)==s['settings']
+            assert inspect_rebuilt_geometry(app,s['geometry'])['passed']
+            from pilot_worker import plain
+            def canonical(ports):
+                ports=plain(ports)
+                for port in ports.values():
+                    for mode in port['Modes'].values():
+                        mode.setdefault('AlignmentGroup',0)
+                        line=mode.get('IntLine',{})
+                        if 'GeometryPosition' in line:
+                            assert len(line['GeometryPosition'])==2
+                            mode['IntLine']={k:[str(pt[a+'Position'])+'mm' for a in ('X','Y','Z')] for k,pt in zip(('Start','End'),line['GeometryPosition'])}
+                return ports
+            actual={b.name:plain(b.props) for b in app.boundaries if b.type=='Wave Port'}
+            assert canonical(actual)==canonical(s['port_settings']['after']), 'Physical port properties changed'
+            write_json(run/'resume_port_equivalence.json',{'passed':True,'actual':actual,'expected':s['port_settings']['after'],'comparison':'Same ordered physical endpoints; missing AlignmentGroup interpreted as default 0. All other properties compared exactly.'})
+            app.save_project()
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        s['interruption_recovery']={'archive':str(ROOT/'D09G05_i02_interruption_20261013'),
+            'geometry_unchanged':True,'resume_existing_setup':True,'prior_passes':9,
+            'prior_delta_s':0.062702,'started_at':now(), 'automatic_further_phase_dispatch':False}
+        args=s['mcp_request']
+        async with connected_client() as client:
+            assert not solvers()
+            response=await session_call(client,'start_analysis',args)
+            assert response.get('started'),response
+            s.update(status='solving',mcp_response=response,error=None);save(state_path,s)
+            start=time.monotonic()
+            while True:
+                await asyncio.sleep(30)
+                st=await session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+                s['last_mcp_status']=st;s['solver_processes']=solvers();save(state_path,s)
+                if not st.get('running') and not s['solver_processes']:break
+                if time.monotonic()-start>7200:raise RuntimeError('Two-hour review trigger; preserve running solver')
+        app=connect(project,7990)
+        try:
+            app.save_project();s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+            s['export']=export_data(app,run,2)
+            app.export_convergence('Setup19',output_file=str(run/'convergence.txt'))
+            s['convergence']=convergence(run/'convergence.txt')
+            s['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in s['messages'])
+            for norm,label in [(False,'native_hfss'),(True,'50ohm_hfss_original')]:
+                dest=run/f'{label}.s4p'
+                assert app.export_touchstone(setup='Setup19',sweep='Sweep1',output_file=str(dest),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+                s[label]={'file':str(dest),'sha256':sha(dest)}
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        s['source_unchanged']=sha(spec['source'])==spec['source_sha256'];assert s['source_unchanged']
+        write_json(run/'manifest.json',{**s,'modes':2,'status':'exported_review_required','curve_sha256':sha(run/'sparams.csv'),'execution_transport':'visible AEDT MCP','phase_solve_ordinal_including_history':3,'geometry_check':s['cad_verification']})
+        review=collect(run,Path(protocol['baseline_run']))
+        s['numerical_review']=review['matrix']
+        s.update(status='completed' if review['accepted'] else 'review_required',active_segment=None,finished_at_utc=now());save(state_path,s)
+        import guarded_pilot_queue as g
+        g.status(status='recovered_attempt_needs_phase_review' if review['accepted'] else 'review_required',active_case='D09G05',active_run=str(run),error=None)
+    except Exception:
+        s.update(status='review_required',error=traceback.format_exc());save(state_path,s)
+        raise
+    finally:
+        for lock in locks:
+            if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+
+if __name__=='__main__':asyncio.run(main())

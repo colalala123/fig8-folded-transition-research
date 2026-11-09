@@ -1,0 +1,33 @@
+"""Bind real reviewed probes and C1 residual before freezing a fresh C2."""
+import argparse,json
+from pathlib import Path
+from continue_tuning import checked,entries
+from build_runtime import ROOT,read,sha,write
+
+def main(context):
+    ctx=Path(context).resolve(); registry=entries()
+    entry=next(e for e in registry if Path(e['context']).resolve()==ctx)
+    assert entry['kind']=='c2' and not (ctx/'initial_inputs.json').exists()
+    rows=read(ctx/'plan.json')['cases'];assert len(rows)==1
+    assert not (ROOT/'releases'/f'{rows[0]["case"]}.json').exists()
+    assert not (Path(rows[0]['run_dir'])/'state.json').exists()
+    doc=ctx/'CONTINUATION.md'
+    assert 'Startup entrypoint override' not in doc.read_text(encoding='utf-8')
+    evidence=read(ctx/'parent_evidence.json')
+    for path,h in evidence['hashes'].items():assert sha(path)==h,path
+    for kind in ['probes','c1']:
+        source=next(e for e in registry if e['parent']==entry['parent'] and e['kind']==kind)
+        for row in read(Path(source['context'])/'plan.json')['cases']:
+            run=Path(row['run_dir']);checked(run)
+            files=[run/n for n in ['input.json','state.json','completion_event.json','receiver_ack.json','receiver_verification.json','response_metrics.json','supervised_start.json']]
+            files += [run/a['path'] for a in read(run/'completion_event.json')['artifacts']]
+            files += [Path(read(run/'receiver_verification.json')['plot'])]
+            for p in files:evidence['hashes'][str(p)]=sha(p)
+    evidence['hashes'][str(Path(__file__).resolve())]=sha(Path(__file__))
+    write(ctx/'parent_evidence.json',evidence)
+    with doc.open('a',encoding='utf-8') as f:
+        f.write('\n## Startup entrypoint override\nUse '+str(ROOT/'run_context_v4.py')+' --context CONTEXT --case CASE; read STARTUP_ADAPTER_V4.md. Never directly retry legacy launch_one. This C2 is the last authorized candidate for this parent. Prediction is not HFSS success; nominal_buffer_satisfied does not certify0.4dB extra margin or final direct certification. Render mutable status MD with write_status_summary.py after launch.\n')
+    print(json.dumps(dict(candidate=rows[0]['case'],probes_and_actual_C1_bound=True,Analyze_requested=False)))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);a=p.parse_args();main(a.context)

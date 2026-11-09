@@ -1,0 +1,17 @@
+import unittest,ast
+from pathlib import Path
+R=Path(__file__).resolve().parent
+class PreparationSafety(unittest.TestCase):
+ def test_no_lazy_post_in_unsolved_configuration(self):self.assertNotIn('app.post',(R/'configure_projects.py').read_text(encoding='utf-8'))
+ def test_cleanup_before_geometry_and_modes(self):
+  s=(R/'configure_projects.py').read_text(encoding='utf-8');self.assertLess(s.index('DeleteAllReports()'),s.index('apply_folded_geometry(app'));self.assertLess(s.index('DeleteAllReports()'),s.index('set_modes(app,2)'))
+ def test_no_analyze_calls_in_configuration(self):
+  t=ast.parse((R/'configure_projects.py').read_text(encoding='utf-8'))
+  calls=[getattr(n.func,'attr',getattr(n.func,'id','')) for n in ast.walk(t) if isinstance(n,ast.Call)]
+  self.assertTrue(set(calls).isdisjoint({'analyze','analyze_setup','start_analysis','solve_stage'}))
+ def test_fourteen_core_request_and_observation(self):
+  s=(R/'phase_geometry_worker.py').read_text(encoding='utf-8');self.assertIn("'cores_per_task':14",s);self.assertIn('-max_processors 14',s);self.assertNotIn('-max_processors 16',s)
+ def test_mesh_pass_count_not_accidentally_changed(self):self.assertIn("'MaximumPasses':16",(R/'prepared_settings.py').read_text(encoding='utf-8'))
+ def test_launch_requires_no_solve_diagnostic(self):
+  s=(R/'finalize_and_authorize.py').read_text(encoding='utf-8');self.assertIn('diagnostic_hold',s);self.assertIn("diagnostic['reopen_close_cycles_passed']>=2",s);self.assertIn("not diagnostic['Analyze_requested']",s)
+if __name__=='__main__':unittest.main()

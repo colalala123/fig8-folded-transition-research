@@ -1,0 +1,22 @@
+"""Current-chat notification for separately bounded D12polish."""
+from phase_control import HERE,TARGET,now,write
+from phase_publish import hook
+def prompt(e,path):
+    return (f"[Fig8 D12有限小步修正P12 / 自动完成事件]\n事件ID：{hook.event_id(e)}\n状态：{e['status']}\n摘要：{e['summary']}\n事件：{path}\n"
+        f'用户已授权剩3项全部达标并用hook。本轮是已明确告知的D12-only小步修正，先读{HERE / "CONTINUATION.md"}、PLAN.md、authorization.json、budget_ledger.json。'
+        '原C3为23通过/1真实设计未过：D12直接中央6.76超上限6.75，数值通过。旧预算9几何+3缓存、失败和ACK已冻结，不能伪装仍在原1次直接预算内。'
+        'P12最多2个新配置+1次直接，历史11次保留；只调D12的Ls1/Lm，保持原几何/设计/数值及native参考不变、16核串行、10–11万网格。'
+        '旧实测Jacobian只作小步方向预测，不是新中心验证的导数；源direct残差校正后每个新点仍要实际审查和最终直接复核。不得用数值加严或放宽6.75上限来替代设计修正。'
+        '核验产物/父SHA/网格/参考并实际看S11S21图后写ACK、账本reviewed。优先选中央接近6.72的通过点，再唯一同网格直接。'
+        '通过后生成P12正式验收，并合并原C3的D04/D01结果与P12-D12，交付完整有效24/报告/曲线/审计/ZIP，最后关闭P12及C3整体。原C3-D12失败必须保留。'
+        '每次结束前核实新16核hf3d启动，或写绑定事件SHA的有证据终态resolution。正常仿真不周期消息，完成消息5分钟无新仿真才检查AI状态。不得重复发继续消息或重开原C3。')
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET] and case=='D12G05'
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Existing human all3goal, disclosed finiteD12residual polish only')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

@@ -1,0 +1,37 @@
+"""Same one recovery after an explicitly approved ZERO-Analyze server restart."""
+import copy
+from pathlib import Path
+import tuning_budget_recovery_v1 as v1
+from tuning_budget import read,sha
+ROOT=v1.ROOT
+def check_zero_startup(state):
+    assert not state['segments'] and not state['mesh_stages'] and not state.get('actual_elements')
+    return True
+def registry():
+    r=copy.deepcopy(v1.registry());r['contexts']+=read(ROOT/'technical_recovery_registry_v2.json')['contexts'];return r
+def validate_campaign(extra_analyze=0,case=None,storage=False):
+    auth=read(ROOT/'N20_RESTART_CONTINUATION_AUTH.json')
+    assert auth['authorized'] and auth['same_recovery_budget'] and auth['remaining_new_Analyze_cap']==12
+    for f,h in auth['closed_zero_startup_hashes'].items():assert sha(f)==h,f
+    closed=Path(auth['closed_zero_startup_run']);check_zero_startup(read(closed/'state.json'))
+    assert read(closed/'completion_event.json')['status']=='failed' and not (closed/'receiver_ack.json').exists()
+    rows=read(ROOT/'technical_recovery_registry_v2.json')['contexts'];assert len(rows)==1;e=rows[0]
+    assert e['authorization_sha256']==sha(ROOT/'N20_RESTART_CONTINUATION_AUTH.json')
+    ctx=Path(e['context']);assert sha(ctx/'plan.json')==e['plan_sha256']
+    plan=read(ctx/'plan.json');assert len(plan['cases'])==1;row=plan['cases'][0];c=row['case']
+    assert c=='N20_A14_C2_TR1B' and row['parent_case']=='N20_A14'
+    original=read(Path(read(ROOT/'N20_C2_RECOVERY_AUTHORIZATION.json')['original_failed_run'])/'state.json')
+    assert row['geometry']==original['geometry']==auth['geometry']
+    assert row['target']==read(ROOT/'campaign.json')['target']
+    out=v1.validate_campaign(extra_analyze=extra_analyze if case!=c else 0,case=case if case!=c else None,storage=storage)
+    assert out['technical_recovery_Analyze']==0,'Prior startup was authorized closed at zero Analyze'
+    if extra_analyze:assert case!='N20_A14_C2_TR1','Closed zero-startup may not be resumed'
+    run=Path(row['run_dir']);assert run.resolve().is_relative_to((ROOT/'data/N20_A14/c2_retry1/boot2').resolve())
+    current=read(run/'state.json') if (run/'state.json').exists() else dict(geometry=row['geometry'],segments=[])
+    n=v1.recovery_cost(original,current)
+    assert n+int(case==c)*extra_analyze<=12
+    assert out['Analyze_used']+n+extra_analyze<=2236
+    out['per_case_Analyze'][c]=n
+    out.update(Analyze_used=out['Analyze_used']+n,technical_recovery_Analyze=n,combined_N20_C2_Analyze=1+n,
+      budget_overlay='tuning_budget_recovery_v2',zero_Analyze_startups_closed=1,same_single_recovery_slot=True)
+    return out

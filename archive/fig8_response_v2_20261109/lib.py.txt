@@ -1,0 +1,32 @@
+"""Offline only: pure scoring/line models. Never imports a solver controller."""
+import ast,json,hashlib,sys,math
+from pathlib import Path
+import numpy as np
+from scipy.signal import find_peaks
+ROOT=Path(__file__).resolve().parent
+OUT=ROOT.parent
+OLD=OUT/'fig8_tune48_fixedPR_20261031'
+sys.path.insert(0,str(OUT/'fig8_ml_dependencies_20261028'))
+sys.path.insert(0,str(OUT/'fig8_PR_current_material_20261026'))
+from line_models import microstrip,slotline
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(n,d):
+ p=ROOT/n
+ with p.open('x',encoding='utf8') as f:json.dump(d,f,ensure_ascii=False,indent=2,allow_nan=False)
+for p,names in [(OUT/'fig8_inverse_PR_20261027/model.py',{'intervals','band_score'}),(OLD/'b05_corrector.py',{'load_curve','assess'})]:
+ tree=ast.parse(p.read_text(encoding='utf-8-sig'));nodes=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names]
+ assert len(nodes)==len(names)
+ exec(compile(ast.Module(body=nodes,type_ignores=[]),str(p),'exec'))
+TARGET=read(OLD/'campaign.json')['target']
+def features(g):
+ a=g['Ls3']-g['Ws'];gap=g['Ls2']-2*g['Ws'];assert abs(gap-.55)<1e-8
+ m=microstrip(3.55,g['Wm']);s=slotline(3.55,g['Ws']);P=m['Z_ohm']*s['Z_ohm']/2500;R=m['Z_ohm']/s['Z_ohm']
+ lm=299.792458/(4*6.72*math.sqrt(m['eeff']));ls=299.792458/(2*6.72*math.sqrt(s['eeff']))-2*g['Ls2']-2*g['Ls3']
+ return [math.log(P),math.log(R),a,g['Lm']-lm,g['Ls1']-ls],{'P':P,'R':R,'a':a,'Lm_nominal':lm,'Ls1_nominal':ls}
+LABELS=['worst_S11_dB','min_S21_dB','central_valley_GHz','peak_difference_dB','S21_BW_GHz']
+def label(f,z):
+ q=assess(f,z,TARGET);d=20*np.log10(np.maximum(abs(z),1e-15));b=intervals(f,np.full_like(f,-100),d[:,1]);q['S21_BW_GHz']=max((v-u for u,v in b),default=0)
+ j=intervals(f,d[:,0],d[:,1]);q['joint_intervals']=j;q['joint_components']=len(j);q['joint_center_band']=next(([u,v,v-u] for u,v in j if u<=6.72<=v),None)
+ return q

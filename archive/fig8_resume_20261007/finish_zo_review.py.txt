@@ -1,0 +1,15 @@
+"""Wait for this diagnostic's exports, review once, never dispatch a solver."""
+import json,os,subprocess,sys,time,traceback
+from pathlib import Path
+HERE=Path(__file__).resolve().parent;RUN=Path('J:/f8_261007/local_repair/D04G05/zo_fullband')
+def main():
+    while True:
+        try:s=json.loads((RUN/'state.json').read_text(encoding='utf-8'))
+        except (OSError,ValueError):time.sleep(15);continue
+        if s['status']=='review_required':raise RuntimeError('Zo sweep requires review; do not re-solve')
+        if s['status']=='segments_exported_review_required' and s.get('mesh_reuse_verified'):break
+        time.sleep(15)
+    if (RUN/'zo_repair_review.json').exists():return
+    rc=subprocess.call([sys.executable,str(HERE/'review_zo_sweep.py')],cwd='${WORKSPACE}')
+    if rc:raise RuntimeError(f'Zo export/review failed with exit {rc}; recover outputs before any repeat')
+if __name__=='__main__':main()

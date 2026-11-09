@@ -1,0 +1,163 @@
+"""Bounded precision/time study, fresh meshes, visible AEDT MCP, serial 16 cores."""
+import asyncio,csv,json,os,shutil,sys,time,traceback
+from datetime import datetime,timezone
+from pathlib import Path
+import numpy as np
+import psutil
+HERE=Path(__file__).resolve().parent
+WORK=HERE.parents[1];OLD=HERE.parent/'fig8_resume_20261007'
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+from pilot_worker import convergence,export_data,inspect_rebuilt_geometry
+from mcp_call import connected_client,session_call
+from ansys.aedt.core import Hfss
+from response_metrics import analyze
+ROOT=Path('J:/f8_261007');BASE=Path('J:/f8_speed_261021')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def write(p,v):
+    p=Path(p);temp=p.with_suffix('.tmp');temp.write_text(json.dumps(v,indent=2,ensure_ascii=False,default=str),encoding='utf-8');os.replace(temp,p)
+def sha(p):
+    import hashlib
+    return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now():return datetime.now(timezone.utc).isoformat()
+def canonical_ports(ports):
+    p=json.loads(json.dumps(ports))
+    for port in p.values():
+        assert not port['UseLineModeAlignment'] and not port['UseAnalyticAlignment']
+        for mode in port['Modes'].values():
+            # Unused alignment group is omitted on AEDT reload; physical mode alignment is disabled.
+            assert mode.get('AlignmentGroup',0)==0
+            mode.pop('AlignmentGroup',None)
+            if mode.get('UseIntLine'):
+                line=mode['IntLine']
+                if 'GeometryPosition' in line:
+                    points=[[float(v[k+'Position']) for k in ['X','Y','Z']] for v in line['GeometryPosition']]
+                else:points=[[float(v.removesuffix('mm')) for v in line[k]] for k in ['Start','End']]
+                mode['IntLine']={'points_mm':points}
+    return p
+def solvers():return [p.info for p in psutil.process_iter(['pid','name','cmdline']) if (p.info['name'] or '').lower()=='hf3d.exe']
+def app_for(p):return Hfss(project=str(p),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+PROFILES={'M':{'MaxDeltaS':.01,'InterpTolerance':1.0},'C':{'MaxDeltaS':.02,'InterpTolerance':2.0}}
+def update_progress():
+    rows=[]
+    for profile,case in [('M','D05G02'),('M','D08G05'),('C','D08G05')]:
+        folder=BASE/f'{profile}_{case}';s=read(folder/'state.json') if (folder/'state.json').exists() else {}
+        r=read(folder/'comparison.json') if (folder/'comparison.json').exists() else {}
+        rows.append(f"| {profile} | {case} | {s.get('status','pending')} | {r.get('BW_error_GHz','—')} | {s.get('solve_wall_seconds','—')} |")
+    (HERE/'实时进度.md').write_text('# 精度与耗时对照试验\n\n更新时间（UTC）：'+now()+'\n\nM：ΔS=0.01，插值1%；C：ΔS=0.02，插值2%。两档关闭插值强制无源性，保留完整数据诊断。\n\n| 档位 | 配置 | 状态 | 带宽误差/GHz | 求解秒数 |\n|---|---|---|---|---|\n'+'\n'.join(rows)+'\n',encoding='utf-8')
+def compare(run,case):
+    ref=ROOT/case/'i00';a=read(ref/'response_metrics.json');b=analyze(run/'sparams.csv',f0=6.85)
+    write(run/'response_metrics.json',b)
+    def curve(path):
+        rows=list(csv.DictReader(path.open(encoding='utf-8-sig')))
+        f=np.array([float(r['Freq_GHz']) for r in rows]);s={k:np.array([complex(float(r[k+'_real']),float(r[k+'_imag'])) for r in rows]) for k in ['S11','S21']}
+        return f,s
+    f,x=curve(ref/'sparams.csv');ff,y=curve(run/'sparams.csv');assert np.allclose(f,ff) and len(f)==1500
+    lo,hi=a['passband_2dB']['f_low_GHz'],a['passband_2dB']['f_high_GHz'];mask=(f>=lo)&(f<=hi)
+    result={'case':case,'reference':str(ref),'run':str(run),
+      'BW_error_GHz':abs(b['passband_2dB']['BW_GHz']-a['passband_2dB']['BW_GHz']),
+      'edge_errors_GHz':{k:abs(b['passband_2dB'][k]-a['passband_2dB'][k]) for k in ['f_low_GHz','f_high_GHz']},
+      'center_error_GHz':abs(b['central_valley_GHz']-a['central_valley_GHz']),
+      'peak_height_errors_dB':[abs(p['S11_dB']-q['S11_dB']) for p,q in zip(a['peaks'],b['peaks'])],
+      'peak_difference_error_dB':abs(b['peak_difference_dB']-a['peak_difference_dB']),
+      'complex_errors':{k:{'max_inband':float(abs(x[k]-y[k])[mask].max()),'rms_inband':float(np.sqrt(np.mean(abs(x[k]-y[k])[mask]**2)))} for k in x},
+      'max_S21_dB_error_inband':float(abs(20*np.log10(abs(x['S21']))-20*np.log10(abs(y['S21'])))[mask].max()),
+      'design_peak_pass_reference':a['peak_difference_dB']<=.5,'design_peak_pass_candidate':b['peak_difference_dB']<=.5,
+      'shape_ok':b.get('prominent_valley_count')==3 and len(b.get('peaks',[]))==2,
+      'scope':'Measured against archived strict mesh and native curves already checked at direct frequencies. Historical wall time is approximate; report adaptive passes/elements as well.'}
+    s=read(run/'state.json')
+    required=s['convergence']['converged'] and s['sweep_converged'] and result['shape_ok']
+    result['coarse_tuning_pass']=bool(required and result['BW_error_GHz']<=.05 and max(result['edge_errors_GHz'].values())<=.03 and result['center_error_GHz']<=.03 and max(result['peak_height_errors_dB'])<=.15 and result['max_S21_dB_error_inband']<=.1 and max(v['max_inband'] for v in result['complex_errors'].values())<=.02)
+    result['strict_response_comparison_pass']=bool(required and result['BW_error_GHz']<=.02 and max(result['edge_errors_GHz'].values())<=.02 and result['center_error_GHz']<=.01 and max(result['peak_height_errors_dB'])<=.1 and result['max_S21_dB_error_inband']<=.05 and max(v['max_inband'] for v in result['complex_errors'].values())<=.005)
+    result['reference_metrics']=a;result['candidate_metrics']=b
+    result['evidence_hashes']={str(p):sha(p) for p in [ref/'sparams.csv',run/'sparams.csv',run/'convergence.txt',run/'manifest.json']}
+    write(run/'comparison.json',result)
+    return result
+async def run_one(profile,case):
+    assert not solvers();folder=BASE/f'{profile}_{case}';folder.mkdir(exist_ok=True,parents=True)
+    statefile=folder/'state.json'
+    if statefile.exists():
+        s=read(statefile)
+        if s['status']=='completed':return read(folder/'comparison.json')
+        assert s['status']=='preparing' and 'mcp_response' not in s and not s.get('observations'),'Existing solve must not be repeated'
+        if not (folder/'preparation_before_reload_fix.json').exists():write(folder/'preparation_before_reload_fix.json',s)
+    ref=ROOT/case/'i00';m=read(ref/'manifest.json');source=Path(m['project']);project=folder/f'{profile}_{case}.aedt'
+    source_digest=sha(source)
+    if project.exists():assert sha(project)==source_digest,'Prepared project differs; manual recovery needed'
+    else:
+        assert not project.with_suffix('.aedtresults').exists()
+        shutil.copy2(source,project)
+    s={'case':case,'profile':profile,'status':'preparing','started_at_utc':now(),'source':str(source),'source_sha256':source_digest,'geometry':m['geometry'],'project':str(project),'cache_copied':False,'same_geometry_numerical_trial':True,'geometry_tuning_iterations_added':0,'fresh_numerical_solves_added':1,'tolerances':PROFILES[profile]}
+    write(statefile,s);update_progress()
+    app=app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert not setup.is_solved,'Fresh mesh required; cache unexpectedly present'
+        s['cad_verification']=inspect_rebuilt_geometry(app,m['geometry']);assert s['cad_verification']['passed']
+        ports={b.name:json.loads(json.dumps(b.props,default=str)) for b in app.boundaries if b.type=='Wave Port'}
+        assert canonical_ports(ports)==canonical_ports(m['port_settings']['after']),'Physical port definition changed'
+        s['ports']=ports;s['port_equivalence']='Same objects, mode count, Zpi, reference planes, disabled mode alignment and identical integration-line endpoints; reload metadata normalized.'
+        before=json.loads(json.dumps(setup.props,default=str));s['setup_before']=before
+        assert before['MaxDeltaS']==.005 and before['MinimumConvergedPasses']==2
+        setup.props['MaxDeltaS']=PROFILES[profile]['MaxDeltaS'];assert setup.update()
+        sweep=next(w for w in setup.sweeps if w.name=='Sweep1');sweep.auto_update=False
+        sweep.props.update({'Type':'Interpolating','IsEnabled':True,'InterpTolerance':PROFILES[profile]['InterpTolerance'],'EnforcePassivity':False})
+        assert sweep.update();sweep.auto_update=True
+        assert setup.props['MinimumPasses']==6 and setup.props['MaximumPasses']==40 and setup.props['MinimumConvergedPasses']==2
+        assert sweep.props['RangeStart']=='0.01GHz' and sweep.props['RangeEnd']=='15GHz' and sweep.props['RangeStep']=='0.01GHz'
+        s['setup_after']=json.loads(json.dumps(setup.props,default=str));s['sweep_after']=json.loads(json.dumps(sweep.props,default=str))
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert not setup.is_solved
+        s['fresh_mesh_verified']=True;s['prepared_project_sha256']=sha(project)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+    started=time.monotonic();s.update(status='solving',solve_started_at_utc=now(),mcp_request=args,observations=[]);write(statefile,s);update_progress()
+    async with connected_client() as client:
+        result=await session_call(client,'start_analysis',args);assert result.get('started');s['mcp_response']=result
+        while True:
+            await asyncio.sleep(15);live=solvers()
+            if live and (not s['observations'] or s['observations'][-1]!=live):s['observations'].append(live)
+            status=await session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+            s.update(last_mcp_status=status,elapsed_seconds=time.monotonic()-started,updated_at_utc=now());write(statefile,s);update_progress()
+            if not live and not status.get('running'):break
+            if time.monotonic()-started>7200:raise RuntimeError('Two-hour trial review trigger; retain running solve')
+    s['solve_wall_seconds']=time.monotonic()-started;s['solve_finished_at_utc']=now()
+    app=app_for(project)
+    try:
+        app.save_project();s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        assert any('Normal completion' in line for line in s['messages'])
+        s['export']=export_data(app,folder,2)
+        app.export_convergence('Setup19',output_file=str(folder/'convergence.txt'))
+        s['convergence']=convergence(folder/'convergence.txt')
+        s['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in line for line in s['messages'])
+        try:s['profile_export']=str(app.export_profile('Setup19',output_file=str(folder/'profile.prof')))
+        except Exception as e:s['profile_export_error']=str(e)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(source)==source_digest
+    commands=[' '.join(x['cmdline'] or []) for obs in s['observations'] for x in obs]
+    assert any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    assert any('-solve_broadband_adapt' in c or '-solve_adapt' in c for c in commands),'No fresh adaptive solve observed'
+    s.update(status='exported',source_unchanged=True);write(statefile,s)
+    write(folder/'manifest.json',{**s,'modes':2,'curve_sha256':sha(folder/'sparams.csv'),'full_matrix_approved':False})
+    r=compare(folder,case);s.update(status='completed',coarse_tuning_pass=r['coarse_tuning_pass'],strict_response_comparison_pass=r['strict_response_comparison_pass']);write(statefile,s);update_progress()
+    return r
+async def main():
+    BASE.mkdir(exist_ok=True)
+    lock=ROOT/'protocol.lock';assert not (ROOT/'pilot_queue.lock').exists() and not solvers()
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    plan={'order':[['M','D05G02'],['M','D08G05'],['C','D08G05']],'profiles':PROFILES,'passivity_enforcement':False,'cores':16,'tasks':1,'mode_count':2,'points':1500,
+      'coarse_error_budget':{'BW_GHz':.05,'edge_GHz':.03,'center_GHz':.03,'peak_dB':.15,'S21_dB':.1,'max_complex':.02},
+      'strict_error_budget':{'BW_GHz':.02,'edge_GHz':.02,'center_GHz':.01,'peak_dB':.1,'S21_dB':.05,'max_complex':.005},
+      'conditional':'Only test C if both M trials meet coarse error budget; never change production protocol automatically.',
+      'source_sha256':{c:sha(ROOT/c/'i00'/f'{c}_00.aedt') for c in ['D05G02','D08G05']}}
+    pf=HERE/'frozen_plan.json'
+    if pf.exists():assert read(pf)==plan
+    else:write(pf,plan)
+    try:
+        results=[await run_one('M',case) for case in ['D05G02','D08G05']]
+        if all(r['coarse_tuning_pass'] for r in results):results.append(await run_one('C','D08G05'))
+        else:write(HERE/'coarse_not_run.json',{'reason':'Moderate profile failed; do not loosen further.'})
+        write(HERE/'results.json',results)
+    except BaseException:write(HERE/'error.json',{'at_utc':now(),'error':traceback.format_exc()});raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+        update_progress()
+if __name__=='__main__':asyncio.run(main())

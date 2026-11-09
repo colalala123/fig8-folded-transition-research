@@ -1,0 +1,183 @@
+{
+  "stage": "PR18_lengths",
+  "cases": [
+    {
+      "case": "P01G05",
+      "group": "P01",
+      "target_P": 2.04,
+      "target_R": 0.43,
+      "P_nominal": 2.0400005165138366,
+      "R_nominal": 0.4299999265196894,
+      "geometry": {
+        "Wm": 1.982274,
+        "Ws": 0.371654,
+        "Lm": 6.56590730663566,
+        "Ls1": 12.109987067519153,
+        "Ls2": 1.2933080000000001,
+        "Ls3": 2.171654
+      },
+      "initial_geometry": {
+        "Wm": 1.982274,
+        "Ws": 0.371654,
+        "Lm": 6.56590730663566,
+        "Ls1": 12.109987067519153,
+        "Ls2": 1.2933080000000001,
+        "Ls3": 2.171654
+      },
+      "a_mm": 1.8,
+      "g_mm": 0.55,
+      "initialization": {
+        "method": "Bilinear accepted lengths in widths; linear arm interpolation only for interior arm. No bandwidth fit.",
+        "parents": [
+          {
+            "case": "D07G05",
+            "weight": 0.02163394992857132,
+            "result_sha256": "cd834c645df9653f0a3e3e6fb17c9c4d81744bde10eb6fe3aac64d1333097813",
+            "Lm": 6.5839144794788265,
+            "Ls1": 11.8336414247557,
+            "mesh": 103098,
+            "acceptance_tier": "fundamental_same_mesh_direct"
+          },
+          {
+            "case": "D08G05",
+            "weight": 0.02268105007142845,
+            "result_sha256": "3f1904fd3448c21a35281d6d4f5766afaa122fb1190358dfc154f6e6835803a8",
+            "Lm": 6.504279591857186,
+            "Ls1": 11.902588720881585,
+            "mesh": 103296,
+            "acceptance_tier": "fundamental_same_mesh_direct"
+          },
+          {
+            "case": "D10G05",
+            "weight": 0.466551764357143,
+            "result_sha256": "8e3fb59aec35f6f4f75638a09359d0de323e46fae877f654809dc24d81a2b45d",
+            "Lm": 6.611411967635277,
+            "Ls1": 12.07975814884823,
+            "mesh": 103624,
+            "acceptance_tier": "fundamental_same_mesh_direct"
+          },
+          {
+            "case": "D11G05",
+            "weight": 0.4891332356428572,
+            "result_sha256": "bb754a9fd310b48efcae75ad759b66e362f76b04b8d966b069ad854eeecb31de",
+            "Lm": 6.524564655199935,
+            "Ls1": 12.160660000000002,
+            "mesh": 101715,
+            "acceptance_tier": "stage_A_fundamental_same_mesh_direct"
+          }
+        ]
+      },
+      "geometry_gate": {
+        "passed": true,
+        "rho": 0.3586550485796488,
+        "projected_clearance_mm": 2.8922025337595763,
+        "actual_CAD_collision_checked": false
+      },
+      "predicted_BW_GHz": 7.058971871835226,
+      "predicted_joint20_center_band_GHz": [
+        3.6451223639610775,
+        9.538300093761741,
+        5.893177729800664
+      ],
+      "predicted_max_S11_4p5to8p8_dB": -21.401470236895626,
+      "role": "training_addition_fixed_PR_not_blind_inverse_acceptance",
+      "tune_only": [
+        "Lm",
+        "Ls1"
+      ],
+      "widths_frozen": true,
+      "prepared_project": "J:\\f8_PR18_261027\\P01G05\\prepared\\P01G05_PR18_Prepared.aedt",
+      "run_dir": "J:\\f8_PR18_261027\\P01G05\\g01_initial",
+      "status": "configuration_pending"
+    },
+    {
+      "case": "P04G05",
+      "group": "P04",
+      "target_P": 2.16,
+      "target_R": 0.43,
+      "P_nominal": 2.1600003546832793,
+      "R_nominal": 0.4299998635085793,
+      "geometry": {
+        "Wm": 1.893699,
+        "Ws": 0.415957,
+        "Lm": 6.533759464873362,
+        "Ls1": 12.078728771474374,
+        "Ls2": 1.381914,
+        "Ls3": 2.215957
+      },
+      "initial_geometry": {
+        "Wm": 1.893699,
+        "Ws": 0.415957,
+        "Lm": 6.533759464873362,
+        "Ls1": 12.078728771474374,
+        "Ls2": 1.381914,
+        "Ls3": 2.215957
+      },
+      "a_mm": 1.8,
+      "g_mm": 0.55,
+      "initialization": {
+        "method": "Bilinear accepted lengths in widths; linear arm interpolation only for interior arm. No bandwidth fit.",
+        "parents": [
+          {
+            "case": "D07G05",
+            "weight": 0.04563919541071425,
+            "result_sha256": "cd834c645df9653f0a3e3e6fb17c9c4d81744bde10eb6fe3aac64d1333097813",
+            "Lm": 6.5839144794788265,
+            "Ls1": 11.8336414247557,
+            "mesh": 103098,
+            "acceptance_tier": "fundamental_same_mesh_direct"
+          },
+          {
+            "case": "D08G05",
+            "weight": 0.22011330458928582,
+            "result_sha256": "3f1904fd3448c21a35281d6d4f5766afaa122fb1190358dfc154f6e6835803a8",
+            "Lm": 6.504279591857186,
+            "Ls1": 11.902588720881585,
+            "mesh": 103296,
+            "acceptance_tier": "fundamental_same_mesh_direct"
+          },
+          {
+            "case": "D10G05",
+            "weight": 0.12609651887499987,
+            "result_sha256": "8e3fb59aec35f6f4f75638a09359d0de323e46fae877f654809dc24d81a2b45d",
+            "Lm": 6.611411967635277,
+            "Ls1": 12.07975814884823,
+            "mesh": 103624,
+            "acceptance_tier": "fundamental_same_mesh_direct"
+          },
+          {
+            "case": "D11G05",
+            "weight": 0.6081509811250001,
+            "result_sha256": "bb754a9fd310b48efcae75ad759b66e362f76b04b8d966b069ad854eeecb31de",
+            "Lm": 6.524564655199935,
+            "Ls1": 12.160660000000002,
+            "mesh": 101715,
+            "acceptance_tier": "stage_A_fundamental_same_mesh_direct"
+          }
+        ]
+      },
+      "geometry_gate": {
+        "passed": true,
+        "rho": 0.36691891041270763,
+        "projected_clearance_mm": 2.876557885737187,
+        "actual_CAD_collision_checked": false
+      },
+      "predicted_BW_GHz": 7.120033277760805,
+      "predicted_joint20_center_band_GHz": [
+        5.2206381733140494,
+        8.020744827867091,
+        2.8001066545530415
+      ],
+      "predicted_max_S11_4p5to8p8_dB": -19.597259271148875,
+      "role": "training_addition_fixed_PR_not_blind_inverse_acceptance",
+      "tune_only": [
+        "Lm",
+        "Ls1"
+      ],
+      "widths_frozen": true,
+      "prepared_project": "J:\\f8_PR18_261027\\P04G05\\prepared\\P04G05_PR18_Prepared.aedt",
+      "run_dir": "J:\\f8_PR18_261027\\P04G05\\g01_initial",
+      "status": "configuration_pending"
+    }
+  ]
+}

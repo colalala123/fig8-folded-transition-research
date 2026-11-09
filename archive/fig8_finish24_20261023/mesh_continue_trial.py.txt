@@ -1,0 +1,144 @@
+"""Supervised single-pass mesh-growth trial; no production geometry tuning yet."""
+import asyncio
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import time
+import traceback
+import numpy as np
+from control import HERE, BASE, OLD, read, write, sha, now, status_report
+from direct_worker import dc
+from publish_event import publish
+sys.path.insert(0,str(HERE.parent/'fig8_speed_study_20261021'))
+from run_study import canonical_ports, inspect_rebuilt_geometry, analyze
+from analyze_study import passes
+sys.path.insert(0,str(HERE.parent/'fig8_mesh100k_20261022'))
+from run_mesh_study import compare
+
+SOURCE=Path('J:/f8_mesh100k_261022/N090_D05G02')
+REFERENCE=Path('J:/f8_speed_261021/F_D05G02')
+FOLDER=BASE/'D05G02_mesh_control_trial'
+
+async def execute():
+    folder=FOLDER;plan=read(HERE/'plan.json')
+    assert sha(HERE/'policy.json')==plan['policy_sha256']
+    assert sha(OLD/'production_protocol.json')==read(HERE/'policy.json')['old_protocol_sha256']
+    assert not (folder/'state.json').exists(),'Existing trial must be inspected, not rerun'
+    original=read(SOURCE/'state.json');m=read(OLD/'D05G02/i00/manifest.json')
+    assert original['status']=='completed' and original['actual_elements']==90937 and original['actual_passes']==22
+    assert original['geometry']==m['geometry']
+    source=Path(original['project']);project=folder/'D05G02_mesh_control_trial.aedt';source_hash=sha(source)
+    frozen={'case':'D05G02','role':'mesh_control_trial','source':str(SOURCE),'source_project':str(source),'source_sha256':source_hash,
+            'starting_elements':90937,'starting_passes':22,'maximum_passes':23,'minimum_passes':23,
+            'UseMaxTetIncrease':True,'MaxTetIncrease':14000,'PercentRefinement':30,'target_elements':[100000,110000],
+            'nominal_upper_count':104937,'max_numerical_trials_this_stage':1,'geometry_iterations_added':0,
+            'sweep':{'InterpTolerance':1.0,'EnforcePassivity':False},'cores':16,'tasks':1,
+            'reference':str(REFERENCE),'policy_sha256':sha(HERE/'policy.json'),
+            'documentation':['https://ansyshelp.ansys.com/public/Views/Secured/Electronics/v242/en/PDFs/HFSSScriptingGuide.pdf',
+              'https://ansyshelp.ansys.com/public/views/secured/electronics/v252/en/subsystems/hfss/Content/HFSS/SettingtheMaximumRefinement.htm'],
+            'warning':'Maximum added tetrahedra is a per-pass setting, not a global mesh cap. Actual count and history prefix must be verified. No auto-loop or geometry release.'}
+    write(folder/'plan.json',frozen)
+    cached=source.with_suffix('.aedtresults');files=[p for p in cached.rglob('*') if p.is_file() and not p.name.endswith('.semaphore')]
+    assert files and shutil.disk_usage(BASE).free>sum(p.stat().st_size for p in files)+10*1024**3
+    shutil.copy2(source,project)
+    for p in files:
+        dest=project.with_suffix('.aedtresults')/p.relative_to(cached);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,dest)
+    s={'case':'D05G02','role':'mesh_control_trial','status':'copied','project':str(project),'geometry':m['geometry'],
+       'source_sha256':source_hash,'started_at':now(),'observations':[],'cache_files':len(files)}
+    write(folder/'state.json',s)
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        app.export_convergence('Setup19',output_file=str(folder/'convergence_before.txt'))
+        history=passes(folder/'convergence_before.txt');assert history==passes(SOURCE/'convergence.txt')
+        assert history[-1][:2]==[22,90937]
+        s['cad_verification']=inspect_rebuilt_geometry(app,m['geometry']);assert s['cad_verification']['passed']
+        ports={b.name:json.loads(json.dumps(b.props,default=str)) for b in app.boundaries if b.type=='Wave Port'}
+        assert canonical_ports(ports)==canonical_ports(m['port_settings']['after']);s['ports']=ports
+        s['setup_before']=json.loads(json.dumps(setup.props,default=str))
+        setup.auto_update=False
+        setup.props.update({'MinimumPasses':23,'MaximumPasses':23,'PercentRefinement':30,'UseMaxTetIncrease':True,'MaxTetIncrease':14000})
+        assert setup.update();setup.auto_update=True
+        sw=next(w for w in setup.sweeps if w.name=='Sweep1')
+        assert sw.props['InterpTolerance']==1.0 and not sw.props['EnforcePassivity']
+        s['setup_after']=json.loads(json.dumps(setup.props,default=str));s['sweep_after']=json.loads(json.dumps(sw.props,default=str))
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project()
+        # Increasing pass count must preserve already solved history, whether is_solved becomes false or not.
+        app.export_convergence('Setup19',output_file=str(folder/'convergence_after_setting.txt'))
+        assert passes(folder/'convergence_after_setting.txt')==history,'Settings invalidated cached adaptation; do not launch'
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990,
+          'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+    s.update(status='prepared',mcp_request=args);write(folder/'state.json',s);start=time.monotonic()
+    async with dc.connected_client() as client:
+        s['mcp_response']=await dc.session_call(client,'start_analysis',args);assert s['mcp_response'].get('started')
+        s['status']='solving';write(folder/'state.json',s)
+        while True:
+            await asyncio.sleep(5);live=dc.solvers()
+            if live and (not s['observations'] or s['observations'][-1]!=live):s['observations'].append(live)
+            state=await dc.session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+            s.update(last_status=state,elapsed_seconds=time.monotonic()-start,updated_at=now());write(folder/'state.json',s)
+            if not live and not state.get('running'):break
+            if time.monotonic()-start>3600:raise TimeoutError('One-hour review trigger; preserve state, no automatic retry')
+    app=dc.app_for(project)
+    try:
+        app.save_project();s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        app.export_convergence('Setup19',output_file=str(folder/'convergence.txt'))
+        after=passes(folder/'convergence.txt');s['actual_history']=after
+        s['history_prefix_preserved']=after[:len(history)]==history
+        s['one_new_pass_verified']=s['history_prefix_preserved'] and len(after)==len(history)+1 and after[-1][0]==23
+        s['actual_elements']=after[-1][1];s['mesh_target_met']=100000<=after[-1][1]<=110000
+        s['convergence']=dc.convergence(folder/'convergence.txt')
+        s['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in s['messages'])
+        dc.SWEEP='Sweep1';dc.export(app,folder,np.arange(1,1501)/100)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(source)==source_hash
+    commands=[' '.join(p['cmdline'] or []) for obs in s['observations'] for p in obs]
+    s['observed_16core_process']=any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    s['observed_adaptive_process']=any('-solve_broadband_adapt' in c or '-solve_adapt ' in c for c in commands)
+    s.update(status='exported',source_unchanged=True);write(folder/'state.json',s)
+    assert s['one_new_pass_verified'],'Expected exactly one extra cached adaptive pass; inspect result, do not repeat'
+    assert s['sweep_converged'] and any('Normal completion' in x for x in s['messages'])
+    assert not any('[error]' in x.lower() for x in s['messages'])
+    assert s['observed_16core_process'] and s['observed_adaptive_process']
+    comparison=compare(folder,REFERENCE,'D05G02');write(folder/'comparison.json',comparison)
+    write(folder/'response_metrics.json',comparison['candidate_metrics'])
+    trial_passed=s['mesh_target_met'] and comparison['error_budgets']['tuning']
+    s.update(status='completed',trial_passed=trial_passed,finished_at=now());write(folder/'state.json',s)
+    result={'case':'D05G02','operation_success':True,'mesh_control_trial_passed':trial_passed,
+            'actual_elements':s['actual_elements'],'one_new_pass_verified':True,'comparison':comparison,
+            'not_design_acceptance':True,'new_geometry_runner_released':False,'finished_at':now()}
+    write(folder/'trial_result.json',result);write(HERE/'mesh_control_trial_result.json',result)
+    return result
+
+async def main():
+    assert not dc.solvers() and not (OLD/'pilot_queue.lock').exists()
+    locks=[HERE/'worker.lock',OLD/'protocol.lock'];assert all(not p.exists() for p in locks)
+    acquired=[]
+    try:
+        for lock in locks:
+            with lock.open('x') as h:h.write(str(os.getpid()))
+            acquired.append(lock)
+    except BaseException:
+        for p in acquired:p.unlink()
+        raise
+    FOLDER.mkdir(parents=True,exist_ok=True);status='failed';summary='';artifacts=[]
+    try:
+        write(HERE/'active.json',{'case':'D05G02','stage':'supervised_mesh_control_trial','pid':os.getpid(),'run_dir':str(FOLDER),'started_at':now()});status_report()
+        r=await execute();status='completed'
+        summary=f"D05G02单步网格控制试验完成：实际{r['actual_elements']}单元；网格范围及调参响应误差综合判定={'通过' if r['mesh_control_trial_passed'] else '需检查'}。只验证数值策略，不是设计验收；后续新几何队列尚未自动放行。"
+        artifacts=['trial_result.json','state.json','plan.json','comparison.json','response_metrics.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence_before.txt','convergence.txt']
+    except BaseException:
+        write(FOLDER/'worker_error.json',{'at':now(),'error':traceback.format_exc(),'live_solvers':dc.solvers()})
+        summary='D05G02单步网格控制试验需检查worker_error.json；保留已解数据，不自动重复试验。';artifacts=['worker_error.json']
+    finally:
+        for lock in acquired:
+            if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+        write(HERE/'active.json',{'case':'D05G02','stage':'awaiting_mesh_trial_review','operation_status':status,'run_dir':str(FOLDER),'finished_at':now()});status_report()
+    try:write(FOLDER/'notification_receipt.json',await publish(FOLDER,'D05G02',status,summary,artifacts))
+    except Exception:write(FOLDER/'notification_error.json',{'at':now(),'error':traceback.format_exc()});raise
+
+if __name__=='__main__':asyncio.run(main())

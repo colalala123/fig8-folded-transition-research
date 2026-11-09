@@ -1,0 +1,6 @@
+# Single prospective inverse-design validation
+Only INV01_A14, geometry/prediction frozen in PREDICTION_FROZEN.json. Human permits P/R change for one candidate only. Original 48/fixedPR/N15 remain paused and immutable.
+Target3.92-9.52GHz: all S11<=-20dB, S21>=-2dB, three valleys, center6.72+-0.03GHz, peakgap<=.5dB. No relaxed thresholds. Nominal interpolated validation, no manufacturing/direct-frequency certificate.
+Visible existing AEDT2024R2 via localMCP7990;14cores/1task/1group serial. Mesh100000-110000 (record <=112000 slight excess). Setup19 broadband0.1-15GHz, MaxDeltaS.005. Final Sweep1 interpolating0.01-15GHz/.01GHz,1% tolerance, no passivity forcing, two modes per port. Export native S11/S21+4x4/modal evidence.
+Maximum1 geometry and13Analyze (<=12adaptive+1sweep). Old285+new<=2236, maximum298. No automatic retry/extra point/restart or lock clearing. F new engineering data, D independent temporary folder; no old data deletion.
+Preflight identity/resources/hook and offline tests; configure, native reopen, freeze inputs, exclusive release marker, real14core observation and live observer. Completion-only hook to current chat; no periodic wake while solving. Review native evidence, actually view image, honest ACK, compare frozen prediction, close branch and stop terminal heartbeat. No successor.

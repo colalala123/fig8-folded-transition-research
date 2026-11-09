@@ -1,0 +1,98 @@
+"""Plot measured Fig. 8 geometry trends, with the frozen gap prediction shown separately."""
+import json
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from matplotlib.font_manager import FontProperties
+
+ROOT=Path('F:/hfss_f8_261002')
+FONT=Path('C:/Windows/Fonts/msyh.ttc')
+if FONT.exists():
+    plt.rcParams['font.family']=FontProperties(fname=str(FONT)).get_name()
+plt.rcParams['axes.unicode_minus']=False
+COLORS={'F2':'#3778b5','B0':'#263647','F3':'#cb7040','G035':'#178778','G2':'#8362a2'}
+
+
+def main():
+    summary=json.loads((ROOT/'five_case_summary.json').read_text(encoding='utf-8'))
+    rows={r['case']:r for r in summary['rows']}
+    required={'F2','B0','F3','G035','G2'}
+    if set(rows)!=required:
+        raise RuntimeError('All five fresh results are required for final trend figures.')
+    frozen=json.loads((ROOT/'G035_prediction_frozen.json').read_text(encoding='utf-8'))
+    base=rows['B0']
+    panels=[
+        ('BW_2dB_GHz',1000,base['BW_2dB_GHz'],'相对 B0 的 −2 dB 带宽变化 / MHz'),
+        ('signed_peak_difference_dB',1,0,'低频峰 − 高频峰 / dB'),
+        ('central_valley_GHz',1000,base['central_valley_GHz'],'相对 B0 的中央反射谷移动 / MHz'),
+    ]
+    fig,axes=plt.subplots(3,2,figsize=(11,9.1),sharex='col',layout='constrained')
+    for col,(names,key,xlabel,title) in enumerate([
+        (['F2','B0','F3'],'arm_net_mm','单侧折臂净长 a / mm','折臂扫描：间隔固定为 0.45533 mm'),
+        (['G035','B0','G2'],'gap_mm','平行槽净间隔 g / mm','间隔扫描：折臂净长固定为 1.802665 mm'),
+    ]):
+        x=np.array([rows[n][key] for n in names])
+        for index,(metric,scale,offset,ylabel) in enumerate(panels):
+            ax=axes[index,col]
+            y=np.array([(rows[n][metric]-offset)*scale for n in names])
+            ax.plot(x,y,color='#9ba8b4',lw=1.1,zorder=1,label='仿真点连线')
+            for xx,yy,name in zip(x,y,names):
+                ax.scatter(xx,yy,s=55,color=COLORS[name],zorder=3,marker='s' if name=='G035' else 'o')
+                ax.annotate(name,(xx,yy),xytext=(6,6),textcoords='offset points',fontsize=9,color=COLORS[name])
+            if index==1:
+                ax.axhspan(-.5,.5,color='#dbebdf',alpha=.75,zorder=0,label='等峰容差 ±0.5 dB')
+                ax.text(.97,.12,'等峰门槛 ±0.5 dB',transform=ax.get_yaxis_transform(),ha='right',fontsize=8,color='#4c6955')
+            ax.axhline(0,color='#87939f',lw=.8,ls=':')
+            if col==1:
+                gx=np.linspace(.35,.75,100)
+                training=frozen['training'][0]
+                prediction=training['features'][metric]+frozen['slopes_per_mm'][metric]*(gx-training['gap_mm'])
+                ax.plot(gx,(prediction-offset)*scale,color='#178778',lw=1,ls='--',alpha=.7,
+                        label='仿真前冻结的间隔预测')
+            ax.set_ylabel(ylabel,fontsize=9.5)
+            ax.grid(alpha=.16)
+            ax.margins(x=.14,y=.18)
+            if index==0:ax.set_title(title,fontsize=11)
+            if index==2:ax.set_xlabel(xlabel)
+        axes[0,col].legend(fontsize=8,loc='best')
+    fig.suptitle('Fig. 8 五点新仿真：几何路径相同，反射相位与峰高仍会变化',fontsize=13)
+    fig.savefig(ROOT/'five_case_trends.png',dpi=180)
+    plt.close(fig)
+
+    fig,axes=plt.subplots(2,2,figsize=(11.2,7.8),sharex=True,layout='constrained')
+    for col,names in enumerate([['F2','B0','F3'],['G035','B0','G2']]):
+        for name in names:
+            curve=np.genfromtxt(ROOT/name/'sparams.csv',delimiter=',',names=True,encoding='utf-8-sig')
+            for index,metric in enumerate(['S11_dB','S21_dB']):
+                axes[index,col].plot(curve['Freq_GHz'],curve[metric],color=COLORS[name],lw=1.4,label=name)
+        axes[0,col].set(title='折臂扫描' if col==0 else '间隔扫描',ylabel='S11 / dB',ylim=(-35,-8))
+        axes[1,col].set(xlabel='频率 / GHz',ylabel='S21 / dB',ylim=(-2.2,-.25),xlim=(3.2,10.2))
+        axes[1,col].axhline(-2,color='#87939f',ls=':',lw=.8)
+        for index,ax in enumerate(axes[:,col]):
+            ax.grid(alpha=.2);ax.legend(loc='upper center' if index==0 else 'lower center',ncol=3,fontsize=9)
+    fig.suptitle('Fig. 8 带内曲线对比；全部沿用相同端口、材料和求解设置',fontsize=13)
+    fig.savefig(ROOT/'five_case_inband_curves.png',dpi=180)
+    plt.close(fig)
+    if (ROOT/'T_G035/sparams.csv').exists():
+        fig,axes=plt.subplots(1,2,figsize=(11.2,4.5),layout='constrained')
+        for name,label,color,style in [('B0','B0 参考','#263647','--'),('G035','G035 校正前','#178778','-'),
+                                      ('T_G035','T_G035 校正后','#cb7040','-')]:
+            curve=np.genfromtxt(ROOT/name/'sparams.csv',delimiter=',',names=True,encoding='utf-8-sig')
+            for ax,metric in zip(axes,['S11_dB','S21_dB']):
+                ax.plot(curve['Freq_GHz'],curve[metric],color=color,ls=style,lw=1.5,label=label)
+        axes[0].set(ylabel='S11 / dB',ylim=(-35,-8))
+        axes[1].set(ylabel='S21 / dB',ylim=(-2.2,-.25))
+        for index,ax in enumerate(axes):
+            ax.set(xlabel='频率 / GHz',xlim=(3.2,10.2))
+            ax.grid(alpha=.2)
+            ax.legend(loc='upper center' if index==0 else 'lower center',fontsize=8.5)
+        prediction=json.loads((ROOT/'T_G035_prediction_frozen.json').read_text(encoding='utf-8'))
+        fig.suptitle(f"独立相位校正验证：仅增加 Ls1 {prediction['delta_Ls1_mm']:.4f} mm",fontsize=13)
+        fig.savefig(ROOT/'phase_correction_comparison.png',dpi=190)
+        plt.close(fig)
+    print('Created the available final trend and phase-comparison figures.')
+
+
+if __name__=='__main__':main()

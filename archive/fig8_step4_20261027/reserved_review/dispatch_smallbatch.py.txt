@@ -1,0 +1,42 @@
+"""Dispatch one case with a fixed, finite set of missing-frequency chunks."""
+import argparse,subprocess,sys
+from pathlib import Path
+import recovery_control as pc
+
+def dispatch(case,solve):
+    assert not (pc.HERE/'closure.json').exists()
+    plan=pc.read(pc.HERE/'continuation_plan.json');ledger=pc.read(pc.ledger_path())
+    for f,h in pc.read(pc.HERE/'implementation_hashes.json').items():assert pc.sha(f)==h,f
+    assert ledger['new_geometry_reserved']==0 and len(ledger['tasks'])==ledger['new_cached_tasks_reserved']<6
+    assert all(t['status']=='reviewed' for t in ledger['tasks']) and case==pc.ORDER[len(ledger['tasks'])]
+    from phase_direct_context import reviewed_source
+    from solver_runtime import dc
+    row=next(r for r in plan['cases'] if r['case']==case);reviewed_source(row['source'],case)
+    for f,h in {**row['evidence_hashes'],**plan['prior_evidence_hashes']}.items():assert pc.sha(f)==h,f
+    run=pc.BASE/case/'direct_reserved';path=run/'input.json'
+    assert not path.exists() and not (run/'state.json').exists()
+    if not solve:print(dict(case=case,missing=len(row['missing_frequencies_GHz']),chunks=len(row['chunks']),started=False));return
+    assert not dc.solvers()
+    for f in [pc.FINAL/'worker.lock',pc.PARENT/'worker.lock',pc.OLD/'protocol.lock',pc.OLD/'pilot_queue.lock']:assert not f.exists(),str(f)
+    parents={**pc.read(pc.HERE/'implementation_hashes.json'),**row['evidence_hashes'],**plan['prior_evidence_hashes'],
+        str(pc.HERE/'implementation_hashes.json'):pc.sha(pc.HERE/'implementation_hashes.json')}
+    pc.write(run/'budget_before.json',ledger);parents[str(run/'budget_before.json')]=pc.sha(run/'budget_before.json')
+    p=dict(case=case,role='cached_missing_smallbatches',source=row['source'],project_source=row['project'],project_source_sha256=row['project_sha256'],
+        source_geometry=row['geometry'],run_dir=str(run),input_path=str(path),project_name=case+'_B6Reserve',
+        requested_frequencies_GHz=row['requested_frequencies_GHz'],existing_frequencies_GHz=row['existing_frequencies_GHz'],chunks=row['chunks'],
+        max_analyze_launches=len(row['chunks']),adaptive_allowed=False,geometry_budget_increment=0,
+        input_parent_hashes=parents,created_at=pc.now(),worker_sha256=pc.sha(pc.HERE/'smallbatch_worker.py'))
+    p['prior_direct_run']=row['prior_direct_run'];p['prior_analyze_launches']=row['prior_analyze_launches']
+    assert p['prior_analyze_launches']+len(p['chunks'])<=8 and sum(map(len,p['chunks']))<=8
+    pc.write(path,p);pc.release(case,path)
+    ledger['new_cached_tasks_reserved']+=1
+    ledger['tasks'].append(dict(case=case,path=str(path),input_sha256=pc.sha(path),status='reserved',max_analyzes=len(row['chunks']),analyzes_used=0))
+    pc.write(pc.ledger_path(),ledger)
+    with (pc.HERE/f'{case}.stdout.log').open('ab') as out,(pc.HERE/f'{case}.stderr.log').open('ab') as err:
+        process=subprocess.Popen([sys.executable,str(pc.HERE/'smallbatch_worker.py'),'--spec',str(path)],cwd=str(pc.HERE),
+            stdin=subprocess.DEVNULL,stdout=out,stderr=err,creationflags=subprocess.CREATE_NO_WINDOW)
+    print(dict(case=case,worker_launched=process.pid,missing_points=sum(map(len,row['chunks'])),max_analyzes=len(row['chunks']),actual_solver_started=False))
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--case',choices=pc.ORDER,required=True);ap.add_argument('--solve',action='store_true')
+    a=ap.parse_args();dispatch(a.case,a.solve)

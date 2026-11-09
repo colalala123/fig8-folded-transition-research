@@ -1,0 +1,83 @@
+{
+  "at": "2026-10-30T20:17:29.061996+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N10_A18_probes_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 0.887s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 1.870s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 12,
+    "new_geometries_declared": 14,
+    "geometry_cap": 172,
+    "Analyze_used": 96,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 9,
+      "N11_A18_M": 7,
+      "N11_A18_C1": 1,
+      "N11_A18_C2": 7,
+      "N11_A14_S": 10,
+      "N11_A14_M": 8,
+      "N11_A14_C1": 9,
+      "N19_A14_S": 7,
+      "N19_A14_M": 10,
+      "N10_A18_S": 0,
+      "N10_A18_M": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 4,
+      "N11_A14": 3,
+      "N19_A14": 2,
+      "N10_A18": 2
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "pid": 85208,
+      "create_time": 1793355858.6193893,
+      "name": "ansysedt.exe"
+    }
+  ],
+  "projects": [
+    {
+      "case": "N10_A18_S",
+      "configuration_sha256": "5918a04c8dd8501b6e4576ef77fa70b65350987ee4e7e160143ef4b8fca74ffa",
+      "project_sha256": "e7b4069dad35d02f7db64054085fa2eb494f467c67d92d5f918bca663769be86"
+    },
+    {
+      "case": "N10_A18_M",
+      "configuration_sha256": "276edda0ad829474444fac6fe633271863f9e9034e492cce8e1d24a5993e4b9f",
+      "project_sha256": "223e3e97c96d5ac81178bfcd9207d9f00470347e5a3d80ef1ab0ff18893eb6a9"
+    }
+  ]
+}

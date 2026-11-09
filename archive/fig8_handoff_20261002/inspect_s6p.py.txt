@@ -1,0 +1,13 @@
+import numpy as np, pathlib, json
+for p in [pathlib.Path(r'F:\hfss_f8x_261002\R_tri_diagC\50ohm.s6p'), pathlib.Path(r'F:\hfss_f8x_261002\R_B0_discrete26b\hfss_50ohm.s6p'), pathlib.Path(r'F:\hfss_f8x_261002\M_B0_3g16\all_modes_sparams.csv')]:
+ print('\n',p)
+ if not p.exists(): print('missing'); continue
+ if p.suffix=='.s6p':
+  rows=[];mult=1e9
+  for ln in p.read_text(errors='ignore').splitlines():
+   ln=ln.strip()
+   if not ln or ln.startswith('!') or ln.startswith('#'): continue
+   v=[float(x) for x in ln.split()]
+   if len(v)>=73: rows.append(v)
+  a=np.array(rows); print('rows',len(a),'cols',a.shape[1])
+  # S6p has 36 pairs, line may wrap; parse 73 tokens only if one line complete

@@ -1,0 +1,9 @@
+"""Pure request-count inheritance gate for one same-geometry technical retry."""
+def check_recovery_request(previous,current,adaptive):
+    assert previous['geometry']==current['geometry'],'Technical recovery may not change geometry'
+    old=previous['segments'];new=current['segments']
+    assert len(old)==1 and old[0]['adaptive_requested'],'This authorization covers the single failed initial adaptive request'
+    assert len(old)+len(new)+1<=13,'Original failed request must remain within physical-case13 cap'
+    assert sum(bool(x['adaptive_requested']) for x in old+new)+int(adaptive)<=12
+    assert sum(not x['adaptive_requested'] for x in old+new)+int(not adaptive)<=1
+    return dict(original_requests=len(old),recovery_requests_so_far=len(new),combined_after_next=len(old)+len(new)+1)

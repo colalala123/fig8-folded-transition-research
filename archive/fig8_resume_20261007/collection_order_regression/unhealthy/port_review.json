@@ -1,0 +1,194 @@
+{
+  "fields": {
+    "passed": true,
+    "evidence": [
+      {
+        "GHz": 8.0,
+        "port": "1",
+        "scores": {
+          "1": 0.999235108516012,
+          "2": -0.022368347680609236
+        },
+        "margin": 0.9768667608354028,
+        "passed": true
+      },
+      {
+        "GHz": 8.0,
+        "port": "2",
+        "scores": {
+          "1": 0.9990006436972698,
+          "2": -0.023636523778085287
+        },
+        "margin": 0.9753641199191845,
+        "passed": true
+      },
+      {
+        "GHz": 0.55,
+        "port": "1",
+        "scores": {
+          "1": 0.9992353004893322,
+          "2": -0.024497873652975167
+        },
+        "margin": 0.974737426836357,
+        "passed": true
+      },
+      {
+        "GHz": 0.55,
+        "port": "2",
+        "scores": {
+          "1": 0.9989977994377129,
+          "2": -0.025566056822394177
+        },
+        "margin": 0.9734317426153187,
+        "passed": true
+      },
+      {
+        "GHz": 15.0,
+        "port": "1",
+        "scores": {
+          "1": 0.9992787711611495,
+          "2": -0.027000969351666286
+        },
+        "margin": 0.9722778018094832,
+        "passed": true
+      },
+      {
+        "GHz": 15.0,
+        "port": "2",
+        "scores": {
+          "1": 0.9990627422840198,
+          "2": -0.02874749066397525
+        },
+        "margin": 0.9703152516200446,
+        "passed": true
+      }
+    ],
+    "scope": "Common saved adaptive frequencies; combined with full passband Zo/Gamma continuity"
+  },
+  "auxiliary": {
+    "reference": "J:\\f8_261007\\B0BC",
+    "candidate": "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input",
+    "quantities": {
+      "Zo(1:1)": {
+        "max_relative_drift": 0.0009041730433216248,
+        "max_relative_adjacent_step": 2.5395831952041644e-05,
+        "passed": true
+      },
+      "Zo(2:1)": {
+        "max_relative_drift": 0.00025837994093153303,
+        "max_relative_adjacent_step": 9.984760342679824e-05,
+        "passed": true
+      },
+      "Gamma(1:1)": {
+        "max_relative_drift": 0.00030409762505714615,
+        "max_relative_adjacent_step": 0.0031485596217765894,
+        "passed": true
+      },
+      "Gamma(2:1)": {
+        "max_relative_drift": 0.0004128817463671401,
+        "max_relative_adjacent_step": 0.0031484524319633942,
+        "passed": true
+      }
+    },
+    "passed": true,
+    "screening_thresholds": {
+      "max_relative_drift": 0.02,
+      "max_adjacent_step_per_0p01GHz": 0.02
+    },
+    "scope": "Fundamental continuity in 3.2–10.2 GHz; interpreted jointly with native port-field identity."
+  },
+  "boundaries": {
+    "run": "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input",
+    "ports": [
+      {
+        "port": "1",
+        "integration_endpoints_mm": [
+          [
+            0.0,
+            -25.0,
+            0.883
+          ],
+          [
+            0.0,
+            -25.0,
+            -1.38140158943821e-15
+          ]
+        ],
+        "invariant_settings": {
+          "Objects": true,
+          "DoDeembed": true,
+          "DeembedDist": true,
+          "UseLineModeAlignment": true,
+          "UseAnalyticAlignment": true,
+          "RenormalizeAllTerminals": true
+        },
+        "passed": true
+      },
+      {
+        "port": "2",
+        "integration_endpoints_mm": [
+          [
+            0.0,
+            25.0,
+            -0.883
+          ],
+          [
+            0.0,
+            25.0,
+            -1.38140158943821e-15
+          ]
+        ],
+        "invariant_settings": {
+          "Objects": true,
+          "DoDeembed": true,
+          "DeembedDist": true,
+          "UseLineModeAlignment": true,
+          "UseAnalyticAlignment": true,
+          "RenormalizeAllTerminals": true
+        },
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "passed": true,
+  "evidence_hashes": {
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\manifest.json": "4a12f61ae58b6cb4f258dc748649a585f5d2a88ac0a69e821b0104d702f9be99",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_impedance_gamma.csv": "135e5a24eeb625ad2e243a3dbfc4cf09a8ba8f190c6b2f4043ed04bd12277683",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\native_port_fields.json": "569eefbf475c2fa6f8d6f820ad4d8cf0de9f7f89f6169f9e1a867d1121d9e412",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\sparams.csv": "c300b82c2f29d5062fc6f97e2f082d149d25e17ab963ac3723660059d8a61d4a",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\43.nvc": "b3999487d96027788ebda95aadea1433fa88d2d666f18c7e71387c731b23c60f",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\43_1.tvc": "9257e493ad7e7e3cb611fcfc3aff197d546da59ca42ad5d432c09d60210686b8",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\43_1.tvz": "93d3b3a26f43ae04593007f464973e5a099b97fe2c2c12e3cd27eecc59abf5ac",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\43_2.tvc": "e25e7ca3ac10caf15ca077bef5630c77a6d37535f65a884f02dfd399462c6ec9",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\43_2.tvz": "6aa35986b5ff80be9486f37b35e59ec1b51079477d6beb4832e2261f82037d28",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\48.nvc": "29d101cade27609395bdb2d9fe030adde800fe03dc78d9ae926489c60225234a",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\48_1.tvc": "7a2e68810bb1023d440a43c19341b1a681a325466a0003f628e514c541be05db",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\48_1.tvz": "85661d3d6f083dfb339889d5d24576ac8f814b1e1d70444d139a7033f0736076",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\48_2.tvc": "993c6f5dd2a6c4753f69c725cccfe52b5c61eb21e3ee6daaedd2fe637ab0d814",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\48_2.tvz": "7a5f5c052115adff2cf7d8addb4a29ff425a2eabc58da628a50ff9837dc4989b",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\0.55GHz\\fields.evtrs": "844bd66fbd6e8dff99fa77df1f1348e46524ed7fa502d1ab25ed25167cd86835",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\43.nvc": "b3999487d96027788ebda95aadea1433fa88d2d666f18c7e71387c731b23c60f",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\43_1.tvc": "66f6ef07fbdae09ffcd973f0100449a829154910cf4f65a075add26207a2cb5a",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\43_1.tvz": "3edd9495c229319ebc131a7d4d634ea828a41a472dbfc09eef0c5b2a5c40f36b",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\43_2.tvc": "fc4e7e6547bad91578e7e65f76a7e692781fad1f0307e8c6344a46b1b6868d5e",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\43_2.tvz": "fe77cce400883a96f3505fe7d466dc21955626c45b93a3aad0291add58bc09be",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\48.nvc": "29d101cade27609395bdb2d9fe030adde800fe03dc78d9ae926489c60225234a",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\48_1.tvc": "e6b94468b33cd02c858e806aecc4ef1e0b94cd66cb425e6048af5265568ac301",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\48_1.tvz": "dd797c120ee652a2d65c88333852add9dae29f906ff15aba5d7bd31eff259ef8",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\48_2.tvc": "7be2c9492020e7b0e6193d278fd54faf61a5eea01fa74dfe77893c41d4f302cb",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\48_2.tvz": "5f3fc9a86445d3e23c8afbfa2e88a82409088d3c23e4be19c351cce47e46248e",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\15GHz\\fields.evtrs": "42f74fb284e1ed33ef0d98d6ca3580745d4d0d5abe85ac790218c85057dde015",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\43.nvc": "b3999487d96027788ebda95aadea1433fa88d2d666f18c7e71387c731b23c60f",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\43_1.tvc": "6fe7764b222d7be4f6bed9ba8a1a96cb9a76bb41af0c850c6ef3c0720ff04b69",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\43_1.tvz": "455b00d7ee7f4affc70dbb4cd10cadee84d31e3746157c6f08d01d78cdc2d470",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\43_2.tvc": "1227c4cce774d2cc5d3f39b9357c56c5d15ac4b739977fa544c5c20aa9a9b8f5",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\43_2.tvz": "3a4c43b0a2e1de11e22f410908a68d3c4f54591f47a99a0f8555550ee36af59d",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\48.nvc": "29d101cade27609395bdb2d9fe030adde800fe03dc78d9ae926489c60225234a",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\48_1.tvc": "e2bccf366fa63b6d60b2f0778ca41c716010ea82cf73f9650f65c8d44f5f1c76",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\48_1.tvz": "1dd7e6869ac6e2bf8664dd56c32339df4aef998b531c3303eb9a5a7f42c5a5f5",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\48_2.tvc": "81d3773ec4bab90a7829c4b4e5f535b5d0d54f8e10a5337e55345e8153b28491",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\48_2.tvz": "01e4aefe57b62ebb0eea7055ed258b00dbd77de84a7b32311c1efa41e9dd9037",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\unhealthy\\mode_evidence_input\\mode_fields\\8GHz\\fields.evtrs": "b4839cc91c5b1ddb0c177e852eba8c018d6514685889e437d3d87f2d5bd7bbe1"
+  }
+}

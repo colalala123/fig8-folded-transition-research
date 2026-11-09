@@ -1,0 +1,8 @@
+{
+  "run": "F:\\hfss_f8x_261002\\M_B0_2",
+  "project": "F:\\hfss_f8x_261002\\M_B0_2\\project.aedt",
+  "source_hash_before": "f5b36fa7e75ce8955f274adba4091c4cac081d50b4c7167c1c05652af1f61cf3",
+  "no_solve": true,
+  "status": "export_failed",
+  "error": "Traceback (most recent call last):\n  File \"${WORKSPACE}\\output\\fig8_resume_20261007\\recover_existing_exports.py\", line 16, in main\n    app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=12704,non_graphical=False,new_desktop=False,close_on_exit=False)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\hfss.py\", line 227, in __init__\n    FieldAnalysis3D.__init__(\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\analysis_3d.py\", line 129, in __init__\n    Analysis.__init__(\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\analysis.py\", line 145, in __init__\n    Design.__init__(\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\design.py\", line 251, in __init__\n    self.oproject: str = project_name\n    ^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\design.py\", line 1327, in oproject\n    raise RuntimeError(\"Project is locked. Close or remove the lock before proceeding.\")\nRuntimeError: Project is locked. Close or remove the lock before proceeding.\n"
+}

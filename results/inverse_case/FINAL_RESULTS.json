@@ -1,0 +1,140 @@
+{
+  "at": "2026-11-09T05:34:18.762404+00:00",
+  "case": "INV01_A14",
+  "operation_completed": true,
+  "design_passed": true,
+  "geometry": {
+    "Wm": 1.9136201833872932,
+    "Ws": 0.34596701899421023,
+    "Lm": 6.584499793266415,
+    "Ls1": 12.619994699196244,
+    "Ls2": 1.2419340379884205,
+    "Ls3": 1.74596701899421
+  },
+  "P": 2.0489487194444234,
+  "R": 0.44744305689527486,
+  "target": {
+    "f_low_GHz": 3.92,
+    "f_high_GHz": 9.52,
+    "BW_GHz": 5.6,
+    "S11_max_dB": -20,
+    "S21_min_dB": -2
+  },
+  "predicted": {
+    "worst_S11_dB": -20.805704006516194,
+    "min_S21_dB": -0.9875481934776245,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.72,
+    "peak_difference_dB": 0.38470200159222045,
+    "inner_peaks": [
+      {
+        "GHz": 5.25,
+        "S11_dB": -21.19040600810844
+      },
+      {
+        "GHz": 8.22,
+        "S11_dB": -20.80570400651622
+      }
+    ],
+    "objective": 0.0,
+    "nominal_buffer_satisfied": true,
+    "S21_BW_GHz": 6.973606061981925,
+    "joint_intervals": [
+      [
+        3.6558195391958166,
+        9.542268883424098
+      ]
+    ],
+    "joint_components": 1,
+    "joint_center_band": [
+      3.6558195391958166,
+      9.542268883424098,
+      5.886449344228282
+    ]
+  },
+  "actual": {
+    "worst_S11_dB": -20.244201534658973,
+    "min_S21_dB": -0.9828856777973338,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.75,
+    "peak_difference_dB": 0.45782373820055255,
+    "inner_peaks": [
+      {
+        "GHz": 5.31,
+        "S11_dB": -21.249642027655295
+      },
+      {
+        "GHz": 8.2,
+        "S11_dB": -20.791818289454742
+      }
+    ],
+    "objective": 6.240013019814644e-28,
+    "nominal_buffer_satisfied": true,
+    "S21_BW_GHz": 6.980019292084984,
+    "joint_intervals": [
+      [
+        3.6469023074200373,
+        9.526988612625273
+      ]
+    ],
+    "joint_components": 1,
+    "joint_center_band": [
+      3.6469023074200373,
+      9.526988612625273,
+      5.880086305205236
+    ]
+  },
+  "actual_minus_predicted": {
+    "worst_S11_dB": 0.5615024718572208,
+    "min_S21_dB": 0.004662515680290635,
+    "central_valley_GHz": 0.03000000000000025,
+    "peak_difference_dB": 0.0731217366083321,
+    "S21_BW_GHz": 0.006413230103059497
+  },
+  "actual_elements": 103787,
+  "Analyze_requests": 8,
+  "budget": {
+    "Analyze_used": 293,
+    "branch_Analyze_used": 8,
+    "Analyze_cap": 2236,
+    "branch_cap": 13,
+    "per_case_Analyze": {
+      "INV01_A14": 8
+    },
+    "new_geometries_declared": 1,
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "old_campaign_paused": true
+  },
+  "source_curve_sha256": "ed89a59a3e2d44f380873cdc7492eedaa3f5e27f854ac8b5192c2b7e50e1167a",
+  "ACK_sha256": "773afeb5eac91cd5efbc6a9eb86d2f67bbe6ee40a821064d32b994c632d18d09",
+  "frozen_prediction_sha256": "351eed5149e26afad2a7dab8c43825dea15834c9dcd9e635f491b37c3a83df78",
+  "plot": "${WORKSPACE}\\output\\fig8_inverse_case1_runtime_20261109\\cases\\INV01_A14\\g01_initial_response.png",
+  "hook_receipt_state": "accepted",
+  "nominal_interpolated_only": true,
+  "no_refit_after_result": true,
+  "nearest_existing_geometries": [
+    {
+      "case": "N20_A14_C2_TR1B",
+      "distance_raw_mm": 0.003210488795336706
+    },
+    {
+      "case": "N20_A14_C1",
+      "distance_raw_mm": 0.02825261527166385
+    },
+    {
+      "case": "N11_A14_C1",
+      "distance_raw_mm": 0.0516818178849786
+    }
+  ],
+  "in_band_complex_RMSE_S11_S21": [
+    0.0028987975322691977,
+    0.0015762808117366755
+  ],
+  "scope": "one model-guided new geometry in sampled domain, not wide-domain independent family validation",
+  "old_campaign_paused": true,
+  "new_successor": null
+}

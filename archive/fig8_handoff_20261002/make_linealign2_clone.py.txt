@@ -1,0 +1,69 @@
+from pathlib import Path
+import json
+
+src = Path(r"F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt")
+dst_dir = Path(r"F:\hfss_f8x_261align2")
+dst_dir.mkdir(exist_ok=True)
+dst = dst_dir / "R_tri_linealign2.aedt"
+text = src.read_text(errors="ignore")
+begin = "$begin 'HFSSModel'"
+end = "$end 'HFSSModel'"
+start = text.rfind(begin)
+stop = text.find(end, start)
+block = text[start : stop + len(end)]
+
+for pname, old_id, old_z, new_id, new_z in [
+    ("1", "12113", "0.883", "12393", "6.504"),
+    ("2", "12152", "-0.883", "19893", "-6.504"),
+]:
+    ps = block.rfind(f"$begin '{pname}'")
+    pe = block.find(f"$end '{pname}'", ps) + len(f"$end '{pname}'")
+    port = block[ps:pe]
+    port = port.replace("UseLineModeAlignment=false", "UseLineModeAlignment=true", 1)
+    port = port.replace(f"EntityID={old_id}", f"EntityID={new_id}", 1)
+    port = port.replace(f"ZPosition='{old_z}'", f"ZPosition='{new_z}'", 1)
+    port = port.replace("AlignmentGroup=0", "AlignmentGroup=1", 1)
+    mode2 = (
+        "\t\t\t\t\t\t$begin 'Mode2'\n"
+        "\t\t\t\t\t\t\tModeNum=2\n"
+        "\t\t\t\t\t\t\tUseIntLine=true\n"
+        "\t\t\t\t\t\t\t$begin 'IntLine'\n"
+        "\t\t\t\t\t\t\t\t$begin 'GeometryPosition'\n"
+        "\t\t\t\t\t\t\t\t\tIsAttachedToEntity=true\n"
+        f"\t\t\t\t\t\t\t\t\tEntityID={new_id}\n"
+        "\t\t\t\t\t\t\t\t\tFacetedBodyTriangleIndex=-1\n"
+        "\t\t\t\t\t\t\t\t\tTriangleVertexIndex=-1\n"
+        "\t\t\t\t\t\t\t\t\thasXYZ=true\n"
+        "\t\t\t\t\t\t\t\t\tPositionType='EdgeCenter'\n"
+        "\t\t\t\t\t\t\t\t\tUParam=0\n"
+        "\t\t\t\t\t\t\t\t\tVParam=0\n"
+        "\t\t\t\t\t\t\t\t\tXPosition='0'\n"
+        f"\t\t\t\t\t\t\t\t\tYPosition='{ '-25' if pname == '1' else '25' }'\n"
+        f"\t\t\t\t\t\t\t\t\tZPosition='{new_z}'\n"
+        "\t\t\t\t\t\t\t\t$end 'GeometryPosition'\n"
+        "\t\t\t\t\t\t\t\t$begin 'GeometryPosition'\n"
+        "\t\t\t\t\t\t\t\t\tIsAttachedToEntity=true\n"
+        f"\t\t\t\t\t\t\t\t\tEntityID={'12395' if pname == '1' else '19895'}\n"
+        "\t\t\t\t\t\t\t\t\tFacetedBodyTriangleIndex=-1\n"
+        "\t\t\t\t\t\t\t\t\tTriangleVertexIndex=-1\n"
+        "\t\t\t\t\t\t\t\t\thasXYZ=true\n"
+        "\t\t\t\t\t\t\t\t\tPositionType='EdgeCenter'\n"
+        "\t\t\t\t\t\t\t\t\tUParam=0\n"
+        "\t\t\t\t\t\t\t\t\tVParam=0\n"
+        "\t\t\t\t\t\t\t\t\tXPosition='0'\n"
+        f"\t\t\t\t\t\t\t\t\tYPosition='{ '-25' if pname == '1' else '25' }'\n"
+        f"\t\t\t\t\t\t\t\t\tZPosition='{'0' if pname == '1' else '-1.38140158943821e-15'}'\n"
+        "\t\t\t\t\t\t\t\t$end 'GeometryPosition'\n"
+        "\t\t\t\t\t\t\t$end 'IntLine'\n"
+        "\t\t\t\t\t\t\tAlignmentGroup=1\n"
+        "\t\t\t\t\t\t\tCharImp='Zpi'\n"
+        "\t\t\t\t\t\t$end 'Mode2'"
+    )
+    old_mode2 = "\t\t\t\t\t\t$begin 'Mode2'\n\t\t\t\t\t\t\tModeNum=2\n\t\t\t\t\t\t\tUseIntLine=false\n\t\t\t\t\t\t\tCharImp='Zpi'\n\t\t\t\t\t\t$end 'Mode2'"
+    if old_mode2 not in port:
+        raise RuntimeError(f"Mode2 block not found for port {pname}")
+    port = port.replace(old_mode2, mode2, 1)
+    block = block[:ps] + port + block[pe:]
+
+dst.write_text(text[:start] + block + text[stop + len(end) :], encoding="utf-8")
+print(json.dumps({"dst": str(dst), "flags": block.count("UseLineModeAlignment=true"), "groups": block.count("AlignmentGroup=1"), "mode2_lines": block.count("ModeNum=2\n\t\t\t\t\t\t\tUseIntLine=true")}, indent=2))

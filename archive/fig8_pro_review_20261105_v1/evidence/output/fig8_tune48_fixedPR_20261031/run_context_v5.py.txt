@@ -1,0 +1,40 @@
+"""V4 native gates, with an additive authorized-recovery registry and true costs."""
+import argparse
+from pathlib import Path
+import run_context_v4 as v4
+import continue_tuning as continuation
+from tuning_budget_recovery_v1 import registry,validate_campaign
+from build_runtime import ROOT,read,write,sha
+original_read=v4.read
+def read_view(path):
+    if Path(path).resolve()==(ROOT/'runtime_registry.json').resolve():return registry()
+    return original_read(path)
+
+def main(ctx,case):
+    ctx=Path(ctx).resolve()
+    assert not (ROOT/'PAUSE.json').exists()
+    validate_campaign(storage=True)
+    if not (ctx/'initial_inputs.json').exists():
+        assert not any((Path(r['run_dir'])/'state.json').exists() for r in read(ctx/'plan.json')['cases'])
+        for p in ctx.glob('*.py'):
+            text=p.read_text(encoding='utf-8')
+            updated=text.replace('from tuning_budget import validate_campaign','from tuning_budget_recovery_v1 import validate_campaign')
+            if p.name=='phase_geometry_publish.py':
+                updated=updated.replace('再continue_tuning.py。','再continue_tuning_v2.py。后继启动用run_context_v5.py，以计入技术恢复成本。')
+            if updated!=text:p.write_text(updated,encoding='utf-8')
+        doc=ctx/'CONTINUATION.md'
+        if '## V5 cost overlay entrypoints' not in doc.read_text(encoding='utf-8'):
+            with doc.open('a',encoding='utf-8') as f:
+                f.write('\n## V5 cost overlay entrypoints\nAll next starts use '+str(ROOT/'run_context_v5.py')+'; post-terminal review, actual image ACK then '+str(ROOT/'continue_tuning_v2.py')+'. These additive entrypoints include the explicitly authorized N20_C2 technical attempt in true2236-cost accounting without altering original frozen scripts/inputs. After launch render MD with write_status_summary.py.\n')
+        evidence=read(ctx/'parent_evidence.json')
+        for name in ['run_context_v5.py','tuning_budget_recovery_v1.py','continue_tuning_v2.py','N20_C2_RECOVERY_AUTHORIZATION.json','test_recovery_overlay_v1.py']:
+            p=ROOT/name;evidence['hashes'][str(p)]=sha(p)
+        write(ctx/'parent_evidence.json',evidence)
+    v4.read=read_view;v4.validate_campaign=validate_campaign
+    continuation.validate_campaign=validate_campaign
+    v4.main(str(ctx),case)
+    s=read(ROOT/'CURRENT_STATUS.json');s.update(next_launcher=str(ROOT/'run_context_v5.py'),
+        post_terminal_controller=str(ROOT/'continue_tuning_v2.py'),budget=validate_campaign())
+    write(ROOT/'CURRENT_STATUS.json',s)
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);p.add_argument('--case');a=p.parse_args();main(a.context,a.case)

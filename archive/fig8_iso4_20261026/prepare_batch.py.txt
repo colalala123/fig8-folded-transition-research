@@ -1,0 +1,116 @@
+"""Prepare the four explicitly authorized iso-bandwidth experiments. No solve."""
+import ast
+import hashlib
+import json
+from datetime import datetime, timezone
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+OLD = HERE.parent / 'fig8_validation6_20261026'
+PROPOSAL = HERE.parent / 'fig8_design_method_20261026/next_simulations.json'
+BASE = Path('J:/f8_I4_261026')
+ORDER = ['I01G02','I02G02','I01G05','I02G05']
+USER = '你现在用hook去把这4个点仿真一遍看看'
+
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now(): return datetime.now(timezone.utc).isoformat()
+def write(p, obj):
+    p = Path(p); p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(obj, ensure_ascii=False, indent=2, allow_nan=False)+'\n', encoding='utf-8')
+
+def main():
+    assert not (HERE/'plan.json').exists(), 'Do not replace an existing batch'
+    files = ['phase_control.py','phase_geometry_context.py','phase_geometry_worker.py',
+             'phase_publish.py','phase_geometry_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py',
+             'case_reference.py','prepared_settings.py','configure_projects.py','dispatch.py',
+             'review_phase_geometry.py','acknowledge_review.py','supervise_start.py','verify_live_hook.py',
+             'test_phase_heartbeat.py']
+    provenance = {}
+    for name in files:
+        source = OLD/name; original = source.read_text(encoding='utf-8'); text = original
+        text = text.replace('V6','I4').replace('六配置','四配置').replace('六项','四项').replace('六个','四个').replace('这6个','这4个').replace('6个初始','4个初始')
+        if name == 'phase_control.py':
+            text = text.replace("Path('J:/f8_I4_261026')", "Path('J:/f8_I4_261026')")
+            start = text.index('ORDER='); end = text.index('\n', start)
+            text = text[:start] + 'ORDER=' + repr(ORDER) + text[end:]
+            text = text.replace('六配置','四配置')
+        if name == 'phase_geometry_context.py':
+            text = text.replace('<=6','<=4')
+        if name == 'dispatch.py':
+            text = text.replace("len(ledger['tasks'])<6", "len(ledger['tasks'])<4")
+        if name == 'configure_projects.py':
+            text = text.replace('six unsolved','four unsolved')
+        if name == 'phase_geometry_publish.py':
+            text = text.replace('每配置7个几何和1个直接工作项上限', '每配置4个几何和1个直接工作项上限')
+            text = text.replace('不能把初值六次算作全部验收', '不能把初值四次算作全部验收')
+            text = text.replace('先完成6个初值', '先完成4个初值')
+        if name == 'phase_geometry_worker.py':
+            text = text.replace('from direct_worker import dc', 'from direct_worker import dc\nfrom aedt_session_guard import install\ninstall(dc)')
+        if name == 'supervise_start.py':
+            text = text.replace("assert str(spec) in worker.cmdline()", "assert Path(worker.cmdline()[worker.cmdline().index('--spec')+1]).resolve()==spec.resolve()")
+        (HERE/name).write_text(text, encoding='utf-8')
+        provenance[name] = dict(source=str(source), source_sha256=sha(source), local_sha256=sha(HERE/name))
+    import sys
+    sys.path.insert(0,str(HERE))
+    import phase_control as pc
+    assert pc.BASE == BASE and pc.ORDER == ORDER
+    proposal = read(PROPOSAL)
+    source_rows = {r['case']:r for r in proposal['cases'] if r['priority']=='A_required'}
+    cases = []
+    for case in ORDER:
+        key = case[:3]+'_a'+('1.4' if case.endswith('G02') else '1.8')
+        r = source_rows[key]; g = r['geometry_mm']
+        cases.append(dict(case=case, proposal_case=key, initial_geometry=g, geometry=g,
+            a_mm=r['arm_mm'], g_mm=r['gap_mm'], predicted_BW_GHz=r['predicted_BW_GHz'],
+            initialization=dict(method=r['lengths_method'],parents=r['length_parents']),
+            geometry_gate=r['dimension_screen'],
+            prepared_project=str(BASE/case/'prepared'/f'{case}_I4_Prepared.aedt'),
+            run_dir=str(BASE/case/'g01_initial'), status='configuration_pending'))
+    old_plan = read(OLD/'plan.json')
+    plan = dict(stage='I4',at=now(),cases=cases,seed=old_plan['seed'],seed_sha256=old_plan['seed_sha256'],
+        prediction_source=str(PROPOSAL),prediction_source_sha256=sha(PROPOSAL),
+        training_source=old_plan['training_source'],training_source_sha256=old_plan['training_source_sha256'],
+        comparator_cases=['V02G02','V02G05'],conditional_middle_arm_included=False,
+        source_validation_result=str(OLD/'deliverables/validation6_results.json'),
+        source_validation_sha256=sha(OLD/'deliverables/validation6_results.json'),
+        overall_geometry_cap_per_case=4,overall_geometry_cap=16,initial_geometry_cap=4,
+        predictions_refitted=False)
+    for p,h in [(plan['seed'],plan['seed_sha256']),(plan['training_source'],plan['training_source_sha256'])]:
+        assert sha(p)==h
+    write(HERE/'plan.json',plan)
+    policy=read(OLD/'policy.json')
+    policy.update(version='fig8_I4_execution_v1',created_at=now(),user_authorization=USER,
+        scope='Four new iso-bandwidth width/arm configurations; no middle-arm or gap expansion',
+        bounded_tuning='At most4 geometries/case: initial + at most2 length probes +1 joint candidate. Stop on design pass. Final direct review <=70 points, <=4 frequencies/launch.')
+    write(HERE/'policy.json',policy)
+    addon=read(OLD/'mesh_policy_addendum_v2.json')
+    addon.update(created_at=now(),base_policy_sha256=sha(HERE/'policy.json'),scope='I4 inherits approved mesh rule under latest explicit four-case request')
+    write(HERE/'mesh_policy_addendum_v2.json',addon)
+    reference=read(OLD/'reference_validation.json');reference['adapter_sha256']=sha(HERE/'case_reference.py')
+    write(HERE/'reference_validation.json',reference)
+    write(HERE/'predictions_frozen.json',dict(stage='I4',model_coefficients=proposal['model_coefficients'],refitted=False,
+        cases=[{k:r[k] for k in ['case','geometry','a_mm','predicted_BW_GHz']} for r in cases],
+        proposal_sha256=sha(PROPOSAL),comparison_results_must_not_tune_widths=True))
+    write(HERE/'implementation_provenance.json',provenance)
+    write(HERE/'authorization.json',dict(stage='I4',cases=ORDER,configuration_authorized=True,
+        execution_authorized=False,launch_user_instruction=USER,at=now(),
+        budget_note='Human launch authorization already received. Execution flag opens only after actual configuration and bridge checks; no further confirmation needed.',
+        overall_geometry_cap_per_case=4,overall_geometry_cap=16,overall_cached_direct_cap=4))
+    write(HERE/'execution_plan.json',dict(stage='I4',created_at=now(),launch_user_instruction=USER,cases=ORDER,
+        initial_geometry_cap=4,geometry_cap_per_case=4,total_geometry_cap=16,
+        total_cached_direct_cap=4,initial_stage_release_only=True,
+        bounded_roles=['initial','Ls1_probe_if_needed','Lm_probe_if_needed','joint_candidate_if_needed'],
+        cores=16,serial_tasks=1,first_supervised=ORDER[:2],prediction_used_for_tuning=False,
+        final_direct_points_cap=70,final_direct_batch_points_cap=4,
+        completion_hook_target=pc.TARGET,normal_solve_periodic_messages=False,
+        note='Initial4 frozen here. Subsequent tuning/direct subphase must freeze its inputs and preserve cumulative counts within these caps.'))
+    write(HERE/'budget_ledger.json',dict(stage='I4',new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    cfg=read(OLD/'hook/config.json');cfg.update(state_dir=str(HERE/'hook/state'),created_at=now(),authorization=USER+'；仅当前聊天4项完成/失败和中断接续。')
+    write(HERE/'hook/config.json',cfg)
+    write(HERE/'hook/heartbeat/monitor.json',dict(enabled=False,status='waiting_first_real_completion',created_at=now()))
+    write(HERE/'active.json',dict(stage='preparing_four',at=now()));pc.status()
+    for f in HERE.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    print(dict(stage='I4',cases=ORDER,configuration_ready=False,solver_launched=False,hook_armed=False))
+
+if __name__=='__main__':main()

@@ -1,0 +1,24 @@
+"""Actual terminal-only B6 notifications; completion+5min state-aware recovery."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+
+def prompt(event,path):
+    return (f'[Fig8新48点完成通知] {path}\n{event["summary"]}\n'
+      f'先读{HERE/"CONTINUATION.md"}及主方案。仅本新48点，14核串行、48几何/624Analyze上限。'
+      '运行主目录continuation_v3.py review --case CASE，实际view_image看图后再acknowledge_review.py，不能自动伪造看图。'
+      '性能未过保留负例，不改几何、不换目标、不重训测试集。全局有效pilot_gate已经通过，本段首两项仍需真实审核的局部门槛。先读主目录CONTINUATION_V3.md。'
+      '按ORDER用主目录continuation_v3.py launch --case CASE启动唯一后继并监督真实14核1组。每段六项结束再主目录continuation_v3.py prepare-batch --batch N建下一段，绝不调用旧prepare_batch。'
+      'N07_A18已使用唯一技术恢复，原7次加新扫频最多1次，总8；不再恢复、不重算网格。其他失败先查真实进程/缓存，不清工程锁不重复Analyze。正常仿真静默，用户暂停优先。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Next48 frozen acquisition;14cores serial;no retuning')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

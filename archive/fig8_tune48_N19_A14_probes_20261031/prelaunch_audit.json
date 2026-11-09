@@ -1,0 +1,80 @@
+{
+  "at": "2026-10-30T19:29:31.644528+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N19_A14_probes_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 0.978s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 2.061s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 10,
+    "new_geometries_declared": 12,
+    "geometry_cap": 172,
+    "Analyze_used": 79,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 9,
+      "N11_A18_M": 7,
+      "N11_A18_C1": 1,
+      "N11_A18_C2": 7,
+      "N11_A14_S": 10,
+      "N11_A14_M": 8,
+      "N11_A14_C1": 9,
+      "N19_A14_S": 0,
+      "N19_A14_M": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 4,
+      "N11_A14": 3,
+      "N19_A14": 2
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "name": "ansysedt.exe",
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "pid": 85208,
+      "create_time": 1793355858.6193893
+    }
+  ],
+  "projects": [
+    {
+      "case": "N19_A14_S",
+      "configuration_sha256": "8bbac12f5716fa88e796ef4ad8a7536c736a9595b2729f9d1d372707c0fc5a3c",
+      "project_sha256": "932d3a7903f48a0fd2d43e340805433d4701c07b3540a3ee433dad22567fecf2"
+    },
+    {
+      "case": "N19_A14_M",
+      "configuration_sha256": "a2162f67e052741b5ae948357df9b742f8849298f6b94474d147d4fb005040c3",
+      "project_sha256": "5b20a47ab236b18528e2e55f23d07344880c97b1b7349d3dc9fca79d2cff8f73"
+    }
+  ]
+}

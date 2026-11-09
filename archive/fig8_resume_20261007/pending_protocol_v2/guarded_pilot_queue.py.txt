@@ -1,0 +1,161 @@
+"""Bounded deterministic queue; supervised first, unattended only after review."""
+import argparse,hashlib,json,os,subprocess,sys,traceback
+from pathlib import Path
+import numpy as np
+HERE=Path(__file__).resolve().parent;ROOT=Path('J:/f8_261007')
+sys.path.insert(0,str(HERE.parent.parent))
+sys.path.insert(0,str(HERE.parent))
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+sys.path.insert(0,str(HERE.parent.parent/'fig8_handoff_20261002'))
+import pilot_queue as q
+from pilot_worker import now
+from recovery_selection import compatible_protocol,resolve_attempt,validate_data,attempt_evidence
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,x):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    tmp=p.with_suffix(p.suffix+'.tmp');tmp.write_text(json.dumps(x,indent=2,ensure_ascii=False),encoding='utf-8');os.replace(tmp,p)
+def status(**kwargs):
+    p=ROOT/'pilot_queue_state.json';s=read(p) if p.exists() else {};s.update(kwargs,updated_at_utc=now(),pid=os.getpid());write(p,s)
+
+def verify_result(result):
+    compatible_protocol(result['protocol_sha256'],ROOT)
+    assert result['evidence_hashes'],'Finished result has no provenance'
+    for file,digest in result['evidence_hashes'].items():assert sha(file)==digest,'Finished evidence changed'
+    return result
+
+def seal_result(result,files):
+    result['protocol_sha256']=sha(ROOT/'production_protocol.json')
+    result['evidence_hashes']={str(f):sha(f) for f in files}
+    return verify_result(result)
+def tune(case,p):
+    folder=ROOT/case['case'];folder.mkdir(exist_ok=True)
+    final=folder/'design_result.json'
+    if final.exists():return verify_result(read(final))
+    if case['action']=='retain_recorded_design_failure':
+        result={'case':case['case'],'status':'historical_design_failure_unverified','reason':'retain_previous_bounded_phase_failure','historical_solves':case['historical_solves'],'new_solves':0,'physical_conclusion_verified':False}
+        evidence=[Path(x)/'manifest.json' for x in case['existing_iterations']]
+        reviewed=folder/'historical_recovery_review.json'
+        if reviewed.exists():
+            d=read(reviewed);compatible_protocol(d['protocol_sha256'],ROOT)
+            for file,digest in d['evidence_hashes'].items():assert sha(file)==digest
+            if d['decision']=='retain_verified_design_failure':
+                assert d['physical_review_passed'] and not d['design_passed']
+                result.update(status='failed',physical_conclusion_verified=True,selected_run=d['selected_run'],geometry=case['selected_geometry'],metrics=read(d['metrics_file']),total_phase_solves=case['historical_solves'],recovery_review=str(reviewed))
+                evidence+=[reviewed,*map(Path,d['evidence_hashes'])]
+        seal_result(result,evidence)
+        write(final,result);return result
+    history=[];initial=case['initial_geometry'];target=p['central_valley_target_GHz']
+    if case['action']=='recover_and_validate_existing_selected_first':
+        # A provisional historical success is not permission to solve it again.
+        decision_file=folder/'historical_recovery_review.json'
+        if not decision_file.exists():raise RuntimeError(f'Inspect/recover historical selected result before dispatch: {case["case"]}')
+        decision=read(decision_file)
+        assert decision['case']==case['case'];compatible_protocol(decision['protocol_sha256'],ROOT)
+        assert decision['evidence_hashes']
+        for file,digest in decision['evidence_hashes'].items():assert sha(file)==digest
+        assert decision['reason'] and decision['decision'] in ['reuse_verified','repair_required']
+        if decision['decision']=='repair_required':
+            raise RuntimeError(f'Historical numerical repair must be reviewed before phase dispatch: {case["case"]}')
+        if decision['decision']=='reuse_verified':
+            run=Path(decision['selected_run'])
+            assert str(run.resolve()) in [str(Path(x).resolve()) for x in case['existing_iterations']]
+            metrics_path=Path(decision['metrics_file'])
+            assert str(metrics_path) in decision['evidence_hashes']
+            metrics=read(metrics_path)
+            assert metrics['validity']['solver_convergence_verified'] and q.accepted(metrics,target)
+            assert decision['physical_review_passed']
+            result={'case':case['case'],'status':'accepted','reason':'verified_historical_reuse','selected_run':str(run),'geometry':case['selected_geometry'],'metrics':metrics,'historical_solves':case['historical_solves'],'new_solves':0,'total_phase_solves':case['historical_solves'],'recovery_review':str(decision_file),'recovery_review_sha256':sha(decision_file),'finished_at_utc':now()}
+            seal_result(result,[decision_file,*map(Path,decision['evidence_hashes'])])
+            write(final,result);return result
+    def evaluate(g,role,parent=None,prediction=None):
+        ordinal=case['historical_solves']+len(history)
+        if ordinal>=8:raise RuntimeError('Phase budget exceeded')
+        gate=q.geometry_gate(g,initial);assert gate['passed']
+        run=folder/f'i{ordinal:02d}';run.mkdir(exist_ok=True)
+        spec={'case':case['case'],'geometry':g,'role':role,'source':str(q.SOURCE),'source_sha256':sha(q.SOURCE),'protocol_id':p['protocol_id'],'protocol_sha256':sha(ROOT/'production_protocol.json'),'cores':16,'tasks':1,'prediction':prediction,'parent_curve_sha256':sha(parent/'sparams.csv') if parent else None,'frozen_at_utc':now()}
+        frozen=run/'prediction_frozen.json'
+        if frozen.exists():
+            old=read(frozen);assert old['geometry']==g;compatible_protocol(old['protocol_sha256'],ROOT)
+        else:write(frozen,spec)
+        data=resolve_attempt(run,ROOT)
+        mf=data/'manifest.json'
+        if mf.exists():
+            validate_data(data)
+        else:
+            if (run/'state.json').exists():raise RuntimeError(f'Incomplete run must be recovered without blind rerun: {run}')
+            status(status='running',active_case=case['case'],active_run=str(run),ordinal_including_history=ordinal+1)
+            with (run/'worker.log').open('a',encoding='utf-8') as log:
+                rc=subprocess.call([sys.executable,str(HERE/'run_guarded_case.py'),str(frozen),'--solve'],cwd='${WORKSPACE}',stdout=log,stderr=subprocess.STDOUT)
+            if rc:raise RuntimeError(f'Worker requires review: {run}, exit={rc}')
+        data=resolve_attempt(run,ROOT)
+        metrics=read(data/'response_metrics.json');assert metrics['validity']['solver_convergence_verified']
+        history.append(run);write(folder/'iteration_status.json',{'history':[str(x) for x in history],'historical_solves':case['historical_solves']})
+        return data,metrics
+    def finish(reason,run,m):
+        result={'case':case['case'],'status':'accepted' if reason=='none' else 'failed','reason':reason,'selected_run':str(run),'geometry':read(run/'manifest.json')['geometry'],'metrics':m,'historical_solves':case['historical_solves'],'new_solves':len(history),'total_phase_solves':case['historical_solves']+len(history),'new_iterations':[str(x) for x in history],'historical_iterations':case['existing_iterations'],'finished_at_utc':now()}
+        seal_result(result,[file for attempt in history for file in attempt_evidence(attempt,ROOT)])
+        write(final,result);return result
+    g=dict(case['selected_geometry'] or initial)
+    center,cm=evaluate(g,'revalidated_selected' if case['selected_geometry'] else 'initial')
+    while True:
+        if q.accepted(cm,target):return finish('none',center,cm)
+        e=q.error(cm,target)
+        if e is None:return finish('shape_not_identifiable',center,cm)
+        if case['historical_solves']+len(history)+3>8:return finish('tuning_budget_exhausted',center,cm)
+        probes=[];steps=[]
+        for key,step in [('Ls1',.10),('Lm',.05)]:
+            gp={**g,key:g[key]+step}
+            if not q.geometry_gate(gp,initial)['passed']:step=-step;gp={**g,key:g[key]+step}
+            if not q.geometry_gate(gp,initial)['passed']:return finish('step_outside_window',center,cm)
+            pr,pm=evaluate(gp,'probe_'+key,center)
+            if q.accepted(pm,target):return finish('none',pr,pm)
+            ep=q.error(pm,target)
+            if ep is None:return finish('shape_not_identifiable_in_probe',center,cm)
+            probes.append(ep);steps.append(step)
+        delta,info=q.correction(e,probes,steps)
+        if delta is None:return finish('local_sensitivity_unreliable',center,cm)
+        for half in range(5):
+            candidate={**g,'Ls1':g['Ls1']+delta[0],'Lm':g['Lm']+delta[1]}
+            if q.geometry_gate(candidate,initial)['passed']:break
+            delta*=.5
+        else:return finish('step_outside_window',center,cm)
+        pred={**info,'current_error':e.tolist(),'delta_mm':delta.tolist(),'predicted_error':(e+np.array(info['jacobian'])@delta).tolist()}
+        trial,tm=evaluate(candidate,'newton',center,pred)
+        if q.accepted(tm,target):return finish('none',trial,tm)
+        te=q.error(tm,target)
+        if te is not None and q.normalized_error(te)<=.9*q.normalized_error(e):center,cm,g=trial,tm,candidate;continue
+        if case['historical_solves']+len(history)>=8:return finish('tuning_budget_exhausted',center,cm)
+        delta*=.5;candidate={**g,'Ls1':g['Ls1']+delta[0],'Lm':g['Lm']+delta[1]}
+        pred.update(delta_mm=delta.tolist(),predicted_error=(e+np.array(info['jacobian'])@delta).tolist(),retry='half_step')
+        trial,tm=evaluate(candidate,'half_step',center,pred)
+        if q.accepted(tm,target):return finish('none',trial,tm)
+        te=q.error(tm,target)
+        if te is not None and q.normalized_error(te)<=.9*q.normalized_error(e):center,cm,g=trial,tm,candidate;continue
+        return finish('no_error_reduction',center,cm)
+def main():
+    a=argparse.ArgumentParser();a.add_argument('--stage',choices=['supervised','remaining'],required=True);a.add_argument('--solve',action='store_true');args=a.parse_args()
+    plan=read(HERE/'resume_queue_plan.json')
+    assert len(plan['cases'])==24 and len({x['case'] for x in plan['cases']})==24
+    assert sha(Path('F:/hfss_f8x_261002/pilot_24.csv'))==plan['matrix_sha256']
+    cases=[x for x in plan['cases'] if args.stage=='remaining' or x['case'] in plan['supervised_first']]
+    if not args.solve:print(json.dumps({'dry_run':True,'cases':[x['case'] for x in cases]}));return
+    p=read(ROOT/'production_protocol.json');assert p['status']=='frozen_verified'
+    assert sha(q.SOURCE)==p['source_B0_sha256'],'Frozen source project changed'
+    assert sha(Path('F:/hfss_f8_261002/T_F3/T_F3.aedt'))==p['source_T_F3_sha256'],'Reference source project changed'
+    assert p['implementation_hashes']
+    for file,digest in p['implementation_hashes'].items():assert sha(file)==digest,'Frozen production implementation changed'
+    for key in ['reference_review','collector_review']:
+        e=p[key];assert sha(e['path'])==e['sha256'] and read(e['path'])['passed']
+    if args.stage=='remaining':
+        review=read(ROOT/'supervised_first_review.json');assert review['passed'] and review['protocol_sha256']==sha(ROOT/'production_protocol.json')
+        assert set(review['cases'])==set(plan['supervised_first'])
+        for file,digest in review['evidence_hashes'].items():assert sha(file)==digest
+    lock=ROOT/'pilot_queue.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:
+        for case in cases:tune(case,p)
+        status(status='supervised_review_required' if args.stage=='supervised' else 'pilot_finished_corner_review_pending',active_run=None)
+    except Exception:status(status='review_required',error=traceback.format_exc());raise
+    finally:lock.unlink(missing_ok=True)
+if __name__=='__main__':main()

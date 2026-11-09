@@ -1,0 +1,28 @@
+"""Persist an already verified complete native sweep, zero Analyze/settings changes."""
+import sys,shutil,json,hashlib,psutil
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+CTX=ROOT.parent/'fig8_next48_b08_20261029'
+OLD=Path('D:/hfss_fig8_next48_20261029/b08/N23_A18/g01_initial')
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def main():
+    proof=read(ROOT/'N23_A18_cache_inspection3/inspection.json')
+    assert proof['sweep_solved'] and proof['history_unchanged'] and proof['native_1500_row_export_verified'] and proof['original_records_unchanged']
+    target=ROOT/'N23_A18_project_before_native_save.aedt';assert not target.exists()
+    assert not any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name']))
+    project=Path(read(OLD/'state.json')['project']);before=sha(project);shutil.copy2(project,target);assert sha(target)==before
+    sys.path.insert(0,str(CTX));import phase_geometry_worker as w
+    app=w.dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running and app.get_setup('Setup19').sweeps[0].is_solved
+        assert app.save_project()
+        app.export_convergence('Setup19',output_file=str(ROOT/'N23_A18_cache_inspection3/convergence_after_save.txt'))
+        assert w.passes(ROOT/'N23_A18_cache_inspection3/convergence_after_save.txt')==w.passes(OLD/'convergence_stage_05.txt')
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert all(sha(p)==h for p,h in proof['original_hashes'].items())
+    with (ROOT/'N23_native_save1.json').open('x',encoding='utf-8') as f:
+        json.dump(dict(Analyze_added=0,settings_changed=False,mesh_history_unchanged=True,original_failed_records_unchanged=True,
+            project_before_sha256=before,project_after_sha256=sha(project),pre_save_copy=str(target),native_proof_sha256=sha(ROOT/'N23_A18_cache_inspection3/inspection.json')),f,indent=2)
+    print(dict(saved_existing_sweep=True,Analyze_added=0))
+if __name__=='__main__':main()

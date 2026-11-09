@@ -1,0 +1,27 @@
+"""D12-only two-trial extension. No reuse/reset of original C3 budget."""
+from pathlib import Path
+import sys
+from phase_control import HERE,BASE,ORIGINAL,PLAN,read,write,sha,now,status
+sys.path.insert(0,str(ORIGINAL))
+OLD=Path('J:/f8_261007');status_report=status
+HISTORY={'D12G05':11};ORDER=['D12G05'];CAPS={'D12G05':2};STEPS=['residual_trial']
+def job_name(case,n):
+    assert case=='D12G05' and n in (1,2)
+    return f'g{n:02d}_residual_trial'
+def validate_budget(spec,l,a):
+    assert a['execution_authorized'] and a['stage']=='P12' and a['cases']==ORDER
+    assert spec['case']=='D12G05' and spec['role']=='residual_trial' and not spec.get('resume_checkpoint')
+    n=spec['new_phase_geometry_ordinal'];assert n in (1,2)
+    assert spec['historical_geometry_attempts']==11 and spec['phase_solve_ordinal_including_history']==11+n
+    assert l['case_cumulative_geometry']==HISTORY and l['new_geometry_reserved']==n<=a['geometry_cap']==2
+    assert 0<=l['new_cached_tasks_reserved']<=a['cached_task_cap']==1
+    ts=[t for t in l['tasks'] if t.get('new_phase_geometry_ordinal')]
+    assert len(ts)==n and sorted(t['new_phase_geometry_ordinal'] for t in ts)==list(range(1,n+1))
+    assert all(t['case']=='D12G05' for t in ts) and len({t['path'] for t in ts})==n
+    t=ts[-1];assert Path(t['path']).resolve()==Path(spec['input_path']).resolve() and t['input_sha256']==sha(spec['input_path'])
+def validate_geometry_budget(spec,path):
+    assert not (HERE/'stage_P12_closure.json').exists()
+    assert Path(path).resolve()==Path(spec['input_path']).resolve()
+    assert Path(spec['run_dir']).resolve()==(BASE/'D12G05'/job_name('D12G05',spec['new_phase_geometry_ordinal'])).resolve()
+    assert sha(HERE/'phase_geometry_worker.py')==spec['worker_sha256'] and sha(ORIGINAL/'mesh_budget.py')==spec['controller_sha256']
+    validate_budget(spec,read(HERE/'budget_ledger.json'),read(HERE/'authorization.json'))

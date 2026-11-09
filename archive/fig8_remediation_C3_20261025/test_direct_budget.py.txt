@@ -1,0 +1,39 @@
+import copy
+import tempfile
+import unittest
+from pathlib import Path
+from phase_direct_context import budget_guard,sha,HISTORY,ORDER
+
+class DirectBudgetTests(unittest.TestCase):
+    def setUp(self):
+        t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);p=Path(t.name)/'input.json';p.write_text('{}')
+        self.p=dict(case='D04G02',role='cached_phase_direct',cached_task_ordinal_for_case=1,geometry_budget_increment=0,adaptive_allowed=False,
+            input_path=str(p),historical_geometry_attempts=9,new_geometry_used=3,lifetime_geometry_attempts=12)
+        self.a=dict(execution_authorized=True,stage='C3',cases=ORDER,geometry_cap=20,cached_task_cap=3)
+        ts=[dict(case='D04G02',role=r,new_phase_geometry_ordinal=i+1,status='reviewed') for i,r in enumerate(['probe_Ls1','probe_Lm','candidate'])]
+        ts.append(dict(case='D04G02',role='cached_phase_direct',path=str(p),input_sha256=sha(p),status='reserved'))
+        self.l=dict(case_cumulative_geometry=HISTORY,new_geometry_reserved=3,new_cached_tasks_reserved=1,tasks=ts)
+    def test_allowed(self):budget_guard(self.p,self.l,self.a)
+    def test_adaptive_forbidden(self):
+        self.p['adaptive_allowed']=True
+        with self.assertRaises(AssertionError):budget_guard(self.p,self.l,self.a)
+    def test_no_geometry_cost(self):
+        self.p['geometry_budget_increment']=1
+        with self.assertRaises(AssertionError):budget_guard(self.p,self.l,self.a)
+    def test_one_cache_per_case(self):
+        t=copy.deepcopy(self.l['tasks'][-1]);t['path']+='other';self.l['tasks'].append(t);self.l['new_cached_tasks_reserved']=2
+        with self.assertRaises(AssertionError):budget_guard(self.p,self.l,self.a)
+    def test_history_preserved(self):
+        self.p['historical_geometry_attempts']=0
+        with self.assertRaises(AssertionError):budget_guard(self.p,self.l,self.a)
+    def test_unreviewed_forbidden(self):
+        self.l['tasks'][0]['status']='reserved'
+        with self.assertRaises(AssertionError):budget_guard(self.p,self.l,self.a)
+    def test_other_case_forbidden(self):
+        self.p['case']='D09G05'
+        with self.assertRaises(AssertionError):budget_guard(self.p,self.l,self.a)
+    def test_no_history_lifetime_reset(self):
+        self.p['lifetime_geometry_attempts']=3
+        with self.assertRaises(AssertionError):budget_guard(self.p,self.l,self.a)
+
+if __name__=='__main__':unittest.main()

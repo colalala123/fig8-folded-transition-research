@@ -1,0 +1,29 @@
+"""Read-only process identity gate for the post-batch02 resource wait; never opens AEDT."""
+import json,time
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+ROOT=Path(__file__).resolve().parent
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+
+def main():
+    wait=read(ROOT/'resource_wait_batch03.json');identity=read(wait['own_identity_file'])
+    native=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+    own=[p for p in native if p['pid']==identity['pid'] and abs(p['create_time']-identity['created'])<.01 and p['cmdline']==identity['command']]
+    extra=[p for p in native if not own or p['pid']!=own[0]['pid']]
+    workers=[];unknown=[]
+    for w in wait['foreign_workers']:
+        try:
+            p=psutil.Process(w['pid'])
+            if abs(p.create_time()-w['created'])<.01 and any(Path(c).as_posix().lower()==Path(w['script']).as_posix().lower() for c in p.cmdline()):
+                workers.append(dict(pid=p.pid,created=p.create_time(),command=p.cmdline()))
+        except psutil.NoSuchProcess:pass
+        except psutil.AccessDenied:unknown.append(w)
+    ready=bool(wait['enabled'] and len(own)==1 and not extra and not workers and not unknown)
+    result=dict(at=datetime.now(timezone.utc).isoformat(),native_ready=ready,enabled=wait['enabled'],
+        known_own_desktop_identity_verified=len(own)==1,extra_native_processes=extra,
+        original_foreign_worker_identities_alive=workers,unknown_identities=unknown,
+        separate_supported_read_thread_gate_still_required=True,Analyze_requested=False)
+    (ROOT/'resource_check_batch03_latest.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    print(json.dumps(result,ensure_ascii=False))
+if __name__=='__main__':main()

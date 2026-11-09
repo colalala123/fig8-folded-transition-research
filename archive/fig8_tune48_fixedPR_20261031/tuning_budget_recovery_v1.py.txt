@@ -1,0 +1,59 @@
+"""Add ONE authorized technical attempt without altering any frozen original budget."""
+import copy,shutil
+from pathlib import Path
+import tuning_budget as original
+from technical_request_gate import check_recovery_request
+ROOT=original.ROOT
+def registry():
+    base=copy.deepcopy(original.read(ROOT/'runtime_registry.json'))
+    p=ROOT/'technical_recovery_registry_v1.json'
+    if p.exists():base['contexts']+=original.read(p)['contexts']
+    return base
+
+def recovery_cost(previous,current,extra=0,adaptive=True):
+    assert previous['geometry']==current['geometry']
+    assert len(previous['segments'])==1 and previous['segments'][0]['adaptive_requested']
+    seg=current['segments'];n=len(seg)
+    assert n<=12 and sum(bool(x['adaptive_requested']) for x in seg)<=11
+    assert sum(not x['adaptive_requested'] for x in seg)<=1
+    assert all(x['mcp_request']['cores_per_task']==14 and x['mcp_request']['concurrent_tasks']==1 for x in seg)
+    if extra:check_recovery_request(previous,current,adaptive)
+    return n
+
+def validate_campaign(extra_analyze=0,case=None,storage=False):
+    assert extra_analyze in (0,1)
+    p=ROOT/'technical_recovery_registry_v1.json'
+    assert p.exists()
+    reg=original.read(p);assert len(reg['contexts'])==1
+    e=reg['contexts'][0];assert e['parent']=='N20_A14' and e['kind']=='technical_recovery_c2'
+    auth=original.read(ROOT/'N20_C2_RECOVERY_AUTHORIZATION.json')
+    assert auth['authorized'] and auth['same_geometry_only'] and auth['max_new_Analyze']==12
+    for f,h in auth['original_hashes'].items():assert original.sha(f)==h,f
+    assert original.sha(ROOT/'N20_C2_RECOVERY_AUTHORIZATION.json')==e['authorization_sha256']
+    ctx=Path(e['context']);assert original.sha(ctx/'plan.json')==e['plan_sha256']
+    rows=original.read(ctx/'plan.json')['cases'];assert len(rows)==1
+    row=rows[0];c=row['case'];assert c=='N20_A14_C2_TR1' and row['parent_case']=='N20_A14'
+    old=original.read(Path(auth['original_failed_run'])/'state.json')
+    assert row['geometry']==old['geometry']==auth['geometry']
+    plan=original.read(ROOT/'campaign.json');assert row['target']==plan['target']
+    baseline=next(r for r in original.read(plan['baseline_index'])['rows'] if r['case']=='N20_A14')
+    assert row['P_nominal']==baseline['P_nominal'] and row['R_nominal']==baseline['R_nominal']
+    out=original.validate_campaign(extra_analyze=extra_analyze if case!=c else 0,case=case if case!=c else None,storage=storage)
+    assert out['per_case_Analyze']['N20_A14_C2']==1
+    if extra_analyze:assert case!='N20_A14_C2','Original failed attempt is permanently closed'
+    run=Path(row['run_dir']);assert run.resolve().is_relative_to((ROOT/'data/N20_A14/c2_retry1').resolve())
+    current=original.read(run/'state.json') if (run/'state.json').exists() else dict(geometry=row['geometry'],segments=[])
+    n=recovery_cost(old,current)
+    if case==c:
+        assert n+extra_analyze<=12
+        assert n+1+extra_analyze<=13
+    assert out['Analyze_used']+n+extra_analyze<=2236
+    # The old failed C2 slot is permanently1 request; retry<=12. All other original
+    # <=171 design slots remain<=13. Hence 171*13 +1+12 ==2236, even for frozen workers.
+    assert 171*13+1+12==2236
+    if storage:assert shutil.disk_usage(ROOT).free/1024**3>=(172-out['geometries_started'])*.75+19+.75
+    out.update(Analyze_used=out['Analyze_used']+n,technical_recovery_slots_declared=1,
+      technical_recovery_Analyze=n,original_design_geometry_cap=172,attempt_slot_cap_including_technical=173,
+      combined_N20_C2_Analyze=1+n,budget_overlay='tuning_budget_recovery_v1',frozen_original_budget_unchanged=True)
+    out['per_case_Analyze'][c]=n
+    return out

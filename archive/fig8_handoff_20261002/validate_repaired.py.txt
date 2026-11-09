@@ -1,0 +1,24 @@
+import numpy as np,json
+from pathlib import Path
+R=Path(r'F:\hfss_f8x_261002\R_tri_diagC')
+def parse(p):
+ vals=[];u=1;fmt='RI'
+ for ln in Path(p).read_text(errors='ignore').splitlines():
+  ln=ln.strip()
+  if not ln or ln.startswith('!'):continue
+  if ln.startswith('#'):
+   t=ln.upper().split();u={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+  vals.extend(float(x.replace('D','E')) for x in ln.split())
+ n=6;st=73;ch=[vals[i:i+st] for i in range(0,len(vals)-st+1,st)];f=np.array([c[0]*u/1e9 for c in ch]);s=np.zeros((len(ch),n,n),complex)
+ for k,c in enumerate(ch):
+  x=np.array(c[1:]).reshape(36,2);z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1])) if fmt=='MA' else (10**(x[:,0]/20)*np.exp(1j*np.deg2rad(x[:,1])) if fmt=='DB' else x[:,0]+1j*x[:,1]);s[k]=z.reshape(n,n)
+ return f,s
+out={}
+for fn in ['50ohm_full_no_pass.s6p','50ohm_full_repaired.s6p','native_full_repaired.s6p']:
+ f,s=parse(R/fn);sv=np.linalg.svd(s,compute_uv=False);mx=sv.max(1);out[fn]={'points':len(f),'range_GHz':[float(f[0]),float(f[-1])],'max_sv':float(mx.max()),'max_sv_freq_GHz':float(f[np.argmax(mx)]),'min_sv':float(sv.min()),'passivity_violations':int(np.sum(mx>1+1e-9)),'reciprocity_error':float(np.max(np.abs(s-np.transpose(s,(0,2,1))))),'finite':bool(np.isfinite(s).all())}
+# local jump metric on repaired dataset
+f,s=parse(R/'50ohm_full_repaired.s6p');d=np.max(np.abs(s[1:]-s[:-1]),axis=(1,2));
+for ff in [6.95,6.96,6.97,6.98,6.99,7.0,7.01,7.02]:
+ i=int(np.argmin(abs(f-ff)));print('jump',ff,float(d[i-1]) if i>0 else None)
+out['50ohm_full_repaired.s6p']['max_adjacent_matrix_step_local_6p95_7p02']=float(max(d[int(np.argmin(abs(f-6.95))):int(np.argmin(abs(f-7.02)))]))
+(R/'metrics_full_repaired.json').write_text(json.dumps(out,indent=2),encoding='utf-8');print(json.dumps(out,indent=2))

@@ -1,0 +1,25 @@
+{
+  "passed": true,
+  "max_sv": 0.9999305957166017,
+  "passivity_violations": 0,
+  "reciprocity_error": 1.482538565102508e-07,
+  "reciprocity_gate_note": "1e-6 is a conservative review trigger; exceeding it requires explicit numerical review, not a declaration of physical failure.",
+  "points": 1500,
+  "original_HFSS_passivity_messages": [
+    "Project: i03, Design: Wideband vertical transition, [info] The interpolating frequency sweep converged but had one or more non passive basis solutions.  Passivity cannot be enforced for the sweep. (09:22:03 AM  Oct 03, 2026)\r\n"
+  ],
+  "warning_disposition": "Explicit modal scalar Zo and full complex S used for calibrated traveling-wave reference conversion. Original HFSS full-Z export/warnings retained. Recovery is accepted only when convergence, matrix, port identity and independent reference comparisons pass.",
+  "method": "S50 = B A^-1, D=sqrt(Zo/50), A=(D+D^-1)I+(D-D^-1)S, B=(D-D^-1)I+(D+D^-1)S. No clipping, projection, symmetrization, interpolation or fitted correction.",
+  "reviewed_at_utc": "2026-10-07T12:49:35+00:00",
+  "evidence_hashes": {
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\healthy\\all_modes_sparams.csv": "d568d814db1949c5fee6ee840624091b1ae4f7c677f33c84a3daf33bc8c0f1b3",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\healthy\\mode_impedance_gamma.csv": "4a8a9c1625efa174a79809d2eb33e190629d5a78be83b5ee2993d21109fdb1e3",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\healthy\\sparams.csv": "b6a58f79667a8cbb58932bec35b68acca26384794044f65bea2e9f99c1a5075f",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\healthy\\mode_map.json": "e2fd01627e61da65efab4e459233aa23402596f93bfa05c8e4613ee8f4a21088",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\normalization_2mode_confirmation.json": "1d5a624885d91b85113dd65abe219a733a9806e9c1cf4ab5c88190f7cb53ac63",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\external_normalization_diagnostic.json": "ab8244296582d4c5fd7e77b2f6bf378aad335f59e9cf7c959e8888543c1cdc7e",
+    "F:\\hfss_f8x_261002\\modal_seed_transfer_audit.json": "e8e72983b6fd550f326bffd77ae0b951009abf0cda0cc22bd8448cebd2fc958a",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\healthy\\scalar_reference_50ohm.npz": "29a7cd0b63bfd95c819b40573c43145a6a850250b4ef6d14316368efeb6fb488",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\collection_order_regression\\healthy\\manifest_before_review.json": "0be66134d362198bbe516ea6cf73405ac3bb1e93ae75a3ed719ade20641cb3d1"
+  }
+}

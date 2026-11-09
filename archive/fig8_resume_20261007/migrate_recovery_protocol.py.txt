@@ -1,0 +1,104 @@
+"""Explicit, archived implementation migration after the D04 recovery passes.
+
+Default is read-only. Physical settings, baseline, numerical thresholds, source
+projects and prior successful records are preserved. This does not launch HFSS
+or approve the recovered attempt for queue selection.
+"""
+import argparse,json,os,shutil
+from pathlib import Path
+import psutil
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from recovery_selection import PHYSICAL_KEYS,validate_data,hashes,compatible_protocol
+
+FILES=['run_broadband_case.py','guarded_pilot_queue.py','review_supervised.py','launch_remaining.py']
+HELPERS=['collect_completed_exports.py','recovery_selection.py']
+OLD_ID='fig8_mode2_broadband_scalar_verified_v1_20261007'
+NEW_ID='fig8_mode2_broadband_recovery_v2_20261007'
+
+def readiness():
+    p=read(ROOT/'production_protocol.json');assert p['protocol_id']==OLD_ID
+    hashes(p['implementation_hashes'])
+    reasons=[]
+    candidate=ROOT/'D04G05/i00/verified_recovery'
+    for name in ['recovery_candidate_review.json','assembly_recipe.json','manifest.json']:
+        if not (candidate/name).exists():reasons.append('Missing '+str(candidate/name))
+    if not reasons:
+        validate_data(candidate)
+        r=read(candidate/'recovery_candidate_review.json')
+        assert r['numerical_and_port_passed'] and r['seams_passed'] and r['phase_geometry_unchanged']
+        assert r['phase_solves_added']==0;hashes(r['evidence_hashes'])
+        recipe=read(candidate/'assembly_recipe.json');hashes(recipe['input_hashes'])
+        assert set(recipe['per_frequency_source'])=={str(i/100) for i in range(1,1501)}
+        assert all(x['full_50ohm_complex_error']<=.005 for x in recipe['seams'])
+        original=read(ROOT/'D04G05/i00/prediction_frozen.json')
+        assert read(candidate/'manifest.json')['geometry']==original['geometry']
+    flow=read(ROOT/'local_repair/D04G05/recovery_flow/state.json')
+    if flow['status']!='candidate_ready_protocol_review_required':reasons.append('Recovery flow is not ready for protocol review')
+    for lock in ['pilot_queue.lock','protocol.lock']:
+        if (ROOT/lock).exists():reasons.append('Active exclusive lock: '+lock)
+    for process in psutil.process_iter(['pid','name','cmdline']):
+        info=process.info;command=' '.join(info['cmdline'] or [])
+        if (info['name'] or '').lower()=='hf3d.exe' or ((info['name'] or '').lower()=='python.exe' and any(x in command for x in ['guarded_pilot_queue.py','run_guarded_case.py','run_broadband_case.py'])):
+            reasons.append('Active solver or pilot process: '+str(info['pid']))
+    for name in FILES:
+        source=HERE/'pending_protocol_v2'/name
+        compile(source.read_text(encoding='utf-8'),str(source),'exec')
+    for name in ['collection_order_regression/result.json','recovery_selection_regression/result.json']:
+        assert read(HERE/name)['passed']
+    return p,reasons
+
+def apply(old):
+    current=ROOT/'production_protocol.json';prior_sha=sha(current)
+    archive=ROOT/'protocol_history'/('v1_'+prior_sha[:12])
+    assert not archive.exists(),'Inspect an existing migration archive before retrying'
+    archive.mkdir(parents=True);implementation=archive/'implementation';implementation.mkdir()
+    shutil.copy2(current,archive/'production_protocol.json')
+    archived={}
+    for i,(file,digest) in enumerate(old['implementation_hashes'].items()):
+        dest=implementation/f'{i:02d}_{Path(file).name}';shutil.copy2(file,dest)
+        assert sha(dest)==digest;archived[str(dest)]=digest
+    replaced={}
+    for name in FILES:
+        file=HERE/name;dest=archive/('before_'+name);shutil.copy2(file,dest)
+        replaced[str(file)]={'backup':str(dest),'sha256':sha(dest)}
+    for name in ['collection_order_regression','recovery_selection_regression']:
+        dest=archive/(name+'.json');shutil.copy2(HERE/name/'result.json',dest)
+        archived[str(dest)]=sha(dest)
+    archived[str(archive/'production_protocol.json')]=prior_sha
+    proof=archive/'equivalence_review.json'
+    write_json(proof,{'passed':True,'prior_protocol_sha256':prior_sha,
+        'physical_keys_verified':PHYSICAL_KEYS,'physical_values':{k:old[k] for k in PHYSICAL_KEYS},
+        'evidence_hashes':archived,'reviewed_at_utc':now(),
+        'reason':'Only collector sequencing, explicit same-geometry recovery selection, historical stop guards and audit integration change. All original physical settings, numerical gates, reference/collector evidence and design targets are unchanged. Prior successful original sweeps remain valid without repeat solves.'})
+    write_json(archive/'installation_state.json',{'status':'installing','previous_protocol_sha256':prior_sha,'replaced_files':replaced})
+    try:
+        for name in FILES:shutil.copy2(HERE/'pending_protocol_v2'/name,HERE/name)
+        updated={**old,'protocol_id':NEW_ID,'frozen_at_utc':now(),
+            'compatible_prior_protocols':[{'path':str(archive/'production_protocol.json'),'sha256':prior_sha,
+                'scope':'unchanged_original_sweeps_and_frozen_geometry_specs',
+                'equivalence_review':{'path':str(proof),'sha256':sha(proof)}}],
+            'recovery_policy':'Original failed data remain immutable. A separately reviewed same-geometry candidate is selected only by an explicit acceptance record binding all original/candidate evidence. No failed attempt is silently rerun. Every new pilot still requires original convergence and full-matrix/port checks.',
+            'implementation_migration':str(archive/'installation_state.json')}
+        implementation_paths=list(old['implementation_hashes'])+[str(HERE/n) for n in FILES+HELPERS]
+        updated['implementation_hashes']={f:sha(f) for f in dict.fromkeys(implementation_paths)}
+        temporary=current.with_suffix('.migration.tmp');write_json(temporary,updated);os.replace(temporary,current)
+        assert all(updated[k]==old[k] for k in PHYSICAL_KEYS)
+        compatible_protocol(prior_sha,ROOT)
+        hashes(updated['implementation_hashes'])
+        write_json(archive/'installation_state.json',{'status':'installed_verified','previous_protocol_sha256':prior_sha,
+            'current_protocol_sha256':sha(current),'replaced_files':replaced,'finished_at_utc':now(),
+            'scope':'Implementation migration only. D04 acceptance, supervised review and unattended release are not implied.'})
+    except Exception:
+        for file,backup in replaced.items():shutil.copy2(backup['backup'],file)
+        shutil.copy2(archive/'production_protocol.json',current)
+        write_json(archive/'installation_state.json',{'status':'rolled_back','previous_protocol_sha256':prior_sha,'replaced_files':replaced})
+        raise
+    return {'protocol_id':NEW_ID,'protocol_sha256':sha(current),'archive':str(archive),'pilot_started':False}
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--apply',action='store_true');a=parser.parse_args()
+    old,reasons=readiness()
+    if a.apply:
+        assert not reasons,reasons
+        print(json.dumps(apply(old),indent=2))
+    else:print(json.dumps({'ready':not reasons,'blockers':reasons,'written':False},indent=2))

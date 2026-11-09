@@ -1,0 +1,36 @@
+import asyncio,json,shutil,traceback
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+from pilot_worker import write_json,now,plain
+ROOT=Path('F:/hfss_f8x_261002/R_B0_rebuild_max500');NAME='R_B0_rebuild_max500';PORT=7393;MF=ROOT/'repair_discrete_manifest.json'
+def attach(): return Hfss(project=str(ROOT/(NAME+'.aedt')),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+async def main():
+ if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])): raise RuntimeError('Solver active')
+ snap=ROOT/(NAME+'.before_discrete.aedt');shutil.copy2(ROOT/(NAME+'.aedt'),snap)
+ m={'status':'preparing','started_at_utc':now(),'snapshot':str(snap),'cores':16,'tasks':1,'diagnostic_only':True,'rationale':'1500-point Discrete sweep on repaired ModalRepair adaptive mesh; avoids interpolation basis transfer. Existing interpolating results preserved.'}
+ app=attach()
+ try:
+  setup=app.get_setup('ModalRepair')
+  for s in setup.sweeps: s.props['IsEnabled']=False;assert s.update()
+  sw=setup.create_linear_step_sweep(unit='GHz',start_frequency=.01,stop_frequency=15.,step_size=.01,name='SweepRepairDiscrete',save_fields=False,save_rad_fields=False,sweep_type='Discrete');assert sw
+  m['sweep']=plain(sw.props);m['messages_before']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));app.save_project();write_json(MF,m)
+ finally: app.release_desktop(close_projects=False,close_desktop=False)
+ m['mcp_start']=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120});assert m['mcp_start'].get('started');m['status']='solving';write_json(MF,m)
+ for _ in range(240):
+  await asyncio.sleep(30)
+  try: st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','port':PORT,'timeout':120})
+  except Exception: continue
+  if not st.get('running'):break
+ m['status_poll_complete']=now();write_json(MF,m)
+ app=attach()
+ try:
+  m['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));m['source_unchanged']=True
+  for norm in (False,True): assert app.export_touchstone(setup='ModalRepair',sweep='SweepRepairDiscrete',output_file=str(ROOT/('hfss_50ohm_discrete.s6p' if norm else 'hfss_native_discrete.s6p')),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+  app.export_convergence('ModalRepair',output_file=str(ROOT/'convergence_discrete.txt'));m['status']='exported_needs_review';m['finished_at_utc']=now();app.save_project();write_json(MF,m)
+ finally: app.release_desktop(close_projects=False,close_desktop=False)
+if __name__=='__main__':
+ try: asyncio.run(main())
+ except Exception:
+  (ROOT/'repair_discrete_error.txt').write_text(traceback.format_exc(),encoding='utf-8');raise

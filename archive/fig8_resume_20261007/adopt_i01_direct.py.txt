@@ -1,0 +1,80 @@
+"""Adopt the live direct sweep after a status-query timeout; never repeat it.
+
+Observe the existing wrapper handle until it exits, then collect its results.
+The original same-port controller resumes only after completed direct exports
+have been recovered, so its prepared-only solver branch cannot run again.
+"""
+import asyncio,json,os,shutil,time,traceback
+from pathlib import Path
+import psutil
+import recover_same_port_phase as r
+
+BASE=r.ROOT/'local_repair/D04G05_i01';ATTEMPT=r.ROOT/'D04G05/i01'
+STATE=BASE/'direct/local_state.json';FLOW=BASE/'flow.json'
+ADOPTION=BASE/'direct_adoption.json';WRAPPER_PID=37816
+
+def save_adoption(status,**kw):
+    old=r.read(ADOPTION) if ADOPTION.exists() else {}
+    temp=ADOPTION.with_suffix('.tmp')
+    r.write_json(temp,{**old,'status':status,'pid':os.getpid(),'updated_at_utc':r.now(),**kw});os.replace(temp,ADOPTION)
+
+def main():
+    assert not ADOPTION.exists(),'Inspect an existing adoption; do not duplicate the collector'
+    original=r.read(STATE);flow=r.read(FLOW);plan=r.read(BASE/'plan.json')
+    assert original['status']=='review_required' and 'get_analysis_status' in original['error']
+    assert 'broker timed out after 120s' in original['error']
+    assert not (r.ROOT/'protocol.lock').exists() and not (r.ROOT/'pilot_queue.lock').exists()
+    assert r.plan(ATTEMPT)==plan
+    owner=psutil.Process(WRAPPER_PID);command=' '.join(owner.cmdline())
+    assert owner.name().lower()=='hf3d.exe' and '-UseSolverWrapper' in command
+    assert '-max_processors 16' in command and '-numParallelGroups 1' in command
+    assert 'hfss_DESKTOP-94969B0_118740.pjt' in command
+    started=owner.create_time()
+    assert not any(p.info['name'].lower()=='python.exe' and 'recover_same_port_phase.py' in ' '.join(p.info['cmdline'] or []) for p in psutil.process_iter(['name','cmdline']))
+    archive=BASE/'status_timeout';archive.mkdir()
+    for source in [STATE,FLOW,r.ROOT/'trial_recovery_i01_v2_stderr.log']:
+        shutil.copy2(source,archive/source.name)
+    observed=r.read(BASE/'observed_solver_commands.json')['observations']
+    save_adoption('observing_existing_direct',wrapper_pid=WRAPPER_PID,wrapper_create_time=started,
+        wrapper_command=command,original_started_at_utc=original['started_at_utc'],
+        last_original_command_sample_utc=observed[-1]['observed_at_utc'],
+        reason='MCP status query timed out; existing HFSS wrapper and frequency child remained live. No new direct solve is permitted.',
+        interrupted_evidence_hashes={str(f):r.sha(f) for f in archive.iterdir()})
+    lock=r.ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    observe=r.resource_observer(BASE,r.direct.solvers)
+    try:
+        r.write_json(FLOW,{'status':'direct_check','adoption':str(ADOPTION),'updated_at_utc':r.now()})
+        state={**original,'status':'solving','observation_error_history':[original['error']],
+               'adoption':str(ADOPTION),'status_observation_method':'Existing OS wrapper handle; no repeated MCP solve request'}
+        state.pop('error',None)
+        while True:
+            live=observe()
+            still_owner=any(x['pid']==WRAPPER_PID for x in live)
+            state.update(solver_processes=live,updated_at_utc=r.now());r.write_json(STATE,state)
+            save_adoption('observing_existing_direct',solver_pids=[x['pid'] for x in live])
+            if not still_owner:
+                assert not live,'Wait for remaining solver children; do not collect or dispatch'
+                break
+            assert psutil.Process(WRAPPER_PID).create_time()==started,'Wrapper PID was reused'
+            r.audit_observations(BASE)
+            time.sleep(5)
+        # collect reads cached results and verifies actual normal completion and
+        # unchanged adaptive convergence. It never calls start_analysis.
+        save_adoption('collecting_existing_direct')
+        r.direct.NAME=r.DIRECT_NAME
+        r.direct.collect('D04G05',BASE/'direct')
+        assert r.read(STATE)['status']=='exported_review_required'
+        save_adoption('direct_exports_recovered',direct_state_sha256=r.sha(STATE))
+    except Exception:
+        save_adoption('review_required',error=traceback.format_exc())
+        r.write_json(FLOW,{'status':'review_required','adoption':str(ADOPTION),'error':traceback.format_exc(),'updated_at_utc':r.now()})
+        raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+    # r.run skips its solve branch because direct state is already exported.
+    save_adoption('resuming_segment_reviews')
+    asyncio.run(r.run(ATTEMPT))
+    save_adoption('candidate_ready_review_required',production_approved=False)
+
+if __name__=='__main__':main()

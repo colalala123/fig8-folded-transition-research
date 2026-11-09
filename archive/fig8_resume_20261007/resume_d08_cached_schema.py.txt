@@ -1,0 +1,109 @@
+"""Resume only D08's exported direct checks after explicit cached-schema review."""
+import argparse
+import asyncio
+import json
+import os
+from pathlib import Path
+import traceback
+import psutil
+import recover_d08_i00 as d
+import review_d08_cached_schema as reviewer
+from run_same_port_recovery_io import retry_metadata
+from run_same_port_recovery_v2 import timeout_wrapper
+
+r=d.r
+REVIEW=d.HERE/'d08_cached_schema_review.json'
+RECORD=d.BASE/'cached_schema_resumption.json'
+ARCHIVE=d.BASE/'cached_schema_failure'
+
+
+def derive():
+    d.validate_plan()
+    v=reviewer.review(d.ATTEMPT)
+    assert v['points']==145 and v['retained_terminal_export_exception_GHz']==[8.,15.]
+    assert v['HFSS_50ohm_calibrated_points']==143 and v['independent_impedance_route_points']==145
+    assert v['endpoint_cached_native_S_Zo_unchanged']
+    files=[Path(__file__).resolve(),Path(reviewer.__file__),d.REVIEW,
+        d.BASE/'flow.json',d.BASE/'direct/local_state.json',r.ROOT/'d08_i00_recovery_stderr.log',
+        *map(Path,v['evidence_hashes'])]
+    return {'case':'D08G02','attempt':str(d.ATTEMPT),'exceptions_GHz':[8.,15.],
+        'points':145,'HFSS_calibrated_points':143,'independent_impedance_route_points':145,
+        'HFSS_calibration_max_error':v['HFSS_50ohm_calibration_error'],
+        'independent_route_max_error':v['independent_impedance_route_error'],
+        'max_sv':v['max_sv'],'reciprocity_error':v['reciprocity_error'],
+        'cached_native_S_Zo_unchanged':True,'direct_solver_dispatches':0,'precision_unchanged':True,
+        'scope':'Repeated-column full-Z cache exports at exactly 8 and 15 GHz cannot calibrate scalar modal conversion. Preserve them. Original native S/Zo equal; all 145 points pass independent V/I conversion and full-matrix gates; other 143 also match HFSS 50-ohm export. No production approval.',
+        'evidence_hashes':{str(p):r.sha(p) for p in files}}
+
+
+def validate_review(after_resume=False):
+    value=r.read(REVIEW)
+    if after_resume:
+        hashes={k:v for k,v in value['evidence_hashes'].items() if Path(k)!=d.BASE/'flow.json'}
+        r.hashes(hashes)
+        assert r.sha(ARCHIVE/'flow.json')==value['evidence_hashes'][str(d.BASE/'flow.json')]
+    else:
+        r.hashes(value['evidence_hashes']);assert derive()==value
+    return value
+
+
+def readiness():
+    p=d.validate_plan();validate_review()
+    assert not RECORD.exists() and not ARCHIVE.exists()
+    flow=r.read(d.BASE/'flow.json')
+    assert flow['status']=='review_required' and 'Unknown full-impedance exception needs explicit review' in flow['error']
+    assert not psutil.pid_exists(flow['pid'])
+    assert not any((d.BASE/n).exists() for n in d.SEGMENTS)
+    assert not (d.BASE/'direct/review.json').exists()
+    assert r.read(d.BASE/'direct/local_state.json')['status']=='exported_review_required'
+    r.direct.idle();assert not (r.ROOT/'protocol.lock').exists()
+    return p
+
+
+async def run():
+    p=readiness()
+    ARCHIVE.mkdir()
+    import shutil
+    shutil.copy2(d.BASE/'flow.json',ARCHIVE/'flow.json')
+    record={'status':'running','pid':os.getpid(),'started_at_utc':r.now(),'direct_solver_dispatches':0,
+        'phase_solves_added':0,'monitor_interval_seconds':600,'review_sha256':r.sha(REVIEW),
+        'implementation_hashes':{str(Path(__file__).resolve()):r.sha(__file__),str(Path(reviewer.__file__)):r.sha(reviewer.__file__)}}
+    with RECORD.open('x',encoding='utf-8') as stream:json.dump(record,stream,indent=2)
+    events=[];original_write=r.write_json
+    def write(path,value):return retry_metadata('write_json:'+str(path),lambda:original_write(path,value),events)
+    r.write_json=r.direct.write_json=reviewer.write_json=write
+    def state(status,**extra):
+        write(d.BASE/'flow.json',{'status':status,'pid':os.getpid(),'updated_at_utc':r.now(),
+            'production_approved':False,'monitor_interval_seconds':600,'retry_events':events,**extra})
+    r.DIRECT=[round(f*100) for f in p['direct_frequencies_GHz']];r.direct.NAME=r.DIRECT_NAME
+    r.direct.solvers=r.resource_observer(d.BASE,r.direct.solvers)
+    r.backend.active_solvers=r.resource_observer(d.BASE,r.backend.active_solvers)
+    r.backend.asyncio=d.Poll600(30,lambda:r.backend.active_solvers())
+    r.backend.session_call=timeout_wrapper(r.backend.session_call,d.BASE,d.PROJECT)
+    original_save=r.backend.save
+    r.backend.save=lambda s:retry_metadata('run_protocol_tf3.save',lambda:original_save(s),events)
+    try:
+        reviewer.write_review(d.ATTEMPT)
+        validate_review(after_resume=True)
+        r.audit_observations(d.BASE)
+        m=r.read(d.ATTEMPT/'manifest.json')
+        for name,(lo,hi) in d.SEGMENTS.items():
+            state('checking_'+name)
+            await r.segment(d.BASE,d.PROJECT,m,name,lo,hi)
+            r.audit_observations(d.BASE)
+        state('assembling');d.assemble(m)
+        state('candidate_ready_review_required')
+        record['status']='candidate_ready_review_required'
+    except BaseException:
+        record['status']='review_required';state('review_required',error=traceback.format_exc());raise
+    finally:
+        record['finished_at_utc']=r.now();write(RECORD,record)
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();g=ap.add_mutually_exclusive_group()
+    g.add_argument('--prepare-review',action='store_true');g.add_argument('--run',action='store_true');a=ap.parse_args()
+    if a.prepare_review:
+        with REVIEW.open('x',encoding='utf-8') as stream:json.dump(derive(),stream,indent=2)
+    elif a.run:asyncio.run(run())
+    else:readiness();print(json.dumps({'ready':True,'existing_direct_points_reused':145,'new_direct_solver_dispatches':0}))

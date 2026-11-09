@@ -1,0 +1,45 @@
+"""Read real I4 files and write a compact progress report; never dispatch."""
+from pathlib import Path
+import phase_control as pc
+
+def main():
+    active=pc.read(pc.HERE/'active.json')
+    ledger=pc.read(pc.HERE/'budget_ledger.json')
+    plan=pc.read(pc.HERE/'plan.json')
+    rows=[]
+    for r in plan['cases']:
+        case=r['case'];run=pc.BASE/case/'g01_initial'
+        st=pc.read(run/'state.json') if (run/'state.json').exists() else {}
+        ack=pc.read(run/'receiver_ack.json') if (run/'receiver_ack.json').exists() else {}
+        receipt=pc.read(run/'notification_receipt.json') if (run/'notification_receipt.json').exists() else {}
+        metrics=pc.read(run/'response_metrics.json') if (run/'response_metrics.json').exists() else {}
+        direct=pc.BASE/case/'direct_smallbatch'
+        da=pc.read(direct/'receiver_ack.json') if (direct/'receiver_ack.json').exists() else {}
+        ds=pc.read(direct/'state.json') if (direct/'state.json').exists() else {}
+        rows.append(dict(case=case,status=st.get('status','not_started'),actual_elements=st.get('actual_elements'),
+            resource_observed=(run/'supervised_start.json').exists(),
+            design_passed=st.get('design_passed'),BW_GHz=metrics.get('passband_2dB',{}).get('BW_GHz'),
+            receiver_reviewed=bool(ack),notification_state=receipt.get('state'),
+            predicted_BW_GHz=r['predicted_BW_GHz'],run=str(run),
+            final_direct_status='scoped_accepted' if da.get('scoped_accepted') else ds.get('status','not_started'),
+            final_direct_accepted=bool(da.get('scoped_accepted')),direct_chunks_completed=len(ds.get('completed_chunks',[]))))
+    result=dict(at=pc.now(),stage='I4',scope='four authorized iso-bandwidth experiments',active=active,
+        actual_initial_completed=sum(r['status']=='completed' for r in rows),total=4,
+        final_accepted=sum(r['final_direct_accepted'] for r in rows),
+        final_acceptance_note='Based on actual direct receiver ACKs; initial completion alone does not count.',
+        new_geometry_reserved=ledger['new_geometry_reserved'],rows=rows)
+    pc.write(pc.HERE/'progress.json',result)
+    text=['# Fig8 等带宽四点仿真进展','',f"更新UTC：{result['at']}",'',
+        f"初始求解完成：{result['actual_initial_completed']}/4。当前：{active.get('case')} / {active.get('stage')}。",'',
+        f"最终同网格直接复核接受：{result['final_accepted']}/4。",'',
+        '已授权16核、1任务串行，可见HFSS2024R2；网格目标100000–110000，轻微超限≤112000记录。',
+        '完成/失败由hook发送本聊天；通知送达5分钟且无下一真实求解时才检查对话状态。', '',
+        '|配置|初值状态|真实网格|设计通过|BW/GHz|最终直接复核|完成频点批次|','|---|---|---:|---|---:|---|---:|']
+    for r in rows:
+        text.append(f"|{r['case']}|{r['status']}|{r['actual_elements'] or '待导出'}|{r['design_passed']}|{r['BW_GHz'] or '待导出'}|{r['final_direct_status']}|{r['direct_chunks_completed']}|")
+    text+=['','每次完成后运行本脚本更新。网格控制中的轮次、Analyze次数和几何配置数分别记录；此表不把初始求解成功等同最终验收。',
+        '',f'实际操作与预算见 {pc.HERE / "CONTINUATION.md"}。']
+    (pc.HERE/'PROGRESS.md').write_text('\n'.join(text)+'\n',encoding='utf-8')
+    print(dict(initial_completed=result['actual_initial_completed'],final_accepted=result['final_accepted'],total=4,active=active.get('stage')))
+
+if __name__=='__main__':main()

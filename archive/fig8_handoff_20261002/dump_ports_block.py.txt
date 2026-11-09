@@ -1,0 +1,4 @@
+from pathlib import Path
+p=Path(r'F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt');t=p.read_text(errors='ignore');st=t.rfind("$begin 'HFSSModel'");en=t.find("$end 'HFSSModel'",st)+len("$end 'HFSSModel'");b=t[st:en]
+for marker in ["Name='1'","Name='2'"]:
+ i=b.find(marker); print('\nMARK',marker,i); print(b[i:i+2600])

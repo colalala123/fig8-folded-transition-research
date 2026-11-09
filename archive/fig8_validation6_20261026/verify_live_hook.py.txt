@@ -1,0 +1,18 @@
+"""Read-only bridge preflight. Never creates or sends a completion event."""
+import asyncio, os
+import phase_control as pc
+from phase_publish import hook
+from phase_heartbeat_transport import read_status
+
+async def main():
+    assert os.environ.get('CODEX_THREAD_ID')==pc.TARGET
+    config=hook.load_config(pc.HERE/'hook/config.json')
+    assert config['default_thread_id']==pc.TARGET and config['authorized_threads']==[pc.TARGET]
+    state=await read_status(hook,config,pc.TARGET)
+    assert state['state'] in ('running','stopped','attention')
+    pc.write(pc.HERE/'hook_live_read_preflight.json',dict(at=pc.now(),target=pc.TARGET,
+        supported_read_thread_verified=True,thread_state=state,actual_message_sent=False,
+        heartbeat_armed=False,meaning='Bridge/status check only; actual delivery receipt follows first real completion.'))
+    print({'bridge_read_ok':True,'thread_state':state['state'],'message_sent':False})
+
+if __name__=='__main__':asyncio.run(main())

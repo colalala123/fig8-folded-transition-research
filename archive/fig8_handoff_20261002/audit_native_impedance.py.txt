@@ -1,0 +1,16 @@
+import re,json
+from pathlib import Path
+ROOT=Path('F:/hfss_f8x_261002')
+base=ROOT/'M_B0_3w16/M_B0_3w16.aedtresults/Wideband vertical transition.results'
+out={}
+for name in ('DV50093_SOL49169_M22_V50103.sd','DV50093_SOL49171_M0_V50103.sd'):
+    t=(base/name).read_text(encoding='utf-8');rows=[]
+    for match in re.finditer(r'Frequency=([0-9.eE+-]+)',t):
+        tail=t[match.end():]
+        x=re.search(r"\$begin 'PortImpedance'(.*?)\$end 'PortImpedance'",tail,re.S)
+        if x:
+            vals=[complex(float(a),float(b)) for a,b in re.findall(r'c\(([^,]+), ([^)]+)\)',x.group(1))]
+            rows.append({'f_GHz':float(match[1])/1e9,'block0_first_row':[[z.real,z.imag] for z in vals[:3]]})
+    out[name]=rows
+(ROOT/'R_B0_direct8/native_metadata_comparison.json').write_text(json.dumps(out,indent=2),encoding='utf-8')
+print(json.dumps(out,indent=2)[:5500])

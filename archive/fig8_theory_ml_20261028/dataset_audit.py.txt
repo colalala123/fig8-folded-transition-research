@@ -1,0 +1,47 @@
+"""58 selected geometries; keep scientific negative and provenance labels separate."""
+from common import *
+import numpy as np
+
+def main():
+    target=ROOT/'dataset_registry58.json';assert not target.exists()
+    original=read(SOURCE52);rows=[]
+    for r in original['rows']:
+        rows.append(dict(case=r['case'],family_id=r['group'],role='historical_selected',P=r['P'],R=r['R'],a_mm=r['a'],
+            geometry_mm=r['geometry_mm'],nominal_fold=fold_coordinates(r['geometry_mm']),
+            source_curve=r['source_curve'],source_curve_sha256=r['source_curve_sha256'],
+            numerical_evidence=r['evidence'],full_curve_proxy_eligible=r['full_curve_proxy_eligible'],
+            length_label_eligible=True,inner_peak20_positive=r['metrics20']['both_inner_peaks_le_minus20']))
+    for r in read(PREVIOUS/'blind_results.json')['results']:
+        src=Path('J:/f8_B6_261027')/r['case']/'g01_initial/sparams.csv'
+        rows.append(dict(case=r['case'],family_id='B6_'+r['case'],role='historical_blind_now_observed_development',
+            P=r['P'],R=r['R'],a_mm=r['a_mm'],geometry_mm=r['geometry'],nominal_fold=fold_coordinates(r['geometry']),
+            source_curve=str(src),source_curve_sha256=sha(src),full_curve_proxy_eligible=False,
+            length_label_eligible=bool(r['baseline_passed']),
+            numerical_evidence=r['numerical_status'],original_design_status=r['design_status'],
+            original_target=r['target'],target_coverage_supported=r['target_finite_coverage_supported'],
+            in_benchmark52=False,exclusion_reason='Keep benchmark and first-output blind evidence frozen; may enter a future version under own labels'))
+    for r in rows:assert sha(r['source_curve'])==r['source_curve_sha256']
+    # Width families govern the split even if two labels happen to have different names.
+    pair_to_family={}
+    for r in rows:
+        key=(round(r['geometry_mm']['Wm'],6),round(r['geometry_mm']['Ws'],6))
+        if key in pair_to_family:assert pair_to_family[key]==r['family_id'],'Duplicate physical family under different ids'
+        pair_to_family[key]=r['family_id']
+    duplicates=[];near=[]
+    for i,a in enumerate(rows):
+        for b in rows[i+1:]:
+            if a['a_mm']!=b['a_mm']:continue
+            g=a['geometry_mm'];h=b['geometry_mm']
+            if all(abs(g[k]-h[k])<1e-9 for k in g):duplicates.append([a['case'],b['case']])
+            d=float(np.linalg.norm([(a['P']-b['P'])/.24,(a['R']-b['R'])/.045]))
+            if d<.06 and a['family_id']!=b['family_id']:
+                near.append(dict(cases=[a['case'],b['case']],input_distance=d,
+                    abs_delta_Lm_mm=abs(g['Lm']-h['Lm']),abs_delta_Ls1_mm=abs(g['Ls1']-h['Ls1']),
+                    conflict_confirmed=False,reason='Near nominal features; requires label/procedure review, not automatically bad data'))
+    assert len(rows)==58 and len(pair_to_family)==32 and not duplicates
+    result=dict(at=now(),rows=rows,counts=dict(geometries=58,width_families=32,benchmark_training_source=52,full_curve_proxy_eligible=50),
+        exact_duplicate_geometries=duplicates,near_input_review=near,uniform_data_used=False,
+        free_rho_eta_scans_available=False,achieved_rho_eta_used_for_length_inputs=False,
+        source_hashes={str(SOURCE52):sha(SOURCE52),str(PREVIOUS/'blind_results.json'):sha(PREVIOUS/'blind_results.json')})
+    write(target,result);print(dict(registry=str(target),geometries=58,width_families=32,near_pairs=len(near)))
+if __name__=='__main__':main()

@@ -1,0 +1,36 @@
+import copy
+import tempfile
+import unittest
+from pathlib import Path
+from phase_geometry_context import validate_budget,sha
+
+class GeometryBudgetTests(unittest.TestCase):
+    def setUp(self):
+        self.t=tempfile.TemporaryDirectory();self.addCleanup(self.t.cleanup)
+        f=Path(self.t.name)/'input.json';f.write_text('{}')
+        self.spec=dict(case='D09G02',role='probe_Ls1',new_phase_geometry_ordinal=1,historical_geometry_attempts=7,phase_solve_ordinal_including_history=8,input_path=str(f))
+        self.auth=dict(execution_authorized=True,stage='A',stage_B_C_released=False,geometry_cap=3,cached_task_cap=4)
+        self.ledger=dict(new_geometry_reserved=1,new_cached_tasks_reserved=3,case_cumulative_geometry={'D09G02':7},tasks=[dict(case='D09G02',new_phase_geometry_ordinal=1,path=str(f),input_sha256=sha(f))])
+
+    def test_one_released_geometry_allowed(self):validate_budget(self.spec,self.ledger,self.auth)
+    def test_fourth_geometry_rejected(self):
+        self.spec['new_phase_geometry_ordinal']=4
+        with self.assertRaises(AssertionError):validate_budget(self.spec,self.ledger,self.auth)
+    def test_history_cannot_be_zeroed(self):
+        self.spec['historical_geometry_attempts']=0
+        with self.assertRaises(AssertionError):validate_budget(self.spec,self.ledger,self.auth)
+    def test_wrong_role_rejected(self):
+        self.spec['role']='candidate'
+        with self.assertRaises(AssertionError):validate_budget(self.spec,self.ledger,self.auth)
+    def test_unreleased_stage_rejected(self):
+        self.auth['stage_B_C_released']=True
+        with self.assertRaises(AssertionError):validate_budget(self.spec,self.ledger,self.auth)
+    def test_wrong_case_rejected(self):
+        self.spec['case']='D09G05'
+        with self.assertRaises(AssertionError):validate_budget(self.spec,self.ledger,self.auth)
+    def test_excess_cache_budget_rejected(self):
+        self.ledger['new_cached_tasks_reserved']=5
+        with self.assertRaises(AssertionError):validate_budget(self.spec,self.ledger,self.auth)
+    def test_duplicate_slot_rejected(self):
+        self.ledger['tasks'].append(copy.deepcopy(self.ledger['tasks'][0]))
+        with self.assertRaises(AssertionError):validate_budget(self.spec,self.ledger,self.auth)

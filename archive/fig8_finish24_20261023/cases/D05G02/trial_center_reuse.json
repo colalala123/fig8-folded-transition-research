@@ -1,0 +1,152 @@
+{
+  "case": "D05G02",
+  "center": "J:\\f8_finish24_261023\\D05G02_mesh_control_trial",
+  "reviewed_at": "2026-10-23T16:23:35.203896+00:00",
+  "eligible_as_tuning_center": true,
+  "not_design_acceptance": true,
+  "geometry_iterations_added": 0,
+  "visual_review_completed": true,
+  "visual_note": "Viewed existing overlay against the strict reference: three S11 valleys, smooth in-band response, noticeable deep-null S11 differences; original plot clips difference tails at +/-0.2dB. Use quantitative peak/BW metrics, not whole-curve equivalence.",
+  "actual_elements": 111552,
+  "mesh_exception_used": true,
+  "geometry": {
+    "Wm": 1.2,
+    "Ws": 0.44,
+    "Lm": 6.499465,
+    "Ls1": 12.36066,
+    "Ls2": 1.4300000000000002,
+    "Ls3": 1.8399999999999999
+  },
+  "metrics": {
+    "extraction_version": "response_pr_v1_20260920",
+    "curve_path": "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\sparams.csv",
+    "curve_sha256": "c37afe8535187737b0bf0573b5d81d4419566603e1a1d2614a642092225ffe60",
+    "points": 1500,
+    "frequency_range_GHz": [
+      0.01,
+      15.0
+    ],
+    "f0_reference_GHz": 6.85,
+    "peak_average": "linear magnitude mean, then 20log10",
+    "R_definition": "zm/zs",
+    "max_S21_dB": -0.4074712747006859,
+    "power_excess_S11_S21": -0.0006132457701786276,
+    "formal_response_PR": null,
+    "diagnostic_response_PR": {
+      "P_response": 2.0159038273514382,
+      "R_BW": 1.0575757854425696,
+      "Zm_response_ohm": 73.00635372328698,
+      "Zs_response_ohm": 69.03179396522927,
+      "f0_reference_GHz": 6.85
+    },
+    "passband_2dB": {
+      "f_low_GHz": 3.1437164995268794,
+      "f_high_GHz": 9.943991207983716,
+      "BW_GHz": 6.800274708456836,
+      "touches_sweep_edge": false
+    },
+    "passband_joint": {
+      "f_low_GHz": 3.317943029669749,
+      "f_high_GHz": 9.943991207983716,
+      "BW_GHz": 6.626048178313967,
+      "touches_sweep_edge": false
+    },
+    "prominent_valley_count": 3,
+    "valley_prominence_dB": 0.5,
+    "valleys": [
+      {
+        "frequency_GHz": 3.71,
+        "S11_dB": -28.861616442085534
+      },
+      {
+        "frequency_GHz": 6.82,
+        "S11_dB": -59.17566884519313
+      },
+      {
+        "frequency_GHz": 9.49,
+        "S11_dB": -28.02355684991197
+      }
+    ],
+    "peaks": [
+      {
+        "frequency_GHz": 4.82,
+        "S11_dB": -13.509754033449726,
+        "S21_dB": -0.626629288850743
+      },
+      {
+        "frequency_GHz": 8.49,
+        "S11_dB": -15.257538099421215,
+        "S21_dB": -0.8258180439691913
+      }
+    ],
+    "signed_peak_difference_dB": 1.747784065971489,
+    "peak_difference_dB": 1.747784065971489,
+    "peak_level_dB": -14.339758659235379,
+    "central_valley_GHz": 6.82,
+    "band_center_GHz": 6.543853853755298,
+    "worst_S11_between_valleys_dB": -13.509754033449726,
+    "min_S21_between_valleys_dB": -1.024145686688112,
+    "validity": {
+      "peak_difference_le_0p5": false,
+      "S11_below_minus10_between_valleys": true,
+      "S21_ge_minus2_between_valleys": true,
+      "band_not_truncated": true,
+      "nonpositive_transmission": true,
+      "equal_ripple": false,
+      "solver_convergence_verified": false
+    },
+    "bandcenter_sensitivity_PR": {
+      "P_response": 2.0159038273514382,
+      "R_BW": 0.9139242119466432,
+      "Zm_response_ohm": 67.86721072750052,
+      "Zs_response_ohm": 74.25912328435254,
+      "f0_reference_GHz": 6.543853853755298
+    },
+    "R_side_poles_diagnostic": 0.8186060491808987,
+    "unused_shape_checks": {
+      "S11_magnitude_RMSE": 0.12433348040932632,
+      "S21_dB_RMSE": 0.7656932703380339,
+      "low_edge_error_GHz": 0.30614614624470216,
+      "high_edge_error_GHz": 0.3061461462447017,
+      "central_valley_error_GHz": 0.02999999999999936,
+      "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+    }
+  },
+  "budget_before": {
+    "case": "D05G02",
+    "historical_count": 0,
+    "previous_batch_count": 1,
+    "prior_state_hashes": {
+      "J:\\f8_261007\\D05G02\\i00\\state.json": "8242b38d7fcf25bd28ce4901420e6e95eb7fbc8cc0776856165a23e90fe2b5f7"
+    },
+    "new_geometry_slots": {},
+    "attempts_used_or_reserved": 1,
+    "limit": 8,
+    "note": "Prepared inputs reserve a slot; explicit same-geometry cache recovery shares its original slot."
+  },
+  "evidence_hashes": {
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\trial_result.json": "161b072629429161364100b12efdca4cab96d404e35d34d6dbdacc48d5b20120",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\state.json": "75eefd2c6f4d25c96b3cbbb141b8f1894b7b62520b938931f08534160e56a398",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\plan.json": "733fd6e511ea805db9227abd664a84d4b96a5f29581eb43113ff1c40f4910474",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\comparison.json": "a81f781b6b042348494713cf03a70abf4048ad3161ad97c9a5b1ff210217be43",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\response_metrics.json": "639a03ee7c08fe8f6e64e8d20e25f8f62ff7b73911db006fc64331e5a126e985",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\sparams.csv": "c37afe8535187737b0bf0573b5d81d4419566603e1a1d2614a642092225ffe60",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\all_modes_sparams.csv": "905dc094cd18f718b961af7738e935e6d1060b9737311ca1e0f5d96ad53a6fa5",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\mode_impedance_gamma.csv": "54f144c1e7783572d65ce638bc091646ef7a0bf964d404fb032c05393f3b692d",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\convergence_before.txt": "cf63e37fe8c256399f37d794a9bc2fb8912ba4f9587fcbe59295a93b01e169b9",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\convergence.txt": "b1b169891514708285e9030c6e71e82e705f1670ed3f50019ae8051fc8938795",
+    "J:\\f8_speed_261021\\F_D05G02\\sparams.csv": "4bceac7039d4960fc7861b2560b2d8cab2f9161da2529cd4e7a23341f4a047a0",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\completion_event.json": "2f3b0bfbd456f9b57dd9d52ec0d8e82deb699e90751c61b2697535be9dae8940",
+    "J:\\f8_finish24_261023\\D05G02_mesh_control_trial\\receiver_ack.json": "c784fbd735931afe539eccab1b368d26f36331007509b693aab793ff3a6a613f",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\mesh_trial_review.json": "78215f110cf7c6d70f5965f5896d4fac50b18c388ca52e1855f8e7075efe3c3a",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\mesh_policy_addendum_v2.json": "fa8d24f7b4d3b7b740c4b6be6ec1a88c646eb3c571bb74475dc015d5bf551b5b",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\policy.json": "5e41a4814c6ab4bf90f2c4905587a252ab146767287b96ac1466a8f21c7144a0",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\mesh_trial_response.png": "cab0ed809442f826cd6c77866c7c722f2bd8f904291165293c4c7ead47ada526",
+    "J:\\f8_261007\\D05G02\\i00\\state.json": "8242b38d7fcf25bd28ce4901420e6e95eb7fbc8cc0776856165a23e90fe2b5f7",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\prepare_d05_tuning.py": "209c49f3ca7ebcf9fddc355483adf48c235f9f3d51a111206be660733ec9eaaf",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\prepare_tuning.py": "ed0a02d3dfca085edd1fe40ee6f802dc28bd4bd31d7f8fd7211b4431acb4c026"
+  },
+  "decision": "Reuse existing unchanged-geometry cache at approved <=112000 count and 1% non-passivity-enforced sweep for bounded local tuning. Do not re-solve baseline just to reduce element count; do not import old mixed-policy sensitivities. New independent probes use the tested staged-count worker.",
+  "limitations": "Refinement schedule differs from the later staged worker. Existing validation found 7.070MHz BW shift and up to 0.1311dB peak shift versus strict reference. This is tuning-level evidence, not strict response/full-matrix validation. If probe changes are comparable to this discrepancy or actual candidate fails to improve, do not trust the Jacobian or broaden attempts; inspect/stop within budget. Original mesh_control_trial_passed=false and delta-S status remain unchanged.",
+  "next_steps": "c01 independent Ls1 +0.10 and Lm +0.05 probes from this center, then bounded candidate. Historical count1; slots2/3/4 for c01; later c02 only after measured improvement and budget check. Final candidate requires direct check."
+}

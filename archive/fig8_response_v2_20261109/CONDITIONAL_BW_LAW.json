@@ -1,0 +1,38 @@
+{
+  "label": "descriptive conditional S21 -2dB bandwidth, not joint -20dB bandwidth or causal electromagnetic proof",
+  "formula": "BW_GHz = intercept + coefficients dot [lnP,lnR,a,deltaLm,deltaLs1]",
+  "intercept": 3.8326774505965577,
+  "coefficients": {
+    "lnP": 1.2748251942036568,
+    "lnR": -3.0354511111587024,
+    "a_mm": 0.036529136882204646,
+    "actual_minus_nominal_Lm_mm": -0.4925262831412123,
+    "actual_minus_nominal_Ls1_mm": -0.17173647378825774
+  },
+  "bootstrap_5_95_percentile": {
+    "lnP": [
+      1.1775997939895588,
+      1.317931335468755
+    ],
+    "lnR": [
+      -3.1139696335927116,
+      -2.8787078473120165
+    ],
+    "a_mm": [
+      0.02117117354042775,
+      0.04416477219698973
+    ],
+    "actual_minus_nominal_Lm_mm": [
+      -0.5171843951796442,
+      -0.46473057910848253
+    ],
+    "actual_minus_nominal_Ls1_mm": [
+      -0.1888115394137748,
+      -0.13864512595589387
+    ]
+  },
+  "R_negative_bootstrap_fraction": 1.0,
+  "bootstrap_unit": "24 width families; 400 deterministic resamples; selected-development descriptive stability, not calibrated confidence",
+  "standardized_design_condition_number": 9.827359276466808,
+  "nominal_length_definition": "quarter-wave microstrip and nominal unfolded half-wave slot at6.72GHz, er3.55"
+}

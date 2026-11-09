@@ -1,0 +1,12 @@
+import unittest
+from phase_final_direct import frequencies
+
+class FrequenciesTests(unittest.TestCase):
+    def setUp(self):
+        self.m=dict(peaks=[{'frequency_GHz':4.51},{'frequency_GHz':8.66}],valleys=[{'frequency_GHz':3.48},{'frequency_GHz':6.72},{'frequency_GHz':9.72}],passband_2dB={'f_low_GHz':2.8732256244,'f_high_GHz':10.1246798272})
+    def test_old_failed_frequency_is_mandatory(self):self.assertIn(10.19,frequencies(self.m))
+    def test_bounded_sorted_unique(self):
+        f=frequencies(self.m);self.assertEqual(f,sorted(set(f)));self.assertLessEqual(len(f),70)
+    def test_peaks_valley_and_edges_retained(self):
+        f=frequencies(self.m)
+        for x in [4.46,4.51,4.56,6.69,6.72,6.75,8.61,8.66,8.71,2.84,2.9,10.09,10.15,12.,15.]:self.assertIn(x,f)

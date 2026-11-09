@@ -1,0 +1,41 @@
+"""Offline24 new width families x2 arms. PLAN ONLY: no projects/solver requests."""
+from common import *
+from scipy.stats import qmc
+import numpy as np
+from design import candidate_geometry,load_verified_model
+
+def main():
+    dest=ROOT/'next48_sampling_plan.json';assert not dest.exists()
+    old=read(SOURCE52)['rows'];b6=read(PREVIOUS/'blind_results.json')['results']
+    known=np.array([[r['P'],r['R']] for r in old]+[[r['P'],r['R']] for r in b6])
+    candidates=qmc.scale(qmc.LatinHypercube(2,seed=20261028).random(2048),[2.04,.430],[2.28,.475])
+    # Maximin coverage based solely on inputs. No new HFSS outcomes used.
+    chosen=[];sc=np.array([.24,.045]);model=load_verified_model()
+    while len(chosen)<24:
+        d=np.linalg.norm((candidates[:,None,:]-known[None,:,:])/sc,axis=2).min(axis=1)
+        i=int(np.argmax(d));p,r=map(float,candidates[i]);nearest=float(d[i])
+        if nearest<.05:break
+        values=[]
+        for arm in [1.4,1.8]:
+            pp,rr,g,c=candidate_geometry(p,r,arm,model)
+            values.append(dict(a_mm=arm,P=pp,R=rr,geometry_mm=g,nominal_fold_coordinates=c))
+        chosen.append(dict(family_id=f'N{len(chosen)+1:02}',P_requested=p,R_requested=r,min_normalized_distance=nearest,geometries=values))
+        known=np.vstack([known,[values[0]['P'],values[0]['R']]])
+        candidates=np.delete(candidates,i,axis=0)
+    assert len(chosen)==24
+    # Whole families held out. Five of24 is approximately20%.
+    indices=set(np.random.default_rng(20261028).choice(24,5,replace=False).tolist())
+    for i,r in enumerate(chosen):r['role']='prospective_test_family' if i in indices else 'training_acquisition_family'
+    write(dest,dict(at=now(),stage='plan_only_not_authorized_by_probe_runtime',families=chosen,
+        independent_width_families=24,new_geometry_count=48,test_family_count=5,test_geometry_count=10,
+        input_geometry_strategy='Frozen quadratic length residual52; not tuned or HFSS-validated',
+        activation_gates=['Complete the bounded9 correction pilot and final direct verification.',
+            'Freeze new model/version and exact continuous-band targets BEFORE these tests are solved.',
+            'Preserve whole families, probes and tuned candidates in one split.',
+            'Build separate budget/CAD/hook context; this file is not a solver queue.'],
+        actual_projects_created=0,Analyze_started=False,uniform_data_used=False,
+        source_hashes={str(SOURCE52):sha(SOURCE52),str(PREVIOUS/'blind_results.json'):sha(PREVIOUS/'blind_results.json'),
+                      str(ROOT/'benchmark_v1/manifest.json'):sha(ROOT/'benchmark_v1/manifest.json')}))
+    print(dict(plan=str(dest),families=24,geometries=48,solver_started=False))
+
+if __name__=='__main__':main()

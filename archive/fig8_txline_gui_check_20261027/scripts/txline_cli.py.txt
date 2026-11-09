@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""Small CLI wrapper around TXLINE GUI automation scripts.
+
+This keeps the public interface stable for sampling scripts while the actual
+TXLINE control remains in the PowerShell/UIAutomation helpers.
+"""
+
+from __future__ import annotations
+
+import argparse
+import contextlib
+import json
+import msvcrt
+import time
+import subprocess
+import sys
+from pathlib import Path
+
+
+ROOT = Path(__file__).resolve().parents[1]
+SCRIPT_DIR = Path(__file__).resolve().parent
+TXLINE_EXE = Path(r"D:\Program Files (x86)\AWR\AWRDE\19\txline.exe")
+LOCK_FILE = Path.home() / ".txline_gui_cli.lock"
+
+
+@contextlib.contextmanager
+def txline_lock():
+    """Serialize access to TXLINE's single GUI process across Python callers."""
+    LOCK_FILE.parent.mkdir(parents=True, exist_ok=True)
+    with LOCK_FILE.open("a+b") as f:
+        msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+        try:
+            yield
+        finally:
+            f.seek(0)
+            msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+
+
+def run_powershell(script: str, args: list[str], timeout: int = 60) -> dict:
+    script_path = SCRIPT_DIR / script
+    if not script_path.exists():
+        script_path = ROOT / "tools" / script
+    command = [
+        "powershell",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        str(script_path),
+        *args,
+    ]
+    completed = subprocess.run(command, capture_output=True, text=True, timeout=timeout)
+    if completed.returncode != 0:
+        raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
+    try:
+        return json.loads(completed.stdout)
+    except json.JSONDecodeError as exc:
+        raise RuntimeError(f"TXLINE script did not return JSON: {completed.stdout}") from exc
+
+
+def ps_string_literal(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def txline_window_exists(title: str) -> bool:
+    script = rf"""
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+$found = $false
+for ($i = 0; $i -lt $children.Count; $i++) {{
+  if ($children.Item($i).Current.Name -eq {ps_string_literal(title)}) {{ $found = $true; break }}
+}}
+if ($found) {{ 'true' }} else {{ 'false' }}
+"""
+    completed = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return completed.returncode == 0 and completed.stdout.strip().lower() == "true"
+
+
+def any_txline_window_exists() -> bool:
+    script = """
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+$found = $false
+for ($i = 0; $i -lt $children.Count; $i++) {
+  $candidate = $children.Item($i)
+  if ($candidate.Current.ClassName -eq 'TForm1' -and $candidate.Current.Name -like 'TXLINE 2003*') { $found = $true; break }
+}
+if ($found) { 'true' } else { 'false' }
+"""
+    completed = subprocess.run(
+        ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    return completed.returncode == 0 and completed.stdout.strip().lower() == "true"
+
+
+def ensure_txline_microstrip(background: bool = False) -> None:
+    if txline_window_exists("TXLINE 2003 - Microstrip"):
+        return
+    if any_txline_window_exists():
+        try:
+            ps_args = ["-TabText", "Microstrip"]
+            if background:
+                ps_args.append("-Background")
+            run_powershell("txline_mouse_click_tab.ps1", ps_args, timeout=15)
+        except Exception:
+            pass
+        deadline = time.time() + 5
+        while time.time() < deadline:
+            if txline_window_exists("TXLINE 2003 - Microstrip"):
+                return
+            time.sleep(0.5)
+    if not TXLINE_EXE.exists():
+        raise RuntimeError(f"TXLINE executable not found: {TXLINE_EXE}")
+    subprocess.Popen([str(TXLINE_EXE)], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    deadline = time.time() + 15
+    while time.time() < deadline:
+        if txline_window_exists("TXLINE 2003 - Microstrip"):
+            return
+        time.sleep(0.5)
+    raise RuntimeError("Started TXLINE, but the Microstrip window did not appear within 15 seconds.")
+
+
+def ensure_txline_slotline(background: bool = False) -> None:
+    if txline_window_exists("TXLINE 2003 - Slotline"):
+        return
+    ensure_txline_microstrip(background=background)
+    # Best-effort tab switch; TXLINE 2003's VCL tab control does not always fire
+    # the page-change event via automation, so this may need manual fallback.
+    try:
+        ps_args = ["-TabText", "Slotline"]
+        if background:
+            ps_args.append("-Background")
+        run_powershell("txline_mouse_click_tab.ps1", ps_args, timeout=15)
+    except Exception:
+        pass
+    deadline = time.time() + 5
+    while time.time() < deadline:
+        if txline_window_exists("TXLINE 2003 - Slotline"):
+            return
+        time.sleep(0.5)
+    raise RuntimeError(
+        "TXLINE Slotline window was not found. Open TXLINE's Slotline tab once, "
+        "then rerun this command."
+    )
+
+
+def add_common_material_args(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--er", type=float, required=True)
+    parser.add_argument("--tand", type=float, required=True)
+    parser.add_argument("--frequency-ghz", type=float, required=True)
+
+
+def cmd_microstrip(args: argparse.Namespace) -> dict:
+    if args.ensure:
+        ensure_txline_microstrip(background=args.background)
+    return run_powershell(
+        "txline_control_microstrip.ps1",
+        [
+            "-Er",
+            str(args.er),
+            "-TanD",
+            str(args.tand),
+            "-Conductivity",
+            str(args.conductivity),
+            "-FrequencyGHz",
+            str(args.frequency_ghz),
+            "-LengthUm",
+            str(args.length_um),
+            "-WidthUm",
+            str(args.width_um),
+            "-HeightUm",
+            str(args.height_um),
+            "-ThicknessUm",
+            str(args.thickness_um),
+        ],
+    )
+
+
+def cmd_slotline(args: argparse.Namespace) -> dict:
+    if args.ensure:
+        ensure_txline_slotline(background=args.background)
+    return run_powershell(
+        "txline_control_slotline.ps1",
+        [
+            "-Er",
+            str(args.er),
+            "-TanD",
+            str(args.tand),
+            "-FrequencyGHz",
+            str(args.frequency_ghz),
+            "-LengthUm",
+            str(args.length_um),
+            "-GapUm",
+            str(args.gap_um),
+            "-HeightUm",
+            str(args.height_um),
+        ],
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="TXLINE GUI-backed CLI wrapper")
+    sub = parser.add_subparsers(dest="command", required=True)
+
+    ms = sub.add_parser("microstrip", help="calculate microstrip electrical values from physical dimensions")
+    add_common_material_args(ms)
+    ms.add_argument("--conductivity", type=float, default=5.88e7)
+    ms.add_argument("--length-um", type=float, required=True)
+    ms.add_argument("--width-um", type=float, required=True)
+    ms.add_argument("--height-um", type=float, required=True)
+    ms.add_argument("--thickness-um", type=float, default=35)
+    ms.add_argument("--ensure", action="store_true", help="start TXLINE if the Microstrip window is not open")
+    ms.add_argument("--background", action="store_true", help="avoid foreground/always-on-top tab switching when possible")
+    ms.set_defaults(func=cmd_microstrip)
+
+    sl = sub.add_parser("slotline", help="calculate slotline electrical values from physical dimensions")
+    add_common_material_args(sl)
+    sl.add_argument("--length-um", type=float, required=True)
+    sl.add_argument("--gap-um", type=float, required=True)
+    sl.add_argument("--height-um", type=float, required=True)
+    sl.add_argument("--ensure", action="store_true", help="start TXLINE and try to open Slotline if needed")
+    sl.add_argument("--background", action="store_true", help="avoid foreground/always-on-top tab switching when possible")
+    sl.set_defaults(func=cmd_slotline)
+
+    return parser
+
+
+def main() -> int:
+    parser = build_parser()
+    args = parser.parse_args()
+    try:
+        with txline_lock():
+            result = args.func(args)
+    except Exception as exc:
+        print(json.dumps({"success": False, "error": str(exc)}, ensure_ascii=False, indent=2))
+        return 1
+    print(json.dumps({"success": True, **result}, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

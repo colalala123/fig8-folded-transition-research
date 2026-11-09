@@ -1,0 +1,28 @@
+"""Geometry adapter with the new stage-A budget, separate from old batch."""
+from phase_control import HERE,TARGET,now,write
+from phase_publish import hook
+
+def prompt(e,path):
+    return (f"[Fig8 新一轮A阶段几何 / 自动事件]\n事件ID：{hook.event_id(e)}\n状态：{e['status']}\n摘要：{e['summary']}\n事件：{path}\n"
+        f'用户授权本聊天16核串行及hook接续；先核验全部产物SHA/父证据、真实网格及S11/S21实际曲线，再写receiver_ack.json。'
+        f'读取{HERE / "CONTINUATION.md"}、authorization.json和budget_ledger.json继续A阶段。'
+        '本轮D09G02仅3个新几何（Ls1探针、独立Lm探针、候选）及最多1个剩余完整直接复核任务；历史7次必须保留，不能执行旧8次入口或无限增加本轮预算。'
+        'D11G05已在新阶段范围通过且2缓存用完，不再重跑。B/C未释放，不处理均匀或六极。'
+        '求解成功不等于设计/数值通过，源失败记录不改。异常先读现有结果和进程，不盲清锁/Analyze。'
+        '本轮结束前须核实下一项真实启动，或写绑定当前event_sha256、有证据reason的continuation_resolution.json。'
+        'disposition仅blocked/paused/batch_complete；paused需用户明确要求。A阶段终态后汇总并停止派发，等待B/C决定。')
+
+async def publish(run,case,status,summary,artifacts):
+    config=hook.load_config(HERE/'hook/config.json')
+    assert config['default_thread_id']==TARGET and case=='D09G02'
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=config,verified_success=status=='completed',
+            purpose='User-authorized bounded Fig8 stage-A geometry continuation, current chat only')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=config)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

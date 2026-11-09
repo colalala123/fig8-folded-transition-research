@@ -1,0 +1,28 @@
+"""New B05 budget only; historical91 Analyze are read-only, not reset/reused."""
+import json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+OUT=ROOT.parent
+BASE=Path('D:/hfss_fig8_B05_20261029')
+PROBE_CONTEXT=OUT/'fig8_B05_fix14_probes_20261029'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def geometry_runs():
+ return [BASE/'probes'/c/'g01_initial' for c in ['B05N_S','B05N_M']]+[BASE/f'candidate{i}'/f'B05N_C{i}'/'g01_initial' for i in [1,2]]
+def validate_development(extra_analyze=0):
+ count=0;n=0
+ for run in geometry_runs():
+  if not (run/'state.json').exists():continue
+  s=read(run/'state.json');count+=1;segs=s.get('segments',[])
+  assert len(segs)<=13 and sum(bool(x['adaptive_requested']) for x in segs)<=12 and sum(not x['adaptive_requested'] for x in segs)<=1
+  assert all(x['mcp_request']['cores_per_task']==14 and x['mcp_request']['concurrent_tasks']==1 for x in segs)
+  n+=len(segs)
+ direct=0
+ for ctx in [ROOT/'direct_review',ROOT/'reserved_review']:
+  ledger=ctx/'case_work_ledger.json'
+  if ledger.exists():
+   for t in read(ledger)['tasks']:
+    assert t['case']=='B05'
+    state=Path(t['path']).parent/'state.json'
+    if state.exists():direct+=len(read(state).get('segments',[]))
+ assert count<=4 and direct<=8 and n+direct+extra_analyze<=60
+ return dict(new_geometries_started=count,new_geometry_cap=4,Analyze_used=n+direct,Analyze_cap=60,cores_per_task=14,serial=True,historical91_not_modified=True)

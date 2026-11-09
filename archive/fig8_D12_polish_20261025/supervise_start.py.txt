@@ -1,0 +1,38 @@
+"""Bounded read-only startup observer. Never requests Analyze or deletes locks."""
+import argparse
+from pathlib import Path
+import time
+import psutil
+import phase_control as pc
+
+def observe(run,seconds=120):
+    run=run.resolve();spec=run/'input.json'
+    assert run.is_relative_to(pc.BASE.resolve())
+    frozen=pc.read(spec);expected=pc.sha(spec)
+    until=time.monotonic()+seconds
+    while True:
+        if (run/'worker_error.json').exists():
+            raise RuntimeError(str(pc.read(run/'worker_error.json')))
+        if (run/'state.json').exists():
+            s=pc.read(run/'state.json');a=pc.read(pc.HERE/'active.json')
+            assert pc.sha(spec)==expected and s['input_sha256']==expected
+            assert Path(a['run_dir']).resolve()==run and s['case']==frozen['case']
+            live=[p.info for p in psutil.process_iter(['pid','name','cmdline']) if (p.info['name'] or '').lower()=='hf3d.exe']
+            recorded=[p for seg in s.get('segments',[]) for obs in seg.get('observations',[]) for p in obs]
+            good=[p for p in live+recorded if '-max_processors 16' in ' '.join(p['cmdline'] or []) and '-numParallelGroups 1' in ' '.join(p['cmdline'] or [])]
+            if good:
+                worker=psutil.Process(a['pid'])
+                assert str(spec) in worker.cmdline()
+                proof=dict(at=pc.now(),input_sha256=expected,worker_pid=worker.pid,worker_created=worker.create_time(),
+                    worker_command=worker.cmdline(),actual_hf3d=good,active_stage=a['stage'],actual_elements=s.get('actual_elements'),
+                    mcp_requests=[x['mcp_request'] for x in s['segments']],geometry=frozen.get('geometry',frozen.get('source_geometry')),
+                    actual_16core_single_group_observed=True)
+                assert not (run/'supervised_start.json').exists()
+                pc.write(run/'supervised_start.json',proof)
+                print(proof);return
+        if time.monotonic()>=until:raise TimeoutError('Inspect existing worker/state; never retry Analyze from a missing snapshot')
+        time.sleep(5)
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--run',type=Path,required=True)
+    observe(ap.parse_args().run)

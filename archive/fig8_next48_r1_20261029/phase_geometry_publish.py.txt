@@ -1,0 +1,24 @@
+"""Actual terminal-only B6 notifications; completion+5min state-aware recovery."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+
+def prompt(event,path):
+    return (f'[Fig8新48点N02_A18唯一技术恢复终态] {path}\n{event["summary"]}\n'
+      '先读 ${WORKSPACE}/output/fig8_next48_20261029/CONTINUATION_V2.md 与CURRENT_STATUS。'
+      '必须用 continuation_v2.py review --case N02_A18 解析恢复路径，实际view_image后才用恢复上下文acknowledge_review。'
+      '然后continuation_v2.py adopt建立有效ACK接续，launch --case N05_A14；原失败input/state/event不覆盖不造ACK。'
+      '14核1组串行、同48几何、总624Analyze，本项唯一恢复≤13，已用technical_recovery_attempt=1，不再自动恢复。'
+      '正常仿真静默，用户暂停优先；失败先查真实进程和缓存，不清锁、不重复Analyze，不新增几何/调谐/直接点。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Next48 frozen acquisition;14cores serial;no retuning')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

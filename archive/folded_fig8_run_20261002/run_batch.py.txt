@@ -1,0 +1,232 @@
+"""Fresh Fig. 8 solves on isolated copies, with a bounded local queue."""
+from __future__ import annotations
+import argparse
+import csv
+import hashlib
+import json
+import re
+import shutil
+import subprocess
+import sys
+import time
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+
+WORK = Path('${WORKSPACE}')
+HERE = Path(__file__).resolve().parent
+ROOT = Path('F:/hfss_f8_261002')
+SCOPE = WORK / 'output/folded_geometry_scope_20261002'
+sys.path[:0] = [str(WORK), str(SCOPE), str(WORK/'tmp/folded_plan_review/automation'),
+               str(WORK/'output/folded_simulation_plan_20260920')]
+SOURCES = {
+    'B0': Path('F:/hfss_fold_260920/B0_rerun_20260923/B0.aedt'),
+    'F2': Path('F:/hfss_fold_260920/F2/F2.aedt'),
+    'F3': Path('F:/hfss_fold_260920/F3/F3.aedt'),
+    'G2': Path('F:/hfss_fold_260920/G2/G2.aedt'),
+    'G035': WORK/'Wideband vertical transition.aedt',
+}
+
+def now():
+    return datetime.now(timezone(timedelta(hours=8))).isoformat(timespec='seconds')
+
+def sha(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+def write_json(path, obj):
+    path = Path(path)
+    tmp = path.with_suffix(path.suffix + '.tmp')
+    tmp.write_text(json.dumps(obj, indent=2, ensure_ascii=False, default=str)+'\n', encoding='utf-8')
+    tmp.replace(path)
+
+def rows():
+    with (SCOPE/'first_five_configurations.csv').open(encoding='utf-8-sig', newline='') as f:
+        return list(csv.DictReader(f))
+
+def check_settings(app):
+    setup = app.get_setup('Setup19')
+    required = {'SolveType': 'Broadband', 'MaxDeltaS': 0.005, 'MaximumPasses': 40,
+                'MinimumPasses': 6, 'MinimumConvergedPasses': 2, 'PercentRefinement': 30}
+    for key, value in required.items():
+        if setup.props.get(key) != value:
+            raise RuntimeError(f'Incomparable setup {key}: {setup.props.get(key)!r}, expected {value!r}')
+    bands = dict(setup.props['MultipleAdaptiveFreqsSetup'])
+    if bands != {'Low':'0.1GHz', 'High':'15GHz'}:
+        raise RuntimeError(f'Unexpected adaptive band: {bands}')
+    sweep = next(s for s in setup.sweeps if s.name == 'Sweep1')
+    for key,value in {'Type':'Interpolating','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz'}.items():
+        if sweep.props.get(key) != value:
+            raise RuntimeError(f'Unexpected sweep {key}: {sweep.props.get(key)!r}')
+    return {'setup': dict(setup.props), 'sweep':dict(sweep.props)}
+
+def convergence(path):
+    txt=Path(path).read_text(encoding='utf-8',errors='replace')
+    def number(pattern):
+        match=re.search(pattern,txt)
+        return float(match.group(1)) if match else None
+    return {'converged': bool(re.search(r'Converged\s*:\s*Yes',txt,re.I)),
+            'passes': number(r'Completed\s*:\s*(\d+)'),
+            'final_delta_s': number(r'Current\s*:\s*([\d.eE+-]+)')}
+
+def postprocess(run):
+    import numpy as np
+    from response_metrics import analyze
+    result=analyze(run/'sparams.csv',f0=6.85)
+    conv=convergence(run/'convergence.txt')
+    result['convergence']=conv
+    result['validity']['solver_convergence_verified']=conv['converged']
+    if not conv['converged']:
+        result['formal_response_PR']=None
+    with (run/'sparams.csv').open(encoding='utf-8-sig',newline='') as f:
+        data=list(csv.DictReader(f))
+    frequencies=np.array([float(r['Freq_GHz']) for r in data])
+    s11=np.array([float(r['S11_mag']) for r in data])
+    s21=np.array([float(r['S21_mag']) for r in data])
+    deficit=1-s11*s11-s21*s21
+    result['power_deficit_note']='1-|S11|^2-|S21|^2 is total unaccounted port-mode power, not independently identified radiation.'
+    result['sampled_response']={str(freq):{
+        'S11_dB':float(np.interp(freq,frequencies,20*np.log10(s11))),
+        'S21_dB':float(np.interp(freq,frequencies,20*np.log10(s21))),
+        'unaccounted_power_fraction':float(np.interp(freq,frequencies,deficit)),
+    } for freq in (6.85,8.5,9.5)}
+    write_json(run/'response_metrics.json',result)
+    return result
+
+def worker(case, cores):
+    from prepare_geometry_scope import derive
+    from resume_folded_case import export_sparams
+    row=next(r for r in rows() if r['case']==case)
+    geometry={k:float(row[k]) for k in ('Wm','Lm','Ws','Ls1','Ls2','Ls3')}
+    geomcheck=derive(geometry)
+    if not geomcheck['inside_research_window']:
+        raise ValueError(geomcheck)
+    run=ROOT/case
+    run.mkdir(parents=True,exist_ok=True)
+    project=run/f'{case}.aedt'
+    resume_preflight=False
+    if project.exists():
+        prior_path=run/'manifest.json'
+        prior=json.loads(prior_path.read_text(encoding='utf-8'))
+        if prior.get('status')=='failed' and 'DeleteFullVariation' in prior.get('error','') and not prior.get('solve_started_at'):
+            shutil.copy2(prior_path,run/'manifest_preflight_failure.json')
+            resume_preflight=True
+        else:
+            raise FileExistsError(f'Preserving existing project: {project}')
+    source=SOURCES[case]
+    if not resume_preflight:
+        shutil.copy2(source,project)
+    manifest={'case':case,'scope':'Fig8_single_transition_only','started_at':now(),
+              'source':str(source),'source_sha256':sha(source),'project':str(project),
+              'geometry':geometry,'geometry_check':geomcheck,'cores':cores,'tasks':1,
+              'aedt_version':'2024.2','status':'opening','fresh_solve_requested':True,
+              'resume_preflight':resume_preflight}
+    def save():write_json(run/'manifest.json',manifest)
+    save()
+    app=None
+    try:
+        from ansys.aedt.core import Hfss
+        from folded_transition import apply_folded_geometry
+        app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',
+                 non_graphical=True,new_desktop=True,close_on_exit=True)
+        manifest['desktop_pid']=app.desktop_class.aedt_process_id
+        if Path(app.project_path).resolve()!=run.resolve():
+            raise RuntimeError(f'Unexpected active project path: {app.project_path}')
+        manifest['status']='preparing';save()
+        if case=='G035' and not resume_preflight:
+            manifest['build']=apply_folded_geometry(app,wm=geometry['Wm'],lm=geometry['Lm'],ws=geometry['Ws'],
+                                                  ls1=geometry['Ls1'],ls2=geometry['Ls2'],ls3=geometry['Ls3'])
+        else:
+            manifest['geometry_source']='Copy of the previously solved case, retaining exact geometry history.'
+        manifest['settings']=check_settings(app)
+        manifest['boundaries']={b.name:{'type':b.type,'props':dict(b.props)} for b in app.boundaries}
+        mats={app.modeler[n].material_name for n in app.modeler.object_names if app.modeler[n].material_name}
+        manifest['materials']={}
+        for name in sorted(mats):
+            try:
+                mat=app.materials[name]
+                manifest['materials'][name]={'permittivity':mat.permittivity.value,
+                    'dielectric_loss_tangent':mat.dielectric_loss_tangent.value,'conductivity':mat.conductivity.value}
+            except Exception as exc:
+                manifest['materials'][name]={'inspection_error':repr(exc)}
+        manifest['microstrip_boxes']={n:list(app.modeler[n].bounding_box) for n in ('Substrate_3','Substrate_18')}
+        manifest['fresh_mesh_method']='No solved results were copied; analyze_setup(revert_to_initial_mesh=True).'
+        app.save_project()
+        manifest['status']='solving';manifest['solve_started_at']=now();save()
+        started=time.perf_counter()
+        ok=app.analyze_setup('Setup19',cores=cores,tasks=1,use_auto_settings=False,
+                             revert_to_initial_mesh=True,blocking=True)
+        manifest['solve_wall_seconds']=time.perf_counter()-started
+        manifest['analyze_result']=ok
+        manifest['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        app.save_project()
+        if ok is not True:
+            raise RuntimeError('HFSS analysis failed; see messages in manifest.')
+        manifest['status']='exporting';save()
+        manifest['export']=export_sparams(app,'Setup19 : Sweep1',run)
+        manifest['convergence_export']=app.export_convergence('Setup19',output_file=str(run/'convergence.txt'))
+        manifest['mesh_export']=app.export_mesh_stats('Setup19',output_file=str(run/'mesh_stats.txt'))
+        result=postprocess(run)
+        manifest['status']='completed' if result['convergence']['converged'] else 'completed_unconverged'
+        manifest['curve_sha256']=sha(run/'sparams.csv')
+        app.save_project();save()
+        print(json.dumps({'case':case,'status':manifest['status'],'BW_GHz':result['passband_2dB']['BW_GHz'],
+                          'peak_difference_dB':result.get('peak_difference_dB')},ensure_ascii=False),flush=True)
+        return 0 if manifest['status']=='completed' else 2
+    except Exception:
+        manifest['status']='failed';manifest['error']=traceback.format_exc()
+        print(manifest['error'],flush=True)
+        return 1
+    finally:
+        if app is not None:
+            try:manifest['release']=app.release_desktop(close_projects=True,close_desktop=True)
+            except Exception as exc:manifest['release_error']=repr(exc)
+        manifest['source_unchanged']=sha(source)==manifest['source_sha256']
+        manifest['finished_at']=now();save()
+
+def queue(workers,cores):
+    ROOT.mkdir(parents=True,exist_ok=True)
+    order=['B0','G035','F2','F3','G2']
+    state={'scope':'Fig8_single_transition_only','six_pole':'deferred_by_user',
+           'started_at':now(),'workers':workers,'cores_per_worker':cores,'status':'running',
+           'cases':{case:{'status':'queued'} for case in order}}
+    write_json(ROOT/'batch_status.json',state)
+    def launch(case):
+        run=ROOT/case;run.mkdir(exist_ok=True)
+        with (run/'worker.log').open('a',encoding='utf-8') as log:
+            proc=subprocess.Popen([sys.executable,str(Path(__file__).resolve()),'--worker',case,'--cores',str(cores)],
+                                   cwd=str(WORK),stdout=log,stderr=subprocess.STDOUT,
+                                   creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+            state['cases'][case]={'status':'running','worker_pid':proc.pid,'started_at':now()}
+            print(json.dumps({'event':'started','case':case,'worker_pid':proc.pid,'time':now()}),flush=True)
+            return case,proc.wait()
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures=[pool.submit(launch,case) for case in order]
+        while any(not f.done() for f in futures):
+            for case in order:
+                p=ROOT/case/'manifest.json'
+                if p.exists():
+                    try:
+                        manifest=json.loads(p.read_text(encoding='utf-8'))
+                        state['cases'][case].update({k:manifest.get(k) for k in ('status','desktop_pid','solve_started_at','solve_wall_seconds')})
+                    except (OSError,json.JSONDecodeError):pass
+            state['updated_at']=now();write_json(ROOT/'batch_status.json',state)
+            time.sleep(10)
+        for future in futures:
+            case,code=future.result()
+            state['cases'][case]['returncode']=code
+            p=ROOT/case/'manifest.json'
+            if p.exists():
+                state['cases'][case]['status']=json.loads(p.read_text(encoding='utf-8'))['status']
+    state['status']='completed' if all(v.get('returncode')==0 for v in state['cases'].values()) else 'needs_review'
+    state['finished_at']=now();write_json(ROOT/'batch_status.json',state)
+    print(json.dumps(state,ensure_ascii=False),flush=True)
+    return 0 if state['status']=='completed' else 1
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser()
+    parser.add_argument('--worker',choices=list(SOURCES))
+    parser.add_argument('--workers',type=int,default=2)
+    parser.add_argument('--cores',type=int,default=6)
+    args=parser.parse_args()
+    raise SystemExit(worker(args.worker,args.cores) if args.worker else queue(args.workers,args.cores))

@@ -1,0 +1,54 @@
+"""Offline preparation integration and continuation dispatch barriers."""
+import asyncio,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import run_same_port_recovery_prepared as prep
+import continue_d04_after_i03 as cont
+
+class PreparationTests(unittest.TestCase):
+    def test_real_io_wrapper_prepares_pristine_journal_directory(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);attempt=root/'D04G05/i04';attempt.mkdir(parents=True)
+            source=attempt/'source.aedt';source.write_bytes(b'preserved source')
+            prep.r.write_json(attempt/'manifest.json',{'project':str(source)})
+            base=root/'local_repair/D04G05_i04';project=base/'repair.aedt'
+            plan={'attempt':str(attempt),'metadata_preparation_version':prep.VERSION}
+            calls=[]
+            def original(attempt_arg,base_arg,project_arg,plan_arg):
+                calls.append('original_snapshot')
+                self.assertEqual(project_arg.read_bytes(),source.read_bytes())
+                self.assertEqual(prep.r.read(base_arg/'plan.json'),plan_arg)
+            async def recipe(attempt_arg):
+                prep.snapshot(attempt_arg,base,project,plan)
+                prep.r.write_json(base/'flow.json',{'status':'candidate_ready_review_required'})
+            with patch.object(prep.r,'ROOT',root),patch.object(prep.io,'readiness',return_value=(base,plan,'new_diagnostic')),\
+                 patch.object(prep,'ORIGINAL_SNAPSHOT',side_effect=original),patch.object(prep.io.v2,'run',side_effect=recipe) as run:
+                asyncio.run(prep.io.run(attempt))
+                self.assertEqual(run.call_count,1)
+                self.assertEqual(calls,['original_snapshot'])
+                self.assertEqual(prep.io.validate_record(base)['status'],'candidate_ready_review_required')
+                with self.assertRaises(FileExistsError):asyncio.run(prep.io.run(attempt))
+                self.assertEqual(run.call_count,1)
+
+    def test_wrong_attempt_refused(self):
+        for name in ['D04G05/i03','D04G05/i08','D08G02/i04']:
+            with self.assertRaises(AssertionError):prep.allowed(prep.r.ROOT/name)
+
+    def test_pending_i03_cannot_start_or_archive(self):
+        with tempfile.TemporaryDirectory() as tmp,patch.object(cont,'BASIS',Path(tmp)),\
+             patch.object(cont.windows,'readiness',return_value={'ready':True}),patch.object(cont.base,'main') as main:
+            self.assertFalse(cont.readiness()['ready'])
+            with self.assertRaises(AssertionError):cont.main()
+            main.assert_not_called()
+
+    def test_only_new_d04_recovery_dispatch_is_replaced(self):
+        with patch.object(cont,'ORIGINAL_EXECUTE') as execute:
+            attempt=str(cont.base.ROOT/'D04G05/i04');log=Path('unused.log')
+            cont.execute('run_same_port_recovery_io.py',[attempt,'--run'],log)
+            execute.assert_called_once_with('run_same_port_recovery_prepared.py',[attempt,'--run'],log)
+            with self.assertRaises(AssertionError):cont.execute('run_same_port_recovery_io.py',[str(cont.base.ROOT/'D04G05/i03'),'--run'],log)
+            self.assertEqual(execute.call_count,1)
+            cont.execute('approve_same_port_recovery.py',[attempt],log)
+            self.assertEqual(execute.call_args.args[0],'approve_same_port_recovery.py')
+
+if __name__=='__main__':unittest.main(verbosity=2)

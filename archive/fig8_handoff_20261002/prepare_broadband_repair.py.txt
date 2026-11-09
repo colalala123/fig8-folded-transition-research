@@ -1,0 +1,16 @@
+import json,shutil,traceback
+from pathlib import Path
+from ansys.aedt.core import Hfss
+from pilot_worker import write_json,now,plain
+ROOT=Path('F:/hfss_f8x_261002/R_B0_rebuild_max500');NAME='R_B0_rebuild_max500';PORT=7393;MF=ROOT/'repair_broadband_manifest.json'
+app=None
+try:
+ snap=ROOT/(NAME+'.before_broadband.aedt');shutil.copy2(ROOT/(NAME+'.aedt'),snap)
+ app=Hfss(project=str(ROOT/(NAME+'.aedt')),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+ setup=app.create_setup(name='ModalRepairBB',setup_type='HFSSDriven');setup.enable_adaptive_setup_broadband(low_frequency='0.1GHz',high_frequency='15GHz',max_passes=40,max_delta_s=.005)
+ setup.auto_update=False;setup.props.update({'MinimumPasses':6,'MinimumConvergedPasses':2,'PercentRefinement':30,'PortAccuracy':2,'BasisOrder':1,'DrivenSolverType':'Direct Solver','SaveAnyFields':True,'SaveRadFieldsOnly':False});setup.update();setup.auto_update=True
+ sw=setup.add_sweep('SweepRepairBB','Interpolating');sw.props.update({'RangeType':'LinearStep','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz','InterpTolerance':.5,'InterpMaxSolns':500,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':True,'InterpUsePropConst':True,'UseFullBasis':True,'EnforcePassivity':True,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SaveFields':True,'SaveRadFields':False});sw.update()
+ m={'status':'prepared','started_at_utc':now(),'snapshot':str(snap),'cores':16,'tasks':1,'diagnostic_only':True,'rationale':'Fresh Broadband adaptive 0.1–15GHz followed by interpolation; preserves .005 adaptive criterion, 0.5% original interpolation tolerance, max 500 and passivity .0001. Existing repair setups/results retained.','setup':plain(setup.props),'sweep':plain(sw.props),'messages_before':list(app.odesktop.GetMessages(app.project_name,app.design_name,0))};app.save_project();write_json(MF,m)
+finally:
+ if app: app.release_desktop(close_projects=False,close_desktop=False)
+print(json.dumps(m,indent=2))

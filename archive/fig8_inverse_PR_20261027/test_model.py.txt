@@ -1,0 +1,27 @@
+import unittest
+import numpy as np
+from model import intervals,center_band,widths,pr,band_score,Forward,read,HERE
+
+class Checks(unittest.TestCase):
+    def test_segment_intersection(self):
+        # Opposite constraints fail opposite endpoints, but the interior is valid.
+        self.assertTrue(np.allclose(intervals([0,1],[-19,-22],[0,-3]),[[1/3,2/3]]))
+    def test_split_is_not_union_width(self):
+        bands=intervals([0,1,2,3,4],[-30,-30,-10,-30,-30],[0]*5)
+        self.assertEqual(bands,[[0.,1.5],[2.5,4.]])
+        self.assertEqual(center_band(bands,2)[2],0)
+    def test_identity_and_range(self):
+        for wm,ws in [(1.1,.32),(1.8,.39),(1.5,.5)]:
+            self.assertTrue(np.allclose(widths(*pr(wm,ws)),[wm,ws],atol=1e-10))
+        with self.assertRaises(ValueError):widths(100,100)
+    def test_band_endpoints(self):
+        self.assertEqual(band_score(np.array([0,1,2]),np.array([-30,-10,-30]),np.array([0,0,0]),.5,1.5)['worst_S11_dB'],-10)
+    def test_native_nodes(self):
+        rows=read(HERE/'dataset.json')['rows'];m=Forward(rows)
+        for r in rows:
+            g=r['geometry_mm'];q=m.predict(g['Wm'],g['Ws'],r['a'])
+            self.assertTrue(np.allclose(q['s11'],r['S11_dB'],atol=1e-8))
+        with self.assertRaises(ValueError):m.predict(1.5,.4,1.6)
+        with self.assertRaises(ValueError):m.predict(2.1,.4,1.4)
+
+if __name__=='__main__':unittest.main()

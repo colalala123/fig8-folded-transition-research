@@ -1,0 +1,126 @@
+"""Read-only by default: exact 135-point/two-segment D12 acceptance."""
+import argparse
+import json
+import re
+from datetime import datetime
+from pathlib import Path
+import recover_d12_i04 as d
+import resume_d12_i04_cached_schema as resumed
+from recovery_selection import DATA_FILES, compatible_protocol, validate_data, resolve_attempt
+from approve_d04_recovery import request_ok
+
+r=d.r
+
+
+def review():
+    p=d.validate_plan()
+    r.direct.idle()
+    assert not (r.ROOT/'protocol.lock').exists()
+    base=d.BASE;attempt=d.ATTEMPT;candidate=attempt/'verified_recovery'
+    flow=r.read(base/'flow.json');assert flow['status']=='candidate_ready_review_required'
+    assert r.read(base/'plan.json')==p
+    spec=r.read(attempt/'prediction_frozen.json');protocol=compatible_protocol(spec['protocol_sha256'])
+    original=r.read(attempt/'state.json');manifest=r.read(attempt/'manifest.json')
+    assert original['geometry']==manifest['geometry']==spec['geometry']==p['geometry']
+    assert original['source_unchanged'] and original['cad_verification']['passed']
+    request_ok(original)
+    assert original['settings']==r.read(Path(protocol['baseline_run'])/'manifest.json')['settings']
+    monitoring=r.read(attempt/'monitoring_600.json');r.hashes(monitoring['implementation_hashes'])
+    assert monitoring['interval_seconds']==600
+    observed=r.read(attempt/'observed_solver_commands.json')
+    assert observed['case']=='D12G05' and Path(observed['run'])==attempt and observed['observations']
+    for sample in observed['observations']:
+        assert sample['project']==original['project'] and len(sample['processes'])==1
+        command=' '.join(sample['processes'][0]['cmdline'])
+        assert re.search(r'-max_processors\s+16(?:\s|$)',command)
+        assert re.search(r'-numParallelGroups\s+1(?:\s|$)',command)
+    snap=r.read(base/'snapshot.json')
+    expected=manifest['convergence']
+    assert expected==original['convergence']==snap['original_convergence']
+    assert expected['converged'] and expected['final_delta_s']<=.005
+    assert snap['original_run']==str(attempt) and snap['original_project']==manifest['project']
+    assert r.sha(snap['original_project'])==snap['original_project_sha256']
+    assert snap['cached_curve_verified'] and len(snap['cutoff_checks'])==2
+    assert all(x['crossing_GHz']==9.47 for x in snap['cutoff_checks'])
+    data=validate_data(candidate)
+    assert data['geometry']==spec['geometry'] and data['convergence']==expected
+    assert data['phase_solve_ordinal_including_history']==5 and data['project']==snap['project']
+    verdict=r.read(candidate/'recovery_candidate_review.json');r.hashes(verdict['evidence_hashes'])
+    assert all(verdict[k] for k in ['numerical_and_port_passed','seams_passed','phase_geometry_unchanged'])
+    assert verdict['phase_solves_added']==0
+    recipe=r.read(candidate/'assembly_recipe.json');r.hashes(recipe['input_hashes'])
+    _,selected=d.layout()
+    assert set(recipe['per_frequency_source'])=={str(k/100) for k in selected}
+    for k,name in selected.items():
+        source=recipe['per_frequency_source'][str(k/100)]
+        assert source['name']==name
+        assert Path(source['path'])==(base/'direct/explicit_modal' if name=='Direct' else base/name)
+    expected_seams=[k/100 for lo,hi in d.SEGMENTS.values() for k in [lo,hi] if k not in [1,1500]]
+    assert [x['GHz'] for x in recipe['seams']]==expected_seams
+    assert all(x['full_50ohm_complex_error']<=.005 for x in recipe['seams'])
+    files=[attempt/n for n in DATA_FILES+['state.json','prediction_frozen.json','observed_solver_commands.json','monitoring_600.json']]
+    files += [candidate/n for n in DATA_FILES+['assembly_recipe.json','recovery_candidate_review.json']]
+    files += [base/n for n in ['plan.json','snapshot.json','flow.json','observed_solver_commands.json']]
+    files += [d.REVIEW,Path(__file__).resolve(),*map(Path,p['implementation_hashes']),*map(Path,monitoring['implementation_hashes'])]
+    # Recompute schema/calibration instead of accepting the saved pass flag alone.
+    resumed.validate_review(after_resume=True)
+    resume_record=r.read(resumed.RECORD)
+    assert resume_record['status']=='candidate_ready_review_required'
+    assert resume_record['direct_solver_dispatches']==0 and resume_record['phase_solves_added']==0
+    assert resume_record['monitor_interval_seconds']==600 and resume_record['review_sha256']==r.sha(resumed.REVIEW)
+    r.hashes(resume_record['implementation_hashes'])
+    files += [resumed.REVIEW,resumed.RECORD,resumed.ARCHIVE/'flow.json',*map(Path,resume_record['implementation_hashes'])]
+    files += [Path(k) for k in r.read(resumed.REVIEW)['evidence_hashes'] if Path(k)!=base/'flow.json']
+    recomputed=resumed.reviewer.review(attempt)
+    saved=r.read(base/'direct/normalization_export_schema_review.json')
+    assert {k:v for k,v in recomputed.items() if k!='reviewed_at_utc'}=={k:v for k,v in saved.items() if k!='reviewed_at_utc'}
+    s=r.read(base/'direct/local_state.json');request_ok(s)
+    assert s['status']=='exported_review_required' and s['case']=='D12G05'
+    assert s['source_unchanged'] and s['convergence_after']==s['original_convergence']==expected
+    assert s['expected_frequencies_GHz']==p['direct_frequencies_GHz']
+    intervals=[(s['started_at_utc'],s['finished_at_utc'],'direct')]
+    for name,(lo,hi) in d.SEGMENTS.items():
+        state=r.read(base/name/'state.json');rec=state['segments'][name];request_ok(rec)
+        assert state['mesh_reuse_verified'] and state['source_unchanged']
+        assert rec['status']=='exported' and rec['sweep_converged'] and rec['convergence']==expected
+        props={**manifest['settings']['sweep'],'IsEnabled':False,'InterpUsePortImped':True,
+            'RangeStart':f'{lo/100:g}GHz','RangeEnd':f'{hi/100:g}GHz'}
+        assert state['diagnostic_sweep']==props
+        saved_props=rec['settings_evidence']['saved_properties']
+        assert saved_props['InterpTolerance']=='0.5' and saved_props['InterpMaxSolns']=='250'
+        assert all(saved_props[k]=='true' for k in ['InterpUseS','InterpUsePortImped','InterpUsePropConst'])
+        intervals.append((rec['started_at_utc'],rec['finished_at_utc'],name));files.append(base/name/'state.json')
+    for name in ['direct',*d.SEGMENTS]:
+        verdict=r.read(base/name/'review.json');assert verdict['passed'];r.hashes(verdict['evidence_hashes'])
+        assert verdict['max_sv']<=1.001 and verdict['reciprocity_error']<=1e-6
+        if name!='direct':
+            lo,hi=d.SEGMENTS[name]
+            assert [x['GHz'] for x in verdict['samples']]==[f for f in p['direct_frequencies_GHz'] if lo/100<=f<=hi/100]
+            assert len(verdict['samples'])>=3 and all(x['full_50ohm_complex_error']<=.005 for x in verdict['samples'])
+        files += [base/name/'review.json',*map(Path,verdict['evidence_hashes'])]
+    intervals.sort(key=lambda x:datetime.fromisoformat(x[0]))
+    assert all(datetime.fromisoformat(a[1])<=datetime.fromisoformat(b[0]) for a,b in zip(intervals,intervals[1:]))
+    r.audit_observations(base)
+    commands=r.read(base/'observed_solver_commands.json')['observations']
+    assert any(x['stage']=='direct_check' for x in commands)
+    # An observation failure cannot be silently absorbed by this acceptance path.
+    assert not (base/'status_query_fallbacks.json').exists(),'Status timeout evidence needs explicit review'
+    for event in flow['retry_events']:
+        assert event['winerror'] in [5,32] and 1<=event['retry_number']<=20
+        assert event['operation'].startswith('write_json:') or event['operation']=='run_protocol_tf3.save'
+    return {'approved':True,'case':'D12G05','original_attempt':str(attempt),'candidate_run':str(candidate),
+        'protocol_sha256':r.sha(r.ROOT/'production_protocol.json'),'geometry':spec['geometry'],
+        'phase_solves_added':0,'phase_geometry_unchanged':True,'mesh_reuse_verified':True,
+        'resource_review':{'passed':True,'cores':16,'tasks':1,'serial_intervals':intervals,
+            'observations_file':str(base/'observed_solver_commands.json')},
+        'evidence_hashes':{str(f):r.sha(f) for f in dict.fromkeys(files)},'finished_at_utc':r.now(),
+        'scope':'Only D12G05/i04 numerical recovery; 135 direct points, two segments, three seams. Design acceptance and queue release remain separate.'}
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--apply',action='store_true');args=ap.parse_args()
+    result=review()
+    if args.apply:
+        target=d.ATTEMPT/'recovery_acceptance.json';assert not target.exists()
+        r.write_json(target,result);assert resolve_attempt(d.ATTEMPT)==d.ATTEMPT/'verified_recovery'
+    print(json.dumps({'ready':True,'written':args.apply}))

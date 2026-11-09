@@ -1,0 +1,34 @@
+"""Receiver ACK after viewing the real same-mesh overlay and comparison."""
+import argparse
+from pathlib import Path
+import recovery_control as pc
+
+def record(run,visual_reviewed,note):
+    assert visual_reviewed and note.strip();run=run.resolve();p=pc.read(run/'input.json');case=p['case']
+    assert case in pc.ORDER and run==(pc.BASE/case/'direct_smallbatch').resolve()
+    assert not (run/'receiver_ack.json').exists()
+    e=pc.read(run/'completion_event.json');v=pc.read(run/'receiver_verification.json');s=pc.read(run/'state.json')
+    assert e['status']=='completed' and e['verified_success'] and e['target_thread_id']==pc.TARGET
+    assert v['event_sha256']==pc.sha(run/'completion_event.json') and pc.sha(v['plot'])==v['plot_sha256']
+    for f,h in v['artifacts_verified'].items():assert pc.sha(f)==h,f
+    for f,h in p['input_parent_hashes'].items():assert pc.sha(f)==h,f
+    assert v['same_mesh_verified'] and v['observed_14core_process'] and s['same_mesh_verified']
+    start=pc.read(run/'supervised_start.json');assert start['input_sha256']==pc.sha(run/'input.json') and start['actual_14core_single_group_observed']
+    comparison=v['comparison'];accepted=comparison['numerical_review_passed'] and comparison['sampled_design_supported']
+    ledger=pc.read(pc.ledger_path());own=[t for t in ledger['tasks'] if t['case']==case]
+    assert len(own)==1 and own[0]['status']=='reserved' and own[0]['input_sha256']==pc.sha(run/'input.json')
+    ack=dict(at=pc.now(),event_id=v['event_id'],event_sha256=pc.sha(run/'completion_event.json'),
+        verification_sha256=pc.sha(run/'receiver_verification.json'),operation_success=True,artifacts_verified=True,
+        visual_review_completed=True,visual_review_note=note,scoped_accepted=bool(accepted),
+        numerical_review_passed=comparison['numerical_review_passed'],sampled_design_supported=comparison['sampled_design_supported'],full_matrix_approved=False)
+    pc.write(run/'receiver_ack.json',ack)
+    own[0].update(status='reviewed',scoped_accepted=bool(accepted),ack_sha256=pc.sha(run/'receiver_ack.json'))
+    pc.write(pc.ledger_path(),ledger)
+    pc.write(pc.HERE/'cases'/case/'disposition.json',dict(case=case,state='scoped_accepted' if accepted else 'numerical_or_sampled_design_unresolved',
+        source=p['source'],direct_run=str(run),comparison=comparison,actual_elements=s['actual_elements'],
+        event_sha256=ack['event_sha256'],ack_sha256=pc.sha(run/'receiver_ack.json')))
+    print(dict(case=case,reviewed=True,scoped_accepted=bool(accepted)))
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--run',type=Path,required=True);ap.add_argument('--visual-reviewed',action='store_true');ap.add_argument('--note',required=True)
+    a=ap.parse_args();record(a.run,a.visual_reviewed,a.note)

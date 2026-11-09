@@ -1,0 +1,40 @@
+"""Truthful mutable status only; preserve frozen input and failed records."""
+import json,sys,hashlib
+from pathlib import Path
+from datetime import datetime,timezone
+ROOT=Path(__file__).resolve().parent
+sys.path.insert(0,str(ROOT))
+from effective_budget_v3 import validate_campaign
+def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
+def write(p,d):p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+def main():
+    at=datetime.now(timezone.utc).isoformat()
+    s=read(ROOT/'CURRENT_STATUS.json')
+    saved=ROOT/'N23_A18_STATUS_BEFORE_TECHNICAL_HOLD.json'
+    if not saved.exists():write(saved,s)
+    run=Path(s['run']);event=run/'completion_event.json';e=read(event);state=read(run/'state.json')
+    assert e['status']=='failed' and not e['verified_success']
+    assert state['actual_elements']==102038 and state['actual_passes']==21
+    assert len(state['segments'])==7 and not state['segments'][-1]['adaptive_requested']
+    assert not (run/'receiver_ack.json').exists()
+    budget=validate_campaign();assert budget['Analyze_used']==365
+    s.update(at=at,stage='N23_A18_technical_failure_diagnosis',active_geometries=0,
+             completed_geometries=47,technical_unresolved_geometries=1,not_started_geometries=0,
+             actual_elements=102038,actual_passes=21,budget=budget,
+             worker_identity_verified=False,observer_identity_verified=False,
+             next_action='Zero-Analyze native cache inspection only. Preserve failed event/state/input/locks; no ACK or relaunch. If a replacement sweep/restart is needed, request bounded human approval and versioned recovery; no successor/batch9.')
+    s['failed_current_event_sha256']=hashlib.sha256(event.read_bytes()).hexdigest()
+    s['performance_by_role']['prospective_test'].update(active=0,technical_unresolved=1)
+    write(ROOT/'CURRENT_STATUS.json',s)
+    (ROOT/'CURRENT_STATUS.md').write_text('# Fig8新48点当前状态\n\n'
+      f'更新时间：{at}\n\n47项已独立审核并实际看图ACK；0项在算；最后N23_A18技术失败待诊断，不能当作设计负例。\n\n'
+      '最后一项保留21轮自适应、102,038网格；最终扫频提交发生120秒broker超时，尚无有效曲线/ACK。'
+      '正在只读检查缓存，不重复Analyze、不删除锁、不自动重启。\n\n'
+      '实际365/624次请求（N23_A18已计7次，含失败扫频）；48个几何均已开始，无新几何。\n\n'
+      '训练采集38项：主窗4项通过、次窗13项通过。前瞻测试已审核9/10：主窗1项通过、次窗2项通过。'
+      '测试未完成，不宣称最终泛化结果或逆设计全部达标。\n',encoding='utf-8')
+    p=read(ROOT/'PROSPECTIVE_TEST_PROGRESS.json');p.update(at=at,status='partial_technical_failure_not_final',active_case=None,
+      technical_unresolved=1,technical_unresolved_case='N23_A18')
+    write(ROOT/'PROSPECTIVE_TEST_PROGRESS.json',p)
+    print(dict(reviewed=47,active=0,technical_unresolved=1,budget=365))
+if __name__=='__main__':main()

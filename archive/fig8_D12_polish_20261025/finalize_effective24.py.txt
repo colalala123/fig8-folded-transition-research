@@ -1,0 +1,222 @@
+"""Additive final delivery after explicit receiver acceptance; never solves."""
+from collections import Counter
+import copy
+import csv
+import json
+from pathlib import Path
+import shutil
+import zipfile
+import numpy as np
+from datetime import datetime, timezone, timedelta
+import phase_control as pc
+from phase_geometry_worker import dc
+
+C=pc.HERE.parent/'fig8_remediation_C3_20261025'
+B=pc.HERE.parent/'fig8_remediation_B_20261025'
+A=pc.HERE.parent/'fig8_remediation_A_20261025'
+OUT=C/'deliverables'
+
+
+def main():
+    assert not dc.solvers() and not (OUT/'manifest.json').exists()
+    evidence={};events=[]
+    def bind(file):
+        file=Path(file);evidence[str(file)]=pc.sha(file)
+    def check_hashes(mapping):
+        for file,digest in mapping.items():assert pc.sha(file)==digest,file;bind(file)
+    for root,key in [(pc.ORIGINAL,'file_sha256'),(A,'files'),(B,'files')]:
+        manifest=pc.read(root/'deliverables/manifest.json')
+        for name,digest in manifest[key].items():assert pc.sha(root/'deliverables'/name)==digest
+        bind(root/'deliverables/manifest.json')
+    original=pc.read(pc.ORIGINAL/'batch_closure.json')
+    for row in original['case_results']:assert pc.sha(row['result_path'])==row['result_sha256']
+    for root,name in [(pc.ORIGINAL,'batch_closure.json'),(A,'stage_A_closure.json'),(B,'stage_B_closure.json')]:bind(root/name)
+    segment=pc.read(C/'execution_segment_closure.json');check_hashes(segment['evidence_hashes']);bind(C/'execution_segment_closure.json')
+    assert segment['human_objective_complete'] is False and segment['effective_accepted']==23
+    rows=copy.deepcopy(pc.read(B/'deliverables/effective_all24_results.json')['rows'])
+    curves=copy.deepcopy(pc.read(B/'deliverables/effective_selected_curves.json')['curves'])
+    changes=[]
+    for case,root in [('D04G02',C),('D01G02',C),('D12G05',pc.HERE)]:
+        file=root/'cases'/case/'result.json';r=pc.read(file);bind(file)
+        assert r['case_state']=='scoped_accepted' and r['design_passed'] and r['numerical_review_passed']
+        check_hashes(r['evidence_hashes']);c=r['comparison'];assert c['points']==63
+        assert c['numerical_review_passed'] and c['sampled_design_supported']
+        source=Path(r['selected_run']);m=r['metrics'];assert m['curve_sha256']==pc.sha(source/'sparams.csv')
+        row=next(x for x in rows if x['case']==case)
+        prior=dict(state=row['state'],path=row['result_path'],sha256=row['result_sha256'])
+        prior_c3=None
+        if case=='D12G05':
+            failed=C/'cases/D12G05/bounded_result.json';prior_c3=dict(path=str(failed),sha256=pc.sha(failed),state='bounded_design_failed',central_GHz=6.76)
+        changes.append(dict(case=case,previous=prior,new_result=str(file),new_result_sha256=pc.sha(file),
+            prior_C3_disposition=prior_c3,old_geometry=row['geometry_mm'],new_geometry=r['geometry'],
+            old_peak_difference_dB=row['selected_curve_metrics']['peak_difference_dB'],
+            old_central_GHz=row['selected_curve_metrics']['central_valley_GHz'],comparison=c,
+            lifetime_geometry_attempts=r['lifetime_geometry_attempts']))
+        warning=('Direct central6.69GHz is at the allowed lower boundary; no manufacturing-margin guarantee.' if case=='D04G02'
+                 else 'Finite critical-frequency validation only; not continuous extrema or manufacturing qualification.')
+        row.update(state='scoped_accepted',state_label='剩余三项修正后基模范围通过',included_in_accepted_subset=True,
+            acceptance_tier='stage_C3_fundamental_same_mesh_direct' if case!='D12G05' else 'stage_P12_fundamental_same_mesh_direct_recovered',
+            geometry_mm=r['geometry'],selected_run=str(source),result_path=str(file),result_sha256=pc.sha(file),
+            selected_curve_sha256=pc.sha(source/'sparams.csv'),actual_elements=r['actual_elements'],
+            geometry_attempts_including_history=r['lifetime_geometry_attempts'],selected_curve_metrics=m,
+            direct_review=dict(BW_GHz=c['direct_BW_GHz'],peak_difference_dB=c['direct_peak_difference_dB'],
+                central_valley_GHz=c['direct_central_valley']['GHz'],max_complex_error=c['max_complex_error'],
+                BW_shift_GHz=c['BW_shift_GHz'],points=c['points'],run=r['direct_run']),
+            design_passed=True,numerical_review_passed=True,numerical_status='same_mesh_direct_checks_passed',
+            prior_stage_disposition=prior,reason=r['reason'],risk_note=r['risk_note'],threshold_warning=warning,
+            source_reference=dict(treatment='native_fundamental',normalization_recovery_review=None,
+                interpolation_tolerance_percent=1.,note='Native selected fundamental entries verified against raw4x4; no normalization applied to the design curve.'),
+            full_matrix_approved=False)
+        if prior_c3:row['prior_C3_disposition']=prior_c3
+        data=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+        assert len(data)==1500 and np.isfinite(np.array(data.tolist(),dtype=float)).all()
+        curve=next(x for x in curves if x['case']==case)
+        curve.update(state=row['state'],acceptance_tier=row['acceptance_tier'],source_reference=row['source_reference'],
+            source=str(source/'sparams.csv'),source_sha256=pc.sha(source/'sparams.csv'),
+            frequency_GHz=data['Freq_GHz'].tolist(),S11_dB=data['S11_dB'].tolist(),S21_dB=data['S21_dB'].tolist())
+    counts=dict(Counter(x['state'] for x in rows))
+    assert counts=={'scoped_accepted':20,'preserved_accepted':4}
+    assert len(rows)==24 and len({r['case'] for r in rows})==24 and all(r['included_in_accepted_subset'] for r in rows)
+    for row in rows:assert pc.sha(row['result_path'])==row['result_sha256']
+    for curve in curves:
+        assert pc.sha(curve['source'])==curve['source_sha256']
+        assert all(len(curve[k])==1500 and np.isfinite(curve[k]).all() for k in ['frequency_GHz','S11_dB','S21_dB'])
+        assert np.allclose(curve['frequency_GHz'],np.arange(1,1501)/100)
+    ledger=pc.read(C/'budget_ledger.json');pl=pc.read(pc.HERE/'budget_ledger.json');rl=pc.read(pc.HERE/'recovery_budget.json')
+    assert (ledger['new_geometry_reserved'],ledger['new_cached_tasks_reserved'],len(ledger['tasks']))==(9,3,12)
+    assert (pl['new_geometry_reserved'],pl['new_cached_tasks_reserved'],len(pl['tasks']))==(1,1,2)
+    assert rl['reserved']==1 and len(rl['tasks'])==1
+    work=[Path(t['path']).parent for t in ledger['tasks']+pl['tasks']]+[Path(rl['tasks'][0]['input_path']).parent]
+    assert len(work)==15 and len(set(work))==15
+    mesh=[]
+    for run in work:
+        e=pc.read(run/'completion_event.json');ack=pc.read(run/'receiver_ack.json')
+        assert pc.read(run/'notification_receipt.json')['state']=='accepted' and e['target_thread_id']==pc.TARGET
+        assert ack['event_sha256']==pc.sha(run/'completion_event.json') and ack['artifacts_verified']
+        assert ack['verification_sha256']==pc.sha(run/'receiver_verification.json')
+        failed=run.name=='final_direct' and run.parent==pc.BASE/'D12G05'
+        assert e['status']==('failed' if failed else 'completed')
+        assert ack['operation_success'] is (not failed)
+        if not failed:assert ack['visual_review_completed']
+        for a in e['artifacts']:assert pc.sha(run/a['path'])==a['sha256']
+        check_hashes(pc.read(run/'input.json')['parent_evidence_hashes'])
+        for name in ['input.json','completion_event.json','receiver_ack.json','receiver_verification.json','notification_receipt.json']:
+            bind(run/name)
+        if not failed:bind(run/'supervised_start.json')
+        s=pc.read(run/'state.json')
+        if run.name not in ['final_direct','recover_single_10p19']:mesh.append(s['actual_elements'])
+        events.append(dict(run=str(run),status=e['status'],event_sha256=pc.sha(run/'completion_event.json'),operation_success=ack['operation_success']))
+    assert len(mesh)==10 and min(mesh)==100013 and max(mesh)==104080
+    for file in [C/'budget_ledger.json',pc.HERE/'budget_ledger.json',pc.HERE/'recovery_budget.json',
+        pc.HERE/'recovery_authorization.json',Path(__file__).resolve()]:bind(file)
+    OUT.mkdir(exist_ok=True)
+    meta=dict(schema='fig8_effective24_final_v1',at=pc.now(),full_matrix_approved=False,
+        scope='Original24folded cases, additive effective view after C3 plus separately disclosed P12 and one-point recovery. Uniform data excluded.')
+    pc.write(OUT/'effective_all24_results.json',dict(**meta,counts=counts,rows=rows))
+    pc.write(OUT/'effective_accepted24_results.json',dict(**meta,rows=rows))
+    pc.write(OUT/'effective_selected_curves.json',dict(**meta,quantity='Fundamental S11/S21 magnitudes,1500finite points per case; source-specific reference/tier retained',curves=curves))
+    pc.write(OUT/'changes_and_budget.json',dict(**meta,changes=changes,previous_accepted=21,accepted=24,
+        C3_original_segment=dict(geometry=9,cached=3,cap_geometry=20,cap_cached=3,frozen=True),
+        P12_disclosed_polish=dict(geometry=1,cached=1,cap_geometry=2,cap_cached=1),
+        additional_single_point_recovery=dict(geometry=0,cached=1,cap_cached=1,frequency_GHz=10.19),
+        new_geometry_work_items=10,cached_work_items=5,total_work_items=15,
+        failed_work_items_preserved=1,completed_work_items=14,
+        geometry_mesh_range=[min(mesh),max(mesh)],
+        note='Geometry work items include two same-geometry policy rebase centers; work-item counts are not Analyze counts. ExtraP12 and recovery are outside originalC3cachedcap.'))
+    pc.write(OUT/'evidence_audit.json',dict(**meta,evidence_hashes=evidence,events=events,
+        all15notifications_accepted=True,all15events_reviewed=True,original_failed_event_preserved=True,
+        old_original_A_B_manifests_verified=True,C3_original_segment_unchanged=True))
+    # Compact, portable geometry and direct results for the three corrected cases.
+    with (OUT/'corrected3_geometry_and_direct.csv').open('w',encoding='utf-8-sig',newline='') as f:
+        names=['case','Wm','Ws','Lm','Ls1','Ls2','Ls3','elements','direct_peak_difference_dB','central_GHz','direct_BW_GHz']
+        w=csv.DictWriter(f,fieldnames=names);w.writeheader()
+        for change in changes:
+            row=next(r for r in rows if r['case']==change['case']);c=change['comparison']
+            w.writerow(dict(case=row['case'],**row['geometry_mm'],elements=row['actual_elements'],
+                direct_peak_difference_dB=c['direct_peak_difference_dB'],central_GHz=c['direct_central_valley']['GHz'],direct_BW_GHz=c['direct_BW_GHz']))
+    for root in [C,pc.HERE]:
+        for plot in sorted((root/'cases').rglob('*.png')):
+            shutil.copy2(plot,OUT/(root.name+'_'+plot.parent.name+'_'+plot.name))
+    if (C/'D12_central_boundary_diagnosis.png').exists():shutil.copy2(C/'D12_central_boundary_diagnosis.png',OUT/'D12_C3_failed_central6p76.png')
+    report='''# Fig8剩余三项修正：有效24配置交付
+
+## 结论
+
+**D04G02、D01G02、D12G05均已按原设计判据和同网格有限直接频点核验通过。原24配置的有效视图为24通过、0未达标、0数值未解决。** 保留4项历史接受与20项范围接受的不同层级，不是将全部项目重新全量仿真或批准完整多模网络。
+
+| 配置 | 网格单元 | 直接S11两内峰差/dB | 直接中央谷/GHz | 完整插值BW/GHz | 直接带边BW/GHz |
+|---|---:|---:|---:|---:|---:|
+'''
+    for change in changes:
+        r=next(r for r in rows if r['case']==change['case']);c=change['comparison']
+        report+=f"| {r['case']} | {r['actual_elements']} | {c['direct_peak_difference_dB']:.9f} | {c['direct_central_valley']['GHz']:.2f} | {r['selected_curve_metrics']['passband_2dB']['BW_GHz']:.9f} | {c['direct_BW_GHz']:.9f} |\n"
+    report+='''
+原门限未放宽：S11两内峰高度差≤0.5dB，中央谷6.72±0.03GHz；三谷/两内峰、谷间S11低于−10dB、S21不低于−2dB及原形态/几何检查保持。峰差不是S21纹波。直接数值限为复数差0.005、近带S21差0.05dB、峰高误差0.1dB、带边及BW偏移20MHz。每项63个关键直接点，不代表连续极值、所有频率全多模收敛或加工容差认证。
+
+D04中央6.69在允许下边界；历史D09G05中央6.75在上边界，D01G05/D10G02接近峰差门限等原警告保留。不能把“通过”解释为具有充足制造裕量。
+
+## 怎么修正及D12真实失败记录
+
+D04、D01分别使用独立Ls1/Lm探针，Lm探针已满足实际设计要求，因此提前停止，未为耗尽预算再构造联合点。D01、D12各有一次同几何数值策略基准，策略差不能当几何改进或单独证明网格数的因果作用。
+
+D12原C3联合点插值中央6.75，但直接中央6.76，是真实设计未过。该失败、ACK、原C3账本与执行段结论完全保留。随后单独披露D12有限小步：相对该联合点Ls1增加0.061781864mm、Lm增加0.020990085mm。旧实测Jacobian只是方向预测，本次仍以新仿真验收；新几何100013单元，插值中央6.74，直接中央也6.74。
+
+新P12的63点直接任务因10.19GHz单点失败而如实发布failed事件。只读诊断确认其余62点有限，再独立披露并执行一次10.19GHz同网格补点。最终63点严格由原62个实测点与新1个实测点按频率组装：无插值填空、无丢点验收、无修改原失败事件；全部原始多模数据/端口参考/网格历史及父证据经哈希复核。补点没有新自适应，不重跑完整63点扫频。
+
+## 预算、资源和hook
+
+- 原C3有限执行段：9个几何工作项+3个缓存直接工作项，原上限20+3，账本冻结。
+- 单独披露P12：1个几何+1个缓存直接工作项，独立上限2+1，第二几何未用且取消。
+- 本次额外缺失点恢复：0新几何+1个单点缓存工作项，上限1，不挪用旧预算。
+- 合计10几何工作项（含2个同几何策略基准）+5缓存工作项=15，其中14完成、1个全扫失败记录保留；工作项数不等于Analyze次数。
+- 历史不清零：D04几何累计11次、D01累计10次、D12累计12次。
+- 新几何实测网格100013–104080，全部在10–11万目标区间；相近网格数量不是普遍收敛定理。
+- 可见HFSS/AEDT2024R2、本机MCP、16核单任务串行。完成事件经hook通知本聊天并完成接收复核；补点事件为第15项。正常求解不周期发消息，完成消息后5分钟无新仿真才检查AI是否中断，最终闭合后停止监视。
+
+## 文件与范围
+
+effective_all24_results.json/effective_accepted24_results.json为完整有效视图和通过子集；effective_selected_curves.json包含24条自包含1500点S11/S21幅度曲线；corrected3_geometry_and_direct.csv可直接查看最后三项尺寸。changes_and_budget.json、evidence_audit.json、manifest.json保留变化与来源SHA，实际响应/直接复核图随包提供。交付包是报告/数值曲线与审计，不包含体积很大的完整HFSS工程与网格缓存；工程路径仍保存在结果中。
+
+原首批、A、B及C3失败结果不覆盖，只新增最终有效选择视图。新三项用原生基模S参数，D12旧50Ω变换只是独立全矩阵诊断，未对设计曲线再变换、裁剪或拟合；历史其他项目的参考处理差异原样保留。
+
+**本轮完成的是24配置收尾，不是已经证明弯折带宽规律。** 均匀/弯折数据分开、六极未开展。P_response由峰响应反推、R_BW由带宽反解，不得拿BW对R_BW拟合作为独立预测证据。下一步应从独立几何/物理阻抗参数建立模型并用留出样本验证；本轮未自动启动扩展扫描。
+'''
+    (OUT/'REPORT.md').write_text(report,encoding='utf-8')
+    manifest=dict(**meta,accepted_count=24,not_accepted_count=0,effective_counts=counts,
+        new_geometry_work_items=10,cached_work_items=5,total_work_items=15,
+        files={str(f.relative_to(OUT)):pc.sha(f) for f in sorted(OUT.rglob('*')) if f.is_file()},
+        last_event_sha256=pc.sha(pc.BASE/'D12G05/recover_single_10p19/completion_event.json'))
+    pc.write(OUT/'manifest.json',manifest)
+    # Strict JSON, finite arrays, and ZIP byte comparison are independent of report prose.
+    for file in OUT.glob('*.json'):
+        json.loads(file.read_text(encoding='utf-8'),parse_constant=lambda x:(_ for _ in ()).throw(ValueError(x)))
+    date=datetime.now(timezone(timedelta(hours=9))).strftime('%Y%m%d')
+    zip_path=pc.HERE.parent/'dist'/f'fig8-effective24-final-{date}.zip';assert not zip_path.exists()
+    with zipfile.ZipFile(zip_path,'w',zipfile.ZIP_DEFLATED) as z:
+        for f in sorted(OUT.rglob('*')):
+            if f.is_file():z.write(f,'fig8-effective24/'+str(f.relative_to(OUT)).replace('\\','/'))
+    with zipfile.ZipFile(zip_path) as z:
+        assert z.testzip() is None
+        for f in OUT.rglob('*'):
+            if f.is_file():assert z.read('fig8-effective24/'+str(f.relative_to(OUT)).replace('\\','/'))==f.read_bytes()
+    validation=dict(at=pc.now(),accepted24=True,unique_cases=24,curves=24,points_per_curve=1500,
+        finite_and_strict_JSON_verified=True,source_and_parent_hashes_verified=True,
+        original_failed_events_preserved=True,all15_notifications_accepted=True,
+        manifest_sha256=pc.sha(OUT/'manifest.json'),zip_path=str(zip_path),zip_sha256=pc.sha(zip_path),zip_bytes=zip_path.stat().st_size)
+    pc.write(C/'delivery_validation.json',validation)
+    close=dict(at=pc.now(),human_objective_complete=True,effective_accepted=24,effective_design_failed=0,effective_numerical_unresolved=0,
+        final_D12_result=str(pc.HERE/'cases/D12G05/result.json'),final_D12_result_sha256=pc.sha(pc.HERE/'cases/D12G05/result.json'),
+        original_C3_execution_segment_preserved=True,original_C3_failed_D12_preserved=True,delivery=validation)
+    pc.write(C/'stage_C3_closure.json',close);pc.write(pc.HERE/'stage_P12_closure.json',close)
+    last=pc.BASE/'D12G05/recover_single_10p19'
+    pc.write(last/'continuation_resolution.json',dict(at=pc.now(),event_sha256=pc.sha(last/'completion_event.json'),
+        disposition='batch_complete',reason='All original24folded configurations now effectively accepted in their retained scope; final delivery audited. No further solve.',
+        human_objective_complete=True,closure_path=str(C/'stage_C3_closure.json'),closure_sha256=pc.sha(C/'stage_C3_closure.json')))
+    for root in [C,pc.HERE]:
+        pc.write(root/'progress.json',dict(at=pc.now(),effective_accepted=24,remaining=[],human_objective_complete=True,delivery=str(OUT)))
+        pc.write(root/'active.json',dict(at=pc.now(),stage='batch_complete',human_objective_complete=True,delivery=str(OUT)))
+        (root/'STATUS.md').write_text('# Fig8 remaining3 complete\n\n24/24 effective accepted; finite fundamental scope only.\n\nReport: '+str(OUT/'REPORT.md')+'\nZIP: '+str(zip_path)+'\n',encoding='utf-8')
+    print(validation)
+
+
+if __name__=='__main__':main()

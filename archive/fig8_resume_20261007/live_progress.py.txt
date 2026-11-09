@@ -1,0 +1,254 @@
+"""Read-only process/data monitor; writes a live Markdown page, never solves."""
+import argparse,json,os,re,time,traceback
+from datetime import datetime,timezone,timedelta
+from pathlib import Path
+import psutil
+
+HERE=Path(__file__).resolve().parent
+ROOT=Path('J:/f8_261007')
+PAGE=HERE/'实时进度.md'
+def read(p,default=None):
+    try:return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+    except (OSError,ValueError):return default
+def atomic(p,text):
+    tmp=p.with_suffix(p.suffix+'.tmp');tmp.write_text(text,encoding='utf-8');os.replace(tmp,p)
+def link(p,title=None):return f'[{title or Path(p).name}]({Path(p).as_posix()})'
+def clean(x):return str(x).replace('|','/').replace('\n',' ')[:200]
+
+def recovery_accepted(path):
+    if read(path.parent/'recovery_acceptance.json',{}).get('approved'):return True
+    if 'local_repair' not in path.parts:return False
+    case_component=path.parts[path.parts.index('local_repair')+1]
+    match=re.fullmatch(r'(D\d+G\d+)_(i\d+)',case_component)
+    if match:return bool(read(ROOT/match[1]/match[2]/'recovery_acceptance.json',{}).get('approved'))
+    if case_component=='D04G05':return bool(read(ROOT/'D04G05/i00/recovery_acceptance.json',{}).get('approved'))
+    return False
+LABEL={'prepared':'已准备','preparing':'准备工程','solving':'正在求解','exported':'已导出并通过分段检查','review_required':'待处理问题','segments_exported_review_required':'全段已导出，待综合验收','accepted':'通过当前单点验收','failed':'设计失败','historical_design_failure_unverified':'保留历史失败，物理验收待复核','completed':'已完成','supervised_review_required':'监督阶段完成，待放行','pilot_finished_corner_review_pending':'24配置处理结束，待角点检查'}
+LABEL.update({'waiting_for_B0_copy':'等待B0复制检查完成','B0_copy_passed_preparing_rebuild':'复制检查通过，准备重建对照','collector_complete_production_review_required':'复制/重建检查完成，待生产协议复核'})
+LABEL.update({'stopped_incompatible_protocol':'已停止并保留的不合格协议试验','running':'监督/串行队列运行中'})
+LABEL.update({'waiting_for_direct_fill':'等待局部直接补点完成','checking_upper_tail':'检查高频末段',
+              'assembling_review_candidate':'汇总完整曲线并审查','candidate_ready_protocol_review_required':'恢复候选通过，待协议审查',
+              'exported_review_required':'已导出，待审查'})
+
+def render():
+    now=datetime.now(timezone(timedelta(hours=8)))
+    processes=[]
+    for p in psutil.process_iter(['pid','name','cmdline','create_time']):
+        try:
+            info=p.info;cmd=' '.join(info['cmdline'] or [])
+            if (info['name'] or '').lower()=='hf3d.exe' or ('fig8_resume_20261007' in cmd and (info['name'] or '').lower()=='python.exe'):
+                processes.append({**info,'command':cmd})
+        except (psutil.NoSuchProcess,psutil.AccessDenied):pass
+    solvers=[p for p in processes if p['name'].lower()=='hf3d.exe']
+    plan=read(HERE/'resume_queue_plan.json',{'cases':[]})
+    history_review={x['case']:x for x in read(HERE/'selected_history_review.json',{'cases':[]})['cases']}
+    protocol=read(ROOT/'production_protocol.json',{})
+    queue=read(ROOT/'pilot_queue_state.json',{})
+    decision=read(ROOT/'execution_decision.json',{})
+    recovery_flow=read(ROOT/'local_repair/D04G05/recovery_flow/state.json',{})
+    trial_watch=read(ROOT/'trial_recovery_watch_i01.json',{})
+    trial_flow=read(ROOT/'local_repair/D04G05_i01/flow.json',{})
+    active_attempt=Path(queue.get('active_run') or ROOT/'D04G05/i01')
+    active_base=ROOT/'local_repair'/f'{active_attempt.parent.name}_{active_attempt.name}'
+    active_watch=read(ROOT/f'trial_recovery_watch_{active_attempt.name}_v2.json',{})
+    active_flow=read(active_base/'flow.json',{})
+    state_write_adoption=read(active_base/'state_write_adoption.json',{})
+    adoption_live=any(p['pid']==state_write_adoption.get('pid') for p in processes)
+    metadata_adapter=read(active_base/'metadata_io_adapter.json',{})
+    metadata_adapter_live=any(p['pid']==metadata_adapter.get('pid') for p in processes)
+    active_watch_live=any(p['pid']==active_watch.get('pid') for p in processes)
+    continuation=read(ROOT/'d04_continuation_v2.json',{})
+    continuation_live=any(p['pid']==continuation.get('pid') for p in processes)
+    explicit_recovery_live=any(p['pid']==active_flow.get('pid') and any(script in p['command'] for script in ['recover_d08_i00.py','resume_d08_cached_schema.py','recover_d12_i01.py','recover_d12_i03.py','recover_d12_i04.py','resume_d12_i04_cached_schema.py','resume_d12_i03_interrupted.py']) for p in processes)
+    recovery_owner_live=explicit_recovery_live or adoption_live or metadata_adapter_live or (active_watch.get('status')=='starting_same_mesh_recovery' and active_watch_live) or (
+        continuation_live and continuation.get('status') in ['recover_once','approve_candidate']
+        and continuation.get('attempt')==str(active_attempt))
+    if queue.get('status')=='running':
+        decision={**decision,'current_action':f'正在串行处理 {queue.get("active_case","当前配置")}，相位序号 {queue.get("ordinal_including_history","待确认")}（包含历史迭代）',
+                  'next_action':'本次求解及数值/端口验收通过后按既定调节策略继续；异常时停止派发并保留结果'}
+    elif recovery_owner_live:
+        recovery_plan=read(active_base/'plan.json',{})
+        stage={'direct_check':f'核验{len(recovery_plan.get("direct_frequencies_GHz",[]))}个直接频点',
+               'checking_Low':'核验低频段','checking_MidLow':'核验两处异常窗口之间的频段','checking_Middle':'核验中高频段','checking_Upper':'核验高频末段',
+               'assembling':'汇总1500点完整曲线','candidate_ready_review_required':'逐项验收完整候选',
+               'review_required':'恢复已停止，保留现有结果等待核验'}.get(active_flow.get('status'),'验证已有缓存并准备恢复')
+        if adoption_live:
+            stage={'observing_existing_direct':'状态写入故障已接管，继续观察原直接求解',
+                   'waiting_for_aedt_finalization':'等待AEDT收尾，再导出现有直接点',
+                   'collecting_existing_direct':'导出现有直接点，不重复求解'}.get(state_write_adoption.get('status'),stage)
+        decision={**decision,'current_action':f'{active_attempt.parent.name} {active_attempt.name}正在原网格上恢复数值数据：{stage}',
+                  'next_action':'完整矩阵、直接对照、端口、拼接与来源哈希全部通过后审查候选，再继续监督队列'}
+    elif active_flow.get('status')=='candidate_ready_review_required' and not recovery_accepted(active_base/'direct/local_state.json'):
+        decision={**decision,'current_action':f'{active_attempt.parent.name} {active_attempt.name}完整数值恢复候选已生成，等待验收',
+                  'next_action':'复核完整曲线、模式、拼接及来源证据后才恢复监督队列'}
+    elif state_write_adoption.get('status')=='direct_exports_recovered' and active_flow.get('status')=='direct_exported_review_required':
+        decision={**decision,'current_action':f'{active_attempt.parent.name} {active_attempt.name}原直接点已恢复导出，等待数值审核',
+                  'next_action':'核验导出、状态写入故障接管证据后继续三段；尚未批准完整候选'}
+    elif active_watch.get('attempt')==str(active_attempt) and active_watch.get('status')=='candidate_ready_review_required':
+        decision={**decision,'current_action':f'{active_attempt.parent.name} {active_attempt.name}数值恢复候选已生成，等待验收',
+                  'next_action':'核验源、网格、资源及实际设计指标后恢复监督队列'}
+    elif any(('recover_same_port_phase.py' in p['command'] and 'D04G05' in p['command']) or any(name in p['command'] for name in ['adopt_i01_direct.py','resume_i01_after_finalize.py']) for p in processes) and queue.get('active_run')==trial_watch.get('attempt') and trial_flow.get('status') not in ['candidate_ready_review_required','review_required']:
+        trial_plan=read(ROOT/'local_repair/D04G05_i01/plan.json',{})
+        count=len(trial_plan.get('direct_frequencies_GHz',[]))
+        stage={'direct_check':f'核验{count}个直接频点','checking_Low':'核验低频段','checking_Middle':'核验中高频段','checking_Upper':'核验高频末段','assembling':'汇总1500点完整曲线','review_required':'恢复程序遇到错误，等待处理'}.get(trial_flow.get('status'),'验证缓存并准备恢复')
+        adoption=read(ROOT/'local_repair/D04G05_i01/direct_adoption.json',{})
+        if adoption.get('status')=='waiting_for_aedt_finalization':stage='等待AEDT收尾完成，再导出现有直接点'
+        elif adoption.get('status')=='collecting_existing_direct':stage=f'导出现有{count}个直接频点并检查'
+        decision={**decision,'current_action':f'D04G05 i01正在原网格上恢复数值数据：{stage}',
+                  'next_action':'完整矩阵、直接对照、端口和拼接全部通过后审查候选；不自动批准设计或启动下一几何'}
+    elif trial_flow.get('status')=='candidate_ready_review_required' and queue.get('active_run')==trial_watch.get('attempt'):
+        decision={**decision,'current_action':'D04G05 i01完整数值恢复候选已生成，等待验收',
+                  'next_action':'核对源哈希、资源、网格与设计指标后，才继续监督队列'}
+    elif queue.get('status')=='review_required' and (ROOT/'D04G05/i00/recovery_acceptance.json').exists():
+        decision={**decision,'current_action':f'队列在 {queue.get("active_case","当前配置")} 的 {Path(queue.get("active_run") or "未知迭代").name} 停止派发，等待核验具体错误',
+                  'next_action':'先检查该次日志和已有导出，优先恢复现有结果；不自动重复求解'}
+    elif recovery_flow.get('status')=='waiting_for_direct_fill':
+        decision={**decision,'current_action':'D04G05正在同一收敛网格上补齐局部直接频点，已有成功频点复用',
+                  'next_action':'补点完整导出并通过后，自动串行核验14.60–15GHz末段；不启动新pilot几何'}
+    elif recovery_flow.get('status')=='checking_upper_tail':
+        decision={**decision,'current_action':'D04G05局部补点已通过，正在核验14.60–15GHz末段及三个直接对照点',
+                  'next_action':'末段通过后汇总1500点完整候选曲线，再核验完整矩阵、端口和拼接边界'}
+    elif recovery_flow.get('status')=='assembling_review_candidate':
+        decision={**decision,'current_action':'正在汇总D04G05的1500点完整候选曲线，核验矩阵、端口与拼接边界',
+                  'next_action':'通过后审查恢复证据及协议迁移；当前阶段不自动批准设计或放行24配置'}
+    elif recovery_flow.get('status')=='candidate_ready_protocol_review_required' and not (ROOT/'D04G05/i00/recovery_acceptance.json').exists():
+        decision={**decision,'current_action':'D04G05完整恢复候选已通过数值、端口及拼接检查，等待明确协议审查和恢复验收',
+                  'next_action':'核对曲线、资源、源哈希与设计指标后，迁移协议并批准使用恢复数据，再继续前三配置监督'}
+    refs=read(ROOT/'reference_review.json',{})
+    collector=read(protocol.get('collector_review',{}).get('path',ROOT/'collector_review.json'),{})
+    collector_state=read(ROOT/'collector_workflow_state.json',{})
+    first=read(ROOT/'supervised_first_review.json',{})
+    tf3=read(ROOT/'TF3M3/postprocess_state.json',{})
+    states=[]
+    for p in list(ROOT.glob('*/state.json'))+list(ROOT.glob('D*/i*/state.json'))+list(ROOT.glob('local_repair/**/local_state.json'))+list(ROOT.glob('local_repair/**/state.json'))+list(ROOT.glob('local_repair/**/flow.json')):
+        if any(part in ['status_timeout','export_finalization_wait','export_schema_failure','state_write_failure'] for part in p.parts):continue
+        s=read(p)
+        if s:states.append((p,s))
+    states.sort(key=lambda x:x[1].get('updated_at_utc',''),reverse=True)
+    cases=[]
+    for c in plan['cases']:
+        folder=ROOT/c['case'];result=read(folder/'design_result.json',{})
+        runs=list(folder.glob('i*/state.json'))
+        state=next((s for p,s in states if p.parent.parent==folder),{})
+        label=LABEL.get(result.get('status'),result.get('status')) if result else LABEL.get(state.get('status'),'历史结果待复核' if c['historical_solves'] else '未运行')
+        if not result and not state and c['case'] in history_review:
+            h=history_review[c['case']]
+            if h.get('eligible_for_protocol_review'):
+                label='恢复证据通过，待冻结协议复核' if h.get('original_design_status')=='accepted' else '保留历史设计失败；数值证据已核验'
+            else:label='历史结果需要数值修复/复核'
+        cases.append((c,result,len(runs),label,state))
+    accepted=sum(r.get('status')=='accepted' for _,r,_,_,_ in cases)
+    failed=sum(r.get('status') in ['failed','historical_design_failure_unverified'] for _,r,_,_,_ in cases)
+    new_solves=sum(n for _,_,n,_,_ in cases)
+    current_state=read(active_attempt/'state.json',{})
+    elapsed_text=''
+    if queue.get('status')=='running' and current_state.get('started_at_utc'):
+        started=datetime.fromisoformat(current_state['started_at_utc'])
+        minutes=max(0,(now-started).total_seconds()/60)
+        elapsed_text=f'- 当前几何迭代已运行：{minutes:.1f}分钟（含自适应、扫频及导出；不代表完成百分比）。'
+    phase_text=''
+    if solvers:
+        commands=' '.join(p['command'] for p in solvers)
+        adaptive=re.search(r'-solve_(?:broadband_)?adapt\s+(\d+)',commands)
+        freq=re.search(r'-standalonesolve\s+([\d.e+]+)',commands) or re.search(r'-freq\s+([\d.e+]+)',commands)
+        direct_phase=recovery_owner_live and active_flow.get('status')=='direct_check'
+        phase_text=f'- 当前求解阶段：自适应第{adaptive[1]}轮' if adaptive else ('- 当前求解阶段：原网格离散直接点检查' if direct_phase else '- 当前求解阶段：频率求解')
+        if freq:phase_text+=f'，命令频率{float(freq[1])/1e9:g} GHz'
+        phase_text+=('。频点按求解器顺序处理，频率先后不能换算为完成比例。' if direct_phase else '。插值扫频会自适应选择频点，频率先后不能换算为完成比例。')
+    lines=['# Fig.8 实时进度','',f'最后刷新：**{now:%Y-%m-%d %H:%M:%S %z}**（新加坡/北京时间）；刷新周期15秒；监视器 PID {os.getpid()}。','',
+           '> 若时间连续超过1分钟不再变化，监视器可能已停止；请重新打开文件确认。此页面只读运行数据，不启动求解。','',
+           '## 当前情况','',f'- 当前工作：{decision.get("current_action","核验参考点与收集器，尚未放行批量队列")}。',
+           f'- HFSS 求解进程：**{len(solvers)}** 个（一个任务可能有包装与子进程，不能据此视为多任务）；资源要求：16核、1任务、串行。',
+           f'- 批量队列：**{LABEL.get(queue.get("status"),queue.get("status","尚未启动"))}**。',
+           f'- 首批24配置：本轮单点验收 {accepted}；本轮记录失败 {failed}；其余 {24-accepted-failed} 待处理/审查。最终数据集仍需角点及总验收。',
+           f'- 相位迭代：历史 {sum(c["historical_solves"] for c,_,_,_,_ in cases)} 次；新建求解记录 {new_solves} 次。每配置最多8次，包含历史记录；协议/收集器检查另计。',
+           f'- 下一步：{decision.get("next_action","完成参考协议、收集器和前几个配置的监督检查后放行剩余队列")}。','',
+           f'- 计划监督配置：{", ".join(plan.get("supervised_first",[]))}；先审查可复用历史结果，避免重复计算成功点。','',
+           '## 放行检查','', '| 检查 | 当前结果 |','|---|---|',
+           f'| T_F3 三模完整检查 | {"通过" if all(tf3.get(k) for k in ["numerical_passed","fields_passed","auxiliary_passed","boundaries_passed"]) else tf3.get("status","待完成")} |',
+           f'| B0 + T_F3 统一参考协议 | {"通过" if refs.get("passed") else "待完成"} |',
+           f'| 收集器复制/构造对照 | {"通过" if collector.get("passed") else LABEL.get(collector_state.get("status"),collector_state.get("status","待完成"))} |',
+           f'| 生产协议 | {protocol.get("status","尚未冻结")}；模式数 {protocol.get("modes","待定")} |',
+           f'| 前几个配置监督验收 | {"通过" if first.get("passed") else "待完成"} |','',
+           '## 最新求解记录','', '| 工程/配置 | 状态 | 当前段 | 最后状态时间 UTC |','|---|---|---|---|']
+    insertion=lines.index('## 放行检查')
+    lines[insertion:insertion]=[text for text in [elapsed_text,phase_text,''] if text or (elapsed_text or phase_text)]
+    for p,s in states[:8]:
+        label='数值恢复已验收（保留原记录）' if recovery_accepted(p) else LABEL.get(s.get('status'),s.get('status'))
+        lines.append(f'| {link(p,p.parent.name)} | {label} | {s.get("active_segment") or "—"} | {s.get("updated_at_utc","—")} |')
+    if active_watch:
+        label={'watching_live_trial':'监看现有求解，尚未启动数值恢复',
+               'starting_same_mesh_recovery':'已开始同网格数值恢复',
+               'candidate_ready_review_required':'候选已生成，待验收',
+               'not_needed_original_passed':'原结果已通过，无需恢复',
+               'review_required':'已停止，需核验错误'}.get(active_watch.get('status'),active_watch.get('status'))
+        lines+=['',f'- 单次恢复监视：{label}；监视进程{"存活" if active_watch_live else "已退出"}。']
+    if continuation:
+        lines+=['',f'- 同端口续跑控制：{continuation.get("status")}；控制进程{"存活" if continuation_live else "已退出"}。跨宽度仍按监督阶段处理。']
+    trial_base=active_base if (active_base/'plan.json').exists() else ROOT/'local_repair/D04G05_i01'
+    trial_plan=read(trial_base/'plan.json',{})
+    if trial_plan:
+        lines+=['',f'## {trial_base.name.replace("_"," ")} 数值恢复分段','',
+                '这里的通过仅表示该段数值检查通过。各段含重叠与对照频点，最终需要拼成1500个唯一频点，再做完整曲线和设计验收。','',
+                '| 阶段 | 计划频点 | 当前结果 | 最大奇异值 | 互易残差 | 直接对照最大误差 |',
+                '|---|---:|---|---:|---:|---:|']
+        for stage in ['direct','Low','Middle','Upper']:
+            folder=trial_base/stage;review=read(folder/'review.json',{})
+            local=read(folder/('local_state.json' if stage=='direct' else 'state.json'),{})
+            if stage=='direct':count=len(trial_plan['direct_frequencies_GHz']);title='直接点'
+            else:
+                lo,hi=trial_plan['segments_GHz'][stage];count=round((hi-lo)*100)+1
+                title={'Low':'低频段','Middle':'中高频段','Upper':'高频末段'}[stage]+f' {lo:g}–{hi:g} GHz'
+            status='数值检查通过' if review.get('passed') else ('检查未通过' if review else LABEL.get(local.get('status'),'尚未运行'))
+            def metric(key):
+                value=review.get(key);return f'{value:.6g}' if isinstance(value,(float,int)) else '—'
+            sample_error=max((x['full_50ohm_complex_error'] for x in review.get('samples',[])),default=None)
+            sample_text=f'{sample_error:.6g}' if sample_error is not None else '—'
+            lines.append(f'| {link(folder/"review.json",title) if review else title} | {count} | {status} | {metric("max_sv")} | {metric("reciprocity_error")} | {sample_text} |')
+    active_case=queue.get('active_case')
+    if active_case:
+        lines+=['',f'## {active_case} 调节记录','',
+                '数值验收与设计验收分别记录；恢复数据不会把原失败文件改写成成功。',
+                '', '| 迭代 | 用途 | 数值状态 | 中央谷 GHz | 双峰差 dB | 2dB带宽 GHz |',
+                '|---|---|---|---:|---:|---:|']
+        for sp in sorted((ROOT/active_case).glob('i*/state.json')):
+            run=sp.parent;s=read(sp,{})
+            acceptance=read(run/'recovery_acceptance.json',{})
+            data=Path(acceptance['candidate_run']) if acceptance.get('approved') else run
+            m=read(data/'response_metrics.json',{})
+            numerical='恢复后通过' if acceptance.get('approved') else ('通过' if m.get('validity',{}).get('solver_convergence_verified') else LABEL.get(s.get('status'),'待核验'))
+            def number(x):return f'{x:.4f}' if isinstance(x,(int,float)) else '—'
+            lines.append(f'| {link(sp,run.name)} | {s.get("role","—")} | {numerical} | {number(m.get("central_valley_GHz"))} | {number(m.get("peak_difference_dB"))} | {number(m.get("passband_2dB",{}).get("BW_GHz"))} |')
+    lines+=['','## 24配置','', '| 配置 | 历史迭代 | 新建迭代 | 当前状态 |','|---|---:|---:|---|']
+    for c,r,n,label,s in cases:lines.append(f'| {c["case"]} | {c["historical_solves"]} | {n} | {clean(label)} |')
+    lines+=['','## 运行证据','']
+    for p in solvers:
+        freq=re.search(r'-(?:standalonesolve|freq)\s+([\d.e+]+)',p['command'])
+        text=f'；命令频率 {float(freq[1])/1e9:g} GHz' if freq else ''
+        adaptive=re.search(r'-solve_(?:broadband_)?adapt\s+(\d+)',p['command'])
+        if adaptive:text+=f'；正在自适应第 {adaptive[1]} 轮'
+        cores=re.search(r'-max_processors\s+(\d+)',p['command'])
+        if cores:text+=f'；{cores[1]}核'
+        lines.append(f'- hf3d PID {p["pid"]}{text}。')
+    workers=[p for p in processes if p['name'].lower()!='hf3d.exe' and 'live_progress.py' not in p['command']]
+    for p in workers:lines.append(f'- 控制/收集进程 PID {p["pid"]}：{clean(p["command"].split("fig8_resume_20261007")[-1])}。')
+    if not solvers and not workers:lines.append('- 当前未发现本批控制器或求解器在运行；以上完成状态仍保留，不能把它理解为正在后台求解。')
+    problems=[]
+    for p,s in states:
+        if recovery_accepted(p):continue
+        if s.get('status')=='review_required':problems.append(f'{p.parent.name}：{str(s.get("error","待核验"))[-700:]}')
+    if queue.get('status')=='review_required':problems.append(str(queue.get('error','队列待复核'))[-700:])
+    if not collector.get('passed') and collector_state.get('status')=='review_required':problems.append(str(collector_state.get('error','收集器待复核'))[-700:])
+    lines+=['','## 待处理问题','']+[f'- {clean(x)}' for x in problems]
+    if not problems:lines.append('- 未发现活动状态文件报告失败；放行仍以以上检查结果为准。')
+    lines+=['','## 文件入口','',f'- {link(HERE/"交付与执行计划.md")}',f'- {link(HERE/"当前交付说明.md")}',f'- {link(ROOT/"TF3M3/protocol_review.json","T_F3完整检查")}',f'- {link(HERE/"configuration_status_24.csv","历史24配置清单")}', '', '口径：只运行首批24配置和必要检查；不运行扩展、留出或六极；不使用 R_BW 对来源带宽的相关性冒充新规律。','']
+    atomic(PAGE,'\n'.join(lines))
+    atomic(ROOT/'progress_monitor.json',json.dumps({'pid':os.getpid(),'updated_at_utc':datetime.now(timezone.utc).isoformat(),'page':str(PAGE),'solver_pids':[p['pid'] for p in solvers]},indent=2))
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--once',action='store_true');a=parser.parse_args()
+    while True:
+        try:render()
+        except Exception:print(traceback.format_exc(),flush=True)
+        if a.once:break
+        time.sleep(15)

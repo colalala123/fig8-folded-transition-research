@@ -1,0 +1,80 @@
+"""Versioned continuation recipe for NEW D04 same-port recovery attempts.
+
+Uses unchanged mesh/sweep/precision and the existing bounded frequency plan.
+Adds the independently checked export-schema reader and handles only the
+known read-only MCP timeout while a serial 16-core HFSS solve remains live.
+Never retries start_analysis or adopts an old recipe implicitly. Candidate
+production approval and the next pilot geometry remain separate.
+"""
+import argparse,asyncio,json
+from pathlib import Path
+import recover_same_port_phase as legacy
+import review_same_port_direct as reviewer
+
+VERSION='same_port_recovery_v2_scalar_schema_20261008'
+BASE_PLAN=legacy.plan
+
+def plan(attempt):
+    result=BASE_PLAN(attempt)
+    result['recovery_recipe_version']=VERSION
+    result['implementation_hashes'].update({str(p):legacy.sha(p) for p in [Path(__file__),Path(reviewer.__file__)]})
+    result['status_timeout_policy']='Only get_analysis_status timeout with observed live serial 16-core nonadaptive HFSS may defer status polling. No retries of start_analysis; missing or invalid solver evidence stops for review.'
+    return result
+
+def known_status_timeout(name,args,error):
+    return (name=='get_analysis_status' and args.get('port')==7990
+        and 'get_analysis_status' in str(error)
+        and 'AEDT broker timed out after 120s for port:7990' in str(error))
+
+def timeout_wrapper(original,base,project):
+    async def call(client,name,args):
+        try:return await original(client,name,args)
+        except RuntimeError as error:
+            if not known_status_timeout(name,args,error):raise
+            assert args['project_name']==project.stem and args['design_name']=='Wideband vertical transition'
+            processes=legacy.direct.solvers()
+            if not processes:raise
+            # This observer is installed by legacy.run. It rejects concurrent
+            # jobs, resource changes and a new adaptive solve before returning.
+            legacy.audit_observations(base)
+            path=base/'status_query_fallbacks.json'
+            record=legacy.read(path) if path.exists() else {'recipe_version':VERSION,'events':[]}
+            record['events'].append({'observed_at_utc':legacy.now(),'operation':name,'arguments':args,
+                'error':str(error),'processes':processes,'single_16_core_task_verified':True,
+                'action':'Continue observing the existing solve; no solver dispatch or restart',
+                'stage':legacy.read(base/'flow.json')['status']})
+            temp=path.with_suffix('.tmp');legacy.write_json(temp,record);temp.replace(path)
+            return {'target':{'kind':'port','value':7990},'project_name':project.stem,
+                'design_name':args['design_name'],'running':True,
+                'status_query_succeeded':False,'observation_method':'OS processes under serial 16-core guard',
+                'observation_error_evidence':str(path)}
+    return call
+
+async def run(attempt):
+    p=plan(attempt);attempt=Path(p['attempt']);base=legacy.ROOT/'local_repair'/('D04G05_'+attempt.name)
+    assert p['layout_evidence']['original_export_available'],'Original exports must exist before diagnostic dispatch'
+    if (base/'plan.json').exists():
+        assert legacy.read(base/'plan.json')==p,'Existing recipe differs; do not migrate or rerun implicitly'
+    assert not (attempt/'recovery_acceptance.json').exists(),'Do not rerun accepted recovery'
+    project=base/f'D04G05_{attempt.name}_repair.aedt'
+    original_plan=legacy.plan;original_review=legacy.review_direct
+    original_direct_call=legacy.direct.session_call;original_backend_call=legacy.backend.session_call
+    def review_direct(folder,project_path):
+        state=legacy.read(folder/'direct/local_state.json')
+        assert state['status']=='exported_review_required'
+        explicit=folder/'direct/explicit_modal'
+        if not explicit.exists():
+            legacy.export(project_path,'Setup19 : '+legacy.DIRECT_NAME,explicit,state['expected_frequencies_GHz'])
+        reviewer.write_review(attempt)
+    legacy.plan=plan;legacy.review_direct=review_direct
+    legacy.direct.session_call=timeout_wrapper(original_direct_call,base,project)
+    legacy.backend.session_call=timeout_wrapper(original_backend_call,base,project)
+    try:await legacy.run(attempt)
+    finally:
+        legacy.plan=original_plan;legacy.review_direct=original_review
+        legacy.direct.session_call=original_direct_call;legacy.backend.session_call=original_backend_call
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('attempt');ap.add_argument('--run',action='store_true');args=ap.parse_args()
+    if args.run:asyncio.run(run(args.attempt))
+    else:print(json.dumps(plan(args.attempt),indent=2))

@@ -1,0 +1,55 @@
+"""One direct work item per call, sequentially; inputs and budgets frozen first."""
+import argparse,subprocess,sys
+from pathlib import Path
+import phase_control as pc
+from phase_direct_context import reviewed_source
+
+def dispatch(case,solve):
+    auth=pc.read(pc.HERE/'authorization.json');assert auth['execution_authorized'] and auth['stage']=='V6D'
+    implementation=pc.read(pc.HERE/'implementation_manifest.json')
+    for f,h in implementation.items():assert pc.sha(f)==h,f
+    ledger=pc.read(pc.HERE/'budget_ledger.json');assert all(t['status']=='reviewed' for t in ledger['tasks'])
+    assert len(ledger['tasks'])<6 and case==pc.ORDER[len(ledger['tasks'])]
+    for t in ledger['tasks']:
+        run=Path(t['path']).parent;a=pc.read(run/'receiver_ack.json')
+        assert a['event_sha256']==pc.sha(run/'completion_event.json') and a['verification_sha256']==pc.sha(run/'receiver_verification.json')
+        assert a['operation_success'] and a['visual_review_completed'] and a['artifacts_verified']
+    row=next(r for r in pc.read(pc.HERE/'plan.json')['cases'] if r['case']==case)
+    source=Path(row['source']);spec,state,metrics=reviewed_source(source,case)
+    assert pc.sha(state['project'])==row['project_sha256']
+    for f,h in row['evidence_hashes'].items():assert pc.sha(f)==h,f
+    from phase_final_direct import frequencies
+    from solver_runtime import dc,canonical_ports
+    points=frequencies(metrics)
+    run=pc.BASE/case/'final_direct';path=run/'input.json'
+    assert not path.exists() and not (run/'state.json').exists(),'Existing attempt: inspect, never re-dispatch'
+    if not solve:
+        print(dict(case=case,ready=True,points=len(points),started=False));return
+    assert not dc.solvers()
+    for lock in [pc.HERE/'worker.lock',pc.PARENT/'worker.lock',pc.ORIGINAL/'worker.lock',pc.OLD/'protocol.lock',pc.OLD/'pilot_queue.lock']:
+        assert not lock.exists(),str(lock)
+    parents={**implementation,**row['evidence_hashes'],str(pc.HERE/'implementation_manifest.json'):pc.sha(pc.HERE/'implementation_manifest.json'),
+        str(Path(state['project'])):pc.sha(state['project'])}
+    pc.write(run/'budget_before.json',ledger);parents[str(run/'budget_before.json')]=pc.sha(run/'budget_before.json')
+    p=dict(case=case,role='cached_phase_direct',source=str(source),run_dir=str(run),input_path=str(path.resolve()),
+        project_source=state['project'],project_source_sha256=pc.sha(state['project']),project_name=case+'_V6_FinalDirect',
+        frequencies_GHz=points,source_geometry=spec['geometry'],expected_ports=canonical_ports(state['port_settings']['after']),
+        cached_task_ordinal_for_case=1,geometry_budget_increment=0,adaptive_allowed=False,
+        cumulative_geometry_used=state['cumulative_geometry_ordinal'],worker_sha256=pc.sha(pc.HERE/'phase_final_direct.py'),
+        parent_evidence_hashes=parents,created_at=pc.now())
+    pc.write(path,p)
+    release=dict(case=case,input_path=str(path.resolve()),input_sha256=pc.sha(path),bulk_dispatch_released=False,at=pc.now())
+    pc.write(pc.HERE/'supervised_release.json',release)
+    # The initial phase watch follows this successor once a real solver starts.
+    pc.write(pc.PARENT/'supervised_release.json',release)
+    ledger['new_cached_tasks_reserved']+=1
+    ledger['tasks'].append(dict(case=case,role='cached_phase_direct',path=str(path.resolve()),input_sha256=pc.sha(path),geometry_budget_increment=0,status='reserved'))
+    pc.write(pc.HERE/'budget_ledger.json',ledger)
+    with (pc.HERE/f'{case}.stdout.log').open('ab') as out,(pc.HERE/f'{case}.stderr.log').open('ab') as err:
+        proc=subprocess.Popen([sys.executable,str(pc.HERE/'phase_final_direct.py'),'--spec',str(path.resolve())],cwd=str(pc.HERE),
+            stdin=subprocess.DEVNULL,stdout=out,stderr=err,creationflags=subprocess.CREATE_NO_WINDOW)
+    print(dict(case=case,points=len(points),worker_launched=proc.pid,actual_solver_started=False))
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--case',choices=pc.ORDER,required=True);ap.add_argument('--solve',action='store_true')
+    a=ap.parse_args();dispatch(a.case,a.solve)

@@ -1,0 +1,93 @@
+"""Finite same-mesh consistency at peaks, -2dB edges and every joint -20dB edge.
+
+Sparse samples never constitute a continuous-extrema proof or mesh convergence.
+"""
+import math
+from pathlib import Path
+import numpy as np
+from phase_control import HERE,read
+from solver_runtime import passes
+
+def bracket(f):
+    center=round(float(f),2)
+    return [round(center-.02,2),round(center+.02,2)]
+
+def frequency_plan(metrics,target):
+    peaks=[dict(center=float(p['frequency_GHz']),points=[round(p['frequency_GHz']+d,2) for d in [-.01,0,.01]]) for p in metrics['peaks']]
+    assert len(peaks)==2
+    center=round(metrics['central_valley_GHz'],2)
+    edges2={k:dict(reference=float(metrics['passband_2dB'][k]),points=bracket(metrics['passband_2dB'][k])) for k in ['f_low_GHz','f_high_GHz']}
+    joint=[]
+    for band in target['joint20_intervals_GHz']:
+        joint.append([dict(reference=float(f),points=bracket(f)) for f in band])
+    points={center}
+    for p in peaks:points.update(p['points'])
+    for e in edges2.values():points.update(e['points'])
+    for band in joint:
+        for e in band:points.update(e['points'])
+    points=sorted(points)
+    assert 1<=len(points)<=24 and all(.01<=x<=15 for x in points)
+    chunks=[points[i:i+4] for i in range(0,len(points),4)]
+    assert len(chunks)<=6
+    return dict(frequencies_GHz=points,chunks=chunks,peaks=peaks,central_sample_GHz=center,edges2=edges2,joint20_edges=joint,
+        scope='Two inner peak neighborhoods (3 points each), central reference sample, -2dB edges, every joint20 edge. No off-band sentinel; hard24 points/6 launches.')
+
+def crossing(x,y):
+    x=np.asarray(x);y=np.asarray(y);answer=[]
+    for i in range(len(x)-1):
+        if y[i]==0:answer.append(float(x[i]))
+        if y[i]*y[i+1]<0:answer.append(float(x[i]-y[i]*(x[i+1]-x[i])/(y[i+1]-y[i])))
+    if y[-1]==0:answer.append(float(x[-1]))
+    return sorted(set(answer))
+
+def compare(source,run):
+    source=Path(source);run=Path(run)
+    a=np.atleast_1d(np.genfromtxt(source/'sparams.csv',delimiter=',',names=True))
+    b=np.atleast_1d(np.genfromtxt(run/'sparams.csv',delimiter=',',names=True))
+    met=read(source/'response_metrics.json');target=read(source/'target20_metrics.json')
+    plan=frequency_plan(met,target);f=b['Freq_GHz'];idx=np.rint(f*100).astype(int)-1
+    assert len(f)==len(plan['frequencies_GHz']) and np.allclose(f,plan['frequencies_GHz'],atol=1e-9,rtol=0)
+    assert np.allclose(a['Freq_GHz'][idx],f,atol=1e-9,rtol=0)
+    def rows(points):
+        rr=[np.flatnonzero(abs(f-x)<1e-8) for x in points];assert all(len(x)==1 for x in rr)
+        return np.array([x[0] for x in rr])
+    error=max(float(np.max(abs((a[k+'_real'][idx]+1j*a[k+'_imag'][idx])-(b[k+'_real']+1j*b[k+'_imag'])))) for k in ['S11','S21'])
+    band=met['passband_2dB'];inside=(f>=band['f_low_GHz']-.03)&(f<=band['f_high_GHz']+.03)
+    s21error=float(np.max(abs(a['S21_dB'][idx][inside]-b['S21_dB'][inside])))
+    peaks=[];height_errors=[]
+    for p in plan['peaks']:
+        rr=rows(p['points']);j=rr[np.argmax(b['S11_dB'][rr])]
+        peaks.append(dict(GHz=float(f[j]),dB=float(b['S11_dB'][j]),interior=bool(j==rr[1]),sampled_points=p['points']))
+        height_errors.append(float(abs(b['S11_dB'][rr].max()-a['S11_dB'][idx][rr].max())))
+    def edge(e,kind):
+        rr=rows(e['points'])
+        y=b['S21_dB'][rr]+2 if kind=='S21' else b['S11_dB'][rr]+20
+        crosses=crossing(f[rr],y)
+        value=min(crosses,key=lambda v:abs(v-e['reference'])) if crosses else None
+        # Confirm the other condition at the direct edge bracket. For these
+        # Fig8 bands the active -20dB boundary is S11, not a -2dB crossing.
+        other_ok=bool(np.all(b['S21_dB'][rr]>=-2)) if kind=='S11' else True
+        return dict(reference_GHz=e['reference'],direct_GHz=value,shift_GHz=abs(value-e['reference']) if value is not None else None,points=e['points'],other_condition_verified=other_ok)
+    edges2={k:edge(e,'S21') for k,e in plan['edges2'].items()}
+    values={k:v['direct_GHz'] for k,v in edges2.items()}
+    bw=values['f_high_GHz']-values['f_low_GHz'] if all(v is not None for v in values.values()) else None
+    joint=[]
+    for bounds in plan['joint20_edges']:
+        pair=[edge(e,'S11') for e in bounds]
+        width=pair[1]['direct_GHz']-pair[0]['direct_GHz'] if all(e['direct_GHz'] is not None for e in pair) else None
+        refwidth=bounds[1]['reference']-bounds[0]['reference']
+        joint.append(dict(edges=pair,direct_width_GHz=width,width_shift_GHz=abs(width-refwidth) if width is not None else None))
+    limits=read(HERE/'policy.json')['direct_criteria']
+    edge_ok=all(e['shift_GHz'] is not None and e['shift_GHz']<=limits['max_edge_shift_GHz'] for e in edges2.values())
+    joint_ok=all(x['width_shift_GHz'] is not None and x['width_shift_GHz']<=limits['max_BW_shift_GHz'] and all(e['other_condition_verified'] and e['shift_GHz'] is not None and e['shift_GHz']<=limits['max_edge_shift_GHz'] for e in x['edges']) for x in joint)
+    bwshift=abs(bw-band['BW_GHz']) if bw is not None else None
+    numerical=(error<=limits['max_complex_error'] and s21error<=limits['max_inband_S21_error_dB'] and max(height_errors)<=limits['max_peak_error_dB'] and edge_ok and bwshift is not None and bwshift<=limits['max_BW_shift_GHz'] and joint_ok)
+    peak_difference=abs(peaks[0]['dB']-peaks[1]['dB']);centralrow=rows([plan['central_sample_GHz']])[0]
+    shape=met['prominent_valley_count']==3 and abs(met['central_valley_GHz']-6.72)<=.03+1e-10 and all(met['validity'][k] for k in ['S11_below_minus10_between_valleys','S21_ge_minus2_between_valleys','band_not_truncated','nonpositive_transmission'])
+    supported=shape and peak_difference<=.5 and all(p['dB']<-10 for p in peaks) and b['S21_dB'][centralrow]>=-2
+    return dict(points=len(f),max_complex_error=error,max_nearband_S21_error_dB=s21error,peak_height_errors_dB=height_errors,direct_peaks=peaks,direct_peak_difference_dB=peak_difference,
+        direct_central_valley=dict(GHz=plan['central_sample_GHz'],S11_dB=float(b['S11_dB'][centralrow]),local_extremum_independently_located=False),
+        direct_edges_GHz=values,edge_shifts_GHz={k:e['shift_GHz'] for k,e in edges2.items()},direct_BW_GHz=bw,BW_shift_GHz=bwshift,
+        joint20_band_reviews=joint,joint20_edges_passed=bool(joint_ok),both_sampled_inner_peaks_le_minus20=bool(all(p['dB']<=-20 for p in peaks)),
+        numerical_review_passed=bool(numerical),sampled_design_supported=bool(supported),full_matrix_approved=False,limits=limits,
+        scope='Finite direct consistency on unchanged mesh at frozen points. Central valley location inherited, not independently searched; no full-curve extrema or mesh-convergence proof. -20dB scientific classification is separate from baseline tuning acceptance.')

@@ -1,0 +1,8 @@
+from phase_control import HERE,read,write,sha,now,ORIGINAL
+import sys
+sys.path.insert(0,str(ORIGINAL))
+from mesh_budget import design_verdict
+sys.path.insert(0,str(HERE.parent/'fig8_speed_study_20261021'))
+from run_study import analyze
+from analyze_study import passes
+if __name__=='__main__': raise RuntimeError('Export-only recovery context: Analyze forbidden')

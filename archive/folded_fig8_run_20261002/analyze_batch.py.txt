@@ -1,0 +1,149 @@
+"""Summarize fresh Fig. 8 curves and assess the frozen geometry prediction."""
+from __future__ import annotations
+import csv
+import json
+import sys
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+HERE=Path(__file__).resolve().parent
+ROOT=Path('F:/hfss_f8_261002')
+WORK=Path('${WORKSPACE}')
+sys.path[:0]=[str(HERE),str(WORK/'output/folded_geometry_scope_20261002')]
+from freeze_prediction import features
+from prepare_geometry_scope import derive
+
+NAMES=['F2','B0','F3','G035','G2']
+OLD={'B0':'B0_rerun_20260923','F2':'F2','F3':'F3','G2':'G2'}
+
+def load_curve(path):
+    return np.genfromtxt(path,delimiter=',',names=True,encoding='utf-8-sig')
+
+def summarize():
+    result=[]
+    for name in NAMES:
+        directory=ROOT/name
+        if not (directory/'response_metrics.json').exists():continue
+        m=json.loads((directory/'response_metrics.json').read_text(encoding='utf-8'))
+        manifest=json.loads((directory/'manifest.json').read_text(encoding='utf-8'))
+        if 'finished_at' not in manifest:
+            continue
+        geometry=manifest['geometry'];g=derive(geometry)
+        f=features(directory/'sparams.csv')
+        curve=load_curve(directory/'sparams.csv')
+        s={key:curve[key+'_real']+1j*curve[key+'_imag'] for key in ('S11','S21','S12','S22')}
+        matrix=np.stack([np.stack([s['S11'],s['S12']],axis=-1),np.stack([s['S21'],s['S22']],axis=-1)],axis=-2)
+        singular=np.linalg.svd(matrix,compute_uv=False)
+        row={'case':name,'status':manifest['status'],'converged':m['convergence']['converged'],
+             'passes':m['convergence']['passes'],'source_unchanged':manifest['source_unchanged'],
+             'frequency_points':len(curve),'max_reciprocity_error':float(np.max(abs(s['S21']-s['S12']))),
+             'maximum_S_matrix_singular_value':float(np.max(singular)),
+             'sweep_converged_message':any('Interpolating frequency sweep complete. Converged.' in message for message in manifest.get('messages',[])),
+             'additional_port_mode_messages':sum('additional propagating' in message for message in manifest.get('messages',[])),
+             **geometry,'gap_mm':g['gap_mm'],'arm_net_mm':g['arm_net_mm'],**f,
+             'BW_joint_GHz':m['passband_joint']['BW_GHz'] if m.get('passband_joint') else None,
+             'peak_difference_dB':m.get('peak_difference_dB'),
+             'equal_ripple':m['validity'].get('equal_ripple',False),
+             'P_response_formal':(m.get('formal_response_PR') or {}).get('P_response'),
+             'R_BW_formal':(m.get('formal_response_PR') or {}).get('R_BW'),
+             'power_deficit_at_9p5':m['sampled_response']['9.5']['unaccounted_power_fraction'],
+             'solve_wall_seconds':manifest.get('solve_wall_seconds')}
+        if name in OLD:
+            old=Path('F:/hfss_fold_260920')/OLD[name]/'sparams.csv'
+            previous=features(old)
+            a,b=load_curve(old),load_curve(directory/'sparams.csv')
+            band=(b['Freq_GHz']>=3)&(b['Freq_GHz']<=10.5)
+            row['repeat_BW_difference_GHz']=f['BW_2dB_GHz']-previous['BW_2dB_GHz']
+            row['repeat_signed_peak_difference_dB']=f['signed_peak_difference_dB']-previous['signed_peak_difference_dB']
+            row['repeat_S21_RMSE_dB_3_to_10p5GHz']=float(np.sqrt(np.mean((a['S21_dB'][band]-b['S21_dB'][band])**2)))
+        field_path=directory/'saved_field_power.json'
+        if field_path.exists():
+            field=json.loads(field_path.read_text(encoding='utf-8'))
+            if field.get('status')=='exported' and field.get('project_unchanged'):
+                for sample in field['samples']:
+                    if abs(sample['frequency_GHz']-8.0)<1e-8:
+                        row['radiated_incident_fraction_at_8GHz']=sample['radiated_fraction_of_incident']
+                        row['total_deficit_fraction_at_8GHz']=sample.get('unaccounted_port_mode_fraction')
+        result.append(row)
+    return result
+
+def plot_group(cases, filename, title):
+    available=[name for name in cases if (ROOT/name/'sparams.csv').exists()]
+    if not available:return
+    fig,axes=plt.subplots(1,len(available),figsize=(5*len(available),4.3),squeeze=False)
+    for ax,name in zip(axes[0],available):
+        data=load_curve(ROOT/name/'sparams.csv')
+        ax.plot(data['Freq_GHz'],data['S21_dB'],color='#c52227',lw=1.6,label='S21')
+        ax.plot(data['Freq_GHz'],data['S11_dB'],color='#1b559d',lw=1.5,label='S11')
+        if name!='B0' and (ROOT/'B0/sparams.csv').exists():
+            base=load_curve(ROOT/'B0/sparams.csv')
+            ax.plot(base['Freq_GHz'],base['S21_dB'],color='#c52227',ls='--',alpha=.4,lw=1,label='B0 S21')
+            ax.plot(base['Freq_GHz'],base['S11_dB'],color='#1b559d',ls='--',alpha=.4,lw=1,label='B0 S11')
+        ax.axhline(-2,color='gray',ls=':',lw=.9)
+        ax.axhline(-10,color='gray',ls=':',lw=.9)
+        ax.set(xlim=(0,15),ylim=(-60,2),xlabel='Frequency (GHz)',ylabel='S parameters (dB)',title=name)
+        ax.grid(alpha=.2);ax.legend(loc='lower right',fontsize=8)
+    fig.suptitle(title,fontsize=12)
+    fig.tight_layout();fig.savefig(ROOT/filename,dpi=180);plt.close(fig)
+
+def main():
+    result=summarize()
+    report={'scope':'Fig8_single_transition_only','fresh_runs':len(result),'rows':result,
+            'material_er_actual':3.55,'material_tan_delta_actual':0.0027,'paper_nominal_er':3.38,
+            'caution':'Raw five-point sweeps have fixed geometric path, not fixed electrical phase or reflection ripple.'}
+    frozen_path=ROOT/'G035_prediction_frozen.json'
+    if frozen_path.exists() and any(r['case']=='G035' for r in result):
+        frozen=json.loads(frozen_path.read_text(encoding='utf-8'))
+        actual=next(r for r in result if r['case']=='G035')
+        validation={}
+        for key,predicted in frozen['prediction'].items():
+            error=actual[key]-predicted
+            tol=frozen['screening_tolerances_not_physical_guarantees'][key]
+            validation[key]={'predicted':predicted,'actual':actual[key],'error':error,'tolerance':tol,'passes':abs(error)<=tol}
+        report['prospective_G035_check']={'prediction_frozen_at':frozen['frozen_at'],'metrics':validation}
+    by_name={r['case']:r for r in result}
+    if all(n in by_name for n in ('F2','B0','F3')):
+        x=np.array([by_name[n]['arm_net_mm'] for n in ('F2','B0','F3')])
+        report['fold_local_fits']={k:np.polyfit(x,[by_name[n][k] for n in ('F2','B0','F3')],2).tolist()
+                                  for k in ('BW_2dB_GHz','signed_peak_difference_dB','central_valley_GHz')}
+        report['fold_fit_caution']='Quadratic interpolation of three cases is descriptive; no independent fold-length prediction has been verified.'
+    if all(n in by_name for n in ('G035','B0','G2')):
+        x=np.array([by_name[n]['gap_mm'] for n in ('G035','B0','G2')])
+        report['gap_local_linear_fits']={k:np.polyfit(x,[by_name[n][k] for n in ('G035','B0','G2')],1).tolist()
+                                        for k in ('BW_2dB_GHz','signed_peak_difference_dB','central_valley_GHz')}
+    if result:
+        keys=list(dict.fromkeys(key for row in result for key in row))
+        with (ROOT/'five_case_summary.csv').open('w',encoding='utf-8-sig',newline='') as handle:
+            writer=csv.DictWriter(handle,fieldnames=keys);writer.writeheader();writer.writerows(result)
+    (ROOT/'five_case_summary.json').write_text(json.dumps(report,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
+    lines=['# Fig. 8 弯折单过渡器：五点重跑结果','',
+           f'已导出 {len(result)}/5 个新结果。实际工程材料 er=3.55、tanδ=0.0027，沿用历史工程。六极阶段暂缓。','',
+           '| Case | a / mm | g / mm | BW₂dB / GHz | 带符号峰高差 / dB | 中央谷 / GHz | 等峰 | 收敛 |',
+           '|---|---:|---:|---:|---:|---:|---|---|']
+    for r in result:
+        lines.append(f"| {r['case']} | {r['arm_net_mm']:.6f} | {r['gap_mm']:.6f} | {r['BW_2dB_GHz']:.6f} | {r['signed_peak_difference_dB']:.4f} | {r['central_valley_GHz']:.3f} | {'PASS' if r['equal_ripple'] else 'FAIL'} | {'YES' if r['converged'] else 'NO'} |")
+    lines+=['','带符号峰高差 = 低频侧 S11 峰值 - 高频侧 S11 峰值；绝对值不超过 0.5 dB 才通过等峰门槛。',
+            '所有初始配置几何路径相同；中央谷的移动与峰高变化须作为电长度/耦合效应记录，不能仅从带宽变化判定局部槽线阻抗。','']
+    if 'prospective_G035_check' in report:
+        lines+=['## 仿真前冻结的新间隙点预测','',
+                '使用历史 B0/G2 建立局部线性模型，先冻结预测，再读取 G035 的新仿真结果。该点为小范围外推。','',
+                '| 指标 | 预测 | 新仿真 | 误差 | 筛选 |','|---|---:|---:|---:|---|']
+        for key,v in report['prospective_G035_check']['metrics'].items():
+            lines.append(f"| {key} | {v['predicted']:.6f} | {v['actual']:.6f} | {v['error']:+.6f} | {'PASS' if v['passes'] else 'FAIL'} |")
+        lines+=['','容差是本轮预先设置的工程筛选标准，不是误差上界保证；单个验证点只能支持局部修正。','']
+    lines+=['## 图与数据','',
+            '- `fold_length_comparison.png`：短、中、长折臂曲线。',
+            '- `gap_comparison.png`：窄、中、宽间隙曲线。',
+            '- 各案例目录包含新求解工程、完整复数 S 参数、收敛与网格记录、指标与源文件哈希。',
+            '- 各案例的 `saved_field_power.json` 若导出成功，可提供 8 GHz 的独立场积分辐射数据；这不代表全带宽辐射验证。',
+            '- S 参数功率缺额不等于单独的辐射损耗。原工程端口各保留一个模式，求解器提示附加传播或慢衰减模式；绝对损耗及高频端仍需多模端口复核。','']
+    (ROOT/'five_case_report.md').write_text('\n'.join(lines),encoding='utf-8')
+    plot_group(['F2','B0','F3'],'fold_length_comparison.png','Fold-arm sweep at fixed geometric path')
+    plot_group(['G035','B0','G2'],'gap_comparison.png','Parallel-gap sweep at fixed geometric path')
+    print(json.dumps({'fresh_runs':len(result),'rows':[{k:r[k] for k in ('case','BW_2dB_GHz','signed_peak_difference_dB','central_valley_GHz','equal_ripple','converged')} for r in result],
+                      'prospective_check':report.get('prospective_G035_check')},indent=2,ensure_ascii=False))
+
+if __name__=='__main__':main()

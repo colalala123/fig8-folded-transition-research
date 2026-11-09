@@ -1,0 +1,18 @@
+"""Before any reserved dispatch, preserve byte-identical native reference metadata."""
+from pathlib import Path
+import shutil
+import phase_control as pc
+P=pc.HERE;R=P/'reserved_review';S=P/'final_review'
+ledger=pc.read(R/'case_work_ledger.json');assert ledger['tasks']==[] and ledger['new_cached_tasks_reserved']==0
+for case in ['B01','B02','B03','B04']:assert not (pc.BASE/case/'direct_reserved/input.json').exists()
+old=R/'reference_validation.json';source=S/'reference_validation.json'
+assert pc.read(old)==pc.read(source)
+assert pc.sha(R/'case_reference.py')==pc.sha(S/'case_reference.py')
+archive=R/'prelaunch_metadata_repair';archive.mkdir(exist_ok=False)
+shutil.copyfile(old,archive/'reference_validation_before.json');shutil.copyfile(R/'implementation_hashes.json',archive/'implementation_hashes_before.json')
+before=pc.sha(old);shutil.copyfile(source,old)
+record=dict(at=pc.now(),reason='JSON reserialization changed only reference-validation bytes; cross-stage native-reference verification requires identical original metadata digest',semantic_content_unchanged=True,old_sha256=before,new_sha256=pc.sha(old),source=str(source),reserved_inputs_created=0,reserved_solves_started=0,model_and_geometries_changed=False)
+pc.write(archive/'repair.json',record)
+frozen=pc.read(R/'implementation_hashes.json');frozen[str(old)]=pc.sha(old);frozen[str(archive/'repair.json')]=pc.sha(archive/'repair.json')
+for f,h in frozen.items():assert pc.sha(f)==h,f
+pc.write(R/'implementation_hashes.json',frozen);print(record)

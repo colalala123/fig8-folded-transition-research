@@ -1,0 +1,7 @@
+from ansys.aedt.core import Hfss
+app=Hfss(project=r'F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt',design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ for b in app.boundaries:
+  if b.type=='Wave Port':
+   print('BOUND',b.name); print('keys',list(b.props.keys())); print('props',b.props)
+finally:app.release_desktop(close_projects=False,close_desktop=False)

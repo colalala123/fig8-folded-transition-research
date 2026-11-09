@@ -1,0 +1,84 @@
+"""Compare independent frequency solutions; all original datasets stay unchanged."""
+from pathlib import Path
+import numpy as np
+from audit import HERE,ROOT,read,write,sha,load
+
+def norm(s,z):
+    eye=np.eye(s.shape[1])[None,:,:];d=np.sqrt(z/50)
+    a=(d+1/d)[:,:,None]*eye+(d-1/d)[:,:,None]*s
+    b=(d-1/d)[:,:,None]*eye+(d+1/d)[:,:,None]*s
+    return np.linalg.solve(a.transpose(0,2,1),b.transpose(0,2,1)).transpose(0,2,1)
+def db(s):return 20*np.log10(np.maximum(abs(s),1e-300))
+def compare(original,direct,case):
+    f,s,z=load(original);df,ds,dz=load(direct)
+    indices=np.searchsorted(f,df);assert np.allclose(f[indices],df,atol=1e-9,rtol=0)
+    old=s[indices];n=norm(old,z[indices]);dn=norm(ds,dz)
+    errors=np.maximum(abs(old[:,0,0]-ds[:,0,0]),abs(old[:,2,0]-ds[:,2,0]))
+    olddb=db(old);ddb=db(ds);met=read(original/'response_metrics.json')
+    band=met['passband_2dB'];mask=(df>=band['f_low_GHz']-.03)&(df<=band['f_high_GHz']+.03)
+    peak_errors=[]
+    for peak in met['peaks']:
+        win=abs(df-peak['frequency_GHz'])<=.021
+        if win.any():peak_errors.append(float(abs(ddb[win,0,0].max()-olddb[win,0,0].max())))
+    edges={}
+    for key in ['f_low_GHz','f_high_GHz']:
+        win=abs(df-band[key])<.04;x=df[win];y=ddb[win,2,0]+2
+        crossings=[]
+        for i in range(len(x)-1):
+            if y[i]*y[i+1]<=0:crossings.append(float(x[i]-y[i]*(x[i+1]-x[i])/(y[i+1]-y[i])))
+        edges[key]=min(crossings,key=lambda v:abs(v-band[key])) if crossings else None
+    edge_errors={k:abs(v-band[k]) if v is not None else None for k,v in edges.items()}
+    bw=edges['f_high_GHz']-edges['f_low_GHz'] if all(v is not None for v in edges.values()) else None
+    samples=[]
+    for i,freq in enumerate(df):samples.append({'GHz':float(freq),'S11_complex_error':float(abs(ds[i,0,0]-old[i,0,0])),
+      'S21_complex_error':float(abs(ds[i,2,0]-old[i,2,0])), 'S21_dB_error':float(abs(ddb[i,2,0]-olddb[i,2,0])),
+      'full_50ohm_max_sv_before':float(np.linalg.svd(n[i],compute_uv=False)[0]),
+      'full_50ohm_max_sv_direct':float(np.linalg.svd(dn[i],compute_uv=False)[0]),
+      'full_50ohm_reciprocity_before':float(abs(n[i]-n[i].T).max()),
+      'full_50ohm_reciprocity_direct':float(abs(dn[i]-dn[i].T).max())})
+    full_before=float(abs(n-n.transpose(0,2,1)).max());full_direct=float(abs(dn-dn.transpose(0,2,1)).max())
+    result={'case':case,'original':str(original),'direct':str(direct),'points':len(df),
+      'max_fundamental_complex_error':float(errors.max()),'max_complex_error_GHz':float(df[errors.argmax()]),
+      'max_S21_error_dB_near_band':float(abs(ddb[mask,2,0]-olddb[mask,2,0]).max()),
+      'peak_height_errors_dB':peak_errors,'direct_bracket_edges_GHz':edges,'edge_shifts_GHz':edge_errors,
+      'original_BW_GHz':band['BW_GHz'],'direct_bracket_BW_GHz':bw,
+      'BW_shift_GHz':abs(bw-band['BW_GHz']) if bw is not None else None,
+      'full_matrix_reciprocity_before_at_samples':full_before,'full_matrix_reciprocity_direct':full_direct,
+      'full_matrix_max_sv_direct':max(s['full_50ohm_max_sv_direct'] for s in samples),
+      'samples':samples,'evidence_hashes':{str(p):sha(p) for folder in [original,direct] for p in [folder/'all_modes_sparams.csv',folder/'mode_impedance_gamma.csv',folder/'manifest.json']},
+      'limits':'Finite point interpolation audit on the existing mesh; not a new mesh-convergence or width-corner mode-sufficiency proof.'}
+    result['sample_response_passed']=bool(errors.max()<=.005 and result['max_S21_error_dB_near_band']<=.05 and (not peak_errors or max(peak_errors)<=.1))
+    result['band_edges_passed']=bool(bw is not None and max(edge_errors.values())<=.02 and result['BW_shift_GHz']<=.02)
+    return result
+def main():
+    results=[]
+    baseline=ROOT/'D04G05/i03/verified_recovery';bd=ROOT/'local_repair/D04G05_i03/direct/explicit_modal'
+    result=compare(baseline,bd,'D04G05')
+    recipe=read(baseline/'assembly_recipe.json')['per_frequency_source']
+    result['independent_interpolated_samples']=[x for x in result['samples'] if recipe[str(x['GHz'])]['name']!='Direct']
+    result['note']='Accepted baseline reused; direct rows already present in the repaired curve are excluded from independent interpolation evidence.'
+    results.append(result)
+    for case in ['D05G02','D08G05']:
+        direct=ROOT/'acceptance_audit_20261021'/case
+        if not (direct/'state.json').exists() or read(direct/'state.json')['status']!='completed':continue
+        state=read(direct/'state.json');plan=read(direct/'plan.json')
+        assert state['same_mesh_verified'] and state['source_unchanged'] and state['copied_original_curves_verified']
+        assert sha(plan['project_source'])==plan['source_sha256']
+        assert state['mcp_request']['cores_per_task']==16 and state['mcp_request']['concurrent_tasks']==1
+        r=compare(ROOT/case/'i00',direct,case)
+        r['evidence_hashes'].update({str(direct/n):sha(direct/n) for n in ['state.json','plan.json','convergence_before.txt','convergence_after.txt']})
+        r['same_mesh_and_source_verified']=True
+        results.append(r)
+    write(HERE/'direct_comparison.json',results)
+    for r in results:print({k:v for k,v in r.items() if k not in ['samples','evidence_hashes','independent_interpolated_samples','limits']})
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig,axes=plt.subplots(len(results),2,figsize=(12,3.4*len(results)),squeeze=False)
+    for row,r in enumerate(results):
+        f,s,_=load(Path(r['original']));df,ds,_=load(Path(r['direct']))
+        for col,(i,j,label) in enumerate([(0,0,'S11'),(2,0,'S21')]):
+            ax=axes[row,col];ax.plot(f,db(s[:,i,j]),label='Archived curve');ax.scatter(df,db(ds[:,i,j]),s=12,c='tab:orange',label='Direct HFSS samples',zorder=3)
+            ax.set(xlim=(2.5,11),ylim=(-55,0) if col==0 else (-4,0),title=r['case']+' '+label,xlabel='Frequency (GHz)',ylabel='dB');ax.grid(alpha=.25);ax.legend(fontsize=8)
+    fig.tight_layout();fig.savefig(HERE/'representative_comparison.png',dpi=170);plt.close(fig)
+if __name__=='__main__':main()

@@ -1,0 +1,160 @@
+"""Create new D-drive contexts without moving/deleting old simulation data."""
+from common import *
+import ast
+import copy
+import shutil
+import prepare_runtime as inherited
+from storage_routes import (OLD_CONTEXT, PROBE_ROOT, PROBE_BASE, CANDIDATE_ROOT,
+                            CANDIDATE_BASE, DIRECT_BASE, TEMP, ORDER, probe_run)
+
+AUTH = '将后续仿真改到D盘新目录，保留现有数据'
+PRESERVED = ['input.json', 'completion_event.json', 'worker_error.json', 'notification_receipt.json']
+
+def replace_once(text, old, new):
+    assert text.count(old) == 1, (old, text.count(old))
+    return text.replace(old, new)
+
+def runtime_D(folder, base, rows, segment):
+    # Reuse frozen scientific machinery, then freeze a new path-specific version.
+    inherited.AUTH = AUTH
+    result = inherited.runtime(folder, base, rows, segment)
+    folder = Path(folder)
+    plan = read(ROOT / 'storage_migration_plan.json')
+    parents = read(folder / 'parent_evidence.json')
+    parents['hashes'].update(plan['preserved_hashes'])
+    for p in [ROOT / 'storage_routes.py', ROOT / 'prepare_storage_migration.py',
+              ROOT / 'storage_migration_plan.json', ROOT / 'method_freeze.json']:
+        parents['hashes'][str(p)] = sha(p)
+    parents['hashes'].update(read(ROOT / 'method_freeze.json')['hashes'])
+    write(folder / 'parent_evidence.json', parents)
+    context = folder / 'phase_geometry_context.py'
+    text = context.read_text(encoding='utf-8')
+    text += '\n' + f"sys.path.insert(0, {str(ROOT)!r})\n"
+    text += 'from storage_routes import validate_development\n'
+    text += '_validate_geometry_budget_local = validate_geometry_budget\n'
+    text += 'def validate_geometry_budget(spec, path):\n'
+    text += '    validate_development()\n    return _validate_geometry_budget_local(spec, path)\n'
+    context.write_text(text, encoding='utf-8')
+    worker = folder / 'phase_geometry_worker.py'
+    text = worker.read_text(encoding='utf-8')
+    text = replace_once(text, 'async def solve_stage(project, run, state, label, adaptive):',
+                        'from storage_routes import validate_development\n\nasync def solve_stage(project, run, state, label, adaptive):')
+    text = replace_once(text, "    args={'project_name':project.stem", "    validate_development(extra_analyze=1)\n    args={'project_name':project.stem")
+    # Check the configured scratch disk in addition to the project disk.
+    text = replace_once(text, '    assert shutil.disk_usage(BASE).free>15*1024**3',
+                        "    assert shutil.disk_usage(BASE).free>15*1024**3\n    assert shutil.disk_usage(read(HERE/'desktop_start.json')['temp_directory']).free>15*1024**3")
+    worker.write_text(text, encoding='utf-8')
+    configure = folder / 'configure_projects.py'
+    text = configure.read_text(encoding='utf-8')
+    text = replace_once(text, "        g=r['geometry']", f"        temp_target=Path({str(TEMP)!r})\n        temp_target.mkdir(parents=True,exist_ok=True)\n        assert shutil.disk_usage(temp_target).free>15*1024**3\n        assert app.set_temporary_directory(temp_target)\n        assert Path(app.temp_directory).resolve()==temp_target.resolve()\n        g=r['geometry']")
+    configure.write_text(text, encoding='utf-8')
+    finalize = folder / 'finalize_and_authorize.py'
+    text = finalize.read_text(encoding='utf-8')
+    text = replace_once(text, '        pc.write(path,spec);entries.append(',
+        "        spec['storage_migration_authorization']='"+AUTH+"'\n"
+        "        spec['prior_preflight_failure_run']=str(Path('J:/f8_MLP_261028/B05S/g01_initial')) if case=='B05S' else None\n"
+        "        spec['technical_recovery_attempt']=1 if case=='B05S' else 0\n"
+        "        spec['prior_Analyze_launches']=0\n"
+        "        pc.write(path,spec);entries.append(")
+    finalize.write_text(text, encoding='utf-8')
+    for name in ['CONTINUATION.md', 'phase_geometry_publish.py']:
+        p = folder / name
+        p.write_text(p.read_text(encoding='utf-8').replace('prepare_candidates.py', 'prepare_candidates_D.py'), encoding='utf-8')
+    with (folder / 'CONTINUATION.md').open('a', encoding='utf-8') as f:
+        f.write(f'''\n## D盘恢复约束（最新用户授权）\n{AUTH}。当前工程与求解临时目录都在D:/hfss_fig8_20261028。\nB02S/B02M继续读取J盘原始已审核结果，不重算、不移动。旧J盘B05S是零Analyze的磁盘预检失败，其事件/回执保留。D盘B05S是同一几何的一次技术恢复，预算不增加；若再次失败不得自动开启第二恢复。\n剩余探针B05S/B05M/B06S/B06M全部在本目录逐项运行。整个开发仍是6探针+最多3候选。跨盘映射和合并预算由{ROOT / 'storage_routes.py'}检查。\n所有探针完成后只用prepare_candidates_D.py、prepare_final_review_D.py、summarize_correction_D.py；不要调用旧J盘版本。后续候选和直接复核也必须写D盘。\n''')
+    shutil.copyfile(OLD_CONTEXT / 'test_lifecycle_watch.py', folder / 'test_lifecycle_watch.py')
+    write(folder / 'storage_routing.json', dict(project_base=str(base), scratch=str(TEMP),
+        original_completed_runs={c:str(probe_run(c)) for c in ORDER[:2]},
+        B05S_prior_attempt_zero_Analyze=True, original_data_moved=False,
+        technical_recovery_already_used=['B05S'], authorization=AUTH))
+    provenance = read(folder / 'implementation_provenance.json')
+    for name, entry in provenance.items():
+        entry['local_sha256'] = sha(folder / name)
+    write(folder / 'implementation_provenance.json', provenance)
+    for p in folder.glob('*.py'):
+        ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+    return result
+
+def adapters():
+    p = ROOT / 'prepare_candidates.py'
+    text = p.read_text(encoding='utf-8')
+    text = replace_once(text, 'from prepare_runtime import runtime,PROBE_ROOT,PROBE_BASE',
+        'from prepare_storage_migration import runtime_D as runtime\nfrom storage_routes import PROBE_ROOT, PROBE_BASE, probe_run, check_probe_reviews, CANDIDATE_ROOT, CANDIDATE_BASE')
+    text = replace_once(text, "    ledger=read(PROBE_ROOT/'budget_ledger.json')\n    assert len(ledger['tasks'])==ledger['new_geometry_reserved']==6 and all(t['status']=='reviewed' for t in ledger['tasks'])", '    check_probe_reviews()')
+    text = replace_once(text, "rs=PROBE_BASE/(case+'S')/'g01_initial';rm=PROBE_BASE/(case+'M')/'g01_initial'", "rs=probe_run(case+'S');rm=probe_run(case+'M')")
+    text = replace_once(text, "runtime(OUT/'fig8_ml_candidates_20261028',Path('J:/f8_MLC_261028'),rows,'C9C')", "runtime(CANDIDATE_ROOT,CANDIDATE_BASE,rows,'C9CD')")
+    (ROOT / 'prepare_candidates_D.py').write_text(text, encoding='utf-8')
+    text = (ROOT / 'prepare_final_review.py').read_text(encoding='utf-8')
+    text = text.replace('from prepare_candidates import review_source', 'from prepare_candidates_D import review_source')
+    text = replace_once(text, 'from prepare_runtime import PROBE_ROOT,PROBE_BASE,AUTH',
+        'from prepare_storage_migration import AUTH\nfrom storage_routes import PROBE_ROOT, PROBE_BASE, probe_run, check_probe_reviews, CANDIDATE_ROOT, CANDIDATE_BASE, DIRECT_BASE')
+    text = replace_once(text, "BASE=Path('J:/f8_MLD_261028')", 'BASE=DIRECT_BASE')
+    text = replace_once(text, "    probeledger=read(PROBE_ROOT/'budget_ledger.json')\n    assert len(probeledger['tasks'])==6 and all(x['status']=='reviewed' for x in probeledger['tasks'])", '    check_probe_reviews()')
+    text = replace_once(text, "cr=OUT/'fig8_ml_candidates_20261028'", 'cr=CANDIDATE_ROOT')
+    text = text.replace("Path('J:/f8_MLC_261028')", 'CANDIDATE_BASE')
+    text = replace_once(text, "options=[PROBE_BASE/(case+s)/'g01_initial' for s in ['S','M']]", "options=[probe_run(case+s) for s in ['S','M']]")
+    text = text.replace('J:/f8_MLD_261028', DIRECT_BASE.as_posix()).replace('summarize_correction.py', 'summarize_correction_D.py')
+    (ROOT / 'prepare_final_review_D.py').write_text(text, encoding='utf-8')
+    text = (ROOT / 'summarize_correction.py').read_text(encoding='utf-8')
+    text = text.replace('from common import *', 'from common import *\nfrom storage_routes import check_probe_reviews, geometry_runs, validate_development')
+    start = text.index("    for ctx in [OUT/'fig8_ml_probes_20261028'")
+    end = text.index('    assert actual_geometry<=9', start)
+    text = text[:start]+'''    check_probe_reviews()
+    validate_development()
+    for run in geometry_runs():
+        state=read(run/'state.json');ack=read(run/'receiver_ack.json')
+        assert state['status']=='completed' and ack['visual_review_completed'] and ack['operation_success']
+        assert ack['event_sha256']==sha(run/'completion_event.json')
+        actual_geometry+=1;launches+=len(state['segments'])
+        assert len(state['segments'])<=13
+        for name in ['input.json','state.json','completion_event.json','receiver_ack.json']:hashes[str(run/name)]=sha(run/name)
+''' + text[end:]
+    text = text.replace('J:/f8_MLD_261028', DIRECT_BASE.as_posix())
+    (ROOT / 'summarize_correction_D.py').write_text(text, encoding='utf-8')
+    for p in ROOT.glob('*_D.py'):
+        ast.parse(p.read_text(encoding='utf-8'), filename=str(p))
+
+def main():
+    assert not PROBE_ROOT.exists() and not (ROOT / 'storage_migration_plan.json').exists()
+    oldledger = read(OLD_CONTEXT / 'budget_ledger.json')
+    assert [t['case'] for t in oldledger['tasks']] == ORDER[:3]
+    assert all(t['status']=='reviewed' for t in oldledger['tasks'][:2])
+    failed = Path('J:/f8_MLP_261028/B05S/g01_initial')
+    assert not (failed / 'state.json').exists() and not list(failed.glob('*.aedt'))
+    assert read(failed / 'completion_event.json')['status'] == 'failed'
+    assert 'disk_usage(BASE).free>15' in read(failed / 'worker_error.json')['error']
+    assert not read(OLD_CONTEXT / 'hook/heartbeat/monitor.json')['enabled']
+    preserved = {}
+    for c in ORDER[:2]:
+        run = probe_run(c)
+        ack = read(run / 'receiver_ack.json')
+        assert ack['visual_review_completed'] and ack['operation_success']
+        for f in ['input.json','completion_event.json','receiver_ack.json','receiver_verification.json','state.json','sparams.csv','supervised_start.json']:
+            preserved[str(run/f)] = sha(run/f)
+    for f in PRESERVED:
+        preserved[str(failed/f)] = sha(failed/f)
+    for f in ['budget_ledger.json','plan.json','supervised_first_review.json']:
+        preserved[str(OLD_CONTEXT/f)] = sha(OLD_CONTEXT/f)
+    for f in [ROOT/'prepare_runtime.py',ROOT/'prepare_candidates.py',ROOT/'prepare_final_review.py',ROOT/'summarize_correction.py']:
+        preserved[str(f)] = sha(f)
+    write(ROOT / 'storage_migration_plan.json', dict(at=now(),authorization=AUTH,
+        old_context=str(OLD_CONTEXT), new_context=str(PROBE_ROOT), new_base=str(PROBE_BASE), scratch=str(TEMP),
+        preflight_failure_run=str(failed), previous_Analyze_for_failed_attempt=0,
+        remaining_probe_cases=ORDER[2:], reused_completed_cases=ORDER[:2],
+        routes={c:str(probe_run(c)) for c in ORDER}, preserved_hashes=preserved,
+        new_geometry_added_by_migration=0, maximum_total_development_geometry=9, maximum_total_Analyze=141,
+        original_data_moved=False, technical_recovery_used_for_B05S=1))
+    rows = [copy.deepcopy(r) for r in read(OLD_CONTEXT/'plan.json')['cases'] if r['case'] in ORDER[2:]]
+    for row in rows:
+        row['storage_migration'] = dict(prior_preflight_failure=str(failed) if row['case']=='B05S' else None,
+            technical_recovery_attempt=1 if row['case']=='B05S' else 0, prior_Analyze=0)
+    result = runtime_D(PROBE_ROOT, PROBE_BASE, rows, 'C9PD')
+    adapters()
+    write(OLD_CONTEXT / 'closure.json', dict(at=now(),disposition='storage_handoff_not_study_complete',
+        original_data_preserved=True, completed_reviewed=ORDER[:2], preflight_failed_case='B05S',
+        new_context=str(PROBE_ROOT), new_base=str(PROBE_BASE), reason=AUTH,
+        restart_old_queue_forbidden=True))
+    print(result)
+
+if __name__=='__main__':
+    main()

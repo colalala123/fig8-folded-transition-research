@@ -1,0 +1,137 @@
+"""Review predefined protocol evidence, then execute the authorized pilot only."""
+import argparse,csv,json,sys,time,traceback
+from pathlib import Path
+import numpy as np
+import psutil
+from pilot_queue import ROOT,OLD,HERE,read,status,compare,collector_stage,pilot_stage,corner_stage,summarize
+from pilot_worker import now,sha,write_json
+from port_evidence import compare_fields
+from repair_auxiliary import repair
+
+def aux_compare(a,b):
+    def load(run):
+        with (run/'mode_impedance_gamma.csv').open(encoding='utf-8-sig') as f:rows=list(csv.DictReader(f))
+        freq=np.array([float(x['Freq_GHz']) for x in rows]);idx=(freq>=3.2)&(freq<=10.2)
+        values={key[:-5]:np.array([complex(float(x[key]),float(x[key[:-5]+'_imag'])) for x in rows])[idx]
+                for key in rows[0] if key.endswith('_real')}
+        return freq[idx],values
+    fa,va=load(a);fb,vb=load(b)
+    if not np.allclose(fa,fb):raise RuntimeError('Auxiliary frequency grids differ')
+    checks={}
+    for kind in ('Zo','Gamma'):
+        for port in ('1','2'):
+            key=f'{kind}({port}:1)'
+            if key not in va or key not in vb:raise RuntimeError(f'Missing modal quantity {key}')
+            delta=np.abs(va[key]-vb[key])/np.maximum(np.abs(va[key]),1e-12)
+            adjacent=np.abs(np.diff(vb[key]))/np.maximum(np.abs(vb[key][:-1]),1e-12)
+            checks[key]={'max_relative_drift':float(max(delta)),'max_relative_adjacent_step':float(max(adjacent)),
+                         'passed':bool(max(delta)<=.02 and max(adjacent)<=.02)}
+    return {'reference':str(a),'candidate':str(b),'quantities':checks,
+            'passed':all(x['passed'] for x in checks.values()),
+            'screening_thresholds':{'max_relative_drift':.02,'max_adjacent_step_per_0p01GHz':.02},
+            'scope':'Fundamental continuity in 3.2–10.2 GHz; interpreted jointly with native port-field identity.'}
+
+def verify_boundaries(run):
+    m=read(run/'manifest.json');records=[]
+    for port,old in m['port_settings']['before'].items():
+        new=m['port_settings']['after'][port]
+        om=old['Modes']['Mode1'];nm=new['Modes']['Mode1']
+        def points(mode):
+            line=mode['IntLine']
+            if 'GeometryPosition' in line:
+                return np.array([[float(x[a+'Position']) for a in ('X','Y','Z')] for x in line['GeometryPosition']])
+            return np.array([[float(str(v).removesuffix('mm')) for v in line[k]] for k in ('Start','End')])
+        gate=bool(np.allclose(points(om),points(nm),atol=1e-12))
+        invariant=('Objects','DoDeembed','DeembedDist','UseLineModeAlignment','UseAnalyticAlignment','RenormalizeAllTerminals')
+        unchanged={k:old.get(k)==new.get(k) for k in invariant}
+        gate=gate and all(unchanged.values()) and om['CharImp']==nm['CharImp']=='Zpi' and om.get('RenormImp')==nm.get('RenormImp')
+        records.append({'port':port,'integration_endpoints_mm':points(nm).tolist(),'invariant_settings':unchanged,'passed':gate})
+    return {'run':str(run),'ports':records,'passed':all(x['passed'] for x in records)}
+
+def review_and_freeze(three_mode_suffix='3'):
+    numeric=[];fields=[];aux=[];boundaries=[]
+    for case in ('B0','T_F3'):
+        a=ROOT/f'M_{case}_2';b=ROOT/f'M_{case}_{three_mode_suffix}'
+        for run in (a,b):
+            manifest=read(run/'manifest.json')
+            if any('non passive' in s.lower() or 'non-passive' in s.lower() or 'passivity cannot' in s.lower() for s in manifest.get('messages',[])):
+                raise RuntimeError(f'Protocol rejects explicit HFSS passivity failure: {run}')
+            if (manifest['status']!='completed' or not manifest.get('sweep_converged')
+                    or not manifest.get('convergence',{}).get('converged') or not manifest.get('source_unchanged')):
+                raise RuntimeError(f'Protocol requires completed converged source-preserved result: {run}')
+        repair(a);repair(b)
+        numeric.extend([compare(a,b,'stable'),compare(OLD/case,a,'single')])
+        fields.extend([compare_fields(OLD/case,a),compare_fields(a,b)])
+        aux.append(aux_compare(a,b))
+        boundaries.extend([verify_boundaries(a),verify_boundaries(b)])
+    evidence={'numeric':numeric,'native_fields':fields,'auxiliary_continuity':aux,'boundaries':boundaries,
+              'three_mode_verification_suffix':three_mode_suffix,
+              'reviewed_at_utc':now(),'review_code_sha256':sha(Path(__file__))}
+    stable=all(x['passed'] for x in numeric if x['comparison']=='stable')
+    single=all(x['passed'] for x in numeric if x['comparison']=='single')
+    identity=all(x['passed'] for x in fields+aux+boundaries)
+    evidence.update(stable_multimode=stable,single_close=single,identity_verified=identity)
+    write_json(ROOT/'port_protocol_review.json',evidence)
+    if not stable or not identity:
+        raise RuntimeError('Port protocol requires numerical/identity review; pilot not launched')
+    modes=1 if single else 2
+    baseline=OLD/'B0' if modes==1 else ROOT/'M_B0_2'
+    result={'id':f'fig8_er355_mode{modes}_v1','status':'frozen_verified','modes':modes,
+            'baseline_run':str(baseline),'central_valley_target_GHz':read(baseline/'response_metrics.json')['central_valley_GHz'],
+            'f0_reference_GHz':6.85,'material':{'er':3.55,'tand':.0027,'h_mm':.813},
+            'normalization':'Original unrenormalized modal Zpi; original integration-line coordinates/direction and reference plane.',
+            'mode_identity':'Signed native port-field fingerprint at all saved adaptive frequencies plus full-band Zo/Gamma continuity.',
+            'evidence':str(ROOT/'port_protocol_review.json'),'evidence_sha256':sha(ROOT/'port_protocol_review.json'),
+            'frozen_at_utc':now(),'source_B0_sha256':sha(OLD/'B0/B0.aedt'),
+            'source_T_F3_sha256':sha(OLD/'T_F3/T_F3.aedt'),
+            'power_accounting':'Fundamental deficit is unaccounted port-mode power; no radiation decomposition inferred.'}
+    result['three_mode_verification_suffix']=three_mode_suffix
+    result['additional_mode_impedance_overrides']={'3':'Zwave'} if three_mode_suffix=='3w' else {}
+    result['additional_mode_normalization_note']=('Only the added third evanescent mode uses Zwave in verification runs; modes 1/2 retain original Zpi. Original all-Zpi failed sweeps remain excluded.' if three_mode_suffix=='3w' else 'All modes use original Zpi.')
+    path=ROOT/'port_protocol.json'
+    if path.exists():
+        old=read(path)
+        if old['modes']!=modes or old['central_valley_target_GHz']!=result['central_valley_target_GHz']:
+            raise RuntimeError('Existing frozen protocol differs')
+    else:write_json(path,result)
+    status(status='port_protocol_verified',port_protocol_id=result['id'])
+
+def final_report():
+    p=read(ROOT/'port_protocol.json');s=summarize();corner=read(ROOT/'corner_mode_checks.json')
+    identity=[]
+    for case in ('D01G05','D03G05','D10G05','D12G05'):
+        ref=Path(read(ROOT/case/'design_result.json')['selected_run']);other=ROOT/f'C_{case}'
+        identity.append(compare_fields(ref,other))
+    write_json(ROOT/'corner_field_checks.json',identity)
+    numeric_ok=corner['passed'] and all(x['passed'] for x in identity)
+    source_ok=sha(OLD/'B0/B0.aedt')==p['source_B0_sha256'] and sha(OLD/'T_F3/T_F3.aedt')==p['source_T_F3_sha256']
+    bw=s['BW_2dB_GHz_range'];pr=s['P_response_range']
+    coverage=bool(s['accepted']>=18 and s['accepted_width_families']>=9 and bw and bw[1]-bw[0]>=.3 and pr and pr[1]-pr[0]>=.2)
+    lines=['# Fig.8 首批实际结果','',f'端口协议：每端口 {p["modes"]} 模式；中央谷目标 {p["central_valley_target_GHz"]:.2f} GHz；材料 εr=3.55、tanδ=0.0027、h=0.813 mm。','',
+           f'目标 24 个配置，完成 {s["finished_configurations"]} 个；合格 {s["accepted"]} 个，失败 {s["failed"]} 个；相位阶段总求解 {s["iterations"]} 次。',
+           f'合格配置覆盖 {s["accepted_width_families"]}/12 个宽度组。',f'失败/通过计数：{json.dumps(s["reason_counts"],ensure_ascii=False)}。','',
+           f'合格点 BW 范围（GHz）：{bw}；P_response 范围：{pr}；R_zero 均值范围：{s["R_zero_mean_range"]}。',
+           f'角点模式数值和场型检查：{numeric_ok}；两份源工程哈希保持不变：{source_ok}。',
+           f'下一阶段基本覆盖条件：{coverage}。此条件通过也不自动运行扩展/留出数据。','',
+           '本批用于判断参数覆盖和调节可行性，不足以宣布带宽定律。R_BW 是由带宽反演的诊断量，不作为独立带宽预测证据。',
+           'R_zero 使用各点中央反射谷作为 fφ，左右侧分别保存；传统 R_BW 的 f0_reference 固定为 6.85 GHz。',
+           '完整迭代表、最终合格/失败表、模式检查、各工程与原始复数曲线都保存在本目录。']
+    (ROOT/'pilot_report.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    status(status='completed' if numeric_ok and source_ok else 'completed_numerical_review_required',
+           pilot=s,finished_at_utc=now(),source_integrity=source_ok,corner_protocol_verified=numeric_ok,
+           basic_expansion_coverage=coverage,active_run=None)
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--wait-queue-pid',type=int);ap.add_argument('--final-only',action='store_true')
+    args=ap.parse_args()
+    if args.final_only:final_report();return
+    if args.wait_queue_pid:
+        while psutil.pid_exists(args.wait_queue_pid):time.sleep(15)
+    state=read(ROOT/'batch_status.json')
+    if state.get('status')=='review_required':raise RuntimeError('Previous queue stopped; inspect saved error')
+    review_and_freeze();collector_stage();pilot_stage();corner_stage();final_report()
+
+if __name__=='__main__':
+    try:main()
+    except Exception:
+        status(status='review_required',error=traceback.format_exc());print(traceback.format_exc(),flush=True);sys.exit(1)

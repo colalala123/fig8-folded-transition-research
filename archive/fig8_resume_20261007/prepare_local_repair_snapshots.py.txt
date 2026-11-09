@@ -1,0 +1,35 @@
+"""Copy existing solved caches for targeted recovery; does not open AEDT or solve."""
+import json,shutil
+from pathlib import Path
+from broadband_recovery import HERE,ROOT,read,sha,now,write_json
+
+def main():
+    selected=read(HERE/'selected_history_review.json')['cases']
+    windows={'D01G05':{'GHz':[8.41,8.42,8.43],'purpose':'Check interpolation reciprocity residual at its worst point before deciding whether any broader repair is needed.'},
+      'D02G05':{'range_GHz':[14.55,14.79],'step_GHz':.01,'purpose':'Cover all 21 passivity violations and two guard points on each side.'},
+      'D03G02':{'range_GHz':[8.18,8.48],'step_GHz':.01,'purpose':'Cover all 27 passivity violations and two guard points on each side.'},
+      'D04G02':{'purpose':'Preserve converged adaptive mesh for recovery of the unconverged sweep; no automatic solve specified.'}}
+    summary=[]
+    for case,window in windows.items():
+        original=Path(next(x['selected_run'] for x in selected if x['case']==case))
+        files=list(original.glob('*.aedt'));assert len(files)==1;source=files[0];cache=source.with_suffix('.aedtresults')
+        out=ROOT/'local_repair'/case;out.mkdir(exist_ok=True,parents=True);record=out/'snapshot.json'
+        if record.exists():
+            r=read(record);assert sha(r['project'])==r['project_sha256_at_snapshot'];summary.append(r);continue
+        assert shutil.disk_usage(ROOT).free>30*1024**3
+        project=out/f'{case}_repair.aedt';destination=project.with_suffix('.aedtresults')
+        assert not project.exists() and not destination.exists(),'Partial copy requires inspection before resume'
+        original_sha=sha(source);shutil.copy2(source,project);shutil.copytree(cache,destination)
+        assert sha(source)==original_sha==sha(project)
+        copied=list(destination.rglob('*'));source_files=[x for x in cache.rglob('*') if x.is_file()]
+        assert len([x for x in copied if x.is_file()])==len(source_files)
+        assert all((destination/x.relative_to(cache)).stat().st_size==x.stat().st_size for x in source_files)
+        r={'case':case,'original_run':str(original),'original_project':str(source),'original_project_sha256':original_sha,
+           'project':str(project),'project_sha256_at_snapshot':sha(project),'copied_cache_files':len(source_files),
+           'copied_bytes':sum(x.stat().st_size for x in source_files),'proposed_check':window,
+           'status':'snapshot_only_no_solver_started','created_at_utc':now(),
+           'requires_before_solve':'After the supervised queue is idle, verify copied Setup19 LastAdaptive and original Sweep1 are readable, recovered curves match source, restore actual saved sweep Types and use only a new discrete sweep. If cache is unreadable, recover it before solving. Do not rerun successful phase geometries blindly.'}
+        write_json(record,r);summary.append(r)
+    write_json(ROOT/'local_repair/snapshot_inventory.json',summary)
+    print(json.dumps([{'case':r['case'],'status':r['status'],'copied_MiB':round(r['copied_bytes']/1024**2,1)} for r in summary],indent=2))
+if __name__=='__main__':main()

@@ -1,0 +1,66 @@
+{
+  "model_config": {
+    "degree": 1,
+    "alpha": 0.01
+  },
+  "geometry_origin": {
+    "Wm": 1.845816,
+    "Ws": 0.371911,
+    "Lm": 6.581837135352143,
+    "Ls1": 12.661793662601642,
+    "Ls2": 1.293822,
+    "Ls3": 1.7719109999999998
+  },
+  "delta_Lm_Ls1_mm": [
+    -0.002746531748990196,
+    -0.0001858369620831405
+  ],
+  "bounds_relative_to_baseline_mm": [
+    0.1,
+    0.2
+  ],
+  "prediction": {
+    "worst_S11_dB": -19.87837101535094,
+    "min_S21_dB": -1.0044113011187177,
+    "shape_valid": true,
+    "passed": false,
+    "central_valley_GHz": 6.73,
+    "peak_difference_dB": 2.1316282072803006e-14,
+    "inner_peaks": [
+      {
+        "GHz": 5.11,
+        "S11_dB": -19.87837101535096
+      },
+      {
+        "GHz": 8.27,
+        "S11_dB": -19.87837101535094
+      }
+    ],
+    "objective": 1.479360990676136,
+    "nominal_buffer_satisfied": false,
+    "S21_BW_GHz": 6.989768568740899,
+    "joint_intervals": [
+      [
+        3.5884657537431397,
+        4.904640210290633
+      ],
+      [
+        5.314549323792029,
+        8.10681834791394
+      ],
+      [
+        8.43824152872693,
+        9.568268642957673
+      ]
+    ],
+    "joint_components": 3,
+    "joint_center_band": [
+      5.314549323792029,
+      8.10681834791394,
+      2.792269024121911
+    ]
+  },
+  "solver_success": true,
+  "note": "reflection minimax is not joint feasibility proof; predicted only",
+  "model_sha256": "3546b562d67e15722750f9aa91479f0fdb676507915a39178a9a4db2d549a887"
+}

@@ -1,0 +1,79 @@
+{
+  "at": "2026-10-30T21:07:49.977998+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N10_A18_c1_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 1.076s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 1.811s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 14,
+    "new_geometries_declared": 15,
+    "geometry_cap": 172,
+    "Analyze_used": 118,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 9,
+      "N11_A18_M": 7,
+      "N11_A18_C1": 1,
+      "N11_A18_C2": 7,
+      "N11_A14_S": 10,
+      "N11_A14_M": 8,
+      "N11_A14_C1": 9,
+      "N19_A14_S": 7,
+      "N19_A14_M": 10,
+      "N10_A18_S": 11,
+      "N10_A18_M": 11,
+      "N10_A18_C1": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 4,
+      "N11_A14": 3,
+      "N19_A14": 2,
+      "N10_A18": 3
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "name": "ansysedt.exe",
+      "create_time": 1793355858.6193893,
+      "pid": 85208
+    }
+  ],
+  "projects": [
+    {
+      "case": "N10_A18_C1",
+      "configuration_sha256": "59f34942d9060b689f61c270d3009c7a4a926702b54544a165e7c6ef38da2828",
+      "project_sha256": "23c678038fb6b27230b980b914b230714e8f36de1afb7cb43d9a0d0820fc8af2"
+    }
+  ]
+}

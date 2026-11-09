@@ -1,0 +1,23 @@
+import unittest
+import numpy as np
+from final_local import proposal
+GA={'Wm':2.,'Ws':.58,'Lm':6.543447793374798,'Ls1':12.38066,'Ls2':1.71,'Ls3':1.98}
+GB={**GA,'Ls1':12.68066,'Lm':6.459078999389087}
+INITIAL={**GA,'Ls1':12.08066,'Lm':6.499465}
+A={'signed_peak_difference_dB':-5.454612651074587,'central_valley_GHz':6.44}
+B={'signed_peak_difference_dB':-.9106180554858021,'central_valley_GHz':6.7}
+J=[[9.28018475547944,-22.847732703943855],[.2999999999999936,-1.800000000000015]]
+class FinalLocalTests(unittest.TestCase):
+    def call(self,**kw):
+        p=dict(ga=GA,gb=GB,ma=A,mb=B,jacobian=J,initial=INITIAL,used=7);p.update(kw);return proposal(**p)
+    def test_small_supported_candidate(self):
+        r=self.call();self.assertEqual(r['action'],'candidate');self.assertLess(abs(r['delta_mm'][0]),.15);self.assertLess(abs(r['delta_mm'][1]),.05);self.assertLess(r['residual_screen_score'],.8);self.assertTrue(r['prediction_not_validation'])
+    def test_no_budget_extension(self):
+        for n in [6,8,9]:self.assertEqual(self.call(used=n)['action'],'stop')
+    def test_no_width_change(self):self.assertEqual(self.call(gb={**GB,'Ws':.6})['action'],'stop')
+    def test_bad_model(self):
+        for j in [np.zeros((2,2)),[[np.nan,0],[0,1]]]:self.assertEqual(self.call(jacobian=j)['action'],'stop')
+    def test_unreliable_prediction(self):self.assertEqual(self.call(mb={**B,'central_valley_GHz':6.75})['action'],'stop')
+    def test_no_improvement(self):self.assertEqual(self.call(mb=A)['action'],'stop')
+    def test_large_previous_step(self):self.assertEqual(self.call(gb={**GB,'Ls1':GA['Ls1']+.4})['action'],'stop')
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,48 @@
+{
+  "target_inner_worse_peak_dB": -20.5,
+  "target_S21_minus2_BW_GHz": 7.0,
+  "not_joint20_bandwidth": true,
+  "P": 2.1078076672855532,
+  "R": 0.44381809489231283,
+  "geometry_mm": {
+    "Wm": 1.8827888737947045,
+    "Ws": 0.3724498711813453,
+    "Lm": 6.5594993964636235,
+    "Ls1": 12.047987768789524,
+    "Ls2": 1.2948997423626907,
+    "Ls3": 2.172449871181345
+  },
+  "a_mm": 1.8,
+  "g_mm": 0.55,
+  "predicted_joint20_center_band_GHz": [
+    3.642446429901707,
+    9.564117008685782,
+    5.9216705787840755
+  ],
+  "response_and_length_parents": [
+    {
+      "case": "P08G05",
+      "weight": 0.07787987981668379
+    },
+    {
+      "case": "P06G05",
+      "weight": 0.02280765542833685
+    },
+    {
+      "case": "I02G05",
+      "weight": 0.8993124647549794
+    }
+  ],
+  "dimension_screen": {
+    "slot_branch_web_mm": 0.55,
+    "opposing_arm_tip_separation_mm": 7.703088026426833,
+    "rho": 0.36063281485213755,
+    "nominal_dimensions_passed": true,
+    "actual_CAD_checked": false
+  },
+  "formula_condition_number": 14.375851367124197,
+  "HFSS_verified": false,
+  "independent_inverse_blind_test_completed": false,
+  "status": "Local empirical formula candidate, geometry must be tuned and verified in HFSS",
+  "caveat": "Inner peak target plus S21-only bandwidth does not guarantee the same -20dB joint bandwidth. Use band subcommand for continuous-band requirements."
+}

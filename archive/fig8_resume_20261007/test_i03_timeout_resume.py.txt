@@ -1,0 +1,38 @@
+import asyncio
+import unittest
+from unittest.mock import AsyncMock, Mock, patch
+import resume_i03_after_timeout as s
+
+
+class ResumeTests(unittest.TestCase):
+    def test_monitor_interval_is_local_and_observes_launch(self):
+        sleeper = Mock(sleep=AsyncMock())
+        observe = Mock()
+        original = asyncio.sleep
+        asyncio.run(s.MonitoringAsyncio(sleeper, observe).sleep(30))
+        sleeper.sleep.assert_awaited_once_with(600)
+        observe.assert_called_once_with()
+        self.assertIs(asyncio.sleep, original)
+
+    def test_unknown_wait_is_not_silently_changed(self):
+        sleeper = Mock(sleep=AsyncMock())
+        with self.assertRaises(AssertionError):
+            asyncio.run(s.MonitoringAsyncio(sleeper, Mock()).sleep(1))
+        sleeper.sleep.assert_not_called()
+
+    def test_existing_resumption_refuses_recipe(self):
+        with patch.object(s, 'validate_evidence', return_value=({}, {})), \
+             patch.object(s, 'RECORD', Mock(exists=lambda: True)):
+            with self.assertRaisesRegex(AssertionError, 'already attempted'):
+                s.readiness()
+
+    def test_failed_evidence_cannot_dispatch(self):
+        with patch.object(s, 'validate_evidence', side_effect=AssertionError('changed evidence')), \
+             patch.object(s.w.io, 'run', new_callable=AsyncMock) as recipe:
+            with self.assertRaisesRegex(AssertionError, 'changed evidence'):
+                asyncio.run(s.run())
+            recipe.assert_not_called()
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

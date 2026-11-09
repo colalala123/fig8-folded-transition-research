@@ -1,0 +1,60 @@
+"""Recover only exports after HFSS wrapper exit precedes AEDT finalization.
+
+Never dispatch the direct sweep again. Subsequent segments are dispatched
+by the frozen same-port recovery implementation after direct review passes.
+"""
+import asyncio,os,shutil,time,traceback
+from pathlib import Path
+import psutil
+import recover_same_port_phase as r
+from adopt_i01_direct import BASE,ATTEMPT,ADOPTION,STATE,FLOW,save_adoption
+
+def main():
+    adoption=r.read(ADOPTION)
+    assert adoption['status']=='review_required'
+    assert 'are_there_simulations_running' in adoption['error']
+    assert r.plan(ATTEMPT)==r.read(BASE/'plan.json')
+    assert not r.direct.solvers() and not (r.ROOT/'pilot_queue.lock').exists()
+    assert not (r.ROOT/'protocol.lock').exists()
+    try:
+        owner=psutil.Process(adoption['wrapper_pid'])
+        assert owner.create_time()!=adoption['wrapper_create_time'],'Original wrapper still live'
+    except psutil.NoSuchProcess:pass
+    archive=BASE/'export_finalization_wait';archive.mkdir()
+    for source in [ADOPTION,STATE,FLOW,r.ROOT/'adopt_i01_stderr.log',Path(__file__).with_name('adopt_i01_direct.py')]:
+        shutil.copy2(source,archive/source.name)
+    evidence={str(f):r.sha(f) for f in archive.iterdir()}
+    script_hash=r.sha(__file__)
+    lock=r.ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:
+        save_adoption('waiting_for_aedt_finalization',finalization_error_history=[adoption['error']],
+            finalization_archive_hashes=evidence,finalization_resume_script=str(Path(__file__).resolve()),
+            finalization_resume_script_sha256=script_hash)
+        r.write_json(FLOW,{'status':'direct_check','stage_detail':'Waiting for AEDT finalization before read-only export',
+            'adoption':str(ADOPTION),'updated_at_utc':r.now()})
+        project=Path(r.read(STATE)['project']);app=r.direct.connect(project,7990)
+        try:
+            start=time.monotonic()
+            while app.are_there_simulations_running:
+                assert not r.direct.solvers(),'Unexpected new solver; stop and inspect'
+                if time.monotonic()-start>600:raise RuntimeError('AEDT remained busy after wrapper exit; preserve results for inspection')
+                save_adoption('waiting_for_aedt_finalization',last_aedt_running=True)
+                time.sleep(5)
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        save_adoption('collecting_existing_direct',aedT_idle_verified_at_utc=r.now())
+        r.direct.NAME=r.DIRECT_NAME
+        r.direct.collect('D04G05',BASE/'direct')
+        assert r.read(STATE)['status']=='exported_review_required'
+        save_adoption('direct_exports_recovered',direct_state_sha256=r.sha(STATE))
+    except Exception:
+        save_adoption('review_required',error=traceback.format_exc())
+        r.write_json(FLOW,{'status':'review_required','error':traceback.format_exc(),'updated_at_utc':r.now()})
+        raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+    save_adoption('resuming_segment_reviews')
+    asyncio.run(r.run(ATTEMPT))
+    save_adoption('candidate_ready_review_required',production_approved=False)
+
+if __name__=='__main__':main()

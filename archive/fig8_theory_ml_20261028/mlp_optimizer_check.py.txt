@@ -1,0 +1,34 @@
+"""MLP optimizer diagnostic on training groups only; old holdout is NOT reused."""
+from common import *
+from benchmark import features,labels,errors,TASKS,SEED
+import numpy as np, warnings
+from sklearn.model_selection import GroupKFold
+from sklearn.compose import TransformedTargetRegressor
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import StandardScaler
+from sklearn.neural_network import MLPRegressor
+from sklearn.exceptions import ConvergenceWarning
+from threadpoolctl import threadpool_limits
+
+def main():
+    dest=ROOT/'mlp_adam_training_only.json';assert not dest.exists()
+    split=read(ROOT/'benchmark_v1/split.json');allrows=read(SOURCE52)['rows']
+    rows=[r for r in allrows if r['case'] in split['train_cases']]
+    assert len(rows)==40 and not set(r['case'] for r in rows)&set(split['test_cases'])
+    X=np.array([features(r) for r in rows]);groups=np.array([r['group'] for r in rows]);out={};caught=[]
+    for task,names in TASKS.items():
+        y=labels(rows,task);oof=np.zeros_like(y)
+        for fold,(it,iv) in enumerate(GroupKFold(5).split(X,y,groups)):
+            reg=make_pipeline(StandardScaler(),MLPRegressor(hidden_layer_sizes=(12,8),activation='tanh',solver='adam',
+                alpha=.3,learning_rate_init=.003,max_iter=8000,tol=1e-7,n_iter_no_change=150,batch_size=len(it),
+                early_stopping=False,random_state=SEED))
+            m=TransformedTargetRegressor(regressor=reg,transformer=StandardScaler())
+            with warnings.catch_warnings(record=True) as ws,threadpool_limits(2):
+                warnings.simplefilter('always',ConvergenceWarning);m.fit(X[it],y[it]);oof[iv]=m.predict(X[iv])
+                caught.extend(dict(task=task,fold=fold,message=str(w.message)) for w in ws)
+        out[task]=dict(training_group_CV=errors(y,oof,names),score=float(np.mean(np.sqrt(np.mean(((oof-y)/y.std(axis=0))**2,axis=0)))))
+    write(dest,dict(training_cases=40,holdout_used=False,results=out,warnings=caught,
+        deployment_changed=False,reason='Investigate LBFGS abnormal termination without selecting against holdout',
+        original_benchmark_preserved=True))
+    print(dict(training_only_adam_results=out,warnings=len(caught)))
+if __name__=='__main__':main()

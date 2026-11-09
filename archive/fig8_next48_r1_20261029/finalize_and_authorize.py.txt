@@ -1,0 +1,45 @@
+"""Freeze verified prepared projects for this bounded segment; no Analyze."""
+from pathlib import Path
+import phase_control as pc
+def main():
+    assert not (pc.HERE/'initial_inputs.json').exists()
+    plan=pc.read(pc.HERE/'plan.json');auth=pc.read(pc.HERE/'authorization.json')
+    assert auth['configuration_authorized'] and not auth['execution_authorized']
+    diagnostic=pc.read(Path('${WORKSPACE}\\output\\fig8_B05_fix14_20261029\\report_preflight_result.json'))
+    assert diagnostic['passed'] and not diagnostic['Analyze_requested']
+    assert pc.read(pc.HERE/'prepared_reopen_gate.json')['passed']
+    assert pc.read(pc.HERE/'budget_ledger.json')['tasks']==[]
+    assert pc.read(pc.HERE/'hook_live_read_preflight.json')['supported_read_thread_verified']
+    hashes=dict(pc.read(pc.HERE/'parent_evidence.json')['hashes'])
+    hashes[str(pc.HERE/'prepared_reopen_gate.json')]=pc.sha(pc.HERE/'prepared_reopen_gate.json')
+    for key in ['seed','prediction_source','training_source','source_validation_result']:
+        hk='source_validation_sha256' if key=='source_validation_result' else key+'_sha256'
+        assert pc.sha(plan[key])==plan[hk];hashes[plan[key]]=plan[hk]
+    for p in pc.HERE.glob('*.py'):hashes[str(p)]=pc.sha(p)
+    for f in ['plan.json','policy.json','mesh_policy_addendum_v2.json','reference_validation.json',
+              'parent_evidence.json','hook/config.json','execution_plan.json','CONTINUATION.md','aedt_identity.json']:
+        hashes[str(pc.HERE/f)]=pc.sha(pc.HERE/f)
+    hashes[str(pc.ORIGINAL/'mesh_budget.py')]=pc.sha(pc.ORIGINAL/'mesh_budget.py')
+    for f,h in hashes.items():assert pc.sha(f)==h,f
+    entries=[]
+    for row in plan['cases']:
+        case=row['case'];proofpath=pc.HERE/'cases'/case/'configuration.json';proof=pc.read(proofpath)
+        source=Path(row['prepared_project']);run=pc.BASE/case/'g01_initial';path=run/'input.json'
+        assert not path.exists() and not (run/'state.json').exists()
+        assert proof['passed'] and not proof['solved'] and not proof['analyze_requested']
+        assert proof['geometry']==row['geometry'] and pc.sha(source)==proof['project_sha256']
+        assert not source.with_suffix('.aedt.lock').exists()
+        spec=dict(technical_recovery_attempt=1,recovery_overlay_sha256=pc.sha(Path('${WORKSPACE}\\output\\fig8_next48_20261029\\recovery1_overlay.json')),case=case,role='initial',geometry=row['geometry'],source=str(source),source_sha256=pc.sha(source),
+            source_seed=plan['seed'],source_seed_sha256=plan['seed_sha256'],run_dir=str(run),input_path=str(path),
+            project_name=case+'_'+plan['stage']+'_g01',policy_sha256=pc.sha(pc.HERE/'policy.json'),
+            mesh_addendum_sha256=pc.sha(pc.HERE/'mesh_policy_addendum_v2.json'),new_phase_geometry_ordinal=1,
+            historical_geometry_attempts=0,phase_solve_ordinal_including_history=1,
+            original_B6_history_retained=True,development_family=row['family_id'],
+            worker_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),controller_sha256=pc.sha(pc.ORIGINAL/'mesh_budget.py'),
+            parent_evidence_hashes={**hashes,str(proofpath):pc.sha(proofpath)},created_at=pc.now(),scope=plan['stage'])
+        pc.write(path,spec);entries.append(dict(case=case,input_path=str(path),input_sha256=pc.sha(path)))
+    pc.write(pc.HERE/'initial_inputs.json',dict(entries=entries))
+    auth.update(execution_authorized=True,launch_authorized_at=pc.now());pc.write(pc.HERE/'authorization.json',auth)
+    pc.write(pc.HERE/'configuration_readiness.json',dict(at=pc.now(),prepared_projects=len(entries),simulation_started=False))
+    print(dict(prepared=len(entries),execution_authorized=True,solver_started=False))
+if __name__=='__main__':main()

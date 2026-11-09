@@ -1,0 +1,274 @@
+{
+  "at_UTC": "2026-10-29T08:22:05.893610+00:00",
+  "stage": "closed_scoped_accepted",
+  "case": "B05",
+  "context": "${WORKSPACE}\\output\\fig8_B05_fix14_20261029\\direct_review",
+  "run": "D:\\hfss_fig8_B05_20261029\\direct\\B05\\direct_smallbatch",
+  "cores_per_task": 14,
+  "concurrent_tasks": 1,
+  "serial_geometries": true,
+  "actual_14core_single_group_observed": true,
+  "actual_resource_plan": {
+    "mode": "custom",
+    "concurrent_tasks": 1,
+    "cores_per_task": 14,
+    "total_cores": 14
+  },
+  "worker_pid": null,
+  "observer_pid": null,
+  "observer_identity_verified": true,
+  "live_hf3d_pids": [],
+  "actual_elements": 103496,
+  "budget": {
+    "new_geometries_started": 3,
+    "new_geometry_cap": 4,
+    "Analyze_used": 32,
+    "Analyze_cap": 60,
+    "cores_per_task": 14,
+    "serial": true,
+    "historical91_not_modified": true
+  },
+  "diagnostic_hold_released_after_checks": true,
+  "no_solve_diagnostic_passed": true,
+  "official_prepared_cases_rechecked": 2,
+  "tests_passed": 33,
+  "hook_ready_for_terminal": false,
+  "normal_solve_periodic_messages": false,
+  "configuration_recovery_attempts": {
+    "B05N_S": 1,
+    "B05N_M": 1
+  },
+  "old_data_unchanged": true,
+  "next_action": "No more simulation in this B05 cycle. Read FINAL_SUMMARY.md. Overall inverse-design research remains incomplete; any48-point study needs separate human authorization.",
+  "completed_probes": [
+    {
+      "case": "B05N_S",
+      "elements": 103290,
+      "visual_reviewed": true,
+      "full_target_passed": false,
+      "worst_S11_dB": -19.25341911818066,
+      "min_S21_dB": -1.0268275268322067,
+      "central_valley_GHz": 6.75,
+      "peak_difference_dB": 0.6155863072037668,
+      "Analyze_used": 10
+    },
+    {
+      "case": "B05N_M",
+      "elements": 102606,
+      "visual_reviewed": true,
+      "full_target_passed": false,
+      "worst_S11_dB": -19.078996968251882,
+      "min_S21_dB": -1.0183991964110797,
+      "central_valley_GHz": 6.62,
+      "peak_difference_dB": 2.1610189666119375,
+      "Analyze_used": 8
+    }
+  ],
+  "candidate_prediction": {
+    "worst_S11_dB": -20.206277262062798,
+    "min_S21_dB": -1.0037165688427545,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.74,
+    "peak_difference_dB": 1.718011672480202e-05,
+    "inner_peaks": [
+      {
+        "GHz": 5.18,
+        "S11_dB": -20.206277262062798
+      },
+      {
+        "GHz": 8.24,
+        "S11_dB": -20.206294442179523
+      }
+    ],
+    "objective": 3.7528499193885785,
+    "nominal_buffer_satisfied": false
+  },
+  "probe_segment_handoff": {
+    "at": "2026-10-29T07:43:26.296795+00:00",
+    "event_sha256": "cbb32381adb1b7456c0ef5e87ee07a23b5a695e8e5b2c82e1b535d33de959fcb",
+    "disposition": "batch_complete",
+    "reason": "The two-probe segment has both actual visual ACKs and is complete. Work handed off to separately frozen B05N_C1 context with verified actual14core solve and live observer. This is not completion of the entire B05 study.",
+    "successor_context": "${WORKSPACE}\\output\\fig8_B05_fix14_candidate1_20261029",
+    "successor_run": "D:\\hfss_fig8_B05_20261029\\candidate1\\B05N_C1\\g01_initial",
+    "successor_start_sha256": "83cb5f88a20df1613644b830cc29ef93ef3fff067b02e19c17d41607a9c93c37"
+  },
+  "source_case": "B05N_C1",
+  "candidate_dense_score": {
+    "worst_S11_dB": -20.181995787495197,
+    "min_S21_dB": -1.0006194811921614,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.74,
+    "peak_difference_dB": 0.06203837272139623,
+    "inner_peaks": [
+      {
+        "GHz": 5.19,
+        "S11_dB": -20.244034160216593
+      },
+      {
+        "GHz": 8.23,
+        "S11_dB": -20.181995787495197
+      }
+    ],
+    "objective": 0.0,
+    "nominal_buffer_satisfied": true
+  },
+  "nominal_optimization_buffer_satisfied": false,
+  "direct_requested_points": 23,
+  "direct_batches_first_wave": 6,
+  "direct_reserve_points_max": 8,
+  "direct_reserve_batches_max": 2,
+  "candidate_segment_handoff": {
+    "at": "2026-10-29T08:09:23.280886+00:00",
+    "event_sha256": "33477c4c35ae4fb2e79e29ec65aea6707b0aed6f9404070456a7d8ef68e8d071",
+    "disposition": "batch_complete",
+    "reason": "Single-candidate segment reviewed and complete. Dense full target passes; handed off to new14core same-mesh native direct context. This is not final B05 acceptance.",
+    "successor_context": "${WORKSPACE}\\output\\fig8_B05_fix14_20261029\\direct_review",
+    "successor_run": "D:\\hfss_fig8_B05_20261029\\direct\\B05\\direct_smallbatch",
+    "successor_start_sha256": "9276083065b380846c1b42048239b90b6a1c287d79b28c382a78bf9c4ed866f7"
+  },
+  "scoped_accepted": true,
+  "hook_shutdown_verified": true,
+  "final_report": "${WORKSPACE}\\output\\fig8_B05_fix14_20261029\\FINAL_SUMMARY.md",
+  "native_direct_summary": {
+    "points": 23,
+    "max_complex_error": 0.00035024047964030846,
+    "max_nearband_S21_error_dB": 0.0015821320778728332,
+    "peak_reviews": [
+      {
+        "reference_GHz": 5.19,
+        "actual_sampled_peak_GHz": 5.19,
+        "actual_sampled_peak_dB": -20.23092557574302,
+        "interior": true,
+        "source_sampled_peak_dB": -20.244034160216593,
+        "height_error_dB": 0.013108584473574325,
+        "points": [
+          5.18,
+          5.19,
+          5.2
+        ]
+      },
+      {
+        "reference_GHz": 8.23,
+        "actual_sampled_peak_GHz": 8.23,
+        "actual_sampled_peak_dB": -20.179284928015665,
+        "interior": true,
+        "source_sampled_peak_dB": -20.181995787495197,
+        "height_error_dB": 0.0027108594795315355,
+        "points": [
+          8.22,
+          8.23,
+          8.24
+        ]
+      }
+    ],
+    "edge_reviews": [
+      {
+        "kind": "S21",
+        "reference_GHz": 3.0198265496856296,
+        "points": [
+          3.0,
+          3.04
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.020285916221772,
+        "shift_GHz": 0.00045936653614253586
+      },
+      {
+        "kind": "S21",
+        "reference_GHz": 9.962220279050719,
+        "points": [
+          9.94,
+          9.98
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.962038461585623,
+        "shift_GHz": 0.0001818174650960458
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 3.633902409891675,
+        "points": [
+          3.614,
+          3.629,
+          3.639,
+          3.654
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.6338941597006964,
+        "shift_GHz": 8.250190978387195e-06,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.00042603181933209555,
+        "other_condition_verified": true
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 9.529956991813345,
+        "points": [
+          9.51,
+          9.525,
+          9.535,
+          9.55
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.52995957782334,
+        "shift_GHz": 2.586009994587357e-06,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.0005382531945414826,
+        "other_condition_verified": true
+      }
+    ],
+    "direct_bandwidths": {
+      "S21": {
+        "f_low_GHz": 3.020285916221772,
+        "f_high_GHz": 9.962038461585623,
+        "BW_GHz": 6.941752545363851,
+        "width_shift_GHz": 0.0006411840012381376
+      },
+      "S11": {
+        "f_low_GHz": 3.6338941597006964,
+        "f_high_GHz": 9.52995957782334,
+        "BW_GHz": 5.896065418122642,
+        "width_shift_GHz": 1.0836200972974552e-05
+      }
+    },
+    "direct_peak_difference_dB": 0.05164064772735344,
+    "requested_band_direct_worst_S11": {
+      "GHz": 8.23,
+      "dB": -20.179284928015665
+    },
+    "requested_band_direct_min_S21": {
+      "GHz": 9.52,
+      "dB": -1.0013830367930052
+    },
+    "direct_target_violations": [],
+    "dense_target_covered": true,
+    "target_finite_direct_failure_confirmed": false,
+    "numerical_review_passed": true,
+    "sampled_design_supported": true,
+    "needs_reserved_points": false,
+    "needs_peak_expansion": false,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+    "baseline_tuning_passed": true,
+    "central_valley_finite_review": {
+      "points_GHz": [
+        6.73,
+        6.74,
+        6.75
+      ],
+      "minimum_GHz": 6.74,
+      "interior": true,
+      "within_tolerance": true
+    }
+  },
+  "overall_inverse_design_research_complete": false
+}

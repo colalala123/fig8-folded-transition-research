@@ -1,0 +1,48 @@
+import hashlib, json
+from pathlib import Path
+import numpy as np
+
+root = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+
+def parse(p):
+    toks = []
+    for line in p.read_text(errors="ignore").splitlines():
+        s = line.strip()
+        if s and not s.startswith(("!", "#")):
+            toks.extend(s.split())
+    a = np.array([float(x) for x in toks]).reshape(-1, 73)
+    f = a[:, 0]
+    s = (a[:, 1::2] * np.exp(1j * np.deg2rad(a[:, 2::2]))).reshape(-1, 6, 6)
+    sv = np.linalg.svd(s, compute_uv=False)[:, 0]
+    return {
+        "points": len(f),
+        "f_start_GHz": float(f[0]),
+        "f_end_GHz": float(f[-1]),
+        "max_singular": float(sv.max()),
+        "passivity_violations_gt_1.0001": int((sv > 1.0001).sum()),
+        "max_reciprocity_error": float(np.max(abs(s - s.transpose(0, 2, 1)))),
+    }
+
+report = {
+    "project": str(root / "R_B0_rebuild_max500.aedt"),
+    "project_sha256": hashlib.sha256((root / "R_B0_rebuild_max500.aedt").read_bytes()).hexdigest(),
+    "formal_fullband_discrete": {},
+    "formal_segments": {},
+    "interpolation_status": "unresolved in approximately 6.28-6.53 GHz; HFSS passivity errors around 0.103-0.105 exceed 0.0001 tolerance",
+    "repair_actions": [
+        "removed malformed SweepRepairBBNoFullBasis block after preserving snapshot",
+        "disabled all ModalRepairBB sweeps after diagnostics",
+        "preserved all failed snapshots",
+    ],
+}
+for fn in ["hfss_native.s6p", "hfss_50ohm.s6p"]:
+    p = root / fn
+    if p.exists():
+        report["formal_fullband_discrete"][fn] = parse(p)
+for d in sorted((root / "bb_segments").glob("seg_*")):
+    if (d / "50ohm.s6p").exists():
+        report["formal_segments"][d.name] = {"native": parse(d / "native.s6p"), "50ohm": parse(d / "50ohm.s6p")}
+out = root / "bb_review" / "repair_status_20261004.json"
+out.parent.mkdir(exist_ok=True)
+out.write_text(json.dumps(report, indent=2), encoding="utf-8")
+print(json.dumps(report, indent=2))

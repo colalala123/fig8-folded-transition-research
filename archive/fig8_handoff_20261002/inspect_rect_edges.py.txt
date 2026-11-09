@@ -1,0 +1,9 @@
+from ansys.aedt.core import Hfss
+app=Hfss(project=r'${WORKSPACE}\output\fig8_handoff_20261002\tmp_dummy.aedt' if False else r'F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt',design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ for n in ['Rectangle1','Rectangle2']:
+  o=app.modeler[n]; print(n)
+  for e in o.edges:
+   try: print('edge',e.id,'verts',e.vertices,'mid',e.midpoint)
+   except Exception as ex: print('edge',e.id,'err',str(ex)[:100])
+finally: app.release_desktop(close_projects=False,close_desktop=False)

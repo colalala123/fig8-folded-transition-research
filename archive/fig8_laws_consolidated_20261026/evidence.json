@@ -1,0 +1,142 @@
+{
+  "source_hashes": {
+    "training_analysis": "dd6aa25ff4aa3c82206c4652331d288243a108f1cc8d2f16ccafad2e58a2bd91",
+    "validation6": "3878d960de4227adaf63bad642b0736128628692886ee0153d7462280d3a27bf",
+    "iso4": "4725d943c517dc4ef655e31284473ab49da601c703ffbb764914b51022d195a5"
+  },
+  "source_paths": {
+    "training_analysis": "${WORKSPACE}\\output\\fig8_law_analysis_20261026\\analysis.json",
+    "validation6": "${WORKSPACE}\\output\\fig8_validation6_20261026\\deliverables\\validation6_results.json",
+    "iso4": "${WORKSPACE}\\output\\fig8_iso4_20261026\\deliverables\\results.json"
+  },
+  "refitted": false,
+  "uniform_data_used": false,
+  "simulation_started": false,
+  "training_configurations": 24,
+  "validation_configurations": 10,
+  "total_width_pairs": 17,
+  "coefficients": [
+    6.804574332182727,
+    0.7981664522603809,
+    0.8661775218699251
+  ],
+  "validation6": {
+    "n": 6,
+    "MAE_MHz": 10.703828233475784,
+    "RMSE_MHz": 13.00491125502983,
+    "max_absolute_MHz": 23.48890373196255
+  },
+  "iso4": {
+    "n": 4,
+    "MAE_MHz": 9.925128628264002,
+    "RMSE_MHz": 10.588348979432968,
+    "max_absolute_MHz": 14.496596215068713
+  },
+  "combined_validation10": {
+    "n": 10,
+    "MAE_MHz": 10.39234839139107,
+    "RMSE_MHz": 12.096358282343683,
+    "max_absolute_MHz": 23.48890373196255
+  },
+  "combined_validation10_direct": {
+    "n": 10,
+    "MAE_MHz": 10.35180506364437,
+    "RMSE_MHz": 12.083058692458666,
+    "max_absolute_MHz": 23.62026611394974
+  },
+  "new_arm_pairs": [
+    {
+      "short": "V01G02",
+      "long": "V01G05",
+      "Wm": 1.05,
+      "Ws": 0.35,
+      "delta_BW_MHz": 13.171061286291419,
+      "delta_direct_BW_MHz": 12.80612392223901,
+      "delta_direct_peak_dB": -0.30384512056886415,
+      "delta_Ls1_mm": -0.617348418630046,
+      "delta_Lm_mm": -0.030771341540853037
+    },
+    {
+      "short": "V02G02",
+      "long": "V02G05",
+      "Wm": 1.4,
+      "Ws": 0.49,
+      "delta_BW_MHz": 15.170416567521272,
+      "delta_direct_BW_MHz": 14.999789608540759,
+      "delta_direct_peak_dB": -0.28755954404735284,
+      "delta_Ls1_mm": -0.6361858618706293,
+      "delta_Lm_mm": -0.025563441777804563
+    },
+    {
+      "short": "V03G02",
+      "long": "V03G05",
+      "Wm": 1.85,
+      "Ws": 0.53,
+      "delta_BW_MHz": 19.24451721815945,
+      "delta_direct_BW_MHz": 18.231339834203553,
+      "delta_direct_peak_dB": -0.5131099329571143,
+      "delta_Ls1_mm": -0.6636702552985074,
+      "delta_Lm_mm": -0.03401820555339796
+    },
+    {
+      "short": "I01G02",
+      "long": "I01G05",
+      "Wm": 1.25,
+      "Ws": 0.543938,
+      "delta_BW_MHz": 20.057811931282643,
+      "delta_direct_BW_MHz": 20.01785566408465,
+      "delta_direct_peak_dB": -0.25772499009438654,
+      "delta_Ls1_mm": -0.6359455492402653,
+      "delta_Lm_mm": -0.027037610773797738
+    },
+    {
+      "short": "I02G02",
+      "long": "I02G05",
+      "Wm": 1.9,
+      "Ws": 0.369815,
+      "delta_BW_MHz": 5.37703115446142,
+      "delta_direct_BW_MHz": 3.662715724130017,
+      "delta_direct_peak_dB": -0.4821744867624709,
+      "delta_Ls1_mm": -0.6387639117365147,
+      "delta_Lm_mm": -0.03092543911820478
+    }
+  ],
+  "width_tradeoff": [
+    {
+      "a_mm": 1.4,
+      "cases": [
+        "I01G02",
+        "V02G02",
+        "I02G02"
+      ],
+      "interpolated_BW_spread_MHz": 20.827495424736497,
+      "direct_BW_spread_MHz": 20.5619700579307,
+      "direct_endpoint_peak_mean_change_dB": -6.947644101988354,
+      "direct_matching_monotonic": true,
+      "interpolated_endpoint_joint_BW_change_MHz": -116.09795961596348
+    },
+    {
+      "a_mm": 1.8,
+      "cases": [
+        "I01G05",
+        "V02G05",
+        "I02G05"
+      ],
+      "interpolated_BW_spread_MHz": 30.62088083779635,
+      "direct_BW_spread_MHz": 31.899043942341443,
+      "direct_endpoint_peak_mean_change_dB": -7.1720935986564385,
+      "direct_matching_monotonic": true,
+      "interpolated_endpoint_joint_BW_change_MHz": -172.88753855270312
+    }
+  ],
+  "derived_constant_BW_exponent": -0.9214813731684929,
+  "new_mesh_range": [
+    100001,
+    104261
+  ],
+  "caveats": [
+    "10 validation configurations represent 5 width pairs, not 10 independent widths.",
+    "Validation cases were prospectively selected, not a random test population.",
+    "Direct samples use the same mesh; not mesh-independent convergence."
+  ]
+}

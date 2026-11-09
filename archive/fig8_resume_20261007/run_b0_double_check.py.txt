@@ -1,0 +1,11 @@
+"""Fresh B0 two-mode numerical control; only run after current solver finishes."""
+import asyncio
+from pathlib import Path
+import run_protocol_tf3 as runner
+runner.RUN=runner.ROOT/'B0M2'
+runner.PROJECT=runner.RUN/'B0M2.aedt'
+runner.STATE=runner.RUN/'state.json'
+runner.SOURCE=Path('F:/hfss_f8_261002/B0/B0.aedt')
+runner.SEED=runner.ROOT/'no_mesh_seed.aedt'
+runner.MODE_COUNT=2
+if __name__=='__main__':asyncio.run(runner.main())

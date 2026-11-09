@@ -1,0 +1,77 @@
+"""Epoch2 effective paths and honest failed-request + one replacement sweep accounting."""
+import shutil
+from pathlib import Path
+import effective_budget_v2 as v2
+ROOT=Path(__file__).resolve().parent
+read=v2.read;sha=v2.sha;overlay=v2.overlay
+
+def manifest():
+    m=read(ROOT/'session_epoch2_overlay_v3.json')
+    assert m['version']==3 and m['recovery_case']=='N07_A18' and m['technical_recovery_attempt']==1
+    assert m['inherited_successful_segments']==6 and m['original_requests']==7 and m['replacement_sweep_cap']==1
+    assert m['case_request_cap']==8 and m['Analyze_cap']==624 and m['geometry_cap']==48
+    a=read(ROOT/'replacement_sweep_authorization.json')
+    assert a['approved'] and a['new_sweep_requests_max']==1 and a['case_total_requests_max']==8 and a['campaign_total_requests_max']==624
+    for p,h in m['immutable_hashes'].items():assert sha(p)==h,p
+    for case,r in m['routes'].items():
+        original=Path(r['original_run'])
+        if case=='N07_A18':
+            s=read(original/'state.json');assert len(s['segments'])==7 and len(s['mesh_stages'])==6
+            assert all(x['adaptive_requested'] and x.get('observed_14core_process') for x in s['segments'][:6])
+            assert not s['segments'][6]['adaptive_requested'] and 'mcp_response' not in s['segments'][6]
+            assert read(original/'completion_event.json')['status']=='failed' and not (original/'receiver_ack.json').exists()
+        else:assert not (original/'state.json').exists(),'Superseded unsolved original must never be dispatched'
+    return m
+
+def effective(row,d=None):
+    out=v2.effective(row);m=manifest();r=m['routes'].get(row['case'])
+    return {**out,'context':r['context'],'run_dir':r['effective_run']} if r else out
+
+def new_segments(s,old,case,geometry):
+    assert s['case']==case and s['geometry']==geometry
+    segs=s.get('segments',[])
+    if case=='N07_A18':
+        assert s['resource_recovery_attempt']==1 and s['inherited_successful_segments']==6
+        assert len(segs)>=6 and segs[:6]==old['segments'][:6],'Inherited evidence changed or double-counted'
+        assert s['mesh_stages']==old['mesh_stages'] and s['actual_elements']==102882 and s['actual_passes']==21
+        add=segs[6:];assert len(add)<=1 and all(not x['adaptive_requested'] for x in add),'No new adaptive or second replacement'
+    else:
+        assert s.get('resource_recovery_attempt',0)==0
+        add=segs;assert len(add)<=13 and sum(bool(x['adaptive_requested']) for x in add)<=12
+        assert sum(not x['adaptive_requested'] for x in add)<=1
+    assert all(x['mcp_request']['cores_per_task']==14 and x['mcp_request']['concurrent_tasks']==1 for x in add)
+    return add
+
+def validate_campaign(extra_analyze=0,case=None,storage=False):
+    base=v2.validate_campaign();m=manifest();rows=read(ROOT/'campaign_frozen.json')['cases']
+    assert extra_analyze in (0,1) and (not extra_analyze or case)
+    counts=dict(base['per_case_Analyze']);started=base['geometries_started']
+    for row in rows:
+        r=m['routes'].get(row['case'])
+        if not r:continue
+        run=Path(r['effective_run']);oldpath=Path(r['original_run'])/'state.json'
+        if not (run/'state.json').exists():continue
+        old=read(oldpath) if oldpath.exists() else None
+        add=new_segments(read(run/'state.json'),old,row['case'],row['geometry'])
+        counts[row['case']]+=len(add);started+=int(old is None)
+    for c,n in counts.items():assert n<=(8 if c=='N07_A18' else 13)
+    total=sum(counts.values());assert total+extra_analyze<=624 and started<=48
+    if case:
+        row=next(r for r in rows if r['case']==case)
+        assert counts[case]+extra_analyze<=(8 if case=='N07_A18' else 13)
+        if row['ordinal']>2:
+            gate=read(ROOT/'pilot_gate.json');assert gate['passed'] and gate['actual_visual_ACKs']==2
+            for p,h in gate['evidence_hashes'].items():assert sha(p)==h,p
+        if row['ordinal']>8:
+            gate=read(ROOT/'batch02_effective_pilot_gate_v3.json');assert gate['passed'] and gate['cases']==['N07_A14','N07_A18']
+            for p,h in gate['evidence_hashes'].items():assert sha(p)==h,p
+    if storage:
+        plan=read(ROOT/'campaign_frozen.json');free=shutil.disk_usage(plan['D_base']).free/1024**3
+        need=(48-started)*plan['storage_admission']['per_remaining_geometry_GiB']+19
+        assert free>=need,f'D free {free:.2f}GiB below reserve {need:.2f}GiB'
+    return dict(geometries_started=started,geometry_cap=48,Analyze_used=total,Analyze_cap=624,per_case_Analyze=counts,
+        recovery_Analyze=counts['N02_A18'],N07_A18_total_requests=counts['N07_A18'],original_failed_Analyze=0,
+        N07_A18_failed_sweep_request_retained=True,cores=14,tasks=1,serial=True,
+        overlay_sha256=sha(ROOT/'session_epoch2_overlay_v3.json'))
+
+if __name__=='__main__':print(validate_campaign(storage=True))

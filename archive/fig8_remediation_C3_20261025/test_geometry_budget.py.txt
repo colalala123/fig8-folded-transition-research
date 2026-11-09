@@ -1,0 +1,45 @@
+import copy
+import tempfile
+import unittest
+from pathlib import Path
+from phase_geometry_context import entry,job_name,validate_budget,sha,HISTORY,ORDER
+
+class GeometryBudgetTests(unittest.TestCase):
+    def setUp(self):
+        t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup);p=Path(t.name)/'input.json';p.write_text('{}')
+        self.s=dict(case='D04G02',role='probe_Ls1',cycle=1,new_phase_geometry_ordinal=1,historical_geometry_attempts=9,phase_solve_ordinal_including_history=10,input_path=str(p))
+        self.a=dict(execution_authorized=True,stage='C3',cases=ORDER,geometry_cap=20,cached_task_cap=3)
+        self.l=dict(case_cumulative_geometry=HISTORY,new_geometry_reserved=1,new_cached_tasks_reserved=0,tasks=[dict(case='D04G02',new_phase_geometry_ordinal=1,path=str(p),input_sha256=sha(p))])
+    def test_allowed(self):validate_budget(self.s,self.l,self.a)
+    def test_D04_two_cycles(self):
+        self.assertEqual(entry('D04G02',1),(1,'probe_Ls1'));self.assertEqual(entry('D04G02',6),(2,'candidate'))
+    def test_legacy_rebase_counted(self):
+        self.assertEqual(entry('D01G02',1),(0,'rebase_center'));self.assertEqual(entry('D12G05',7),(2,'candidate'))
+    def test_no_third_cycle(self):
+        for case,n in [('D04G02',7),('D01G02',8),('D12G05',8)]:
+            with self.assertRaises(AssertionError):entry(case,n)
+    def test_wrong_case(self):
+        self.s['case']='D09G05'
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_no_history_reset(self):
+        self.s['historical_geometry_attempts']=0
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_role(self):
+        self.s['role']='candidate'
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_cycle(self):
+        self.s['cycle']=2
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_cache_cap(self):
+        self.l['new_cached_tasks_reserved']=4
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_duplicate(self):
+        self.l['tasks'].append(copy.deepcopy(self.l['tasks'][0]));self.l['new_geometry_reserved']=2
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_no_implicit_recovery(self):
+        self.s['resume_checkpoint']='anything'
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_case_namespaced_jobs(self):
+        self.assertEqual(job_name('D04G02',4),'g04_c02_probe_Ls1');self.assertEqual(job_name('D12G05',1),'g01_rebase_center')
+
+if __name__=='__main__':unittest.main()

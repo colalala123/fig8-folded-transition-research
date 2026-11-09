@@ -1,0 +1,93 @@
+"""Authorized step4 offline target selection. No AEDT/hook/network imports."""
+import hashlib,json,sys,time
+from pathlib import Path
+import numpy as np
+ROOT=Path(__file__).resolve().parent;OUT=ROOT.parent;D=OUT/'fig8_PR18_delivery_20261027'
+sys.path.insert(0,str(D));import design_tool as tool
+from model import widths,intervals,center_band,band_score,pr
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,x):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(x,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+def distance(p,r,points):return min(float(np.hypot((p-a)/.24,(r-b)/.045)) for a,b in points)
+
+def main():
+ assert not (ROOT/'predictions_frozen.json').exists(),'Never overwrite frozen blind predictions'
+ rows,model,validation=tool.load();allrows=read(D/'dataset52.json')['rows']
+ assert len(allrows)==52 and len(rows)==50
+ correction=OUT/'fig8_PR18_20261027/edge_repair/corrected_labels.json'
+ corr=read(correction);assert corr['all_corrected_local_edge_labels_accepted']
+ frozen={str(D/f):sha(D/f) for f in ['dataset52.json','model_validation.json','design_tool.py']}
+ for folder,file in [('fig8_inverse_PR_20261027','model.py'),('fig8_PR_current_material_20261026','line_models.py'),('fig8_design_method_20261026','build_design_package.py')]:
+  path=OUT/folder/file;frozen[str(path)]=sha(path)
+ frozen[str(correction)]=sha(correction)
+ planpath=OUT/'fig8_step4_plan_20261027/EXECUTION_PLAN.md';frozen[str(planpath)]=sha(planpath)
+ for row in allrows:
+  path=Path(row['source_curve']);frozen[str(path)]=sha(path)
+ widthgroups=sorted(set((r['P'],r['R']) for r in allrows));margin=validation['screening_margin_S11_dB']
+ specs=[dict(case=f'B{i+1:02d}',a_mm=arm,target_BW_GHz=bw,f_low_GHz=round(6.72-bw/2,2),f_high_GHz=round(6.72+bw/2,2),S11_max_dB=-20,S21_min_dB=-2) for i,(bw,arm) in enumerate([(5,1.4),(5,1.8),(5.3,1.4),(5.3,1.8),(5.6,1.4),(5.6,1.8)])]
+ pools={s['case']:[] for s in specs};coordinate_points=0;t=time.monotonic()
+ for p in np.linspace(2.04,2.28,61):
+  for r in np.linspace(.430,.475,61):
+   try:wm,ws=widths(p,r)
+   except ValueError:continue
+   # Freeze the actual CAD precision before prediction; recompute nominal P/R.
+   wm,ws=round(wm,6),round(ws,6);pp,rr=pr(wm,ws)
+   if not (2.04<=pp<=2.28 and .430<=rr<=.475):continue
+   novelty=distance(pp,rr,widthgroups)
+   if novelty<.05:continue
+   coordinate_points+=1
+   for arm in [1.4,1.8]:
+    try:q=model.predict(wm,ws,arm);geo,screen=tool.geometry(wm,ws,arm,q,rows)
+    except (ValueError,AssertionError):continue
+    bands=intervals(q['f'],q['s11'],q['s21']);cb=center_band(bands)
+    for spec in [s for s in specs if s['a_mm']==arm]:
+     score=band_score(q['f'],q['s11'],q['s21'],spec['f_low_GHz'],spec['f_high_GHz'])
+     if score['worst_S11_dB']>-20 or score['min_S21_dB']<-2:continue
+     safe=score['worst_S11_dB']<=-20-margin and score['min_S21_dB']>=-1.95
+     pools[spec['case']].append(dict(P=pp,R=rr,geometry=geo,a_mm=arm,g_mm=.55,category='R' if safe else 'E',
+       predicted_score=score,predicted_joint20_intervals_GHz=bands,predicted_center_joint20_band_GHz=cb,
+       predicted_excess_BW_GHz=cb[2]-spec['target_BW_GHz'],novelty_to_training=novelty,
+       response_and_length_parents=q['parents'],nominal_dimension_screen=screen))
+   if coordinate_points%250==0:print(f'Scanned {coordinate_points} novel PR coordinates',flush=True)
+ # Deterministic ranking is fixed before any HFSS result.
+ selected=[];chosen=[]
+ for spec in specs:
+  pool=pools[spec['case']]
+  pool.sort(key=lambda x:(x['category']!='R',max(0,x['predicted_excess_BW_GHz']),x['predicted_score']['worst_S11_dB'],-x['novelty_to_training'],x['P'],x['R']))
+  feasible=[x for x in pool if not chosen or distance(x['P'],x['R'],chosen)>=.05]
+  if not feasible:
+   selected.append(dict(**spec,category='N',selection_status='no_nominal_novel_candidate',nominal_candidate_count=len(pool)));continue
+  best=feasible[0];chosen.append((best['P'],best['R']))
+  q=model.predict(best['geometry']['Wm'],best['geometry']['Ws'],best['a_mm'])
+  selected.append(dict(**spec,**{k:v for k,v in best.items() if k!='a_mm'},selection_status='frozen_unverified_new_geometry',nominal_candidate_count=len(pool),strict_candidate_count=sum(x['category']=='R' for x in pool),
+   predicted_curve=dict(frequency_GHz=q['f'].tolist(),S11_dB=q['s11'].tolist(),S21_dB=q['s21'].tolist()),
+   predicted_baseline_metrics=None,actual_CAD_checked=False,HFSS_verified=False))
+ write(ROOT/'candidate_pool.json',dict(grid=dict(P_points=61,R_points=61),pools=pools,rank='R first; minimum predicted excess center joint20 width; worstS11 ascending; novelty descending; P/R ascending'))
+ write(ROOT/'predictions_frozen.json',dict(training_rows=50,all_rows=52,margin_S11_dB=margin,margin_is_certified=False,source_hashes=frozen,cases=selected,HFSS_results_seen=False,geometry_tuning_authorized=False))
+ write(ROOT/'model_freeze.json',dict(source_hashes=frozen,eligible_fullcurve_cases=[r['case'] for r in rows],excluded_fullcurve_cases=[r['case'] for r in allrows if not r['full_curve_proxy_eligible']],training_refitted=False,metadata_only_no_simulation=True))
+ index=[]
+ for row in allrows:
+  item={k:v for k,v in row.items() if k not in ['frequency_GHz','S11_dB','S21_dB']}
+  if row['case'] in ['P04G05','P05G05']:
+   c=next(x for x in corr['cases'] if x['case']==row['case'])
+   item['corrected_edge_sidecar']=dict(path=str(correction),sha256=sha(correction),comparison=c['comparison'],original_curve_not_recertified=True)
+  index.append(item)
+ write(ROOT/'dataset_index_v2.json',dict(rows=index,total52=True,uniform_data_used=False,fullcurve_training_rows=50))
+ write(ROOT/'issues_register.json',dict(closed=['Two local high-frequency edge labels repaired'],current=['Independent blind designs to execute','Surrogate conservative screening often rejects nominal feasible designs'],deferred=['Original P04/P05 full interpolating-curve re-certification','Neural network generalization','Radiation mechanism','Higher-order and other material/frequency/gap scaling'],preserve_scientific_negatives=True))
+ counts={cat:sum(s['category']==cat for s in selected) for cat in ['R','E','N']}
+ text=['# Fig8前三步版本化收尾与第四步冻结','',
+  '52条几何曲线/26种宽度组合；固定P时R增大→S21带宽减小且内峰匹配改善；固定R时P增大→S21带宽增大且匹配变差。联合−20 dB带宽可能因峰跨门限而分裂，不是全局单调函数。',
+  '局部S21公式分组CV MAE约5.78 MHz/max17.33 MHz；这是内部验证，不是独立逆向命中率。',
+  '新18项：16项原插值有限一致性通过＋2项修正离散带边完成；其中仅6项双内峰同时≤−20 dB。两项旧插值曲线未重新认证，代理仍只用50条，修正标签独立挂接。',
+  '理论P/R源于独立直线阻抗模型，不能冒称完整弯折全波解析解或辐射损耗证明。',
+  '本轮人类授权：你按照这个方案跑完他。包含方案列明的R/E探索性首轮6项，不含第9节失败后的几何调谐。',
+  f'离线候选类别：{counts}。严格余量保持不变；E类只表示名义代理满足，不是可靠推荐。','',
+  '|任务|折臂|目标联合BW|类别|P|R|预测最差S11|预测最小S21|','|---|---:|---:|---|---:|---:|---:|---:|']
+ for s in selected:
+  if s['category']=='N':text.append(f"|{s['case']}|{s['a_mm']}|{s['target_BW_GHz']}|N|—|—|—|—|")
+  else:text.append(f"|{s['case']}|{s['a_mm']}|{s['target_BW_GHz']}|{s['category']}|{s['P']:.7f}|{s['R']:.7f}|{s['predicted_score']['worst_S11_dB']:.4f}|{s['predicted_score']['min_S21_dB']:.4f}|")
+ (ROOT/'SUMMARY_V2.md').write_text('\n'.join(text)+'\n',encoding='utf-8')
+ print(dict(selected=counts,elapsed_seconds=time.monotonic()-t,solver_started=False,cases=[{k:s[k] for k in ['case','category','target_BW_GHz']} for s in selected]),flush=True)
+if __name__=='__main__':main()

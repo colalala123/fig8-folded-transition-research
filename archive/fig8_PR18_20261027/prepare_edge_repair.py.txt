@@ -1,0 +1,72 @@
+"""Prepare an explicitly authorized two-case addendum; never modify frozen stages."""
+import ast,json,hashlib
+from pathlib import Path
+P=Path(__file__).resolve().parent
+S=P/'final_review';R=P/'edge_repair'
+assert not R.exists(), 'Never overwrite a prepared addendum'
+R.mkdir()
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,v):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(v,ensure_ascii=False,indent=2),encoding='utf-8')
+order=['P04G05','P05G05'];provenance={}
+def copy(name,change=lambda x:x):
+ src=S/name;dst=R/name;dst.write_text(change(src.read_text(encoding='utf-8')),encoding='utf-8')
+ provenance[name]=dict(source=str(src),source_sha256=sha(src),local_sha256=sha(dst))
+def control(s):
+ start=s.index('ORDER=');end=s.index('\n',start)
+ return s[:start]+'ORDER='+repr(order)+s[end:]
+copy('phase_control.py',control)
+for name in ['recovery_control.py','solver_runtime.py','aedt_session_guard.py','aedt_identity.json','phase_direct_context.py','case_reference.py','reference_validation.json','policy.json','mesh_policy_addendum_v2.json','merge_native.py','preserve_discrete_ranges.py','phase_publish.py','phase_geometry_publish.py','phase_heartbeat_transport.py','supervise_smallbatch.py']:
+ copy(name)
+copy('phase_heartbeat.py',lambda s:s.replace('仅PR18所选18项同网格离散复核；不调几何、不重自适应，不重开旧账本。','只处理edge_repair中P04G05/P05G05两项带边；先读该目录CONTINUATION.md，不重开旧账本。').replace('仅执行final_review冻结的18项离散计划，每项最多24频点、6次Analyze，每次最多4点','仅执行edge_repair冻结两项，每项12新点、3次Analyze，每次4点；原网格不变，无几何调谐'))
+copy('smallbatch_worker.py',lambda s:s.replace("/'direct_smallbatch'","/'edge_repair'").replace("name=f'PR18_SmallBatch{index+1:02d}'","name=f'PR18_EdgeRepair{index+1:02d}'"))
+copy('dispatch_smallbatch.py',lambda s:s.replace("<18","<2").replace("/'direct_smallbatch'","/'edge_repair'").replace("'_PR18SmallBatch'","'_PR18EdgeRepair'"))
+copy('acknowledge_smallbatch.py',lambda s:s.replace("/'direct_smallbatch'","/'edge_repair'"))
+copy('receive_verified.py',lambda s:s[:s.index('    fig,axes=plt.subplots')]+'''    fig,ax=plt.subplots(figsize=(9,4))
+    ax.plot(original['Freq_GHz'],original['S11_dB'],label='Original interpolating sweep')
+    ax.scatter(direct['Freq_GHz'],direct['S11_dB'],label='New native discrete solves',color='tab:orange')
+    old=np.genfromtxt(Path(result['prior_direct_run'])/'sparams.csv',delimiter=',',names=True)
+    win=(old['Freq_GHz']>=direct['Freq_GHz'].min()-.02)&(old['Freq_GHz']<=direct['Freq_GHz'].max()+.02)
+    ax.scatter(old['Freq_GHz'][win],old['S11_dB'][win],marker='x',label='Prior native discrete')
+    ax.axhline(-20,color='black',linestyle='--');ax.set(xlim=(direct['Freq_GHz'].min()-.015,direct['Freq_GHz'].max()+.015),ylim=(-20.4,-19.6),xlabel='GHz',ylabel='S11 dB',title=plan['case']+' unchanged-mesh edge correction')
+    ax.grid(alpha=.2);ax.legend();fig.tight_layout()
+    plot=HERE/'cases'/plan['case']/'edge_repair_overlay.png';plot.parent.mkdir(parents=True,exist_ok=True);fig.savefig(plot,dpi=150);plt.close(fig)
+    out=dict(event_id=hook.event_id(event),event_sha256=sha(run/'completion_event.json'),at=now(),artifacts_verified=verified,same_mesh_verified=True,actual_elements=state['actual_elements'],observed_16core_process=all(s['observed_16core_process'] for s in state['segments']),comparison=result,plot=str(plot),plot_sha256=sha(plot),visual_review_pending=True,full_matrix_approved=False)
+    write(run/'receiver_verification.json',out)
+    print(dict(plot=str(plot),numerical_review_passed=result['numerical_review_passed'],corrected_edge_GHz=result['corrected_edge_GHz'],original_interpolation_consistency_passed=result['original_interpolation_consistency_passed']))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);review(p.parse_args().run)
+''')
+cfg=read(S/'hook/config.json');cfg['state_dir']=str(R/'hook/state');cfg['authorization']='你继续把那2项也解决了；两项原网格带边补算，完成hook当前聊天。'
+write(R/'hook/config.json',cfg);write(R/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_first_completion'))
+write(R/'case_work_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,analyze_launches_reserved=0,tasks=[]))
+write(R/'authorization.json',dict(execution_authorized=True,cases=order,new_geometry_cap=0,adaptive_allowed=False,cores=16,serial_tasks=1,points_per_case_cap=12,points_per_launch_cap=4,launches_per_case_cap=3,human_instruction='你继续把那2项也解决了',purpose='Replace unresolved local edge labels with fine native direct evidence; never assert old interpolating sweep passed'))
+points={'P04G05':[8.48,8.49,8.50,8.5025,8.505,8.5075,8.5125,8.515,8.5175,8.52,8.53,8.54],
+        'P05G05':[8.35,8.36,8.37,8.375,8.38,8.385,8.39,8.40,8.42,8.44,8.46,8.48]}
+rows=[]
+for old in read(S/'selected_sources.json')['cases']:
+ if old['case'] not in order:continue
+ row=dict(old);case=row['case'];f=points[case]
+ import csv
+ with (Path('J:/f8_PR18_261027')/case/'direct_smallbatch/sparams.csv').open() as h:priorpoints=[float(x['Freq_GHz']) for x in csv.DictReader(h)]
+ assert set(f).isdisjoint(priorpoints)
+ row.update(requested_frequencies_GHz=f,missing_frequencies_GHz=f,existing_frequencies_GHz=[],chunks=[f[i:i+4] for i in range(0,len(f),4)])
+ row['evidence_hashes']=dict(row['evidence_hashes'])
+ for name in ['input.json','state.json','comparison.json','sparams.csv','receiver_ack.json','receiver_verification.json','completion_event.json']:
+  path=Path('J:/f8_PR18_261027')/case/'direct_smallbatch'/name;row['evidence_hashes'][str(path)]=sha(path)
+ rows.append(row)
+write(R/'selected_sources.json',dict(cases=rows))
+write(R/'continuation_plan.json',dict(cases=rows,maximum_new_analyze_launches=6,new_geometry=0,adaptive_allowed=False,prior_evidence_hashes={str(S/'closure.json'):sha(S/'closure.json')},limits=dict(max_edge_shift_GHz=.02,max_BW_shift_GHz=.02,max_fine_bracket_GHz=.01),scope='Local edge correction: coarse/fine native direct consistency, not retroactive acceptance of original interpolation; all other metrics inherit prior verified evidence'))
+write(R/'implementation_provenance.json',provenance)
+write(R/'active.json',dict(stage='prepared_not_started'))
+(R/'CONTINUATION.md').write_text('''# Two-case edge repair addendum
+Human: 你继续把那2项也解决了. Only P04G05 then P05G05, existing selected geometry/cache. 16 cores serial; exactly 12 new frequencies / 3 Analyze per case, 4 per launch, 0 geometry, 0 adaptive. This is a separately budgeted authorized addendum; old ledgers and closure stay unchanged.
+Receive completion: run receive_verified.py --run J:/f8_PR18_261027/CASE/edge_repair; view actual overlay; acknowledge_smallbatch.py --run RUN --visual-reviewed --note NOTE. Dispatch only the next case after ACK using dispatch_smallbatch.py --case CASE --solve. Observe with supervise_smallbatch.py --run RUN --seconds 600.
+Important: P04 old interpolation >20MHz discrepancy is real; do NOT declare old interpolation passed. This addendum resolves missing/inaccurate edge labels using native direct nested-bracket consistency at unchanged 20MHz edge/BW limits. P05 must actually bracket; no extrapolation. Keep original S11 scientific negative status. Fine bracket <=10MHz; coarse-fine edge and resulting width difference <=20MHz; unchanged other metrics retain prior evidence. If no bracket or finite check fails, stop as unresolved; no extra frequency retries.
+After both reviewed, produce corrected label sidecar/report (do not replace source curves or old acceptance), stop this heartbeat with phase_heartbeat.py stop and bind last event continuation_resolution.json disposition=batch_complete. No blind inverse test, no uniform data, no old queues.
+Hook only at terminal event. 5-minute heartbeat only after notification delivered and no actual successor solve; running simulations remain quiet.
+''',encoding='utf-8')
+for f in R.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'))
+print(dict(prepared=str(R),cases=order,total_new_points=24,max_Analyze=6,freeze_pending=True))

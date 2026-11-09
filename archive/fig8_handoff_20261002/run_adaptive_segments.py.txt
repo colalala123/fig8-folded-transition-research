@@ -1,0 +1,89 @@
+import json
+import math
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+PY = sys.executable
+BASE = Path(r"${WORKSPACE}/output/fig8_handoff_20261002")
+ROOT = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+PROFILE_DIR = ROOT / "R_B0_rebuild_max500.aedtresults" / "Wideband vertical transition.results"
+PROFILE = max(PROFILE_DIR.glob("*.profile"), key=lambda p: p.stat().st_mtime)
+START_STATUS = BASE / "status_args.json"
+START_ARGS = BASE / "start_seg_args.json"
+
+
+def run(cmd, timeout=180):
+    p = subprocess.run(cmd, cwd=BASE.parent.parent, text=True, capture_output=True, timeout=timeout)
+    if p.returncode:
+        raise RuntimeError(f"command failed {cmd}\nSTDOUT:\n{p.stdout}\nSTDERR:\n{p.stderr}")
+    return p.stdout
+
+
+def verdict():
+    t = PROFILE.read_text(encoding="utf-8", errors="ignore")
+    ok = t.rfind("Interpolating sweep converged and")
+    bad = t.rfind("Interpolating sweep did NOT")
+    if ok < 0 and bad < 0:
+        return "unknown"
+    return "pass" if ok > bad else "fail"
+
+def verdict_for(sweep_name):
+    t = PROFILE.read_text(encoding="utf-8", errors="ignore")
+    marker = f"Name='Solution - {sweep_name}'"
+    start = t.rfind(marker)
+    if start < 0:
+        return verdict()
+    tail = t[start:]
+    ok = tail.rfind("Interpolating sweep converged and")
+    bad = tail.rfind("Interpolating sweep did NOT")
+    if ok < 0 and bad < 0:
+        return "unknown"
+    return "pass" if ok > bad else "fail"
+
+
+def solve(a, b):
+    run([PY, str(BASE / "prepare_bb_split.py"), f"{a:g}", f"{b:g}"], timeout=180)
+    run([PY, str(BASE / "mcp_call.py"), "start_analysis", str(START_ARGS)], timeout=180)
+    deadline = time.time() + 900
+    while time.time() < deadline:
+        out = run([PY, str(BASE / "mcp_call.py"), "get_analysis_status", str(START_STATUS)], timeout=180)
+        try:
+            state = json.loads(out[out.find("{"):])
+        except Exception:
+            state = {}
+        if state.get("running") is False:
+            break
+        time.sleep(10)
+    else:
+        raise TimeoutError(f"analysis timeout {a}-{b}")
+    v = verdict()
+    if v == "pass":
+        run([PY, str(BASE / "export_segment_touchstone.py"), f"{a:g}", f"{b:g}"], timeout=240)
+    return v
+
+
+def walk(a, end, max_width=0.15, min_width=0.05):
+    results = []
+    while a < end - 1e-9:
+        b = min(end, round(a + max_width, 6))
+        while True:
+            v = solve(a, b)
+            results.append({"start": a, "end": b, "verdict": v})
+            print(json.dumps(results[-1]), flush=True)
+            if v == "pass":
+                a = b
+                break
+            if b - a <= min_width + 1e-9:
+                raise RuntimeError(f"minimum segment failed {a}-{b}")
+            b = round((a + b) / 2, 6)
+    return results
+
+
+if __name__ == "__main__":
+    a = float(sys.argv[1])
+    end = float(sys.argv[2])
+    max_width = float(sys.argv[3]) if len(sys.argv) > 3 else 0.15
+    min_width = float(sys.argv[4]) if len(sys.argv) > 4 else 0.05
+    print(json.dumps(walk(a, end, max_width, min_width)), flush=True)

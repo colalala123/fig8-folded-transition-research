@@ -1,0 +1,11 @@
+# 当前执行入口（冻结原计算文件之外的接收/收尾说明）
+
+继续完成人类已授权的六项最终验收。以case_work_ledger.json和active.json为最新实际状态，不重复启动已有工作项。
+
+- 普通direct_smallbatch完成：receive_verified.py --run事件目录，实际看图，再用acknowledge_smallbatch.py；旧review_smallbatch.py存在导入及冗余state字段假设问题，不使用。独立接收程序直接核验已被事件哈希绑定的native参考记录，原数据和门限不变。
+- V01G05已从原44点加恢复19点完成，当前有效结果在direct_resume1。其主账本effective_run指向该目录，原失败输入SHA/目录保留。该项接收用receive_desktop_resume.py和acknowledge_desktop_resume.py，已完成ACK后不重复。
+- ACK后report_final_progress.py更新父级FINAL_PROGRESS.md。随后dispatch_smallbatch.py按序派发下一个，supervise_smallbatch.py核实真实16核。正常求解保持安静，完成hook自动接续。
+- 已验收且已保存的自有工作副本可正常close_project(save=False)后接着下一项，保持AEDT应用运行以释放已加载工程资源；不删除旧崩溃工程锁，不关闭无关工程。当前7990后端经显式恢复，首次崩溃前旧PID91720不再存在，不应将旧PID当作活跃会话。
+- 全部6项审查后必须运行finish_effective_report.py。旧finish_smallbatch_report.py固定目录且漏计额外恢复，不再用于最终交付。新入口解析effective_run、累计resume_analyze_launches_reserved，并打包批次来源、网格记录及两次操作故障证据。实际看总图/报告、核验包后交付，只有全部通过才完成并停心跳。
+
+不新增几何，不放宽数值标准，不把程序完成当成验收通过。仿真异常先检查实际状态和已解频点，保留结果，不清锁或无界重试；用户明确暂停则停止。

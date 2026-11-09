@@ -1,0 +1,51 @@
+"""Audit selected historical pilot results for reuse, without approving or solving."""
+import json,sys,shutil
+from pathlib import Path
+import numpy as np
+from audit_existing import HERE,OLD,read,write,sha
+from check_legacy_scalar_reference import load_modal,transform
+from complete_reference_evidence import common_fields
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+from pilot_supervisor import aux_compare,verify_boundaries
+
+def main():
+    results=[]
+    for case in read(HERE/'resume_queue_plan.json')['cases']:
+        if not case['existing_iterations']:continue
+        folder=Path(case['existing_iterations'][0]).parent
+        result=read(folder/'design_result.json')
+        # Archived cases retain original F: paths inside old manifests.
+        run=folder/Path(result['selected_run']).name
+        assert str(run) in case['existing_iterations']
+        m=read(run/'manifest.json');out=HERE/'historical_selected_review'/case['case'];out.mkdir(parents=True,exist_ok=True)
+        record={'case':case['case'],'selected_run':str(run),'original_design_status':result['status'],'phase_solves_used':case['historical_solves'],'original_convergence':m.get('convergence'),'original_sweep_converged':m.get('sweep_converged'),'original_passivity_messages':[x for x in m.get('messages',[]) if 'passiv' in x.lower()],'production_approved':False}
+        hashes={str(run/x):sha(run/x) for x in ['manifest.json','sparams.csv','response_metrics.json','all_modes_sparams.csv','mode_impedance_gamma.csv','mode_map.json']}
+        try:
+            assert sha(m['source'])==m['source_sha256'] and sha(run/'sparams.csv')==m['curve_sha256']
+            assert m['geometry']==case['selected_geometry']
+            assert m['cad_verification']['passed'] and m['geometry_check']['passed']
+            record['source_curve_geometry_verified']=True
+            f,s,z,modes=load_modal(run);s50=transform(s,z,'traveling')
+            assert len(f)==1500 and np.allclose(f,np.arange(1,1501)*.01) and np.isfinite(s50).all()
+            sv=np.linalg.svd(s50,compute_uv=False)[:,0];recip=float(abs(s50-s50.transpose(0,2,1)).max())
+            record['recovered_matrix']={'max_sv':float(sv.max()),'passivity_violations':int(sum(sv>1.001)),'reciprocity_error':recip,'strict_diagnostic_screen_passed':bool(sv.max()<=1.001 and recip<=1e-6),'note':'The 1e-6 reciprocity screen is diagnostic, not an original universal acceptance limit.'}
+            for name in ['sparams.csv','response_metrics.json','mode_impedance_gamma.csv']:
+                shutil.copy2(run/name,out/name)
+            projects=list(run.glob('*.aedt'));assert len(projects)==1
+            adapter={**m,'project':str(projects[0]),'historical_manifest':str(run/'manifest.json'),'historical_manifest_sha256':sha(run/'manifest.json')}
+            write(out/'manifest.json',adapter)
+            record['boundaries']=verify_boundaries(out)
+            record['auxiliary']=aux_compare(OLD/'M_B0_2',out)
+            if m['status']=='completed':record['fields']=common_fields(OLD/'M_B0_2',out)
+            else:record['fields']={'passed':False,'reason':'Historical solver incomplete; not promoted by recovered matrix'}
+            record['eligible_for_protocol_review']=bool(record['recovered_matrix']['strict_diagnostic_screen_passed'] and m['convergence']['converged'] and m['sweep_converged'] and record['boundaries']['passed'] and record['auxiliary']['passed'] and record['fields']['passed'])
+            record['next_action']='review_against_frozen_protocol_and_design_target' if record['eligible_for_protocol_review'] else 'review_or_repair_specific_failed_evidence'
+        except Exception as e:
+            record.update(eligible_for_protocol_review=False,error=repr(e),next_action='recover_missing_evidence_before_any_repeat_solve')
+        hashes[str(HERE/'external_normalization_diagnostic.json')]=sha(HERE/'external_normalization_diagnostic.json')
+        record['evidence_hashes']=hashes
+        write(out/'review.json',record);results.append(record)
+    write(HERE/'selected_history_review.json',{'status':'diagnostic_pending_frozen_protocol','cases':results,'production_approved':False})
+    print(json.dumps([{'case':x['case'],'eligible':x.get('eligible_for_protocol_review'),'error':x.get('error'),'fields':x.get('fields',{}).get('passed'),'auxiliary':x.get('auxiliary',{}).get('passed')} for x in results],indent=2))
+
+if __name__=='__main__':main()

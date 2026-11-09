@@ -1,0 +1,239 @@
+"""Isolated, resumable Fig8 solver. A spec is frozen before launching each process."""
+from pathlib import Path
+from datetime import datetime, timezone
+import argparse, csv, json, math, shutil, sys, time, traceback
+import numpy as np
+
+WORK = Path('${WORKSPACE}')
+sys.path.insert(0, str(WORK/'output/folded_fig8_run_20261002'))
+from run_batch import check_settings, convergence, sha, write_json
+
+def now():
+    return datetime.now(timezone.utc).isoformat(timespec='seconds')
+
+def plain(x):
+    return json.loads(json.dumps(x, default=str))
+
+def inspect_rebuilt_geometry(app, geometry):
+    """Compare actual CAD vertices/volume to the requested union of five slot rectangles."""
+    from folded_transition import folded_slot_rectangles
+    g=geometry
+    rectangles=folded_slot_rectangles(g['Ls1'],g['Ls2'],g['Ls3'],g['Ws'])
+    boxes=[(r['origin_xy'][0],r['origin_xy'][1],r['origin_xy'][0]+r['size_xy'][0],
+            r['origin_xy'][1]+r['size_xy'][1]) for r in rectangles]
+    xs=sorted(set(v for b in boxes for v in (b[0],b[2])))
+    ys=sorted(set(v for b in boxes for v in (b[1],b[3])))
+    inside=lambda x,y:any(x0<x<x1 and y0<y<y1 for x0,y0,x1,y1 in boxes)
+    area=sum((xb-xa)*(yb-ya) for xa,xb in zip(xs,xs[1:]) for ya,yb in zip(ys,ys[1:])
+             if inside((xa+xb)/2,(ya+yb)/2))
+    corners=[]
+    for x in xs:
+        for y in ys:
+            quadrants=[inside(x+dx*1e-6,y+dy*1e-6) for dx,dy in ((-1,-1),(-1,1),(1,-1),(1,1))]
+            if sum(quadrants) in (1,3):corners.append((x,y))
+    layers={}
+    for name in ('Substrate_7','Substrate_9'):
+        obj=app.modeler[name];vertices=np.array([v.position for v in obj.vertices],dtype=float)
+        missing=[list(pt) for pt in corners if not np.any(np.linalg.norm(vertices[:,:2]-pt,axis=1)<1e-6)]
+        volume=float(obj.volume);expected_volume=(30*50-area)*.035
+        layers[name]={'vertices_mm':vertices.tolist(),'actual_volume_mm3':volume,'expected_volume_mm3':expected_volume,
+                      'missing_aperture_corners':missing,'passed':not missing and abs(volume-expected_volume)<1e-5}
+    clearance={'slot_branch_metal_web_mm':g['Ls2']-2*g['Ws'],
+               'opposing_arm_tip_separation_mm':g['Ls1']-2*g['Ls3'],
+               'microstrip_stub_layer_separation_mm':1.696,
+               'intentional_connections':'Each stub joins its own feed at y=0; top and bottom stubs are on distinct layers.',
+               'intentional_slot_width_mm':g['Ws'],
+               'note':'Slot width is a specified aperture, not an unintended spacing. CAD aperture verified by vertices and volume.'}
+    passed=all(v['passed'] for v in layers.values()) and min(clearance[k] for k in
+            ('slot_branch_metal_web_mm','opposing_arm_tip_separation_mm'))>=.35-1e-8
+    result={'passed':passed,'slot_area_mm2':area,'expected_aperture_corners_xy_mm':corners,
+            'layers':layers,'clearance':clearance}
+    if not passed:raise RuntimeError(f'Actual CAD aperture failed: {result}')
+    return result
+
+def set_modes(app, count, impedance_overrides=None):
+    impedance_overrides=impedance_overrides or {}
+    if any(int(k)<2 or int(k)>count or value!='Zwave' for k,value in impedance_overrides.items()):
+        raise RuntimeError('Only an explicitly specified additional-mode Zwave diagnostic is permitted')
+    before = {b.name: plain(b.props) for b in app.boundaries if b.type == 'Wave Port'}
+    if set(before) != {'1', '2'}:
+        raise RuntimeError(f'Unexpected ports: {list(before)}')
+    for b in app.boundaries:
+        if b.type != 'Wave Port':
+            continue
+        old = before[b.name]
+        if int(old['NumModes']) == count and all(old['Modes'][f'Mode{i}']['CharImp']==impedance_overrides.get(str(i),'Zpi') for i in range(2,count+1)):
+            continue
+        mode1 = plain(old['Modes']['Mode1'])
+        # Serialized GeometryPosition records are not valid EditWavePort IntLine arguments.
+        # Convert their identical physical endpoints, preserving direction and plane.
+        line = mode1.get('IntLine', {})
+        if 'GeometryPosition' in line:
+            endpoints = line['GeometryPosition']
+            if len(endpoints) != 2:
+                raise RuntimeError('Ambiguous original integration line')
+            mode1['IntLine'] = {key: [str(p[axis+'Position'])+'mm' for axis in ('X','Y','Z')]
+                                for key,p in zip(('Start','End'),endpoints)}
+        b.auto_update = False
+        b.props['NumModes'] = count
+        b.props['Modes'] = {'Mode1': mode1, **{
+            f'Mode{i}': {'ModeNum': i, 'UseIntLine': False, 'AlignmentGroup': 0,
+                         'CharImp': impedance_overrides.get(str(i),'Zpi')}
+            for i in range(2, count+1)}}
+        b.props['ReporterFilter'] = [True]*count
+        if not b.update():
+            raise RuntimeError(f'Port {b.name} update failed')
+        b.auto_update = True
+        if plain(b.props['Modes']['Mode1']) != mode1:
+            raise RuntimeError('Fundamental integration line changed')
+    return {'before': before, 'after': {b.name: plain(b.props) for b in app.boundaries if b.type == 'Wave Port'}}
+
+def export_data(app, run, count):
+    setup = 'Setup19 : Sweep1'
+    cats = app.post.available_quantities_categories(report_category='Modal Solution Data', solution=setup)
+    catalog = {c: app.post.available_report_quantities(report_category='Modal Solution Data', solution=setup,
+                                                    quantities_category=c) for c in cats}
+    write_json(run/'quantity_catalog.json', {'categories': catalog, 'excitations': list(app.excitation_names)})
+    quantities = list(dict.fromkeys(q for arr in catalog.values() for q in arr))
+    expressions = [q for q in quantities if q.startswith('S(')]
+    if len(expressions) != (2*count)**2:
+        raise RuntimeError(f'Expected full {(2*count)**2} S matrix; got {expressions}')
+    # AEDT 2024.2 GetAllQuantities drops port/mode qualifiers for Gamma/Zo
+    # (e.g. Gamma(1), Gamma(1), Gamma(2), Gamma(2)). These integer aliases
+    # address matrix indices, not port names. Explicit excitation labels have
+    # been verified against the saved modal solutions; retain every mode.
+    aux = [f'{kind}({excitation})' for kind in ('Gamma','Zo')
+           for excitation in sorted(app.excitation_names)]
+    data = app.post.get_solution_data(expressions=expressions+aux, setup_sweep_name=setup,
+                                      domain='Sweep', report_category='Modal Solution Data')
+    if not data:
+        raise RuntimeError('No solution data')
+    f = np.asarray(data.primary_sweep_values, dtype=float)
+    unit = data.units_sweeps.get('Freq')
+    scales = {'GHz':1., 'MHz':1e-3, 'kHz':1e-6, 'Hz':1e-9}
+    if unit not in scales:
+        raise RuntimeError(f'Unknown frequency unit {unit}')
+    f *= scales[unit]
+    if len(f)!=1500 or not np.all(np.isfinite(f)) or not np.allclose(f, np.arange(1,1501)*.01, atol=1e-9):
+        raise RuntimeError('Unexpected frequency grid')
+    values = {}
+    for expr in expressions+aux:
+        _, re = data.get_expression_data(expr, formula='real')
+        _, im = data.get_expression_data(expr, formula='imag')
+        values[expr] = np.asarray(re, dtype=float)+1j*np.asarray(im, dtype=float)
+        if values[expr].shape != f.shape or not np.all(np.isfinite(values[expr])):
+            raise RuntimeError(f'Invalid complex samples {expr}')
+    def write_complex(path, names, magnitude=False):
+        rows=[{'Freq_GHz':float(x)} for x in f]
+        for label,expr in names.items():
+            for i,z in enumerate(values[expr]):
+                rows[i].update({label+'_real':float(z.real),label+'_imag':float(z.imag)})
+                if magnitude:
+                    rows[i].update({label+'_mag':float(abs(z)),label+'_dB':20*math.log10(max(abs(z),1e-300))})
+        with path.open('w',newline='',encoding='utf-8') as out:
+            w=csv.DictWriter(out,fieldnames=rows[0]); w.writeheader(); w.writerows(rows)
+    write_complex(run/'all_modes_sparams.csv', {q:q for q in expressions})
+    if aux:
+        write_complex(run/'mode_impedance_gamma.csv', {q:q for q in aux})
+    mapping = {}
+    for a,b,label in ((1,1,'S11'),(2,1,'S21'),(1,2,'S12'),(2,2,'S22')):
+        options=[f'S({a}:1,{b}:1)',f'S({a},{b})']
+        found=[s for s in options if s in values]
+        if len(found)!=1:
+            raise RuntimeError(f'Unresolved fundamental report expression {options}')
+        mapping[label]=found[0]
+    write_complex(run/'sparams.csv', mapping, magnitude=True)
+    write_json(run/'mode_map.json', {
+        'fundamental_report_mapping':mapping,'excitations':list(app.excitation_names),
+        'status':'integration_line_preserved_pending_cross_count_identity_review',
+        'evidence':'Original Mode1 integration lines, reference planes and Zpi settings preserved; Zo/Gamma exported when available.',
+        'auxiliary_quantities':aux, 'mode_count_per_port':count,
+        'passivity':'not_evaluated: raw Zpi modal normalization and evanescent channels require power normalization review'})
+    return {'points':len(f),'frequency_unit':'GHz','complex_matrix_entries':len(expressions),'fundamental_mapping':mapping}
+
+def worker(spec_path, recover=False):
+    spec_path=Path(spec_path); spec=json.loads(spec_path.read_text(encoding='utf-8'))
+    run=spec_path.parent; source=Path(spec['source']); project=run/'project.aedt'
+    manifest_path=run/'manifest.json'
+    if recover:
+        m=json.loads(manifest_path.read_text(encoding='utf-8'))
+        if not m.get('analyze_result'):
+            raise RuntimeError('Export recovery requires a completed solve')
+        write_json(run/f'manifest_before_recovery_{int(time.time())}.json',m)
+    else:
+        if project.exists() or manifest_path.exists():
+            raise FileExistsError(run)
+        if sha(source)!=spec['source_sha256']:
+            raise RuntimeError('Source changed since spec freeze')
+        shutil.copy2(source,project)
+        m={**spec,'project':str(project),'started_at_utc':now(),'status':'opening','worker_version':'pilot_worker_v1'}
+    app=None
+    def save():write_json(manifest_path,m)
+    save()
+    try:
+        from ansys.aedt.core import Hfss
+        from folded_transition import apply_folded_geometry
+        from response_metrics import analyze
+        app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',
+                 non_graphical=True,new_desktop=True,close_on_exit=True)
+        m['desktop_pid']=app.desktop_class.aedt_process_id
+        if Path(app.project_path).resolve()!=run.resolve():
+            raise RuntimeError('Wrong project directory')
+        if not recover:
+            if spec.get('rebuild'):
+                g=spec['geometry']
+                m['build']=apply_folded_geometry(app,wm=g['Wm'],lm=g['Lm'],ws=g['Ws'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3'])
+                m['cad_verification']=inspect_rebuilt_geometry(app,g)
+            m['port_settings']=set_modes(app,spec['modes'],spec.get('mode_impedance_overrides'))
+            m['settings']=check_settings(app)
+            mat=app.materials['rogers ro4003 (tm)']
+            m['material']={'er':float(mat.permittivity.value),'tand':float(mat.dielectric_loss_tangent.value),'h_mm':.813}
+            if abs(m['material']['er']-3.55)>1e-10 or abs(m['material']['tand']-.0027)>1e-10:
+                raise RuntimeError('Inconsistent material')
+            m['microstrip_boxes']={n:list(app.modeler[n].bounding_box) for n in ('Substrate_3','Substrate_18')}
+            if spec.get('geometry'):
+                g=spec['geometry']
+                for box in m['microstrip_boxes'].values():
+                    if abs(box[3]-box[0]-g['Wm'])>1e-7 or abs(box[4]-box[1]-g['Lm'])>1e-7:
+                        raise RuntimeError('Microstrip geometry mismatch')
+            app.save_project()
+            m['status']='solving';m['solve_started_at_utc']=now();save()
+            start=time.perf_counter()
+            m['analyze_result']=app.analyze_setup('Setup19',cores=4,tasks=1,use_auto_settings=False,
+                                                  revert_to_initial_mesh=True,blocking=True)
+            m['solve_seconds']=time.perf_counter()-start
+            m['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+            app.save_project();save()
+            if m['analyze_result'] is not True:
+                raise RuntimeError('HFSS solve failed')
+        m['status']='exporting';save()
+        m['export']=export_data(app,run,spec['modes'])
+        app.export_convergence('Setup19',output_file=str(run/'convergence.txt'))
+        app.export_mesh_stats('Setup19',output_file=str(run/'mesh_stats.txt'))
+        m['convergence']=convergence(run/'convergence.txt')
+        m['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in s for s in m.get('messages',[]))
+        metrics=analyze(run/'sparams.csv',f0=6.85)
+        metrics['convergence']=m['convergence']
+        metrics['validity']['solver_convergence_verified']=m['convergence']['converged'] and m['sweep_converged']
+        if not metrics['validity']['solver_convergence_verified']:
+            metrics['formal_response_PR']=None
+        write_json(run/'response_metrics.json',metrics)
+        m['curve_sha256']=sha(run/'sparams.csv')
+        m['status']='completed' if metrics['validity']['solver_convergence_verified'] else 'unconverged'
+        m.pop('error',None); app.save_project();save()
+        return 0 if m['status']=='completed' else 2
+    except Exception:
+        m['status']='export_failed' if m.get('analyze_result') is True else 'failed'
+        m['error']=traceback.format_exc();print(m['error'],flush=True)
+        return 1
+    finally:
+        if app:
+            try:m['release']=app.release_desktop(close_projects=True,close_desktop=True)
+            except Exception as exc:m['release_error']=repr(exc)
+        m['source_sha256_after']=sha(source)
+        m['source_unchanged']=m['source_sha256_after']==spec['source_sha256']
+        m['finished_at_utc']=now();save()
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('spec');p.add_argument('--recover-export',action='store_true')
+    args=p.parse_args();sys.exit(worker(args.spec,args.recover_export))

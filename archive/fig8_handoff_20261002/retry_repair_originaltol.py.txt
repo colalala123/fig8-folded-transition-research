@@ -1,0 +1,31 @@
+import asyncio,json,traceback,shutil
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+from pilot_worker import write_json,now,plain
+ROOT=Path('F:/hfss_f8x_261002');RUN=ROOT/'R_B0_rebuild_max500';NAME=RUN.name;PORT=12704;MF=RUN/'repair_originaltol_manifest.json'
+def attach(): return Hfss(project=str(RUN/(NAME+'.aedt')),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+async def main():
+ if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])): raise RuntimeError('Solver active')
+ snap=RUN/(NAME+'.before_originaltol.aedt');shutil.copy2(RUN/(NAME+'.aedt'),snap)
+ m={'status':'preparing','started_at_utc':now(),'snapshot':str(snap),'cores':16,'tasks':1,'diagnostic_only':True,'rationale':'Repaired full-rank modal adaptive solution, original interpolation tolerance 0.5%, max basis 500, passivity .0001.'}
+ app=attach()
+ try:
+  setup=app.get_setup('ModalRepair')
+  for s in setup.sweeps:
+   if s.name in ('SweepRepair500','SweepRepairNoPortImp'): s.props['IsEnabled']=False;assert s.update()
+  sw=setup.add_sweep('SweepRepairOriginalTol','Interpolating');sw.props.update({'RangeType':'LinearStep','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz','InterpTolerance':.5,'InterpMaxSolns':500,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':True,'InterpUsePropConst':True,'UseFullBasis':True,'EnforcePassivity':True,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SaveFields':True,'SaveRadFields':False});assert sw.update();m['sweep']=plain(sw.props);m['messages_before']=list(app.odesktop.GetMessages(NAME,app.design_name,0));app.save_project();write_json(MF,m)
+ finally: app.release_desktop(close_projects=False,close_desktop=False)
+ m['mcp_start']=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120});assert m['mcp_start'].get('started');m['status']='solving';write_json(MF,m)
+ for _ in range(240):
+  await asyncio.sleep(30)
+  try: st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','port':PORT,'timeout':120})
+  except Exception: continue
+  if not st.get('running'):break
+ m['status_poll_complete']=now();write_json(MF,m)
+ print(json.dumps(m,indent=2))
+if __name__=='__main__':
+ try: asyncio.run(main())
+ except Exception:
+  (RUN/'repair_originaltol_error.txt').write_text(traceback.format_exc(),encoding='utf-8');raise

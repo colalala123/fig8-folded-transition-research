@@ -1,0 +1,26 @@
+"""Continue ONLY reference checks after completed T_F3 evidence passes.
+
+This is not the 24-case dispatcher. It stops for review after B0's clean
+two-mode control. Existing evidence and solver/collector gates are preserved.
+"""
+import json,time,subprocess,sys
+from pathlib import Path
+HERE=Path(__file__).resolve().parent
+ROOT=Path('J:/f8_261007')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def record(status,**kw):
+    (ROOT/'continuation_state.json').write_text(json.dumps({'status':status,**kw},indent=2),encoding='utf-8')
+def main():
+    record('waiting_TF3')
+    while True:
+        st=read(ROOT/'TF3M3/state.json')
+        if st['status']=='review_required':record('stopped_TF3_needs_review');return
+        if st['status']=='segments_exported_review_required' and not (ROOT/'protocol.lock').exists():break
+        time.sleep(30)
+    rc=subprocess.call([sys.executable,str(HERE/'review_tf3.py')])
+    if rc or not read(ROOT/'TF3M3/protocol_review.json')['numerical_gate_passed']:
+        record('stopped_TF3_numeric_review');return
+    record('running_B0_double_control')
+    rc=subprocess.call([sys.executable,str(HERE/'run_b0_double_check.py')])
+    record('reference_checks_need_review',B0_process_exit_code=rc,pilot_dispatch_started=False)
+if __name__=='__main__':main()

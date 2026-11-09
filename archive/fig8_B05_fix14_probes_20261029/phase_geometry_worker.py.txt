@@ -1,0 +1,283 @@
+"""Supervised new-geometry worker: staged actual-count meshing, one sweep, one hook.
+
+The broad queue remains disabled. Each input is frozen and explicitly released
+for supervision. Existing attempts are never restarted by this entry point.
+"""
+import argparse
+import asyncio
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import time
+import traceback
+import numpy as np
+from phase_geometry_context import HERE, BASE, OLD, ORIGINAL, read, write, sha, now, status_report, validate_geometry_budget
+from direct_worker import dc
+from aedt_session_guard import install
+install(dc)
+from phase_geometry_publish import publish
+from mesh_budget import MeshBudget, decide, design_verdict
+from target_metrics import compute20
+from case_reference import apply_reference
+from pilot_worker import set_modes, inspect_rebuilt_geometry
+from prepared_settings import check_settings
+from pilot_queue import geometry_gate
+from folded_transition import apply_folded_geometry
+sys.path.insert(0,str(HERE.parent/'fig8_speed_study_20261021'))
+from run_study import analyze, canonical_ports
+from analyze_study import passes
+
+def snapshot(value):return json.loads(json.dumps(value,default=str))
+
+from b05_budget import validate_development
+
+async def solve_stage(project, run, state, label, adaptive):
+    """Run only the named setup, with a bounded wall clock; never kill/retry on timeout."""
+    assert not dc.solvers(),'Another HFSS solver active'
+    assert len(state['segments'])<13, 'bounded geometry Analyze cap exhausted'
+    assert sum(bool(x['adaptive_requested']) for x in state['segments'])<12 if adaptive else sum(not x['adaptive_requested'] for x in state['segments'])<1
+    assert len(state['segments'])<13
+    assert sum(bool(x['adaptive_requested']) for x in state['segments'])<12 if adaptive else sum(not x['adaptive_requested'] for x in state['segments'])<1
+    validate_development(extra_analyze=1)
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990,
+          'concurrent_tasks':1,'cores_per_task':14,'blocking':False,'timeout':120}
+    item={'label':label,'adaptive_requested':adaptive,'started_at':now(),'mcp_request':args,'observations':[]}
+    state['segments'].append(item);write(run/'state.json',state)
+    start=time.monotonic()
+    async with dc.connected_client() as client:
+        item['mcp_response']=await dc.session_call(client,'start_analysis',args)
+        assert item['mcp_response'].get('started')
+        state['status']='solving';write(run/'state.json',state)
+        while True:
+            await asyncio.sleep(5);live=dc.solvers()
+            if live and (not item['observations'] or item['observations'][-1]!=live):item['observations'].append(live)
+            if not adaptive and any('-solve_broadband_adapt' in ' '.join(p['cmdline'] or []) or '-solve_adapt ' in ' '.join(p['cmdline'] or []) for p in live):
+                app=dc.app_for(project)
+                try:app.stop_simulations(clean_stop=True)
+                finally:app.release_desktop(close_projects=False,close_desktop=False)
+                raise RuntimeError('Unexpected new adaptive solve during final sweep; clean stop requested')
+            if live:
+                # Do not flood the AEDT broker while hf3d is visibly working.
+                item['last_status']={'running':True,'source':'observed_hf3d_process'}
+            else:
+                try:
+                    item['last_status']=await dc.session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+                except Exception as exc:
+                    # A read-only status failure is NOT evidence that Analyze failed.
+                    # Never re-send start_analysis. One direct read fallback per stage.
+                    if item.get('direct_status_fallback'):raise
+                    item['direct_status_fallback']={'at':now(),'broker_error':str(exc)}
+                    write(run/'state.json',state)
+                    app=dc.app_for(project)
+                    try:
+                        running=bool(app.are_there_simulations_running)
+                        item['last_status']={'running':running,'source':'direct_aedt_after_broker_timeout'}
+                        item['direct_status_fallback']['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+                    finally:app.release_desktop(close_projects=False,close_desktop=False)
+            item['elapsed_seconds']=time.monotonic()-start;write(run/'state.json',state)
+            if not live and not item['last_status'].get('running'):break
+            if time.monotonic()-start>3600:raise TimeoutError('Stage supervision limit; preserve live solver and inspect, no automatic retry')
+    item['finished_at']=now()
+    commands=[' '.join(p['cmdline'] or []) for obs in item['observations'] for p in obs]
+    item['observed_14core_process']=any('-max_processors 14' in c and '-numParallelGroups 1' in c for c in commands)
+    item['observed_adaptive_process']=any('-solve_broadband_adapt' in c or '-solve_adapt ' in c for c in commands)
+    if adaptive:assert item['observed_14core_process'] and item['observed_adaptive_process']
+    write(run/'state.json',state)
+    return item
+
+async def execute(spec_path):
+    spec=read(spec_path);case=spec['case'];run=Path(spec['run_dir']);source=Path(spec['source'])
+    assert run.resolve().is_relative_to(BASE.resolve()) and not (run/'state.json').exists(),'Existing run requires explicit recovery'
+    assert sha(source)==spec['source_sha256']
+    assert sha(HERE/'policy.json')==spec['policy_sha256']
+    assert sha(HERE/'mesh_policy_addendum_v2.json')==spec['mesh_addendum_sha256']
+    addon=read(HERE/'mesh_policy_addendum_v2.json')
+    assert addon['reviewed_exception_upper']==112000 and addon['user_authorized'] is True
+    release=read(HERE/'supervised_release.json')
+    assert not release['bulk_dispatch_released'] and release['input_sha256']==sha(spec_path)
+    assert release['input_path']==str(spec_path.resolve()) and release['case']==case
+    assert sha(OLD/'production_protocol.json')==read(HERE/'policy.json')['old_protocol_sha256']
+    row=next(x for x in read(HERE/'plan.json')['cases'] if x['case']==case)
+    g=spec['geometry'];assert geometry_gate(g,row['initial_geometry'])['passed']
+    validate_geometry_budget(spec, spec_path)
+    for path,digest in spec.get('parent_evidence_hashes',{}).items():
+        assert sha(path)==digest,'Tuning parent evidence changed: '+path
+    assert shutil.disk_usage(BASE).free>15*1024**3
+    assert shutil.disk_usage(read(HERE/'desktop_start.json')['temp_directory']).free>15*1024**3
+    if spec.get('resume_checkpoint'):
+        checkpoint=Path(spec['resume_checkpoint'])
+        assert sha(checkpoint)==spec['resume_checkpoint_sha256']
+        state=read(checkpoint);project=Path(state['project'])
+        assert project.parent.resolve()==run.resolve() and sha(project)==spec['resume_project_sha256']
+        assert state['case']==case and state['geometry']==g and state['resource_recovery_attempt']==1
+        history=passes(run/'resume_convergence.txt');stage=len(state['mesh_stages'])
+        assert history[-1][:2]==[state['actual_passes'],state['actual_elements']]
+        assert len(state['segments'])==stage and stage>0
+        budget=MeshBudget(reviewed_exception_upper=112000)
+        action=decide(history[-1][1],history[-1][0],stage,budget)
+        app=dc.app_for(project)
+        try:
+            assert not app.are_there_simulations_running
+            app.export_convergence('Setup19',output_file=str(run/'resume_preflight_convergence.txt'))
+            assert passes(run/'resume_preflight_convergence.txt')==history
+            assert inspect_rebuilt_geometry(app,g)['passed']
+            assert canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})==canonical_ports(state['port_settings']['after'])
+            assert Path(app.temp_directory).resolve()==Path(read(HERE/'desktop_start.json')['temp_directory']).resolve()
+            assert shutil.disk_usage(app.temp_directory).free>15*1024**3
+            state['input_sha256']=sha(spec_path);state['resumed_at']=now();state['status']='resuming'
+            write(run/'state.json',state)
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+    else:
+        project_name=spec.get('project_name',case+'_meshbudget')
+        assert project_name.startswith(case+'_') and all(c.isalnum() or c=='_' for c in project_name)
+        project=run/(project_name+'.aedt');assert not project.exists() and not project.with_suffix('.aedtresults').exists()
+        shutil.copy2(source,project)
+        state={'case':case,'status':'preparing','project':str(project),'geometry':g,'source':str(source),
+               'source_sha256':spec['source_sha256'],'started_at':now(),'segments':[],'mesh_stages':[],
+               'input_sha256':sha(spec_path),'cache_copied':False,'full_matrix_approved':False,'resource_recovery_attempt':spec.get('technical_recovery_attempt',0),
+               'new_phase_geometry_ordinal':spec['new_phase_geometry_ordinal'],'historical_geometry_attempts':spec['historical_geometry_attempts'],
+               'cumulative_geometry_ordinal':spec['phase_solve_ordinal_including_history']}
+        write(run/'state.json',state)
+        budget=MeshBudget(reviewed_exception_upper=112000)
+        action=decide(0,0,0,budget)
+        app=dc.app_for(project)
+        try:
+            assert not app.are_there_simulations_running
+            assert Path(app.project_file).resolve()==project.resolve(),'AEDT attached to a different project'
+            assert Path(app.temp_directory).resolve()==Path(read(HERE/'desktop_start.json')['temp_directory']).resolve()
+            assert Path(app.temp_directory).resolve()==Path(read(HERE/'desktop_start.json')['temp_directory']).resolve()
+            state['build']={'prepared_geometry_reused':True,'configuration_sha256':sha(HERE/'cases'/case/'configuration.json')}
+            state['cad_verification']=inspect_rebuilt_geometry(app,g)
+            state['microstrip_boxes']={n:list(app.modeler[n].bounding_box) for n in ['Substrate_3','Substrate_18']}
+            for box in state['microstrip_boxes'].values():
+                assert abs(box[3]-box[0]-g['Wm'])<1e-7 and abs(box[4]-box[1]-g['Lm'])<1e-7
+            state['port_settings']=set_modes(app,2)
+            state['original_settings']=check_settings(app)
+            material=app.materials['rogers ro4003 (tm)']
+            state['material']={'er':float(material.permittivity.value),'tand':float(material.dielectric_loss_tangent.value),'h_mm':.813}
+            assert abs(state['material']['er']-3.55)<1e-9 and abs(state['material']['tand']-.0027)<1e-9
+            state['boundaries_before']=snapshot({b.name:{'type':b.type,'props':b.props} for b in app.boundaries})
+            app.save_project()
+            assert not app.get_setup('Setup19').is_solved,'Fresh geometry must not have old solved data'
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        history=[];stage=0
+    while action['action'] in ('initial_adaptive','continue_adaptive'):
+        app=dc.app_for(project)
+        try:
+            setup=app.get_setup('Setup19');setup.auto_update=False
+            setup.props.update({'MinimumPasses':action['minimum_passes'],'MaximumPasses':action['maximum_passes'],
+               'PercentRefinement':action['percent_refinement'],'UseMaxTetIncrease':False,'MaxDeltaS':.005,'MinimumConvergedPasses':2})
+            assert setup.update();setup.auto_update=True
+            for sw in setup.sweeps:
+                assert sw.name=='Sweep1';sw.auto_update=False
+                sw.props.update({'Type':'Interpolating','IsEnabled':False,'InterpTolerance':1.0,'EnforcePassivity':False})
+                assert sw.update();sw.auto_update=True
+            if history:
+                check=run/f'pre_stage_{stage:02d}.txt';app.export_convergence('Setup19',output_file=str(check))
+                assert passes(check)==history,'Setup change invalidated history; do not restart'
+            state['mesh_stages'].append({'index':stage,'requested':action,'settings':snapshot(setup.props)})
+            app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project()
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        write(HERE/'active.json',{'case':case,'stage':'supervised_geometry_adaptive','mesh_stage':stage,'requested_passes':action['maximum_passes'],
+              'last_elements':history[-1][1] if history else None,'pid':os.getpid(),'run_dir':str(run),'updated_at':now()});status_report()
+        item=await solve_stage(project,run,state,f'adaptive_{stage:02d}',True)
+        app=dc.app_for(project)
+        try:
+            item['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+            path=run/f'convergence_stage_{stage:02d}.txt';app.export_convergence('Setup19',output_file=str(path));after=passes(path)
+            assert after and after[-1][0]==action['maximum_passes']
+            assert after[:len(history)]==history,'Historical mesh sequence changed unexpectedly'
+            if history:assert len(after)==len(history)+1,'Continuation must add exactly one pass'
+            assert not any('[error]' in x.lower() for x in item['messages'])
+            app.save_project()
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        history=after;stage+=1
+        state['mesh_stages'][-1].update(actual_passes=history[-1][0],actual_elements=history[-1][1],history_prefix_verified=True)
+        state['actual_elements']=history[-1][1];state['actual_passes']=history[-1][0];write(run/'state.json',state)
+        action=decide(history[-1][1],history[-1][0],stage,budget)
+    if action['action']=='review':
+        state.update(status='mesh_review_required',mesh_decision=action);write(run/'state.json',state)
+        raise RuntimeError('Mesh stage halted for explicit review: '+json.dumps(action))
+    assert action['action']=='sweep'
+    state.update(mesh_target_met=action['mesh_target_met'],mesh_exception_used=action['mesh_exception_used'])
+    app=dc.app_for(project)
+    try:
+        setup=app.get_setup('Setup19');sw=next(w for w in setup.sweeps if w.name=='Sweep1')
+        sw.auto_update=False;sw.props.update({'IsEnabled':True,'Type':'Interpolating','InterpTolerance':1.0,'EnforcePassivity':False})
+        assert sw.update();sw.auto_update=True
+        assert sw.props['RangeStart']=='0.01GHz' and sw.props['RangeEnd']=='15GHz' and sw.props['RangeStep']=='0.01GHz'
+        state['final_setup']=snapshot(setup.props);state['final_sweep']=snapshot(sw.props)
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    write(HERE/'active.json',{'case':case,'stage':'supervised_geometry_sweep','actual_elements':history[-1][1],'pid':os.getpid(),'run_dir':str(run),'updated_at':now()});status_report()
+    item=await solve_stage(project,run,state,'final_sweep',False)
+    app=dc.app_for(project)
+    try:
+        item['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        state['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in item['messages'])
+        app.export_convergence('Setup19',output_file=str(run/'convergence.txt'))
+        assert passes(run/'convergence.txt')==history,'Final sweep changed adaptive mesh'
+        dc.SWEEP='Sweep1';dc.export(app,run,np.arange(1,1501)/100)
+        state['reference_treatment']=apply_reference(run,case)
+        state['convergence']=dc.convergence(run/'convergence.txt')
+        assert canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})==canonical_ports(state['port_settings']['after'])
+        state['cad_after']=inspect_rebuilt_geometry(app,g);app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    state.update(status='exported',source_unchanged=sha(source)==spec['source_sha256']);write(run/'state.json',state)
+    for path,digest in spec.get('parent_evidence_hashes',{}).items():
+        assert sha(path)==digest,'Tuning parent evidence changed during solve: '+path
+    assert state['source_unchanged'] and state['sweep_converged']
+    assert not any('[error]' in x.lower() for x in item['messages'])
+    metrics=analyze(run/'sparams.csv',f0=6.85);write(run/'response_metrics.json',metrics)
+    write(run/'target20_metrics.json',compute20(run/'sparams.csv',metrics))
+    state.update(status='completed',design_passed=design_verdict(metrics),finished_at=now());write(run/'state.json',state)
+    manifest={**state,'modes':2,'curve_sha256':sha(run/'sparams.csv'),'mesh_addendum_sha256':spec['mesh_addendum_sha256']}
+    write(run/'manifest.json',manifest)
+    result={'case':case,'case_state':'needs_review','reason':'new_geometry_needs_direct_review' if state['design_passed'] else 'correction_probe_requires_target_review',
+            'operation_success':True,'design_passed':state['design_passed'],'numerical_review_passed':None,'full_matrix_approved':False,
+            'selected_run':str(run),'geometry':g,'actual_elements':state['actual_elements'],'mesh_target_met':state['mesh_target_met'],
+            'mesh_exception_used':state['mesh_exception_used'],'metrics':metrics,'finished_at':now(),
+            'evidence_hashes':{str(p):sha(p) for p in [run/'state.json',run/'manifest.json',run/'sparams.csv',run/'convergence.txt']}}
+    write(run/'finish24_result.json',result);write(HERE/'cases'/case/'result.json',result)
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        assert app.close_project(save=True)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    return result
+
+async def main(spec_path):
+    spec=read(spec_path);case=spec['case'];run=Path(spec['run_dir']);job=HERE/'cases'/case
+    validate_geometry_budget(spec,spec_path)  # Before any locks, state changes or failure hook.
+    assert not dc.solvers() and not (OLD/'pilot_queue.lock').exists()
+    locks=[HERE/'worker.lock',OLD/'protocol.lock'];assert all(not p.exists() for p in locks)
+    acquired=[]
+    try:
+        for lock in locks:
+            with lock.open('x') as h:h.write(str(os.getpid()))
+            acquired.append(lock)
+    except BaseException:
+        for p in acquired:p.unlink()
+        raise
+    run.mkdir(parents=True,exist_ok=True);job.mkdir(parents=True,exist_ok=True);status='failed'
+    try:
+        write(HERE/'active.json',{'case':case,'stage':'supervised_geometry_prepare','pid':os.getpid(),'run_dir':str(run),'started_at':now()});status_report()
+        result=await execute(spec_path);status='completed';metrics=result['metrics']
+        summary=f"{case}新几何求解完成：{result['actual_elements']}单元；中心与等峰条件={'通过、待复核' if result['design_passed'] else '未通过，按有限校正方案评估'}；BW={metrics.get('passband_2dB',{}).get('BW_GHz')}GHz。不是完整验收。"
+        artifacts=['finish24_result.json','state.json','manifest.json','response_metrics.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt','input.json']
+        artifacts+=['reference_review.json','target20_metrics.json']
+    except BaseException:
+        write(run/'worker_error.json',{'at':now(),'error':traceback.format_exc(),'live_solvers':dc.solvers()})
+        write(job/'attention.json',{'at':now(),'error_file':str(run/'worker_error.json')})
+        summary=f'{case}新几何工作项需检查worker_error.json；保留现有网格/结果，不自动重复求解。';artifacts=['worker_error.json','state.json'] if (run/'state.json').exists() else ['worker_error.json']
+    finally:
+        for lock in acquired:
+            if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+        write(HERE/'active.json',{'case':case,'stage':'awaiting_geometry_hook_review','operation_status':status,'run_dir':str(run),'finished_at':now()});status_report()
+    try:write(run/'notification_receipt.json',await publish(run,case,status,summary,artifacts))
+    except Exception:write(run/'notification_error.json',{'at':now(),'error':traceback.format_exc()});raise
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--spec',type=Path,required=True);args=parser.parse_args();asyncio.run(main(args.spec.resolve()))

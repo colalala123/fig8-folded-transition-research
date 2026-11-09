@@ -1,0 +1,29 @@
+"""Post-terminal routing only, avoiding mislabelling a crashed C1 as an actual response candidate."""
+import argparse,json
+from pathlib import Path
+import continue_tuning as old
+from build_runtime import ROOT,read,sha,write,new,now
+def main(context):
+    ctx=Path(context).resolve();rows=read(ctx/'plan.json')['cases'];assert len(rows)==1
+    row=rows[0];assert row['technical_recovery_attempt']==1 and row['category']=='unique_same_geometry_technical_retry_of_C1'
+    run=Path(row['run_dir']);original=Path(row['original_failed_run'])
+    decision=read(ROOT/'decisions/N11_A18_technical_retry1.json')
+    assert all(sha(p)==h for p,h in decision['original_hashes'].items())
+    state=read(run/'state.json');assert state['geometry']==read(original/'state.json')['geometry']
+    assert len(state['segments'])+len(read(original/'state.json')['segments'])<=13
+    event=read(run/'completion_event.json')
+    if event['status']!='completed':
+        # Technical missing data is NOT a design failure; never request a second retry.
+        status=read(ROOT/'CURRENT_STATUS.json');status.update(at=now(),phase='technical_recovery_exhausted_needs_review',active=0,
+            current_case=row['case'],technical_unresolved_parent=row['parent_case'],no_automatic_retry=True)
+        write(ROOT/'CURRENT_STATUS.json',status)
+        resolution=run/'continuation_resolution.json'
+        if not resolution.exists():new(resolution,dict(at=now(),event_sha256=sha(run/'completion_event.json'),disposition='blocked',reason='The only same-geometry technical recovery failed. No second retry/extra candidate; missing data is not a performance negative. Human decision required.'))
+        import subprocess,sys
+        subprocess.run([sys.executable,str(ctx/'phase_heartbeat.py'),'stop'],check=True,capture_output=True)
+        return dict(action='technical_failure_requires_review',retry_allowed=False)
+    score=old.checked(run) # Requires independent review and real visual ACK.
+    if score['passed']:return old.main(ctx)
+    return old.unsupported(row['parent_case'],ctx,'Two measured probes; originalC1 port solver crashed without response; the sole same-geometry technical recovery returned a curve failing the fixed joint target. Last conservative candidate slot consumed; not proof of physical impossibility.')
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);a=p.parse_args();print(json.dumps(main(a.context),ensure_ascii=False,indent=2))

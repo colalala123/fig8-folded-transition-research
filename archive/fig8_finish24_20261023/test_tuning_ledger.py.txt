@@ -1,0 +1,59 @@
+import tempfile
+import unittest
+from pathlib import Path
+from control import write
+from prepare_tuning import attempt_ledger
+
+
+class LedgerTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup)
+        self.root=Path(self.tmp.name);self.base=self.root/'new';self.old=self.root/'old'
+        self.row={'case':'D10G05','historical_phase_solves':0,'existing_new_attempts':0}
+        self.plan()
+
+    def plan(self):write(self.root/'plan.json',{'cases':[self.row]})
+
+    def add(self,name,n=1,g=None,resume=False):
+        spec={'phase_solve_ordinal_including_history':n,'geometry':g or {'Ls1':1}}
+        if resume:spec['resume_checkpoint']='explicit-checkpoint.json'
+        write(self.base/'D10G05'/name/'input.json',spec)
+
+    def ledger(self):return attempt_ledger('D10G05',self.root,self.base,self.old)
+
+    def test_prepared_input_reserves_budget(self):
+        self.add('g00');self.add('c01_probe_Ls1',2,{'Ls1':1.1})
+        self.assertEqual(self.ledger()['attempts_used_or_reserved'],2)
+
+    def test_explicit_same_geometry_recovery_not_extra_design(self):
+        self.add('g00');self.add('g00_recovery1',resume=True);self.add('g00_sweep_finish',resume=True)
+        self.assertEqual(self.ledger()['attempts_used_or_reserved'],1)
+
+    def test_unexplained_duplicate_rejected(self):
+        self.add('g00');self.add('duplicate')
+        with self.assertRaises(AssertionError):self.ledger()
+
+    def test_changed_geometry_cannot_share_slot(self):
+        self.add('g00');self.add('recovery',g={'Ls1':2},resume=True)
+        with self.assertRaises(AssertionError):self.ledger()
+
+    def test_legacy_geometry_count_is_preserved(self):
+        self.row.update(historical_phase_solves=3,existing_new_attempts=1);self.plan()
+        write(self.old/'D10G05/i03/state.json',{})
+        self.add('c01_probe_Ls1',5)
+        self.assertEqual(self.ledger()['attempts_used_or_reserved'],5)
+
+    def test_missing_ordinal_rejected(self):
+        self.add('g00');self.add('probe',3)
+        with self.assertRaises(AssertionError):self.ledger()
+
+    def test_over_budget_rejected(self):
+        self.add('probe',9)
+        with self.assertRaises(AssertionError):self.ledger()
+
+    def test_unexpected_legacy_run_rejected(self):
+        write(self.old/'D10G05/i00/state.json',{})
+        with self.assertRaises(AssertionError):self.ledger()
+
+
+if __name__=='__main__':unittest.main()

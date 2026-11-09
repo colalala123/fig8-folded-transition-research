@@ -1,0 +1,73 @@
+"""Isolate the propagating upper band from the diagnosed mode-2 cutoff.
+
+Unchanged adaptive mesh and original 0.5% tolerance; adds Zo convergence.
+This remains a diagnostic and cannot approve or dispatch production pilots.
+"""
+import asyncio,json
+from broadband_recovery import ROOT,read,sha,write_json,now
+from local_direct_check import idle,connect,persisted_sweeps
+from pilot_worker import convergence
+import run_protocol_tf3 as backend
+
+RUN=ROOT/'local_repair/D04G05/high_segment'
+PROJECT=RUN.parent/'D04G05_repair.aedt'
+SOURCE=ROOT/'D04G05/i00/D04G05_00.aedt'
+NAME='RecoveryHighZoV1'
+
+def prepare():
+    idle(); assert not (ROOT/'protocol.lock').exists()
+    assert not (RUN/'state.json').exists(), 'Recover an existing attempt'
+    checks=read(RUN.parent/'cutoff_check/direct_comparison.json')
+    assert checks['direct_matrix_checks_passed'] and checks['normalization_calibration_passed']
+    original=read(SOURCE.parent/'manifest.json')
+    RUN.mkdir(exist_ok=True)
+    app=connect(PROJECT,7990)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        saved=persisted_sweeps(PROJECT);assert NAME not in saved
+        for sw in setup.sweeps:
+            sw.props['Type']=saved[sw.name]['Type'];sw.props['IsEnabled']=False
+            assert sw.update()
+        sw=setup.add_sweep(NAME,sweep_type='Interpolating');sw.auto_update=False
+        expected={**original['settings']['sweep'],'IsEnabled':False,
+                  'RangeStart':'9.65GHz','RangeEnd':'14.2GHz','InterpUsePortImped':True}
+        sw.props.update(expected);assert sw.update();sw.auto_update=True
+        assert dict(sw.props)==expected
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence_before.txt'))
+        conv=convergence(RUN/'convergence_before.txt');assert conv==original['convergence']
+        app.save_project();assert setup.is_solved
+        write_json(RUN/'state.json',{
+            'status':'prepared','source':str(SOURCE),'source_sha256':sha(SOURCE),
+            'project':str(PROJECT),'cores':16,'tasks':1,'port':7990,'setup':'Setup19',
+            'modes_per_port':2,'segments':{},'sweep_names':{'High':NAME},
+            'setup_props':json.loads(json.dumps(setup.props,default=str)),
+            'diagnostic_sweep':expected,'adaptive_convergence_before':conv,
+            'port_settings':original['port_settings'],'geometry':original['geometry'],
+            'prepared_at_utc':now(),'scope':'Upper-band interpolation isolated from observed cutoff; no new adaptive or phase solve; not production approval.'})
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+
+async def main():
+    prepare()
+    backend.RUN=RUN;backend.PROJECT=PROJECT;backend.SOURCE=SOURCE
+    backend.STATE=RUN/'state.json';backend.SETUP='Setup19';backend.MODE_COUNT=2
+    backend.SEGMENTS=[('High','Interpolating',9.65,14.2)]
+    backend.persisted_sweeps=lambda:persisted_sweeps(PROJECT)
+    original_active=backend.active_solvers
+    def check_active():
+        processes=original_active()
+        if any('-solve_broadband_adapt ' in ' '.join(p['cmdline'] or []) or '-solve_adapt ' in ' '.join(p['cmdline'] or []) for p in processes):
+            app=connect(PROJECT,7990)
+            try:app.stop_simulations(clean_stop=True)
+            finally:app.release_desktop(close_projects=False,close_desktop=False)
+            raise RuntimeError('Unexpected adaptive rerun stopped; preserve cache for review')
+        return processes
+    backend.active_solvers=check_active
+    await backend.main()
+    state=read(RUN/'state.json')
+    assert state['segments']['High']['convergence']==state['adaptive_convergence_before']
+    state['mesh_reuse_verified']=True;write_json(RUN/'state.json',state)
+    from review_high_segment import main as review
+    review()
+
+if __name__=='__main__':asyncio.run(main())

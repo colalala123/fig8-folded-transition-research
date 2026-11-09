@@ -1,0 +1,30 @@
+import unittest
+from prepare_d08_rebase import check_decision
+class RebaseTests(unittest.TestCase):
+ def setUp(self):
+  self.r={'case':'D08G05','initial_geometry':{'Wm':1.6},'current_geometry':{'Wm':1.6}}
+  self.l={'attempts_used_or_reserved':1,'new_geometry_slots':{}}
+  self.d={'case':'D08G05','action':'one_same_policy_center','old_results_preserved':True,
+   'reuse_old_sensitivities':False,'count_as_additional_geometry_attempt':True,'geometry':{'Wm':1.6},
+   'legacy_coarse_comparison_passed':False,'same_sweep_center_shift_GHz':.04,'same_sweep_max_peak_shift_dB':.31}
+ def check(self):check_decision(self.d,self.r,self.l)
+ def test_explicit_rebase(self):self.check()
+ def test_no_unexplained_rebase(self):
+  self.d['same_sweep_center_shift_GHz']=.01;self.d['same_sweep_max_peak_shift_dB']=.05
+  with self.assertRaises(AssertionError):self.check()
+ def test_no_repeated_rebase(self):
+  self.l['attempts_used_or_reserved']=2
+  with self.assertRaises(AssertionError):self.check()
+ def test_no_history_reset(self):
+  self.d['count_as_additional_geometry_attempt']=False
+  with self.assertRaises(AssertionError):self.check()
+ def test_no_cross_policy_derivatives(self):
+  self.d['reuse_old_sensitivities']=True
+  with self.assertRaises(AssertionError):self.check()
+ def test_no_different_case(self):
+  self.d['case']='D06G02'
+  with self.assertRaises(AssertionError):self.check()
+ def test_no_unreviewed_geometry_change(self):
+  self.d['geometry']={'Wm':2.}
+  with self.assertRaises(AssertionError):self.check()
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,74 @@
+"""No HFSS calls: recovery accounting, immutable routing, and ACK safety tests."""
+import ast,copy,json,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import effective_budget_v2 as b
+import continuation_v2 as c
+ROOT=Path(__file__).resolve().parent
+
+class Safety(unittest.TestCase):
+    def fixture(self,folder,nsegs=0):
+        root=Path(folder);rows=[]
+        for i in range(48):
+            case='N02_A18' if i==1 else f'C{i+1:02d}';run=root/case;g={'Wm':1.8,'Ws':.35}
+            rows.append(dict(case=case,ordinal=i+1,run_dir=str(run),context=str(root/'context'),geometry=g))
+            if nsegs and i!=1:self.state(run,case,g,nsegs)
+        recovery=root/'recovery'/'N02_A18';d=dict(case='N02_A18',effective_run=str(recovery),context=str(root/'recovery_ctx'))
+        (root/'campaign_frozen.json').write_text(json.dumps(dict(cases=rows)))
+        (root/'recovery1_overlay.json').write_text(json.dumps(d))
+        return root,rows,d
+    def state(self,run,case,g,n,cores=14,attempt=0):
+        run.mkdir(parents=True,exist_ok=True)
+        s=dict(case=case,geometry=g,resource_recovery_attempt=attempt,
+            segments=[dict(adaptive_requested=i<12,mcp_request=dict(cores_per_task=cores,concurrent_tasks=1)) for i in range(n)])
+        (run/'state.json').write_text(json.dumps(s));return s
+    def test_merged_624_bound(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t,13);self.state(Path(d['effective_run']),'N02_A18',rows[1]['geometry'],13,attempt=1)
+            with patch.object(b,'ROOT',root),patch.object(b,'overlay',return_value=d):
+                r=b.validate_campaign();self.assertEqual(r['Analyze_used'],624);self.assertEqual(r['geometries_started'],48)
+                with self.assertRaises(AssertionError):b.validate_campaign(extra_analyze=1,case='N02_A18')
+    def test_zero_original_not_double_geometry(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t);self.state(Path(rows[1]['run_dir']),'N02_A18',rows[1]['geometry'],0)
+            self.state(Path(d['effective_run']),'N02_A18',rows[1]['geometry'],5,attempt=1)
+            with patch.object(b,'ROOT',root),patch.object(b,'overlay',return_value=d):
+                r=b.validate_campaign();self.assertEqual(r['geometries_started'],1);self.assertEqual(r['Analyze_used'],5)
+    def test_merged_case_14_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t);self.state(Path(rows[1]['run_dir']),'N02_A18',rows[1]['geometry'],1)
+            self.state(Path(d['effective_run']),'N02_A18',rows[1]['geometry'],13,attempt=1)
+            with patch.object(b,'ROOT',root),patch.object(b,'overlay',return_value=d),self.assertRaises(AssertionError):b.validate_campaign()
+    def test_wrong_resources_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t);self.state(Path(d['effective_run']),'N02_A18',rows[1]['geometry'],1,cores=16,attempt=1)
+            with patch.object(b,'ROOT',root),patch.object(b,'overlay',return_value=d),self.assertRaises(AssertionError):b.validate_campaign()
+    def test_recovery_attempt_required(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t);self.state(Path(d['effective_run']),'N02_A18',rows[1]['geometry'],1,attempt=0)
+            with patch.object(b,'ROOT',root),patch.object(b,'overlay',return_value=d),self.assertRaises(AssertionError):b.validate_campaign()
+    def test_pause(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t);(root/'PAUSE.json').write_text('{}')
+            with patch.object(b,'ROOT',root),self.assertRaises(AssertionError):b.validate_campaign()
+    def test_pilot_required(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t)
+            with patch.object(b,'ROOT',root),patch.object(b,'overlay',return_value=d),self.assertRaises(FileNotFoundError):b.validate_campaign(case=rows[2]['case'])
+    def test_effective_routing_no_source_mutation(self):
+        row=dict(case='N02_A18',run_dir='old',context='old',geometry={'Wm':1.8});snap=copy.deepcopy(row)
+        out=b.effective(row,dict(case='N02_A18',effective_run='new',context='newctx'))
+        self.assertEqual(row,snap);self.assertEqual(out['run_dir'],'new');self.assertEqual(out['geometry'],row['geometry'])
+    def test_missing_ack_cannot_adopt(self):
+        with tempfile.TemporaryDirectory() as t:
+            root,rows,d=self.fixture(t)
+            with patch.object(c,'ROOT',root),patch.object(b,'overlay',return_value=d),patch.object(c,'rows',return_value=rows),self.assertRaises(FileNotFoundError):c.adopt()
+            self.assertFalse((root/'recovery1_adoption.json').exists())
+    def test_no_automatic_visual_ack(self):
+        s=(ROOT/'continuation_v2.py').read_text(encoding='utf-8')
+        self.assertNotIn('--visual-reviewed',s);self.assertIn('verified_ack(row);pilot()',s)
+    def test_syntax(self):
+        for n in ['effective_budget_v2.py','continuation_v2.py','prepare_recovery_v1.py']:
+            ast.parse((ROOT/n).read_text(encoding='utf-8'))
+
+if __name__=='__main__':unittest.main()

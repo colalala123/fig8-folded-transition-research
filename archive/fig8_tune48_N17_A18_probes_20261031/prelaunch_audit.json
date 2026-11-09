@@ -1,0 +1,66 @@
+{
+  "at": "2026-10-30T15:38:13.986212+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N17_A18_probes_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 0.896s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..........\n----------------------------------------------------------------------\nRan 10 tests in 1.818s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 0,
+    "new_geometries_declared": 2,
+    "geometry_cap": 172,
+    "Analyze_used": 0,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 0,
+      "N17_A18_M": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 2
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "create_time": 1793355858.6193893,
+      "pid": 85208,
+      "name": "ansysedt.exe",
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "case": "N17_A18_S",
+      "configuration_sha256": "238bcc19a5dc50d1f40b4eaa3ee8bfa3ec2258b271e569d6aaae4741ad01626e",
+      "project_sha256": "1abb2e2d01d4319e90a8e1fbb1704a02cecb2908edea81aa407d9a22b1ef1668"
+    },
+    {
+      "case": "N17_A18_M",
+      "configuration_sha256": "6636c39d7a238fe437b0cf9f65d0d2d73fb11b4dc57003963161e0f60d5c6480",
+      "project_sha256": "fbad3017be9bec53f29a8e2eb655f377a6800e4f2d95c256e857335bf3a40e95"
+    }
+  ]
+}

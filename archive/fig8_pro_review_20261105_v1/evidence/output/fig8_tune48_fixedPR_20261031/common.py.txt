@@ -1,0 +1,49 @@
+"""Offline provenance helpers. No AEDT connection or automatic dispatch."""
+import hashlib, json, os, sys
+from datetime import datetime, timezone
+from pathlib import Path
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT.parent
+PREVIOUS = OUT/'fig8_step4_20261027'
+SOURCE52 = OUT/'fig8_PR18_delivery_20261027/dataset52.json'
+WEEKLY = Path('F:/2026-1/circuit/weekpost/2026-08-02_研究进展周报.md')
+PYTHON = Path('${WORKSPACE}/.venv/Scripts/python.exe')
+sys.path.insert(0, str(OUT/'fig8_ml_dependencies_20261028'))
+sys.path.insert(0, str(OUT/'fig8_inverse_PR_20261027'))
+from model import pr, widths, band_score, intervals, center_band
+from line_models import microstrip, slotline
+
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now(): return datetime.now(timezone.utc).isoformat()
+def write(p, data):
+    p=Path(p);p.parent.mkdir(parents=True, exist_ok=True)
+    tmp=p.with_suffix(p.suffix+'.tmp')
+    tmp.write_text(json.dumps(data, ensure_ascii=False, indent=2, allow_nan=False, default=str)+'\n', encoding='utf-8')
+    os.replace(tmp,p)
+
+def fold_coordinates(g):
+    """Weekly-report NOMINAL length convention, not actual EM phase or CAD medial axis."""
+    path=g['Ls1']+2*g['Ls2']+2*g['Ls3']
+    return dict(Lpath_nominal_mm=path, rho_nominal=2*(g['Ls2']+g['Ls3'])/path,
+                eta_nominal=g['Ls2']/(g['Ls2']+g['Ls3']),
+                arm_overlap_ratio_legacy=2*g['Ls3']/g['Ls1'],
+                g_mm=g['Ls2']-2*g['Ws'], a_mm=g['Ls3']-g['Ws'])
+
+def unfold(path,rho,eta):
+    if not(path>0 and 0<rho<.5 and 0<eta<1):raise ValueError('Invalid nominal folded coordinates')
+    return dict(Ls1=(1-rho)*path,Ls2=eta*rho*path/2,Ls3=(1-eta)*rho*path/2)
+
+def nominal_lengths(wm,ws,arm,gap=.55,f0=6.72):
+    import math
+    lm=299.792458/(4*f0*math.sqrt(microstrip(3.55,wm,f=f0)['eeff']))
+    total=299.792458/(2*f0*math.sqrt(slotline(3.55,ws,f=f0)['eeff']))
+    ls2=gap+2*ws;ls3=arm+ws
+    return dict(Lm=lm,Ls1=total-2*ls2-2*ls3,Ls2=ls2,Ls3=ls3,Lpath=total)
+
+def features(row):
+    """No achieved HFSS lengths, rho, eta or output response enter input features."""
+    import numpy as np
+    g=row['geometry_mm'];c=fold_coordinates(g)
+    n=nominal_lengths(g['Wm'],g['Ws'],row['a'],c['g_mm'])
+    return [float(np.log(row['P'])),float(np.log(row['R'])),row['a'],n['Lm'],n['Ls1']]

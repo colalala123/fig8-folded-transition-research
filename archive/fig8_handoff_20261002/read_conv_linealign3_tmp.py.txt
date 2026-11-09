@@ -1,0 +1,4 @@
+import re
+from pathlib import Path
+p=next(Path(r'F:\hfss_f8x_261align3\R_tri_linealign3.aedtresults\Wideband vertical transition.results').glob('*.EMConvData'))
+t=p.read_text();print(re.findall(r"PassNo=(\d+).*?MaxMagDeltaS\(([^,]+)",t,re.S)[-4:])

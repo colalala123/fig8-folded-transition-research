@@ -1,0 +1,18 @@
+import unittest
+import psutil
+from lifecycle_watch import exact_worker
+class Fake:
+ def create_time(self):return 10.
+ def cmdline(self):return ['python','worker','--spec','input']
+ def is_running(self):return True
+class Tests(unittest.TestCase):
+ def test_live_exact(self):self.assertTrue(exact_worker(dict(worker_pid=1,worker_created=10,worker_command=Fake().cmdline()),lambda _:Fake()))
+ def test_pid_reuse_not_live_worker(self):self.assertFalse(exact_worker(dict(worker_pid=1,worker_created=11,worker_command=Fake().cmdline()),lambda _:Fake()))
+ def test_different_command_not_bound(self):self.assertFalse(exact_worker(dict(worker_pid=1,worker_created=10,worker_command=['different']),lambda _:Fake()))
+ def test_dead(self):
+  def process(_):raise psutil.NoSuchProcess(1)
+  self.assertFalse(exact_worker(dict(worker_pid=1,worker_created=10,worker_command=[]),process))
+ def test_unknown_access_is_not_death(self):
+  def process(_):raise psutil.AccessDenied(1)
+  self.assertIsNone(exact_worker(dict(worker_pid=1,worker_created=10,worker_command=[]),process))
+if __name__=='__main__':unittest.main()

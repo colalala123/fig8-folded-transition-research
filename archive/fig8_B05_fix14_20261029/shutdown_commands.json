@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-29T08:21:14.979474+00:00",
+  "commands": [
+    {
+      "command": [
+        "${WORKSPACE}\\.venv\\Scripts\\python.exe",
+        "${WORKSPACE}\\output\\fig8_B05_fix14_probes_20261029\\phase_heartbeat.py",
+        "stop"
+      ],
+      "output": "{\n  \"schema_version\": 1,\n  \"event_path\": \"D:\\\\hfss_fig8_B05_20261029\\\\probes\\\\B05N_M\\\\g01_initial\\\\completion_event.json\",\n  \"event_sha256\": \"cbb32381adb1b7456c0ef5e87ee07a23b5a695e8e5b2c82e1b535d33de959fcb\",\n  \"target_thread_id\": \"REDACTED-ID\",\n  \"registered_at\": \"2026-10-29T07:39:19.466115+00:00\",\n  \"interval_seconds\": 300,\n  \"next_check_epoch\": 1793259859.466115,\n  \"expires_epoch\": 1793432359.466115,\n  \"max_reminders\": 3,\n  \"attempts\": [],\n  \"enabled\": false,\n  \"ignored_resolution_sha256\": null,\n  \"status\": \"operator_stopped\"\n}\n"
+    },
+    {
+      "command": [
+        "${WORKSPACE}\\.venv\\Scripts\\python.exe",
+        "${WORKSPACE}\\output\\fig8_B05_fix14_candidate1_20261029\\phase_heartbeat.py",
+        "stop"
+      ],
+      "output": "{\n  \"schema_version\": 1,\n  \"event_path\": \"D:\\\\hfss_fig8_B05_20261029\\\\candidate1\\\\B05N_C1\\\\g01_initial\\\\completion_event.json\",\n  \"event_sha256\": \"33477c4c35ae4fb2e79e29ec65aea6707b0aed6f9404070456a7d8ef68e8d071\",\n  \"target_thread_id\": \"REDACTED-ID\",\n  \"registered_at\": \"2026-10-29T08:01:51.140238+00:00\",\n  \"interval_seconds\": 300,\n  \"next_check_epoch\": 1793261512.0601425,\n  \"expires_epoch\": 1793433711.140238,\n  \"max_reminders\": 3,\n  \"attempts\": [],\n  \"enabled\": false,\n  \"ignored_resolution_sha256\": null,\n  \"status\": \"operator_stopped\",\n  \"last_check_at\": \"2026-10-29T08:06:52.060142+00:00\",\n  \"progress\": {\n    \"stop\": false,\n    \"reason\": \"no_next_release\"\n  },\n  \"thread\": {\n    \"state\": \"running\",\n    \"thread_status\": \"active\",\n    \"active_flags\": [],\n    \"turn_id\": \"REDACTED-ID\",\n    \"turn_status\": \"inProgress\",\n    \"completed_at\": null,\n    \"reason\": \"latest_turn_in_progress\"\n  }\n}\n"
+    },
+    {
+      "command": [
+        "${WORKSPACE}\\.venv\\Scripts\\python.exe",
+        "${WORKSPACE}\\output\\fig8_B05_fix14_20261029\\direct_review\\phase_heartbeat.py",
+        "stop"
+      ],
+      "output": "{\n  \"schema_version\": 1,\n  \"event_path\": \"D:\\\\hfss_fig8_B05_20261029\\\\direct\\\\B05\\\\direct_smallbatch\\\\completion_event.json\",\n  \"event_sha256\": \"c2728dbbecf36e4b758d36e3f77889042070184222230fc6430732cf3413ea70\",\n  \"target_thread_id\": \"REDACTED-ID\",\n  \"registered_at\": \"2026-10-29T08:16:38.723108+00:00\",\n  \"interval_seconds\": 300,\n  \"next_check_epoch\": 1793262098.7221096,\n  \"expires_epoch\": 1793434598.7221096,\n  \"max_reminders\": 3,\n  \"attempts\": [],\n  \"enabled\": false,\n  \"ignored_resolution_sha256\": null,\n  \"status\": \"operator_stopped\"\n}\n"
+    },
+    {
+      "command": [
+        "${WORKSPACE}\\.venv\\Scripts\\python.exe",
+        "${WORKSPACE}\\output\\fig8_B05_fix14_probes_20261029\\lifecycle_watch.py",
+        "stop",
+        "--run",
+        "D:\\hfss_fig8_B05_20261029\\probes\\B05N_S\\g01_initial"
+      ],
+      "output": "{'observer_stop_requested': True, 'run': 'D:\\\\hfss_fig8_B05_20261029\\\\probes\\\\B05N_S\\\\g01_initial'}\n"
+    },
+    {
+      "command": [
+        "${WORKSPACE}\\.venv\\Scripts\\python.exe",
+        "${WORKSPACE}\\output\\fig8_B05_fix14_probes_20261029\\lifecycle_watch.py",
+        "stop",
+        "--run",
+        "D:\\hfss_fig8_B05_20261029\\probes\\B05N_M\\g01_initial"
+      ],
+      "output": "{'observer_stop_requested': True, 'run': 'D:\\\\hfss_fig8_B05_20261029\\\\probes\\\\B05N_M\\\\g01_initial'}\n"
+    },
+    {
+      "command": [
+        "${WORKSPACE}\\.venv\\Scripts\\python.exe",
+        "${WORKSPACE}\\output\\fig8_B05_fix14_candidate1_20261029\\lifecycle_watch.py",
+        "stop",
+        "--run",
+        "D:\\hfss_fig8_B05_20261029\\candidate1\\B05N_C1\\g01_initial"
+      ],
+      "output": "{'observer_stop_requested': True, 'run': 'D:\\\\hfss_fig8_B05_20261029\\\\candidate1\\\\B05N_C1\\\\g01_initial'}\n"
+    },
+    {
+      "command": [
+        "${WORKSPACE}\\.venv\\Scripts\\python.exe",
+        "${WORKSPACE}\\output\\fig8_B05_fix14_20261029\\direct_review\\lifecycle_watch.py",
+        "stop",
+        "--run",
+        "D:\\hfss_fig8_B05_20261029\\direct\\B05\\direct_smallbatch"
+      ],
+      "output": "{'observer_stop_requested': True, 'run': 'D:\\\\hfss_fig8_B05_20261029\\\\direct\\\\B05\\\\direct_smallbatch'}\n"
+    }
+  ],
+  "no_solver_killed": true,
+  "no_locks_deleted": true
+}

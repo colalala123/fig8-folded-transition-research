@@ -1,0 +1,26 @@
+"""Offline launch scope/notification guards; no solver or message."""
+import unittest
+import phase_control as pc
+import phase_geometry_publish as pub
+from unittest.mock import patch
+
+class ExecutionPlanTests(unittest.TestCase):
+    def test_scope_is_six_cases_not_old_batch(self):
+        p=pc.read(pc.HERE/'execution_plan.json')
+        self.assertEqual(p['cases'],pc.ORDER)
+        self.assertEqual((p['cores'],p['serial_tasks']),(16,1))
+        self.assertEqual(p['initial_geometry_cap'],6)
+        self.assertEqual(p['total_geometry_cap'],len(pc.ORDER)*p['geometry_cap_per_case'])
+        self.assertEqual(p['geometry_cap_per_case'],1+2*3)
+        self.assertEqual(p['total_cached_direct_cap'],6)
+        self.assertFalse(p['prediction_used_for_tuning'])
+        self.assertFalse(p['normal_solve_periodic_messages'])
+        self.assertEqual(p['completion_hook_target'],pc.TARGET)
+    def test_message_explains_initial_is_not_final_acceptance(self):
+        with patch.object(pub.hook,'event_id',return_value='test'):
+            message=pub.prompt({'status':'completed','summary':'synthetic'},'not_a_real_event')
+        self.assertIn('不能把初值六次算作全部验收',message)
+        self.assertIn('正常求解不周期发消息',message)
+        self.assertIn('原24项和预测公式保持冻结',message)
+
+if __name__=='__main__':unittest.main()

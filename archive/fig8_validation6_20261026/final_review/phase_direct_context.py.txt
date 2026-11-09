@@ -1,0 +1,53 @@
+"""One cache-only direct work item per held-out V6 case; no adaptive release."""
+from pathlib import Path
+from phase_control import HERE,PARENT,BASE,OLD,ORIGINAL,ORDER,TARGET,read,write,sha,now,status_report
+
+def budget_guard(p,ledger,auth):
+    assert auth['execution_authorized'] and auth['stage']=='V6D' and auth['cases']==ORDER
+    assert p['case'] in ORDER and p['role']=='cached_phase_direct'
+    assert p['cached_task_ordinal_for_case']==1 and p['geometry_budget_increment']==0 and p['adaptive_allowed'] is False
+    assert ledger['new_geometry_reserved']==0 and ledger['new_cached_tasks_reserved']<=auth['cached_task_cap']==6
+    tasks=ledger['tasks'];assert len(tasks)==ledger['new_cached_tasks_reserved']
+    assert all(t['case'] in ORDER and t['role']=='cached_phase_direct' for t in tasks)
+    assert len({t['case'] for t in tasks})==len(tasks)
+    own=[t for t in tasks if t['case']==p['case']];assert len(own)==1
+    assert own[0]['input_sha256']==sha(p['input_path']) and Path(own[0]['path']).resolve()==Path(p['input_path']).resolve()
+
+def reviewed_source(source,case):
+    source=Path(source).resolve();assert source.parent==(BASE/case).resolve()
+    p=read(source/'input.json');s=read(source/'state.json');a=read(source/'receiver_ack.json');v=read(source/'receiver_verification.json')
+    event=read(source/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']==TARGET
+    assert p['case']==case and s['case']==case and p['geometry']==s['geometry']
+    assert a['event_sha256']==sha(source/'completion_event.json') and a['verification_sha256']==sha(source/'receiver_verification.json')
+    assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed'] and a['design_passed']
+    assert s['status']=='completed' and s['design_passed'] and 100000<=s['actual_elements']<=112000
+    assert v['design_passed'] and v['actual_elements']==s['actual_elements']
+    ordinal=s['cumulative_geometry_ordinal'];assert 1<=ordinal<=7
+    for f,h in p['parent_evidence_hashes'].items():assert sha(f)==h,f
+    for item in event['artifacts']:assert sha(source/item['path'])==item['sha256']
+    from case_reference import verify_reference
+    assert verify_reference(source)==s['reference_treatment']
+    initial=next(r['initial_geometry'] for r in read(PARENT/'plan.json')['cases'] if r['case']==case)
+    assert all(p['geometry'][k]==initial[k] for k in ['Wm','Ws','Ls2','Ls3'])
+    from solver_runtime import passes
+    assert passes(source/'convergence.txt')[-1][1]==s['actual_elements']
+    return p,s,read(source/'response_metrics.json')
+
+def validate_spec(path):
+    assert not (HERE/'closure.json').exists()
+    p=read(path);budget_guard(p,read(HERE/'budget_ledger.json'),read(HERE/'authorization.json'))
+    assert Path(path).resolve()==Path(p['input_path']).resolve()
+    assert Path(p['run_dir']).resolve()==(BASE/p['case']/'final_direct').resolve()
+    src,state,metrics=reviewed_source(p['source'],p['case'])
+    assert src['geometry']==p['source_geometry']
+    assert Path(state['project']).resolve()==Path(p['project_source']).resolve()
+    assert sha(p['project_source'])==p['project_source_sha256']
+    f=p['frequencies_GHz'];assert f==sorted(set(f)) and 1<=len(f)<=70 and all(.01<=x<=15 for x in f)
+    assert all(x in f for x in [.1,3.,6.,10.19,12.,15.])
+    assert sha(HERE/'phase_final_direct.py')==p['worker_sha256']
+    rel=read(HERE/'supervised_release.json')
+    assert rel['case']==p['case'] and Path(rel['input_path']).resolve()==Path(path).resolve()
+    assert rel['input_sha256']==sha(path) and not rel['bulk_dispatch_released']
+    for file,h in p['parent_evidence_hashes'].items():assert sha(file)==h,file
+    return p

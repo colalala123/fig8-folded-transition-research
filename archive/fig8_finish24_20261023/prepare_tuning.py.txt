@@ -1,0 +1,136 @@
+"""Freeze ONE supervised tuning solve; never dispatch or overwrite a run.
+
+Initially restricted to the four new same-policy initial cases. Historical
+mixed-mesh cases need an explicit rebase decision, not reused sensitivities.
+"""
+import argparse
+from pathlib import Path
+from control import HERE, BASE, OLD, read, write, sha, now
+from geometry_worker import dc, geometry_gate
+from tuning_proposal import propose_probes, propose_candidate
+
+ALLOWED = {'D10G05','D11G02','D11G05','D12G02'}
+
+
+def attempt_ledger(case, here=HERE, base=BASE, old=OLD):
+    row=next(c for c in read(here/'plan.json')['cases'] if c['case']==case)
+    legacy=list((old/case).glob('i[0-9][0-9]/state.json'))
+    assert len(legacy)==row['existing_new_attempts'],'Legacy count changed since plan freeze'
+    old_count=row['historical_phase_solves']+row['existing_new_attempts']
+    slots={}
+    for path in sorted((base/case).glob('*/input.json')):
+        spec=read(path)
+        if 'phase_solve_ordinal_including_history' not in spec:
+            continue # cached checks have no geometry ordinal
+        n=spec['phase_solve_ordinal_including_history']
+        assert isinstance(n,int) and old_count<n<=8
+        entry={'path':str(path),'sha256':sha(path),'geometry':spec['geometry'],
+               'explicit_cache_continuation':bool(spec.get('resume_checkpoint'))}
+        if n in slots:
+            assert entry['geometry']==slots[n][0]['geometry'],'One ordinal contains different geometries'
+            assert entry['explicit_cache_continuation'] or all(x['explicit_cache_continuation'] for x in slots[n]),'Unexplained duplicate geometry ordinal'
+        slots.setdefault(n,[]).append(entry)
+    assert sorted(slots)==list(range(old_count+1,old_count+len(slots)+1)),'Missing or overlapping budget ordinal'
+    return {'case':case,'historical_count':row['historical_phase_solves'],
+            'previous_batch_count':row['existing_new_attempts'],'prior_state_hashes':{str(p):sha(p) for p in legacy},
+            'new_geometry_slots':slots,'attempts_used_or_reserved':old_count+len(slots),
+            'limit':8,'note':'Prepared inputs reserve a slot; explicit same-geometry cache recovery shares its original slot.'}
+
+
+def reviewed(run, case):
+    run=Path(run).resolve()
+    assert run.is_relative_to((BASE/case).resolve())
+    ack=read(run/'receiver_ack.json');event=read(run/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success']
+    assert ack['event_sha256']==sha(run/'completion_event.json')
+    assert ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+    assert ack['verification_sha256']==sha(run/'receiver_verification.json')
+    hashes={str(run/f):sha(run/f) for f in ['completion_event.json','receiver_ack.json','receiver_verification.json']}
+    for item in event['artifacts']:
+        p=(run/item['path']).resolve();assert p.is_relative_to(run) and sha(p)==item['sha256']
+        hashes[str(p)]=item['sha256']
+    spec=read(run/'input.json');state=read(run/'state.json')
+    assert spec['case']==case and state['geometry']==spec['geometry']
+    assert spec['policy_sha256']==sha(HERE/'policy.json')
+    assert spec['mesh_addendum_sha256']==sha(HERE/'mesh_policy_addendum_v2.json')
+    assert spec['controller_sha256']==sha(HERE/'mesh_budget.py')
+    assert 100000<=state['actual_elements']<=112000 and state['sweep_converged']
+    assert state['final_sweep']['InterpTolerance']==1.0 and not state['final_sweep']['EnforcePassivity']
+    assert read(run/'receiver_verification.json')['mesh_history_verified']
+    return spec,read(run/'response_metrics.json'),hashes
+
+
+def prepare(case,center,cycle,step):
+    assert case in ALLOWED,'Mixed-policy historical cases not yet enabled'
+    assert cycle in ('c01','c02'),'At most two local cycles within 8 total geometry attempts'
+    assert step in ('probe_Ls1','probe_Lm','candidate')
+    assert not dc.solvers() and not any(p.exists() for p in [HERE/'worker.lock',OLD/'protocol.lock',OLD/'pilot_queue.lock'])
+    previous=read(HERE/'supervised_release.json');previous_spec=read(previous['input_path'])
+    previous_run=Path(previous_spec['run_dir'])
+    ack=read(previous_run/'receiver_ack.json')
+    assert ack['event_sha256']==sha(previous_run/'completion_event.json')
+    assert ack['artifacts_verified'] and ack['visual_review_completed']
+    center=Path(center).resolve();spec,metrics,parents=reviewed(center,case)
+    row=next(c for c in read(HERE/'plan.json')['cases'] if c['case']==case)
+    ledger=attempt_ledger(case);used=ledger['attempts_used_or_reserved']
+    cycle_path=HERE/'cases'/case/'tuning'/f'{cycle}.json'
+    if not cycle_path.exists():
+        assert step=='probe_Ls1','Start each cycle with Ls1 probe'
+        proposal=propose_probes(spec['geometry'],row['initial_geometry'],metrics,used)
+        assert proposal['action']=='probe',proposal
+        cycle_record={'case':case,'cycle':cycle,'center':str(center),'created_at':now(),
+                      'center_hashes':parents,'attempts_before_cycle':used,'probe_proposal':proposal}
+    else:
+        cycle_record=read(cycle_path)
+        assert cycle_record['center']==str(center)
+        for path,digest in cycle_record['center_hashes'].items():assert sha(path)==digest
+    start=cycle_record['attempts_before_cycle']
+    index={'probe_Ls1':0,'probe_Lm':1,'candidate':2}[step]
+    assert used==start+index,'Unexpected tuning history; inspect rather than skip or repeat'
+    probes=cycle_record['probe_proposal']['probes']
+    probe_metrics=[]
+    for i in range(index):
+        probe_run=BASE/case/f'{cycle}_{["probe_Ls1","probe_Lm"][i]}'
+        ps,pm,ph=reviewed(probe_run,case)
+        assert ps['geometry']==probes[i]['geometry'] and ps['role']==probes[i]['role']
+        assert ps['tuning_cycle']==cycle and ps['tuning_center']==str(center)
+        assert ps['phase_solve_ordinal_including_history']==start+i+1
+        parents.update(ph);probe_metrics.append(pm)
+    if step=='candidate':
+        proposal=propose_candidate(spec['geometry'],row['initial_geometry'],metrics,probe_metrics,
+                                   [p['step_mm'] for p in probes],used)
+        if proposal['action']!='candidate':
+            write(cycle_path.with_name(cycle+'_candidate_stop.json'),proposal)
+            raise RuntimeError('No justified candidate: '+str(proposal))
+        geometry=proposal['geometry']
+    else:
+        proposal=probes[index];geometry=proposal['geometry']
+    assert used+1<=8 and geometry_gate(geometry,row['initial_geometry'])['passed']
+    run=BASE/case/f'{cycle}_{step}'
+    assert not run.exists(),'Existing reserved run must be inspected, not overwritten'
+    archive=HERE/'supervised_releases'/f"{previous['case']}_{previous_run.name}.json"
+    assert not archive.exists()
+    # Only write after all preflight checks. Each launch remains separately supervised.
+    if not cycle_path.exists():write(cycle_path,cycle_record)
+    parents[str(cycle_path)]=sha(cycle_path)
+    write(run/'budget_before.json',ledger);parents[str(run/'budget_before.json')]=sha(run/'budget_before.json')
+    write(run/'proposal.json',proposal);parents[str(run/'proposal.json')]=sha(run/'proposal.json')
+    input_path=run/'input.json'
+    frozen={'case':case,'role':step,'geometry':geometry,'source':spec['source'],'source_sha256':spec['source_sha256'],
+      'run_dir':str(run),'project_name':f'{case}_{cycle}_{step}',
+      'policy_sha256':sha(HERE/'policy.json'),'mesh_addendum_sha256':sha(HERE/'mesh_policy_addendum_v2.json'),
+      'phase_solve_ordinal_including_history':used+1,'created_at':now(),
+      'worker_sha256':sha(HERE/'geometry_worker.py'),'controller_sha256':sha(HERE/'mesh_budget.py'),
+      'tuning_cycle':cycle,'tuning_center':str(center),'parent_evidence_hashes':parents,
+      'scope':'One supervised same-policy bounded tuning solve; not blanket batch release'}
+    write(input_path,frozen);write(archive,previous)
+    write(HERE/'supervised_release.json',{'case':case,'input_path':str(input_path.resolve()),'input_sha256':sha(input_path),
+      'bulk_dispatch_released':False,'at':now(),'reason':'Reviewed same-policy center, bounded geometry budget, one supervised tuning probe/candidate.'})
+    print(input_path)
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--case',required=True);p.add_argument('--center',type=Path,required=True)
+    p.add_argument('--cycle',choices=['c01','c02'],default='c01')
+    p.add_argument('--step',choices=['probe_Ls1','probe_Lm','candidate'],required=True)
+    a=p.parse_args();prepare(a.case,a.center,a.cycle,a.step)

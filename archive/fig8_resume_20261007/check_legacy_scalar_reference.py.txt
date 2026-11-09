@@ -1,0 +1,27 @@
+"""Offline diagnostic; never replaces authoritative HFSS exports automatically."""
+import csv,json
+from pathlib import Path
+import numpy as np
+from check_external_normalization import transform
+from audit_existing import HERE,OLD,write,sha,read
+def load_modal(run):
+    with (run/'all_modes_sparams.csv').open(encoding='utf-8-sig') as h:rows=list(csv.DictReader(h))
+    with (run/'mode_impedance_gamma.csv').open(encoding='utf-8-sig') as h:aux=list(csv.DictReader(h))
+    count=read(run/'manifest.json')['modes'];n=count*2
+    assert len(rows)==len(aux)==1500
+    assert all(abs(float(a['Freq_GHz'])-float(b['Freq_GHz']))<1e-9 for a,b in zip(rows,aux))
+    modes=[f'{p}:{m}' for p in [1,2] for m in range(1,count+1)];s=np.zeros((1500,n,n),complex);z=np.zeros((1500,n),complex)
+    for i,a in enumerate(modes):
+        label=f'Zo({a})';z[:,i]=[complex(float(r[label+'_real']),float(r[label+'_imag'])) for r in aux]
+        for j,b in enumerate(modes):
+            label=f'S({a},{b})';s[:,i,j]=[complex(float(r[label+'_real']),float(r[label+'_imag'])) for r in rows]
+    return np.array([float(r['Freq_GHz']) for r in rows]),s,z,modes
+def main():
+    report={}
+    for name in ['M_B0_2','M_T_F3_2','V_copy','V_rebuild']:
+        run=OLD/name
+        f,s,z,modes=load_modal(run)
+        fixed=transform(s,z,'traveling');sv=np.linalg.svd(fixed,compute_uv=False)[:,0]
+        report[name]={'source_curve_sha256':sha(run/'all_modes_sparams.csv'),'source_aux_sha256':sha(run/'mode_impedance_gamma.csv'),'max_sv':float(max(sv)),'violation_count':int(sum(sv>1.001)),'reciprocity_error':float(abs(fixed-fixed.transpose(0,2,1)).max()),'worst_GHz':float(f[int(sv.argmax())]),'native_reciprocity':float(abs(s-s.transpose(0,2,1)).max())}
+    write(HERE/'legacy_scalar_reference_diagnostic.json',{'status':'diagnostic_only','results':report});print(json.dumps(report,indent=2))
+if __name__=='__main__':main()

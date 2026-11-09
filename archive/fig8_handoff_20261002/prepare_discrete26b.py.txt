@@ -1,0 +1,56 @@
+import json, hashlib, shutil, time
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+ROOT = Path(r"F:\hfss_f8x_261002\R_B0_discrete26b")
+PROJECT = ROOT / "R_B0_discrete26b.aedt"
+MANIFEST = ROOT / "discrete26b_manifest.json"
+PORT = 12704
+
+def sha(path):
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for block in iter(lambda: f.read(1 << 20), b""):
+            h.update(block)
+    return h.hexdigest()
+
+before = sha(PROJECT)
+app = Hfss(project=str(PROJECT), design="Wideband vertical transition", version="2024.2",
+           machine="localhost", port=PORT, non_graphical=False, new_desktop=False,
+           close_on_exit=False)
+try:
+    setup = app.create_setup(name="ModalDiscrete26", setup_type="HFSSDriven")
+    setup.props.update({
+        "SolveType": "Single", "Frequency": "15GHz", "MaxDeltaS": 0.005,
+        "UseMatrixConv": False, "MaximumPasses": 40, "MinimumPasses": 6,
+        "MinimumConvergedPasses": 2, "PercentRefinement": 30,
+        "BasisOrder": 1, "PortAccuracy": 2, "DrivenSolverType": "Direct Solver",
+        "SaveAnyFields": True, "SaveRadFieldsOnly": False,
+    })
+    setup.update()
+    sweep = setup.create_linear_step_sweep(
+        unit="GHz", start_frequency=6.25, stop_frequency=6.50,
+        step_size=0.01, name="Discrete26Unique", save_fields=True,
+        save_rad_fields=False, sweep_type="Discrete")
+    if not sweep:
+        raise RuntimeError("failed to create Discrete26Unique")
+    sweep.props.update({"IsEnabled": True, "RangeType": "LinearStep",
+                        "RangeStart": "6.25GHz", "RangeEnd": "6.5GHz",
+                        "RangeStep": "0.01GHz", "Type": "Discrete",
+                        "SaveFields": True, "SaveRadFields": False})
+    sweep.update()
+    app.save_project()
+    data = {
+        "status": "prepared", "created_at_utc": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "project": str(PROJECT), "project_sha256_before": before,
+        "port": PORT, "cores": 16, "tasks": 1, "diagnostic_only": True,
+        "setup": "ModalDiscrete26", "sweep": "Discrete26Unique", "sweep_type": "Discrete",
+        "range_GHz": [6.25, 6.50, 0.01], "points": 26,
+        "setup_props": json.loads(json.dumps(setup.props, default=str)),
+        "sweep_props": json.loads(json.dumps(sweep.props, default=str)),
+        "messages_before": list(app.odesktop.GetMessages(app.project_name, app.design_name, 0)),
+    }
+    MANIFEST.write_text(json.dumps(data, indent=2, default=str), encoding="utf-8")
+    print(json.dumps(data, indent=2, default=str))
+finally:
+    app.release_desktop(close_projects=False, close_desktop=False)

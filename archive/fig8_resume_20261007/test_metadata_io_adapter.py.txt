@@ -1,0 +1,55 @@
+"""Offline fault injection; no AEDT connection or solver dispatch."""
+import asyncio,json,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch,AsyncMock
+import run_same_port_recovery_io as a
+
+
+class MetadataTests(unittest.TestCase):
+    def test_transient_and_bounded_errors(self):
+        for code,count in [(5,3),(32,3),(5,21),(13,1)]:
+            calls=[];events=[]
+            def writer():
+                calls.append(1)
+                if count==3 and len(calls)==3:return 'saved'
+                error=PermissionError('injected');error.winerror=code;raise error
+            if count==3:self.assertEqual(a.retry_metadata('write_json:fixture',writer,events,lambda _:None),'saved')
+            else:
+                with self.assertRaises(PermissionError):a.retry_metadata('write_json:fixture',writer,events,lambda _:None)
+            self.assertEqual(len(calls),count)
+            self.assertEqual(len(events),count-1)
+
+    def test_non_permission_error_never_retried(self):
+        calls=[]
+        def failing():calls.append(1);raise RuntimeError('start_analysis must propagate')
+        with self.assertRaises(RuntimeError):a.retry_metadata('not a write',failing,[],lambda _:None)
+        self.assertEqual(len(calls),1)
+
+    def test_failed_recipe_only_invoked_once_and_aliases_restored(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base=Path(tmp);runner=AsyncMock(side_effect=RuntimeError('dispatch failure'))
+            original_save=a.r.backend.save
+            with patch.object(a,'readiness',return_value=(base,{},'new_diagnostic')),patch.object(a.v2,'run',runner):
+                with self.assertRaisesRegex(RuntimeError,'dispatch failure'):asyncio.run(a.run(base/'i03'))
+            self.assertEqual(runner.await_count,1)
+            self.assertIs(a.r.write_json,a.ORIGINAL_WRITE)
+            self.assertIs(a.r.backend.save,original_save)
+            self.assertEqual(json.loads((base/'metadata_io_adapter.json').read_text())['status'],'review_required')
+
+    def test_partial_and_active_solver_refused(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);attempt=root/'D04G05/i02';base=root/'local_repair/D04G05_i02'
+            base.mkdir(parents=True);(root/'production_protocol.json').write_text('{"implementation_hashes":{}}')
+            patches=[patch.object(a.r,'ROOT',root),patch.object(a.v2,'plan',return_value={}),
+                patch.object(a.r,'hashes')]
+            with patches[0],patches[1],patches[2]:
+                with patch.object(a.r.direct,'solvers',return_value=[{'pid':7}]):
+                    with self.assertRaisesRegex(AssertionError,'Retain active solver'):a.readiness(attempt)
+                (base/'partial.txt').write_text('retained')
+                with patch.object(a.r.direct,'solvers',return_value=[]):
+                    with self.assertRaisesRegex(AssertionError,'Partial diagnostic'):a.readiness(attempt)
+                (base/'metadata_io_adapter.json').write_text('{}')
+                with self.assertRaisesRegex(AssertionError,'Existing adapter'):a.readiness(attempt)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

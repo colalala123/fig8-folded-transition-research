@@ -1,0 +1,78 @@
+"""Scoped new inverse candidate, no dispatch or Analyze in this preparation script."""
+import ast,json,hashlib,shutil,sys
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+R=Path(__file__).resolve().parent;O=R.parent;M=O/'fig8_response_v2_20261109';PREV=O/'fig8_verify_N19_N22_20261109';T=O/'fig8_diag_N19_A14_c1_20261109_startfix1';C=O/'fig8_inverse_case1_runtime_20261109';B=R/'data';CASE='INV01_A14';STAGE='IV1_20261109';TEMP='D:/hfss_fig8_inverse_case1_20261109/solver_temp'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,d):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+ with p.open('x',encoding='utf8') as f:json.dump(d,f,ensure_ascii=False,indent=2,allow_nan=False)
+def now():return datetime.now(timezone.utc).isoformat()
+assert not C.exists() and not B.exists();C.mkdir();B.mkdir()
+assert read(M/'CURVE_GATE.json')['eligible'] and read(M/'MODEL_GATE.json')['C_eligible_for_curve_inverse']
+sol=read(M/'PR_INVERSE_OFFLINE_ONLY.json')['solutions'][0];assert sol['success'] and sol['predicted']['passed']
+sys.path.insert(0,str(M));from predict_response import prediction
+q,_=prediction(sol['geometry']);assert abs(q['prediction']['worst_S11_dB']-sol['predicted']['worst_S11_dB'])<1e-10
+old=read(PREV/'HISTORICAL_BUDGET_SNAPSHOT.json');assert old['Analyze_used']==269
+hashes=dict(old['hashes']);total=269
+for e in read(PREV/'FINAL_RESULTS.json')['results']:
+ st=Path(e['run'])/'state.json';assert read(st)['status']=='completed';n=len(read(st)['segments']);assert n==e['Analyze_requests'];total+=n
+ for f in ['state.json','receiver_ack.json','sparams.csv','completion_event.json']:hashes[str(Path(e['run'])/f)]=sha(Path(e['run'])/f)
+assert total==285
+for p in [PREV/'closure.json',PREV/'FINAL_RESULTS.json']+[M/n for n in ['model_C.joblib','complex_formula.npz','DATASET.json','dataset.npz','SOURCE_MANIFEST.json','MODEL_GATE.json','CURVE_GATE.json','PR_INVERSE_OFFLINE_ONLY.json','CANDIDATE_STRESS_SCREEN.json','predict_response.py','lib.py']]:hashes[str(p)]=sha(p)
+assert all(sha(p)==h for p,h in hashes.items())
+write(R/'HISTORICAL_BUDGET_SNAPSHOT.json',dict(Analyze_used=total,global_cap=2236,hashes=hashes,old_campaign_remains_paused=True))
+ident=read(PREV/'aedt_identity.json');p=psutil.Process(ident['pid']);assert abs(p.create_time()-ident['created'])<.01 and p.cmdline()==ident['command'];assert [p.pid for p in psutil.process_iter(['name']) if (p.info['name'] or '').lower() in ['hf3d.exe','ansysedt.exe']]==[ident['pid']]
+write(R/'aedt_identity.json',ident);write(C/'aedt_identity.json',ident)
+freeze={**sol,'case':CASE,'at':now(),'human_authorization':'允许调整 P/R，仅验证一个新候选（推荐）','model_file':str(M/'model_C.joblib'),'model_sha256':sha(M/'model_C.joblib'),'new_HFSS_not_yet_started':True,'target':read(O/'fig8_tune48_fixedPR_20261031/campaign.json')['target'],'scope':'one new width geometry within existing development hull; not old batch resume; no automatic retuning/retry','is_independent_broad_generalization_test':False,'prospective_new_geometry_after_prediction_freeze':True}
+write(R/'PREDICTION_FROZEN.json',freeze)
+plan=dict(at=now(),scope=freeze['scope'],human_instruction=freeze['human_authorization'],cores=14,serial=True,geometry_cap=1,Analyze_cap=13,per_case_Analyze_cap=13,cases=[dict(parent='INV01',case=CASE,geometry=sol['geometry'],predicted=sol['predicted'],source=str(R/'PREDICTION_FROZEN.json'),source_sha256=sha(R/'PREDICTION_FROZEN.json'))],old_pause_preserved=True,no_automatic_retry=True,no_N15_recovery=True)
+write(R/'PLAN.json',plan)
+camp=read(O/'fig8_tune48_fixedPR_20261031/campaign.json');camp.update(tuning_order=['INV01'],pilot_parent='INV01',width_changes_authorized=True,fixed=['a=1.4','g=0.55','material','target'],allowed=['frozen single geometry only'],new_geometry_cap=1,per_parent_geometry_cap=1,local_Analyze_cap=13,temp=TEMP,human_instruction=freeze['human_authorization'])
+write(R/'campaign.json',camp)
+(R/'EXECUTION_PLAN.md').write_text('''# Single prospective inverse-design validation
+Only INV01_A14, geometry/prediction frozen in PREDICTION_FROZEN.json. Human permits P/R change for one candidate only. Original 48/fixedPR/N15 remain paused and immutable.
+Target3.92-9.52GHz: all S11<=-20dB, S21>=-2dB, three valleys, center6.72+-0.03GHz, peakgap<=.5dB. No relaxed thresholds. Nominal interpolated validation, no manufacturing/direct-frequency certificate.
+Visible existing AEDT2024R2 via localMCP7990;14cores/1task/1group serial. Mesh100000-110000 (record <=112000 slight excess). Setup19 broadband0.1-15GHz, MaxDeltaS.005. Final Sweep1 interpolating0.01-15GHz/.01GHz,1% tolerance, no passivity forcing, two modes per port. Export native S11/S21+4x4/modal evidence.
+Maximum1 geometry and13Analyze (<=12adaptive+1sweep). Old285+new<=2236, maximum298. No automatic retry/extra point/restart or lock clearing. F new engineering data, D independent temporary folder; no old data deletion.
+Preflight identity/resources/hook and offline tests; configure, native reopen, freeze inputs, exclusive release marker, real14core observation and live observer. Completion-only hook to current chat; no periodic wake while solving. Review native evidence, actually view image, honest ACK, compare frozen prediction, close branch and stop terminal heartbeat. No successor.
+''',encoding='utf8')
+oldbase=Path(read(T/'plan.json')['cases'][0]['run_dir']).parent.parent
+# Copy only source scripts, never old ledger/proofs/results/events/ACK/marker.
+for src in T.glob('*.py'):
+ s=src.read_text(encoding='utf-8-sig')
+ for a,b in [(repr(str(oldbase))[1:-1],repr(str(B))[1:-1]),(str(oldbase),str(B)),(repr(str(PREV))[1:-1],repr(str(R))[1:-1]),(str(PREV),str(R)),(str(T),str(C)),('N19_A14_D1',CASE),('T48_N19_A14_C1',STAGE),('D:\\\\hfss_fig8_diag2_20261109\\\\solver_temp',repr(str(Path(TEMP)))[1:-1]),('D:/hfss_fig8_diag2_20261109/solver_temp',TEMP)]:s=s.replace(a,b)
+ (C/src.name).write_text(s,encoding='utf8')
+for n in ['mesh_policy_addendum_v2.json','reference_validation.json']:shutil.copyfile(T/n,C/n)
+pp=read(T/'plan.json');seed=pp['seed'];seedhash=pp['seed_sha256'];assert sha(seed)==seedhash
+r=dict(case=CASE,group='INV01',family_id='INV01',role='single_prospective_inverse_validation',ordinal=1,batch=1,context=str(C),D_batch=None,run_dir=str(B/CASE/'g01_initial'),target_P=sol['P'],target_R=sol['R'],P_nominal=sol['P'],R_nominal=sol['R'],a_mm=1.4,g_mm=.55,geometry=sol['geometry'],initial_geometry=sol['geometry'],category='new_geometry_frozen_prediction_not_refit_after_HFSS',target=camp['target'],parent_case='INV01',original_role='new_prospective_candidate',parent_evidence_hashes={str(R/'PREDICTION_FROZEN.json'):sha(R/'PREDICTION_FROZEN.json')},original_source=None,probe_stage='single_inverse',prepared_project=str(B/CASE/'prepared'/f'{CASE}_{STAGE}_Prepared.aedt'),correction_decision=str(R/'PREDICTION_FROZEN.json'))
+pp=dict(stage=STAGE,at=now(),seed=seed,seed_sha256=seedhash,prediction_source=str(R/'PREDICTION_FROZEN.json'),prediction_source_sha256=sha(R/'PREDICTION_FROZEN.json'),training_source=str(M/'DATASET.json'),training_source_sha256=sha(M/'DATASET.json'),source_validation_result=str(M/'CURVE_GATE.json'),source_validation_sha256=sha(M/'CURVE_GATE.json'),initial_geometry_cap=1,overall_geometry_cap_per_case=1,overall_geometry_cap=1,predictions_refitted=False,cases=[r],scope=freeze['scope'],study_plan=str(R/'EXECUTION_PLAN.md'),study_plan_sha256=sha(R/'EXECUTION_PLAN.md'),old_blind_results_unchanged=True)
+write(C/'plan.json',pp)
+pol=read(T/'policy.json');pol.update(version=STAGE,user_authorization=freeze['human_authorization'],scope=freeze['scope'],bounded_tuning='one frozen inverse candidate; no tuning successor');write(C/'policy.json',pol)
+write(C/'authorization.json',dict(stage=STAGE,cases=[CASE],configuration_authorized=True,execution_authorized=False,launch_user_instruction=freeze['human_authorization'],geometry_cap=1))
+write(C/'execution_plan.json',dict(parent='INV01',new_geometry_cap=1,geometry_Analyze_cap=13,global_Analyze_cap=2236,previous_Analyze=285,cores=14,serial=True))
+write(C/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+write(C/'desktop_start.json',dict(at=now(),temp_directory=TEMP,port=7990,visible_requested=True,analyze_requested=False))
+cfg=read(T/'hook/config.json');cfg['state_dir']=str(C/'hook/state');assert cfg['authorized_threads']==['REDACTED-ID'];write(C/'hook/config.json',cfg);write(C/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_terminal'))
+(R/'coordination').mkdir();shutil.copyfile(PREV/'coordination/production_protocol.json',R/'coordination/production_protocol.json')
+write(R/'coordination/protocol_override.json',dict(note='legacy reference normalization protocol retained unchanged; actual cores are explicitly14 in worker and budget',cores=14,tasks=1,case=CASE))
+for n in ['common.py','b05_corrector.py','observer_retry_v2.py']:shutil.copyfile(PREV/n,R/n)
+# Minimal helper interface for the observer, no old adoption/batch continuation.
+(R/'build_runtime.py').write_text('from pathlib import Path\nfrom datetime import datetime,timezone\nimport json,hashlib\nROOT=Path(__file__).resolve().parent\ndef read(p):return json.loads(Path(p).read_text(encoding="utf-8-sig"))\ndef sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()\ndef now():return datetime.now(timezone.utc).isoformat()\ndef write(p,d):\n p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+"\\n",encoding="utf8")\ndef new(p,d):\n p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)\n with p.open("x",encoding="utf8") as f:json.dump(d,f,ensure_ascii=False,indent=2)\n',encoding='utf8')
+s=(PREV/'finish_start_and_monitor_v2.py').read_text(encoding='utf8');tree=ast.parse(s);nodes=[n for n in tree.body if isinstance(n,(ast.Import,ast.ImportFrom)) or isinstance(n,ast.FunctionDef) and n.name in ['exact','ensure_observer']];(R/'finish_start_and_monitor_v2.py').write_text(ast.unparse(ast.Module(body=nodes,type_ignores=[]))+'\n',encoding='utf8')
+(C/'CONTINUATION.md').write_text(f'''# Only one inverse-design validation
+Read {R/'PLAN.json'}, {R/'EXECUTION_PLAN.md'} and {R/'CURRENT_STATUS.json'}.
+Only {CASE}, model/geometry frozen before HFSS. Current human authorized P/R change for this ONE new candidate; not N19 fixed-PR retuning or old48 resume.
+After terminal hook run review_phase_geometry.py --run RUN, actually view plotted S11/S21, then acknowledge_review.py --run RUN --visual-reviewed --note honest full-target results. Compare against {R/'PREDICTION_FROZEN.json'}, write a final report and closure, stop this context heartbeat. No next case, continue_tuning or redispatch.
+14cores/1group serial; one geometry, <=13Analyze (12adaptive+1sweep); prior285+new<=2236. Failure: preserve evidence and report, no automatic restart/retry/extra sweep/geometry/lock deletion. Respect human pause/cancel immediately. Never change old campaign pause or source models. Running quiet; terminalhook only to current chat.
+''',encoding='utf8')
+pub=(C/'phase_geometry_publish.py').read_text(encoding='utf8');start=pub.index('def prompt(');end=pub.index('async def publish(',start)
+pub=pub[:start]+'''def prompt(event,path):
+    return f'[Single Fig8 inverse validation terminal] {path}\\n{event["summary"]}\\nRead {HERE/"CONTINUATION.md"}. Only INV01_A14 authorized. Review native evidence, ACTUALLY view plot, honest ACK and compare frozen prediction; then close this branch/stop heartbeat. No successor, no old batch resume, no automatic retry or restart.'
+'''+pub[end:];pub=pub.replace("purpose='New fixedP/R length engineering tuning, not independent blind test'","purpose='Single new geometry inverse validation; prediction frozen before HFSS'");(C/'phase_geometry_publish.py').write_text(pub,encoding='utf8')
+write(R/'runtime_registry.json',dict(contexts=[dict(context=str(C),base=str(B),parent='INV01',kind='single_inverse',plan_sha256=sha(C/'plan.json'))]))
+write(R/'CURRENT_STATUS.json',dict(at=now(),phase='offline_preparation_only',active=0,case=CASE,context=str(C),run=str(B/CASE/'g01_initial'),old_campaign_paused=True,new_Analyze=0))
+for p in list(C.glob('*.py'))+list(R.glob('*.py')):ast.parse(p.read_text(encoding='utf-8-sig'))
+print('Prepared source-only single branch',R,C)

@@ -1,0 +1,54 @@
+"""Recover explicitly mapped Gamma/Zo from saved results, without solving."""
+import csv,json,shutil
+from pathlib import Path
+import numpy as np
+from pilot_worker import now,sha,write_json
+
+def repair(run):
+    run=Path(run);path=run/'mode_impedance_gamma.csv'
+    header=path.read_text().splitlines()[0] if path.exists() else ''
+    if all(f'{kind}({port}:1)_real' in header for kind in ('Gamma','Zo') for port in ('1','2')):
+        return {'status':'explicit_mapping_already_present','run':str(run)}
+    manifest=json.loads((run/'manifest.json').read_text())
+    if manifest['status']!='completed':raise RuntimeError('Only repair completed solutions')
+    curve_hash=sha(run/'sparams.csv');app=None
+    from ansys.aedt.core import Hfss
+    try:
+        app=Hfss(project=manifest['project'],design='Wideband vertical transition',version='2024.2',
+                 non_graphical=True,new_desktop=True,close_on_exit=True)
+        modes=sorted(app.excitation_names)
+        expressions=[f'{kind}({mode})' for kind in ('Gamma','Zo') for mode in modes]
+        data=app.post.get_solution_data(expressions=expressions,setup_sweep_name='Setup19 : Sweep1',domain='Sweep',report_category='Modal Solution Data')
+        if not data:raise RuntimeError('Saved modal quantities unavailable')
+        freq=np.asarray(data.primary_sweep_values,dtype=float)
+        scale={'GHz':1.,'MHz':1e-3,'Hz':1e-9}[data.units_sweeps['Freq']]
+        freq*=scale
+        if len(freq)!=1500 or not np.allclose(freq,np.arange(1,1501)*.01):raise RuntimeError('Unexpected grid')
+        rows=[{'Freq_GHz':float(f)} for f in freq]
+        for expression in expressions:
+            for component in ('real','imag'):
+                _,values=data.get_expression_data(expression,formula=component)
+                values=np.array(values,dtype=float)
+                if len(values)!=1500 or not np.all(np.isfinite(values)):raise RuntimeError(f'Invalid {expression}')
+                for row,value in zip(rows,values):row[expression+'_'+component]=float(value)
+        if path.exists():
+            backup=run/'mode_impedance_gamma_legacy_ambiguous.csv'
+            if not backup.exists():shutil.copy2(path,backup)
+        with path.open('w',encoding='utf-8',newline='') as f:
+            writer=csv.DictWriter(f,fieldnames=rows[0]);writer.writeheader();writer.writerows(rows)
+        mode_map=json.loads((run/'mode_map.json').read_text())
+        mode_map['auxiliary_quantities']=expressions
+        mode_map['auxiliary_mapping_correction']='Explicit port:mode labels replace ambiguous GetAllQuantities integer aliases.'
+        write_json(run/'mode_map.json',mode_map)
+        result={'status':'recovered_without_solve','run':str(run),'expressions':expressions,
+                'frequency_points':1500,'source_curve_sha256':curve_hash,
+                'source_curve_unchanged':sha(run/'sparams.csv')==curve_hash,'finished_at_utc':now()}
+        if not result['source_curve_unchanged']:raise RuntimeError('S parameters unexpectedly changed')
+        write_json(run/'auxiliary_recovery.json',result)
+        return result
+    finally:
+        if app:app.release_desktop(close_projects=True,close_desktop=True)
+
+if __name__=='__main__':
+    import sys
+    print(json.dumps(repair(Path(sys.argv[1])),indent=2))

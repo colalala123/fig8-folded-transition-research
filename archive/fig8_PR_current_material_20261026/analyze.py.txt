@@ -1,0 +1,165 @@
+"""Recompute nominal P/R from current-material analytical line impedances.
+Only local analytical evaluations. No HFSS Analyze, network, or GUI actions.
+"""
+import itertools
+import json
+import hashlib
+import math
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from line_models import slotline,microstrip
+
+OUT=Path(__file__).resolve().parent
+ROOT=OUT.parents[1]
+inputs={
+ 'previous_analysis':ROOT/'output/fig8_PR_exploratory_20261026/analysis.json',
+ 'configuration':ROOT/'output/fig8_iso4_20261026/cases/I01G02/configuration.json',
+ 'microstrip_samples':ROOT/'txline_microstrip_samples.json',
+ 'slotline_samples':ROOT/'txline_slotline_samples.json',
+ 'microstrip_calibration_metadata':ROOT/'txline_microstrip_calibration.json',
+ 'slotline_calibration_metadata':ROOT/'txline_slotline_calibration.json',
+ 'model_implementation':OUT/'line_models.py',
+}
+read=lambda p:json.loads(p.read_text(encoding='utf-8-sig'))
+old=read(inputs['previous_analysis'])
+cad=read(inputs['configuration'])
+assert cad['passed'] and cad['material']['er']==3.55 and cad['material']['h_mm']==.813
+thicknesses=[abs(b[5]-b[2]) for b in cad['microstrip_boxes'].values()]
+assert all(abs(t-.035)<1e-8 for t in thicknesses)
+base=[{k:r[k] for k in ['case','group','Wm','Ws','a','BW_GHz','mesh','near_100k_native','peak_level_dB']} for r in old['rows']]
+assert len(base)==34 and len(set(r['group'] for r in base))==17
+
+# Reproduce old raw TXLINE readings within the present geometry range.
+# Compare directly, not to a fitted polynomial and not to HFSS bandwidth.
+regression=[]
+for key,width_key,func,lo,hi in [('microstrip_samples','width_um',microstrip,.9,2.),('slotline_samples','gap_um',slotline,.30,.58)]:
+ for r in read(inputs[key]):
+  w=r[width_key]/1000
+  if not lo<=w<=hi:continue
+  z=func(3.38,w,f=6.85)['Z_ohm']
+  regression.append(dict(kind=key,width_mm=w,TXLINE_old_ohm=r['impedance_ohm'],analytical_ohm=z,
+   error_ohm=z-r['impedance_ohm'],error_percent=100*(z/r['impedance_ohm']-1)))
+assert len(regression)==6
+assert max(abs(r['error_percent']) for r in regression)<.1
+
+def map_rows(er=3.55,f=6.72,dispersion=True,t=.035):
+ ans=[]
+ for r in base:
+  m=microstrip(er,r['Wm'],t=t,f=f,dispersion=dispersion);s=slotline(er,r['Ws'],f=f)
+  zm=m['Z_ohm'];zs=s['Z_ohm']
+  ans.append(dict(r,Zm_nominal_ohm=zm,Zs_nominal_ohm=zs,P_nominal=zm*zs/2500,R_nominal=zm/zs))
+ return ans
+
+def paired(rows,tol):
+ ans=[]
+ for x,y in itertools.combinations(rows,2):
+  if x['a']!=y['a']:continue
+  dp=abs(x['P_nominal']-y['P_nominal'])/((x['P_nominal']+y['P_nominal'])/2)
+  lo,hi=sorted([x,y],key=lambda r:r['R_nominal'])
+  ratio=hi['R_nominal']/lo['R_nominal']
+  if dp>tol or ratio<1.1:continue
+  ans.append(dict(low_R_case=lo['case'],high_R_case=hi['case'],a=lo['a'],
+   P_mismatch_percent=100*dp,R_ratio=ratio,BW_highR_minus_lowR_MHz=1000*(hi['BW_GHz']-lo['BW_GHz']),
+   supports_decrease=hi['BW_GHz']<lo['BW_GHz'],both_clean=lo['near_100k_native'] and hi['near_100k_native']))
+ return sorted(ans,key=lambda p:(p['P_mismatch_percent'],-p['R_ratio']))
+
+def design(rows,only=False):
+ return np.array([[1,math.log(r['P_nominal'])]+([] if only else [math.log(r['R_nominal'])])+[r['a']-1.6] for r in rows])
+def fit(rows,only=False):
+ return np.linalg.lstsq(design(rows,only),[r['BW_GHz'] for r in rows],rcond=None)[0]
+def errors(true,pred):
+ e=(np.array(pred)-np.array(true))*1000
+ return dict(MAE_MHz=float(np.mean(abs(e))),RMSE_MHz=float(np.sqrt(np.mean(e*e))),max_abs_MHz=float(max(abs(e))))
+def stats(rows):
+ train=rows[:24];test=rows[24:];models={}
+ for key,only in [('P_only',True),('P_and_R',False)]:
+  b=fit(train,only);truth=[];prediction=[];slopes=[]
+  for group in sorted(set(r['group'] for r in train)):
+   tr=[r for r in train if r['group']!=group];te=[r for r in train if r['group']==group]
+   bb=fit(tr,only);truth.extend(r['BW_GHz'] for r in te);prediction.extend(design(te,only)@bb)
+   if not only:slopes.append(float(bb[2]))
+  models[key]=dict(coefficients=b.tolist(),leave_group_out=errors(truth,prediction),
+   heldout10=errors([r['BW_GHz'] for r in test],design(test,only)@b),leave_group_R_slopes=slopes)
+ return dict(models=models,clean16_coefficients=fit([r for r in train if r['near_100k_native']]).tolist(),
+  matching={str(t):paired(rows,t) for t in [.005,.01,.02,.05]})
+
+rows=map_rows();results=stats(rows)
+scenarios={}
+for name,kw in {
+ 'same_frequency_old_material_6p72':dict(er=3.38,f=6.72),
+ 'same_analytical_models_old_material_6p85':dict(er=3.38,f=6.85),
+ 'current_material_6p85':dict(f=6.85),
+ 'current_material_6p69':dict(f=6.69),
+ 'current_material_6p75':dict(f=6.75),
+ 'current_material_microstrip_quasistatic':dict(dispersion=False),
+ 'current_material_zero_microstrip_thickness_sensitivity_only':dict(t=0),
+}.items():
+ rr=map_rows(**kw);ss=stats(rr)
+ scenarios[name]=dict(settings=kw,R_coefficient=ss['models']['P_and_R']['coefficients'][2],
+  heldout10=ss['models']['P_and_R']['heldout10'],
+  matching={k:dict(n=len(p),decreasing=sum(x['supports_decrease'] for x in p),pairs=p) for k,p in ss['matching'].items()})
+
+checks=[]
+for func,w in [(microstrip,1.2),(slotline,.44)]:
+ a=func(3.55,w)['Z_ohm']
+ kwargs={'t':.070} if func is microstrip else {}
+ b=func(3.55,2*w,h=1.626,f=3.36,**kwargs)['Z_ohm']
+ assert abs(a-b)<1e-9
+ assert abs(a-func(3.38,w)['Z_ohm'])>.01
+ checks.append(func.__name__+': scale invariance and material sensitivity passed')
+for er,w,h,f in [(4,.44,.813,6.72),(3.55,.0001,.813,6.72),(3.55,.44,.0001,6.72)]:
+ try:slotline(er,w,h,f)
+ except ValueError:pass
+ else:raise AssertionError('Slotline range gate failed')
+
+result=dict(status='current_material_nominal_analytical_mapping_completed_NOT_HFSS_impedance_extraction',
+ settings=dict(er=3.55,h_mm=.813,f_reference_GHz=6.72,microstrip_t_mm=.035,slotline_t_model_mm=0,
+  microstrip_model='Hammerstad/Jensen finite-thickness + Kirschning/Jansen dispersion, Qucs width convention',
+  slotline_model='Janaswamy/Schaubert eq 9, zero-metal-thickness standard slotline',
+  tan_delta_in_HFSS=.0027,impedance_convention='real nominal lossless line-model impedance; no lossy-complex or folded-effective extraction'),
+ measured_microstrip_thickness_mm=thicknesses,old_TXLINE_regression=regression,rows=rows,**results,
+ impedance_tables=dict(
+  microstrip=[dict(width_mm=w,**microstrip(3.55,w)) for w in sorted(set(r['Wm'] for r in rows))],
+  slotline=[dict(width_mm=w,**slotline(3.55,w)) for w in sorted(set(r['Ws'] for r in rows))]),
+ sensitivity_scenarios=scenarios,unit_checks=checks,
+ source_paths={k:str(p) for k,p in inputs.items()},source_hashes={k:hashlib.sha256(p.read_bytes()).hexdigest() for k,p in inputs.items()},
+ bibliography=[
+ 'https://ntrs.nasa.gov/api/citations/19860021419/downloads/19860021419.pdf',
+ 'https://qucs.sourceforge.net/tech/node75.html',
+ 'https://qucs.sourceforge.net/doxygen/0.0.18/qucs-core/msline_8cpp_source.html',
+ 'https://raw.githubusercontent.com/scikit-rf/scikit-rf/master/skrf/media/mline.py'],
+ no_HFSS_simulation_started=True,no_response_inversion=True,new_TXLINE_GUI_readings=False,
+ caveats=['Nominal standard-line impedances are not the effective folded/sandwiched coupled network impedances.',
+  'Old TXLINE agreement checks implementation consistency, not accuracy against real current-material structures.',
+  'Slotline metal thickness and complex loss are not modeled; sample matching is not an exact fixed-P intervention.',
+  'Model-error uncertainty is not a formal statistical confidence interval.'])
+(OUT/'analysis.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+fig,axs=plt.subplots(1,3,figsize=(14,4.6),layout='constrained')
+lo=min(r['P_nominal'] for r in rows);hi=max(r['P_nominal'] for r in rows)
+for a,m in [(1.4,'o'),(1.8,'^')]:
+ rr=[r for r in rows if r['a']==a]
+ sc=axs[0].scatter([r['R_nominal'] for r in rr],[r['BW_GHz'] for r in rr],c=[r['P_nominal'] for r in rr],vmin=lo,vmax=hi,marker=m,label=f'a={a} mm',cmap='viridis',s=35)
+axs[0].set(xlabel='Nominal R',ylabel='HFSS -2 dB BW / GHz',title='Current material mapping');axs[0].legend(fontsize=8)
+fig.colorbar(sc,ax=axs[0],label='Nominal P',shrink=.7)
+for a,m in [(1.4,'o'),(1.8,'^')]:
+ rr=[r for r in rows if r['case'] in (['D09G02','D04G02'] if a==1.4 else ['D09G05','D04G05'])];rr.sort(key=lambda r:r['R_nominal'])
+ axs[1].plot([r['R_nominal'] for r in rr],[r['BW_GHz'] for r in rr],marker=m,label=f'a={a} mm')
+ for r in rr:axs[1].annotate(r['case'],(r['R_nominal'],r['BW_GHz']),xytext=(0,7),textcoords='offset points',fontsize=8,ha='center')
+axs[1].set(xlabel='Nominal R',ylabel='HFSS -2 dB BW / GHz',title='Closest-P width contrast');axs[1].legend(fontsize=8);axs[1].margins(.22)
+b=np.array(results['models']['P_and_R']['coefficients'])
+for rr,label,col in [(rows[:24],'24 training','#496d89'),(rows[24:],'10 held out','#e9812b')]:
+ axs[2].scatter([r['BW_GHz'] for r in rr],design(rr)@b,label=label,color=col,s=30)
+axs[2].plot([6.1,7.55],[6.1,7.55],'k--',lw=1)
+axs[2].set(xlabel='HFSS BW / GHz',ylabel='Nominal P/R fit / GHz',title='Fit on 24 only');axs[2].legend(fontsize=8)
+for ax in axs:ax.grid(alpha=.2)
+fig.suptitle('er=3.55, h=0.813 mm, fref=6.72 GHz | Analytical nominal impedances, not HFSS extraction',fontsize=11)
+fig.savefig(OUT/'current_material_PR.png',dpi=180);plt.close(fig)
+print(json.dumps({'models':results['models'],'clean16':results['clean16_coefficients'],'old_check':regression},indent=2))
+for t,ps in results['matching'].items():print('MATCH',t,len(ps),sum(p['supports_decrease'] for p in ps),sum(p['both_clean'] for p in ps))
+for name,ss in scenarios.items():print('SENS',name,ss['R_coefficient'],{k:(v['n'],v['decreasing']) for k,v in ss['matching'].items()})
+for r in rows:
+ if r['case'] in ['D09G02','D04G02','D09G05','D04G05']:print('EXAMPLE',r)

@@ -1,0 +1,110 @@
+{
+  "case": "N23_A18",
+  "Analyze_requested": false,
+  "phase": "inspected",
+  "native": [
+    {
+      "cmdline": [
+        "D:\\Program Files\\AnsysEM\\v242\\Win64\\ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "create_time": 1793286319.113606,
+      "pid": 50712,
+      "name": "ansysedt.exe"
+    }
+  ],
+  "original_hashes": {
+    "D:\\hfss_fig8_next48_20261029\\b08\\N23_A18\\g01_initial\\state.json": "775d56cf4376d2bb6c180056a05b0549aeaf027149c1f6b45882d2f08baa4e73",
+    "D:\\hfss_fig8_next48_20261029\\b08\\N23_A18\\g01_initial\\worker_error.json": "47cc583a05373aa186b2eb47d0ea2b320c48cbf6f2150f5f1f2a5e94440e4533",
+    "D:\\hfss_fig8_next48_20261029\\b08\\N23_A18\\g01_initial\\completion_event.json": "28fc8cff2642ad5c3c089d77ea49398e0c023ca868af4803ff6040c1dd57c5c1"
+  },
+  "expected_passes": 21,
+  "expected_elements": 102038,
+  "at": "2026-10-30T10:19:30.385306+00:00",
+  "running": false,
+  "setup_solved": true,
+  "sweep_solved": true,
+  "messages": [
+    "Project: N23_A18_N48B08_g01, Design: Wideband vertical transition, [warning] For broadband frequency models it is recommended to set 'Automatically use causal materials' in the HFSS Design Settings for Lossy Dielectrics.  See 'Design Settings for HFSS' in the help for more information. (11:11:00 AM  Oct 30, 2026)\r\n",
+    "Project: N23_A18_N48B08_g01, Design: Wideband vertical transition, [info] An interpolating frequency sweep with 1500 points has been started using HFSS. (11:17:58 AM  Oct 30, 2026)\r\n",
+    "Project: N23_A18_N48B08_g01, Design: Wideband vertical transition, [info] Interpolating frequency sweep complete. Converged. (11:17:58 AM  Oct 30, 2026)\r\n",
+    "Project: N23_A18_N48B08_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (11:17:58 AM  Oct 30, 2026)\r\n"
+  ],
+  "setup_props": {
+    "ID": 55,
+    "SetupType": "HfssDriven",
+    "SolveType": "Broadband",
+    "MultipleAdaptiveFreqsSetup": {
+      "Low": "0.1GHz",
+      "High": "15GHz"
+    },
+    "MaxDeltaS": 0.005,
+    "MaximumPasses": 21,
+    "MinimumPasses": 21,
+    "MinimumConvergedPasses": 2,
+    "PercentRefinement": 5,
+    "IsEnabled": true,
+    "MeshLink": {
+      "ImportMesh": false
+    },
+    "BasisOrder": 1,
+    "DoLambdaRefine": true,
+    "DoMaterialLambda": true,
+    "SetLambdaTarget": false,
+    "Target": 0.3333,
+    "UseMaxTetIncrease": false,
+    "PortAccuracy": 2,
+    "UseABCOnPort": false,
+    "SetPortMinMaxTri": false,
+    "PortMinTri": 100,
+    "PortMaxTri": 500,
+    "DrivenSolverType": "Direct Solver",
+    "EnhancedLowFreqAccuracy": false,
+    "SaveRadFieldsOnly": false,
+    "SaveAnyFields": true,
+    "IESolverType": "Auto",
+    "LambdaTargetForIESolver": 0.15,
+    "UseDefaultLambdaTgtForIESolver": true,
+    "IE Solver Accuracy": "Balanced",
+    "InfiniteSphereSetup": -1,
+    "MaxPass": 10,
+    "MinPass": 1,
+    "MinConvPass": 1,
+    "PerError": 1,
+    "PerRefine": 30
+  },
+  "sweep_props": {
+    "Type": "Interpolating",
+    "IsEnabled": true,
+    "RangeType": "LinearStep",
+    "RangeStart": "0.01GHz",
+    "RangeEnd": "15GHz",
+    "SaveSingleField": false,
+    "RangeCount": 401,
+    "RangeStep": "0.01GHz",
+    "RangeSamples": 11,
+    "SaveFields": false,
+    "SaveRadFields": false,
+    "GenerateFieldsForAllFreqs": false,
+    "InterpTolerance": 1,
+    "InterpMaxSolns": 250,
+    "InterpMinSolns": 0,
+    "InterpMinSubranges": 1,
+    "InterpUseS": true,
+    "InterpUsePortImped": false,
+    "InterpUsePropConst": true,
+    "UseDerivativeConvergence": false,
+    "InterpDerivTolerance": 0.2,
+    "EnforcePassivity": false,
+    "UseFullBasis": true,
+    "PassivityErrorTolerance": 0.0001,
+    "EnforceCausality": false,
+    "UseQ3DForDCSolve": false,
+    "SMatrixOnlySolveMode": "Auto",
+    "SMatrixOnlySolveAbove": "1MHz"
+  },
+  "history_unchanged": true,
+  "native_1500_row_export_verified": true,
+  "original_records_unchanged": true
+}

@@ -1,0 +1,19 @@
+"""Additional exact-layout gate before the unchanged full numerical review."""
+import argparse,json
+import recover_i03_wide_window as layout
+import approve_same_port_recovery as normal
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--apply',action='store_true');args=parser.parse_args()
+    plan=layout.validate_candidate_plan()
+    result=normal.review(layout.ATTEMPT)
+    result['explicit_layout_review']={'review_id':plan['layout_review_id'],
+        'file':str(layout.REVIEW),'sha256':layout.r.sha(layout.REVIEW),
+        'scope':'Only this reviewed 242-point layout; every original matrix, direct, seam, port, mesh and resource gate still applies.'}
+    result['evidence_hashes'][str(layout.REVIEW)]=layout.r.sha(layout.REVIEW)
+    result['evidence_hashes'][__file__]=layout.r.sha(__file__)
+    if args.apply:
+        path=layout.ATTEMPT/'recovery_acceptance.json';assert not path.exists()
+        layout.r.write_json(path,result)
+        assert normal.resolve_attempt(layout.ATTEMPT)==layout.ATTEMPT/'verified_recovery'
+    print(json.dumps({'ready':True,'written':args.apply,'phase_solves_added':0,'design_acceptance_not_evaluated':True},indent=2))

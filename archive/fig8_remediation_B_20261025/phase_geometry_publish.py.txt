@@ -1,0 +1,28 @@
+"""Real completion notification; bounded B only, no automatic acceptance."""
+from phase_control import HERE,TARGET,now,write
+from phase_publish import hook
+
+def prompt(e,path):
+    return (f"[Fig8 B阶段 / 自动完成事件]\n事件ID：{hook.event_id(e)}\n状态：{e['status']}\n摘要：{e['summary']}\n事件：{path}\n"
+        f'用户已授权本聊天16核串行和完成后hook接续。先读取{HERE / "CONTINUATION.md"}、authorization.json和budget_ledger.json。'
+        '仅D04G02/D09G05，每项最多3新几何+1缓存直接复核，共6+2；历史分别6/7次不能归零。A与原24已闭合，不能重开；C未释放。'
+        '核验事件全部SHA/父证据/真实网格及实际S11/S21曲线，查看后再写receiver_ack.json。成功求解不等于设计或数值通过。'
+        '任何探针已达标可直接复核提前停止，不为用满预算生成候选；否则独立Ls1、Lm探针后仅1受限联合候选。'
+        '只调Ls1/Lm，保持几何门限/最终设计和数值标准；不盲目清锁、重发Analyze或无限加严。'
+        '继续前核实下一任务真实启动；终态写绑定当前event_sha256且有证据reason的continuation_resolution.json。'
+        '正常仿真不发周期消息；仅完成通知5分钟后无新仿真才检查AI状态。B结束汇总停止，不自动启动C。')
+
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(HERE/'hook/config.json')
+    assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET] and case in ('D04G02','D09G05')
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',
+            purpose='Human-authorized bounded Fig8 stage B, current chat only')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

@@ -1,0 +1,8 @@
+"""Same recovery after approved desktop restart; actual image ACK still mandatory."""
+import argparse,json
+import continue_tuning_v2 as adapter
+from tuning_budget_recovery_v2 import validate_campaign,registry
+adapter.validate_campaign=validate_campaign;adapter.registry=registry;adapter.old.validate_campaign=validate_campaign
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);a=p.parse_args()
+    print(json.dumps(adapter.main(a.context),ensure_ascii=False,indent=2))

@@ -1,0 +1,169 @@
+{
+  "case": "B06",
+  "state": "numerical_or_sampled_design_unresolved",
+  "source": "J:\\f8_B6_261027\\B06\\g01_initial",
+  "direct_run": "J:\\f8_B6_261027\\B06\\direct_smallbatch",
+  "comparison": {
+    "points": 21,
+    "max_complex_error": 0.0005209358839018762,
+    "max_nearband_S21_error_dB": 0.001516191324109295,
+    "peak_reviews": [
+      {
+        "reference_GHz": 5.23,
+        "actual_sampled_peak_GHz": 5.22,
+        "actual_sampled_peak_dB": -20.570859945437007,
+        "interior": false,
+        "source_sampled_peak_dB": -20.5823681371852,
+        "height_error_dB": 0.01150819174819162,
+        "points": [
+          5.22,
+          5.23,
+          5.24
+        ]
+      },
+      {
+        "reference_GHz": 8.19,
+        "actual_sampled_peak_GHz": 8.2,
+        "actual_sampled_peak_dB": -19.973946974550284,
+        "interior": false,
+        "source_sampled_peak_dB": -19.983922623287306,
+        "height_error_dB": 0.00997564873702217,
+        "points": [
+          8.18,
+          8.19,
+          8.2
+        ]
+      }
+    ],
+    "edge_reviews": [
+      {
+        "kind": "S21",
+        "reference_GHz": 3.0580188554243155,
+        "points": [
+          3.04,
+          3.08
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.058459322418817,
+        "shift_GHz": 0.0004404669945015094
+      },
+      {
+        "kind": "S21",
+        "reference_GHz": 9.980141802781057,
+        "points": [
+          9.96,
+          10.0
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.979849702996201,
+        "shift_GHz": 0.0002920997848558926
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 3.6860887091391303,
+        "points": [
+          3.666,
+          3.681,
+          3.691,
+          3.706
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.686003702341183,
+        "shift_GHz": 8.500679794742894e-05,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.00041117723489358937,
+        "other_condition_verified": true
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 8.130349431954766,
+        "points": [
+          8.11,
+          8.125,
+          8.135,
+          8.15
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 8.123037149006331,
+        "shift_GHz": 0.0073122829484351115,
+        "fine_bracket_width_GHz": 0.015000000000000568,
+        "coarse_fine_shift_GHz": 0.002399248849533464,
+        "other_condition_verified": true
+      }
+    ],
+    "direct_bandwidths": {
+      "S21": {
+        "f_low_GHz": 3.058459322418817,
+        "f_high_GHz": 9.979849702996201,
+        "BW_GHz": 6.921390380577384,
+        "width_shift_GHz": 0.0007325667793578461
+      },
+      "S11": {
+        "f_low_GHz": 3.686003702341183,
+        "f_high_GHz": 8.123037149006331,
+        "BW_GHz": 4.437033446665148,
+        "width_shift_GHz": 0.007227276150487683
+      }
+    },
+    "direct_peak_difference_dB": 0.5969129708867236,
+    "requested_band_direct_worst_S11": {
+      "GHz": 8.2,
+      "dB": -19.973946974550284
+    },
+    "requested_band_direct_min_S21": {
+      "GHz": 9.52,
+      "dB": -0.9242465139692281
+    },
+    "direct_target_violations": [
+      {
+        "GHz": 8.125,
+        "S11_dB": -19.998530864097333,
+        "S21_dB": -0.6109161174555644
+      },
+      {
+        "GHz": 8.135,
+        "S11_dB": -19.99220841651391,
+        "S21_dB": -0.6129195292609769
+      },
+      {
+        "GHz": 8.15,
+        "S11_dB": -19.984472434845173,
+        "S21_dB": -0.6159200203566298
+      },
+      {
+        "GHz": 8.18,
+        "S11_dB": -19.97532392819992,
+        "S21_dB": -0.6219015860187491
+      },
+      {
+        "GHz": 8.19,
+        "S11_dB": -19.974160433827922,
+        "S21_dB": -0.623888857441049
+      },
+      {
+        "GHz": 8.2,
+        "S11_dB": -19.973946974550284,
+        "S21_dB": -0.6258724535662487
+      }
+    ],
+    "dense_target_covered": false,
+    "target_finite_direct_failure_confirmed": true,
+    "numerical_review_passed": false,
+    "sampled_design_supported": false,
+    "needs_reserved_points": false,
+    "needs_peak_expansion": true,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+    "baseline_tuning_passed": false
+  },
+  "actual_elements": 103558,
+  "event_sha256": "4f061dcfa17ee7329ef2b0eab732f9329359e4c451ce1cdee22ef7a4a2de1730",
+  "ack_sha256": "09c8d2e05f0eab264de7e64e791e35815df5125315823f244d9704edb0830153"
+}

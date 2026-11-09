@@ -1,0 +1,180 @@
+"""Prepare ONLY this cycle's selected B05 native direct review. Never Analyze."""
+import ast
+import hashlib
+import json
+import shutil
+from pathlib import Path
+from datetime import datetime, timezone
+import sys
+import numpy as np
+
+ROOT = Path(__file__).resolve().parent
+OUT = ROOT.parent
+OLD = OUT / 'fig8_theory_ml_20261028/final_review'
+CTX = OUT / 'fig8_B05_fix14_candidate1_20261029'
+R = ROOT / 'direct_review'
+BASE = Path('D:/hfss_fig8_B05_20261029/direct')
+RUN = Path('D:/hfss_fig8_B05_20261029/candidate1/B05N_C1/g01_initial')
+TEMP = Path('D:/hfss_fig8_B05_20261029/solver_temp')
+
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p, d):
+    p = Path(p); p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(d, ensure_ascii=False, indent=2, allow_nan=False), encoding='utf-8')
+def now(): return datetime.now(timezone.utc).isoformat()
+def resource14(s):
+    return (s.replace("'cores_per_task':16", "'cores_per_task':14")
+            .replace('-max_processors 16', '-max_processors 14')
+            .replace('16core', '14core').replace('16-core', '14-core'))
+
+def main():
+    assert not R.exists(), 'Existing direct context: inspect, never regenerate'
+    sys.path.insert(0, str(OUT/'fig8_theory_ml_20261028'))
+    sys.path.insert(0, str(ROOT))
+    from b05_corrector import load_curve, assess
+    from b05_budget import validate_development
+    sys.path.insert(0, str(OLD))
+    from blind_direct_science import make_plan
+    event=read(RUN/'completion_event.json'); ack=read(RUN/'receiver_ack.json')
+    state=read(RUN/'state.json'); spec=read(RUN/'input.json')
+    assert event['status']=='completed' and event['verified_success']
+    assert ack['operation_success'] and ack['artifacts_verified'] and ack['visual_review_completed']
+    assert ack['event_sha256']==sha(RUN/'completion_event.json')
+    assert ack['verification_sha256']==sha(RUN/'receiver_verification.json')
+    assert read(RUN/'supervised_start.json')['actual_14core_single_group_observed']
+    for item in event['artifacts']: assert sha(RUN/item['path'])==item['sha256']
+    for p,h in spec['parent_evidence_hashes'].items(): assert sha(p)==h,p
+    assert state['status']=='completed' and 100000<=state['actual_elements']<=112000
+    assert all(seg['mcp_request']['cores_per_task']==14 for seg in state['segments'])
+    target=read(ROOT/'baseline.json')['target']; score=assess(*load_curve(RUN/'sparams.csv'),target)
+    assert score['passed'] and score['shape_valid']
+    metrics=read(RUN/'response_metrics.json'); data=np.genfromtxt(RUN/'sparams.csv',delimiter=',',names=True)
+    fp=make_plan(data,metrics,target,read(RUN/'target20_metrics.json')['joint20_center_band_GHz'])
+    # Fit the central valley neighborhood into unused first-wave slots. This
+    # adds a finite position check, not a claim of continuous-extrema proof.
+    center=score['central_valley_GHz']; central=[round(center+d,3) for d in [-.01,0,.01]]
+    points=sorted(set(fp['requested_frequencies_GHz']+central)); assert len(points)<=24
+    fp.update(requested_frequencies_GHz=points,chunks=[points[i:i+4] for i in range(0,len(points),4)],
+              central_neighborhood_GHz=central,center_target_GHz=6.72,center_tolerance_GHz=.03)
+    for f in central: fp['reasons'].setdefault(str(f),[]).append('central_valley_neighborhood')
+    assert len(fp['chunks'])<=6 and sum(map(len,fp['chunks']))==len(points)
+    budget=validate_development(extra_analyze=len(fp['chunks'])); project=Path(state['project'])
+    evidence={str(RUN/n):sha(RUN/n) for n in ['input.json','state.json','manifest.json','sparams.csv',
+        'all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt','response_metrics.json',
+        'target20_metrics.json','completion_event.json','receiver_ack.json','receiver_verification.json',
+        'supervised_start.json']}
+    evidence[str(project)]=sha(project)
+    row=dict(case='B05',source_case='B05N_C1',source=str(RUN),project=str(project),project_sha256=sha(project),
+        geometry=state['geometry'],actual_elements=state['actual_elements'],evidence_hashes=evidence,target=target,
+        requested_frequencies_GHz=points,missing_frequencies_GHz=points,existing_frequencies_GHz=[],chunks=fp['chunks'])
+    R.mkdir(); (ROOT/'coordination').mkdir(exist_ok=True); provenance={}
+    def cp(name, change=None, source=OLD):
+        src=source/name; dst=R/name
+        if change: dst.write_text(change(resource14(src.read_text(encoding='utf-8'))),encoding='utf-8')
+        elif src.suffix=='.py': dst.write_text(resource14(src.read_text(encoding='utf-8')),encoding='utf-8')
+        else: shutil.copyfile(src,dst)
+        provenance[name]=dict(source=str(src),source_sha256=sha(src),local_sha256=sha(dst))
+    def control(s):
+        s=s.replace("BASE=Path('D:/hfss_fig8_20261028/direct')",f'BASE=Path({BASE.as_posix()!r})')
+        s=s.replace("OLD=Path('J:/f8_261007')",f"OLD=Path({(ROOT/'coordination').as_posix()!r})")
+        s=s.replace("ORDER=['B02', 'B05', 'B06']","ORDER=['B05']")
+        return s.replace('18配置','B05二轮14核').replace('18配置：','B05二轮14核：')
+    cp('phase_control.py',control)
+    for name in ['recovery_control.py','merge_native.py','preserve_discrete_ranges.py','supervise_smallbatch.py',
+                 'smallbatch_worker.py','acknowledge_smallbatch.py','receive_verified.py','phase_direct_context.py',
+                 'case_reference.py','reference_validation.json','phase_geometry_publish.py','phase_publish.py',
+                 'blind_direct_science.py','aedt_session_guard.py','mesh_policy_addendum_v2.json',
+                 'test_direct_science.py']:
+        cp(name)
+    def solver(s):
+        old="sys.path.insert(0,str(HERE.parent))\nfrom storage_routes import TEMP, DIRECT_BASE, validate_development\nsys.path.pop(0)"
+        assert old in s
+        s=s.replace(old,f"sys.path.insert(0,{str(ROOT)!r})\nfrom b05_budget import validate_development\nTEMP=Path({str(TEMP)!r})\nDIRECT_BASE=Path({str(BASE)!r})")
+        return s.replace('    validate_development(extra_analyze=1)',"    assert len(state['segments'])<6\n    validate_development(extra_analyze=1)")
+    cp('solver_runtime.py',solver)
+    cp('dispatch_smallbatch.py',lambda s:s.replace("['new_cached_tasks_reserved']<3","['new_cached_tasks_reserved']<1").replace("case+'_B6Direct'","case+'_B05N14Direct'"))
+    cp('phase_final_direct.py',lambda s:s.replace('    return result',CENTER_REVIEW+'\n    return result'))
+    for name in ['phase_heartbeat.py','phase_heartbeat_transport.py','aedt_identity.json','verify_live_hook.py',
+                 'test_phase_heartbeat.py','test_lifecycle_watch.py']:
+        cp(name,source=CTX)
+    def observer(s):
+        old="BASE=Path('D:\\\\hfss_fig8_B05_20261029\\\\candidate1')"
+        # Match the literal source expression without assuming slash spelling.
+        i=s.index('ROOT=Path(__file__).resolve().parent;BASE='); j=s.index('\n',i)
+        s=s[:i]+f'ROOT=Path(__file__).resolve().parent;BASE=Path({str(BASE)!r})'+s[j:]
+        s=s.replace("str(ROOT.parent/'completion-hook-portable-1.0.0')",repr(str(OUT/'completion-hook-portable-1.0.0')))
+        return s.replace('len(run.relative_to(BASE).parts)==2','len(run.relative_to(BASE).parts)==2')
+    cp('lifecycle_watch.py',observer,CTX)
+    # Native reference mapping is byte-identical; no refit/renormalization.
+    assert sha(R/'case_reference.py')==sha(OLD/'case_reference.py')
+    assert sha(R/'reference_validation.json')==sha(OLD/'reference_validation.json')
+    policy=read(CTX/'policy.json'); policy['resources']['cores']=14
+    policy['version']='B05N14-direct-v1';policy['scope']='Only selected B05N_C1, same cached mesh, finite native direct review'
+    policy['bounded_tuning']='No new geometry or adaptive mesh in direct stage; <=24 first+8 reserve frequencies / <=8 total Analyze'
+    write(R/'policy.json',policy)
+    write(R/'cases/B05/frequency_plan.json',fp);write(R/'selected_sources.json',dict(cases=[row]))
+    prior={str(ROOT/'EXECUTION_PLAN.md'):sha(ROOT/'EXECUTION_PLAN.md'),str(Path(__file__)):sha(__file__),
+           str(ROOT/'candidate1_decision.json'):sha(ROOT/'candidate1_decision.json')}
+    write(R/'continuation_plan.json',dict(cases=[row],maximum_new_analyze_launches=len(fp['chunks']),
+        prior_evidence_hashes=prior,reserved_points_per_case=8,reserved_launches_per_case=2,geometry=0,adaptive=False))
+    write(R/'case_work_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,analyze_launches_reserved=0,tasks=[]))
+    write(R/'authorization.json',dict(execution_authorized=True,cases=['B05'],points_first_wave=24,launches_first_wave=6,
+        reserve_points=8,reserve_launches=2,geometry=False,adaptive=False,cores_per_task=14,concurrent_tasks=1,
+        human_instruction='那你现在跑B05，但是用14核',inherited_plan=str(ROOT/'EXECUTION_PLAN.md')))
+    cfg=read(CTX/'hook/config.json');cfg['state_dir']=str(R/'hook/state');write(R/'hook/config.json',cfg)
+    write(R/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_completion'))
+    write(R/'active.json',dict(stage='prepared_not_started'))
+    (R/'publish_smallbatch.py').write_text(PUBLISH,encoding='utf-8')
+    (R/'CONTINUATION.md').write_text(CONTINUATION,encoding='utf-8')
+    write(R/'implementation_provenance.json',provenance)
+    frozen={**prior,**evidence}
+    for f in R.rglob('*'):
+        if f.is_file() and (f.suffix=='.py' or f.name in ['authorization.json','continuation_plan.json','selected_sources.json',
+            'frequency_plan.json','policy.json','reference_validation.json','mesh_policy_addendum_v2.json','config.json','CONTINUATION.md','aedt_identity.json']):frozen[str(f)]=sha(f)
+    for f,h in frozen.items(): assert sha(f)==h,f
+    for f in R.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'))
+    write(R/'implementation_hashes.json',frozen)
+    write(R/'preparation_summary.json',dict(at=now(),source=str(RUN),dense_score=score,
+        requested_points=len(points),Analyze_cap_first=len(fp['chunks']),budget_before=budget,Analyze_started=False,
+        resource_note='Historical frozen candidate policy resources field remained16; actual requests/process evidence were14. New direct policy explicitly14; no frozen historical files changed.'))
+    print(dict(context=str(R),points=len(points),chunks=len(fp['chunks']),Analyze_started=False))
+
+CENTER_REVIEW='''    center_points=plan.get('central_neighborhood_GHz',[])
+    if center_points:
+        indices=[int(np.flatnonzero(abs(b['Freq_GHz']-x)<1e-8)[0]) for x in center_points]
+        j=int(np.argmin(b['S11_dB'][indices])); center=float(b['Freq_GHz'][indices[j]])
+        interior=0<j<len(indices)-1
+        center_ok=abs(center-plan['center_target_GHz'])<=plan['center_tolerance_GHz']+1e-10
+        result['central_valley_finite_review']=dict(points_GHz=center_points,minimum_GHz=center,interior=interior,within_tolerance=center_ok)
+        result['numerical_review_passed']=bool(result['numerical_review_passed'] and interior)
+        result['sampled_design_supported']=bool(result['sampled_design_supported'] and center_ok)
+        result['needs_reserved_points']=bool(not result['direct_target_violations'] and not result['numerical_review_passed'])'''
+
+PUBLISH='''from phase_control import HERE,read,write,now
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(HERE/'hook/config.json');path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B05 second-cycle14core selected same-mesh finite direct review; no adaptive')
+    def prompt(e,p):return f'[B05二轮14核同网格复核] {p}\\n{summary}\\n先读{HERE/"CONTINUATION.md"}。核验实际原生数据/看图/ACK；首轮<=24点6批，预留<=8点2批，两阶段共32点8批。本轮<=4几何60Analyze。不重复Analyze、不清工程锁、不重开旧队列、不启动48点。'
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as e:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(e)))
+    return receipt
+'''
+
+CONTINUATION='''# B05第二轮14核：仅选中C1的同网格直接复核
+先读父目录EXECUTION_PLAN.md。本上下文只有B05，来源B05N_C1；不允许新几何/新自适应。
+本轮最多4几何/60Analyze；本同网格阶段首轮<=24点/6批，预留<=8点/2批，共32点/8批，每批<=4点，不重复频点。
+完成后receive_verified.py --run D:/hfss_fig8_B05_20261029/direct/B05/direct_smallbatch；实际view_image看叠加图，再acknowledge_smallbatch.py --run RUN --visual-reviewed --note真实结论。不能把求解成功当设计验收。
+若有原生直接目标违例，保留失败，不追加重复直接点；本轮最多一个选中结果可做直接复核，不自动给备用新几何再加整套直接验收。
+若无直接违例但关键峰/中心极值/边界未定位，只为具体未解决项冻结最多8个不重复频点/2批预留方案，基于本次直接缓存继续；继承总预算、14核证据、原生参考，不调用旧C9队列。
+全部有限核验通过则总结本轮B05实际参数/目标带宽与联合20dB带宽/网格/14核证据/成本/余量，说明有限采样而非连续严格证明；不宣称总体逆设计研究完成。
+技术失败先查真实进程和缓存，每项最多一次恢复、继承预算，不清工程锁、不盲目重新Analyze。正常求解安静，完成hook发本聊天，5分钟无真实后继再查聊天是否中断。用户暂停立即停。
+最终记录continuation_resolution为batch_complete（绑定最终事件哈希），用phase_heartbeat.py stop关闭本轮所有阶段心跳，并停止终态监护；保留全部旧闭账结果。不启动48点。
+'''
+
+if __name__=='__main__':main()

@@ -1,0 +1,34 @@
+"""Fair three-versus-four-parameter fit on saved curves; no HFSS connection."""
+import hashlib
+import json
+from pathlib import Path
+import sys
+import numpy as np
+
+HERE=Path(__file__).resolve().parent
+WORK=Path('${WORKSPACE}')
+sys.path.insert(0,str(WORK/'output/folded_fig8_run_20261002'))
+from phase_split_diagnostic import fit
+
+
+def main():
+    rows=[]
+    for case in ('T_F2','B0','T_F3','T_G035','T_G2'):
+        path=Path('F:/hfss_f8_261002')/case/'sparams.csv'
+        data=np.genfromtxt(path,delimiter=',',names=True,encoding='utf-8-sig')
+        mask=(data['Freq_GHz']>=3.8)&(data['Freq_GHz']<=9.6)
+        f,y=data['Freq_GHz'][mask],data['S11_mag'][mask]
+        eq,sp=fit(f,y,False),fit(f,y,True)
+        assert eq['optimizer_success'] and sp['optimizer_success']
+        rows.append(dict(case=case,curve_sha256=hashlib.sha256(path.read_bytes()).hexdigest(),
+                         equal_phase=eq,separate_phase=sp,
+                         reduction_percent=100*(1-sp['S11_magnitude_RMSE']/eq['S11_magnitude_RMSE'])))
+    result={'status':'within_response_fit_not_independent_validation','band_GHz':[3.8,9.6],
+            'objective':'Same unweighted S11 linear magnitude residuals; equal phase has three fitted parameters, split phase four.',
+            'supersedes':'The 18–44% comparison in phase_corrected_PR_analysis.json used fixed P/center on the equal-phase side and cannot identify the benefit of phase splitting alone.',
+            'rows':rows}
+    (HERE/'fair_model_audit.json').write_text(json.dumps(result,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
+    print(json.dumps([dict(case=r['case'],reduction_percent=r['reduction_percent']) for r in rows],indent=2))
+
+
+if __name__=='__main__':main()

@@ -1,0 +1,16 @@
+"""Read-only finite observation of the already running authorized single case."""
+import json,time,sys
+from pathlib import Path
+import psutil
+R=Path(__file__).resolve().parent/'data/INV01_A14/g01_initial';end=time.monotonic()+1200;previous=None
+while time.monotonic()<end:
+ try:s=json.loads((R/'state.json').read_text(encoding='utf8'))
+ except (FileNotFoundError,json.JSONDecodeError):time.sleep(10);continue
+ stages=s.get('mesh_stages',[]);last=stages[-1] if stages else {};segs=s.get('segments',[])
+ brief={'status':s.get('status'),'Analyze':len(segs),'mesh_stages':len(stages),'actual_elements':s.get('actual_elements'),'last_mesh_stage':{k:v for k,v in last.items() if k in ['actual_elements','elements','stage','requested_passes','actual_passes','passes']},'stage':segs[-1].get('label') if segs else None}
+ if brief!=previous:print(json.dumps(brief,ensure_ascii=False),flush=True);previous=brief
+ if (R/'completion_event.json').exists():
+  e=json.loads((R/'completion_event.json').read_text(encoding='utf8'));print('TERMINAL',e['status'],e['verified_success'],flush=True);break
+ if (R/'worker_error.json').exists():print('WORKER_ERROR_RECORDED',flush=True);break
+ time.sleep(25)
+else:print('OBSERVATION_WINDOW_ENDED_NO_ACTION',flush=True)

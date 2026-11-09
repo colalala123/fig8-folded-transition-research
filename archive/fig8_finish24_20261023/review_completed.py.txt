@@ -1,0 +1,47 @@
+"""Read-only evidence verification and response overlay for supervised hook review."""
+import argparse
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from control import HERE, BASE, read, write, sha, now
+from direct_worker import compare
+
+def review(case):
+    folder=BASE/case
+    event=read(folder/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success']
+    verified={}
+    for item in event['artifacts']:
+        path=(folder/item['path']).resolve()
+        assert path.is_relative_to(folder.resolve())
+        assert sha(path)==item['sha256'], str(path)
+        verified[str(path)]=item['sha256']
+    result=read(folder/'finish24_result.json')
+    for path,digest in {**result['evidence_hashes'],**result['comparison']['evidence_hashes']}.items():
+        assert sha(path)==digest, path
+        verified[path]=digest
+    state=read(folder/'state.json')
+    assert state['status']=='completed' and state['same_mesh_verified']
+    assert sha(folder/'convergence_before.txt')==sha(folder/'convergence_after.txt')
+    comparison=compare(__import__('pathlib').Path(result['selected_run']),folder,case)
+    assert comparison['sample_response_passed'] and comparison['band_edges_passed']
+    original=np.genfromtxt(result['selected_run']+'/sparams.csv',delimiter=',',names=True)
+    direct=np.genfromtxt(folder/'sparams.csv',delimiter=',',names=True)
+    assert len(original)==1500 and len(direct)==comparison['points']
+    for data in (original,direct):
+        assert all(np.isfinite(data[c]).all() for c in data.dtype.names)
+    fig,ax=plt.subplots(figsize=(10,5))
+    for col,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+        ax.plot(original['Freq_GHz'],original[col],color=color,label=col.replace('_dB','')+' original')
+        ax.scatter(direct['Freq_GHz'],direct[col],s=25,facecolors='none',edgecolors=color,label=col.replace('_dB','')+' direct')
+    ax.axhline(-2,color='gray',ls=':',lw=.8);ax.axhline(-10,color='gray',ls='--',lw=.8)
+    ax.set(xlim=(0,15),ylim=(-65,2),xlabel='Frequency (GHz)',ylabel='S parameters (dB)',title=case+' - same-mesh fundamental response check')
+    ax.grid(alpha=.25);ax.legend(ncol=2);fig.tight_layout()
+    image=HERE/'cases'/case/'response_overlay.png';fig.savefig(image,dpi=150);plt.close(fig)
+    review={'case':case,'verified_at':now(),'verified_hashes':verified,'recomputed_comparison':comparison,'plot':str(image),'plot_sha256':sha(image),'full_matrix_approved':False}
+    write(HERE/'cases'/case/'receiver_verification.json',review)
+    print({'case':case,'hashes_verified':len(verified),'BW_shift_MHz':comparison['BW_shift_GHz']*1000,'plot':str(image)})
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--case',required=True);review(p.parse_args().case)

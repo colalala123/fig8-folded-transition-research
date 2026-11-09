@@ -1,0 +1,10 @@
+import json
+from pathlib import Path
+from ansys.aedt.core import Hfss
+R=Path(r'F:\hfss_f8x_261align');P=R/'R_tri_linealign.aedt';app=Hfss(project=str(P),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ s=app.get_setup('TriDiagE')
+ for sw0 in s.sweeps:
+  sw0.props['IsEnabled']=False;sw0.update()
+ sw=s.add_sweep('SweepLineAlignNoPass','Interpolating');sw.props.update({'RangeType':'LinearStep','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz','InterpTolerance':.5,'InterpMaxSolns':500,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':False,'InterpUsePropConst':False,'UseDerivativeConvergence':False,'InterpDerivTolerance':.2,'UseFullBasis':True,'EnforcePassivity':False,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SMatrixOnlySolveMode':'Auto','SMatrixOnlySolveAbove':'15GHz','SaveFields':True,'SaveRadFields':False});sw.update();app.save_project();print(json.dumps({'status':'prepared','sweep':'SweepLineAlignNoPass','props':json.loads(json.dumps(sw.props,default=str))},indent=2))
+finally:app.release_desktop(close_projects=False,close_desktop=False)

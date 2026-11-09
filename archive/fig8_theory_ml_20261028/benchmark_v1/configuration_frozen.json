@@ -1,0 +1,54 @@
+{
+  "seed": 20261028,
+  "input_features": [
+    "lnP",
+    "lnR",
+    "a_mm",
+    "theory_Lm_mm",
+    "theory_nominal_Ls1_mm"
+  ],
+  "output_tasks": {
+    "length_residual": [
+      "delta_Lm_mm",
+      "delta_Ls1_mm"
+    ],
+    "forward_performance": [
+      "S21_minus2_BW_GHz",
+      "worse_inner_peak_dB"
+    ]
+  },
+  "models": [
+    "quadratic_ridge",
+    "RF",
+    "shared_MLP"
+  ],
+  "RF": {
+    "trees": 300,
+    "min_samples_leaf": 2
+  },
+  "MLP": {
+    "layers": [
+      12,
+      8
+    ],
+    "activation": "tanh",
+    "solver": "lbfgs",
+    "alpha": 0.3,
+    "max_iter": 3000
+  },
+  "feature_scaling": "fit on training fold only",
+  "target_scaling": "fit on training fold only",
+  "model_selection": "five grouped folds inside training split; equal per-output normalized RMSE",
+  "source_hashes": {
+    "${WORKSPACE}\\output\\fig8_PR18_delivery_20261027\\dataset52.json": "bbf77595d1b5176548dbbf22ef50d4be065f8449eb0b233dcb92898dcc37f506",
+    "F:\\2026-1\\circuit\\weekpost\\2026-08-02_研究进展周报.md": "357ba7d1be5cdfc125e841417019e427d7c0d6650796c5c6013f7e9c5d827cf3",
+    "${WORKSPACE}\\output\\fig8_theory_ml_20261028\\benchmark.py": "289906e6824a8473dca0d3e818b0196211bc955ec6b1238cede0820a550a18d3",
+    "${WORKSPACE}\\output\\fig8_theory_ml_20261028\\common.py": "81b9061ae8828430cff50cce6c57c0dc0e42f56b8cc51bb3016545898ce0bf2a"
+  },
+  "library_versions": {
+    "sklearn": "1.7.2",
+    "numpy": "2.2.6"
+  },
+  "independent_rho_eta_variation_available": false,
+  "uniform_data_used": false
+}

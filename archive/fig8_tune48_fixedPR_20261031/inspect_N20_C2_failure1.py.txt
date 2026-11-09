@@ -1,0 +1,27 @@
+"""Zero-Analyze native diagnosis of the existing failed candidate; no save/close/restart."""
+import sys,json,hashlib
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent;CTX=ROOT.parent/'fig8_tune48_N20_A14_c2_20261031'
+RUN=ROOT/'data/N20_A14/c2/N20_A14_C2/g01_initial';DEST=ROOT/'diagnostics/N20_A14_C2_attempt1'
+def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+def main():
+    assert not (ROOT/'PAUSE.json').exists();DEST.mkdir(parents=True,exist_ok=False)
+    frozen={str(RUN/n):sha(RUN/n) for n in ['input.json','state.json','worker_error.json','completion_event.json']}
+    sys.path.insert(0,str(CTX));import phase_geometry_worker as w
+    assert not w.dc.solvers();state=read(RUN/'state.json');app=w.dc.app_for(Path(state['project']))
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19')
+        messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        solved=bool(setup.is_solved)
+        result=dict(at=w.now(),Analyze_added=0,messages=messages,setup_solved=solved,setup=w.snapshot(setup.props),
+          original_hashes=frozen,ports={b.name:w.snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        (DEST/'native_diagnosis.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+        print(json.dumps(dict(messages=messages,setup_solved=solved,Analyze_added=0),ensure_ascii=False,indent=2),flush=True)
+        if solved:
+            app.export_convergence('Setup19',output_file=str(DEST/'convergence.txt'))
+            print('History: '+str(w.passes(DEST/'convergence.txt')),flush=True)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert all(sha(Path(p))==h for p,h in frozen.items())
+if __name__=='__main__':main()

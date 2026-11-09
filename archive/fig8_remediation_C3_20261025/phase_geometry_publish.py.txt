@@ -1,0 +1,27 @@
+"""Human-authorized three-case completion and interruption continuation."""
+from phase_control import HERE,TARGET,now,write
+from phase_publish import hook
+
+def prompt(e,path):
+    return (f"[Fig8 C3阶段 / 自动完成事件]\n事件ID：{hook.event_id(e)}\n状态：{e['status']}\n摘要：{e['summary']}\n事件：{path}\n"
+        f'用户已授权将剩余D04G02/D01G02/D12G05优化到达标，用hook接续本聊天。先读{HERE / "CONTINUATION.md"}、authorization.json、budget_ledger.json、PLAN.md。'
+        '只限这3项；最多两个局部周期，每项新几何上限6/7/7（D01/D12各含1同几何基准），每项最多1同网格直接任务。总20+3；历史9/7/7保留，不重开旧A/B/原24。'
+        '先核验事件全部SHA/父证据/实际网格/参考处理和S11/S21实际曲线，再写receiver_ack.json并更新账本reviewed。求解完成不等于设计/数值通过。'
+        '三项均保持native设计曲线；D12旧50ohm恢复仅为独立矩阵诊断，已证实旧选中S参数等于raw基模条目，禁止重复转换制造通过。'
+        '任何基准/探针已设计通过可提前直接复核；否则独立Ls1、Lm探针再一个受限候选。第2周期仅在第1周期最好实测点仍失败且归一化误差改善>=10%才可释放，必须重测同中心双探针。'
+        '不放宽几何/设计/数值标准，不清锁、不盲重发Analyze、不无限加严或超预算。正常仿真不周期发消息；完成消息5分钟无新仿真才检查AI是否中断。'
+        '每次结束前核实下一单项真实hf3d已启动；或写绑定当前事件SHA、有证据reason的continuation_resolution.json（blocked/paused/batch_complete，paused仅用户要求）。'
+        '全部3项有限处置后生成新有效24报告/曲线/审计并关闭C3，不自动扩展模型或批次。')
+
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(HERE/'hook/config.json')
+    assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET] and case in ('D04G02','D01G02','D12G05')
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Human-authorized remaining-three Fig8 C3, current chat only')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

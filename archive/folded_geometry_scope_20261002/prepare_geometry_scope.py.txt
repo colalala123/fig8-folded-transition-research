@@ -1,0 +1,144 @@
+"""Prepare a geometry-only research window; no AEDT connection or solve."""
+from __future__ import annotations
+
+import csv
+import json
+from pathlib import Path
+
+OUT = Path(__file__).resolve().parent
+SOURCE = Path('F:/hfss_fold_260920/folded_theory_comparison_20260924.json')
+H = 0.813
+EPS = 1e-9
+
+
+def derive(geometry):
+    wm, ws, l1, l2, l3 = (geometry[k] for k in ('Wm', 'Ws', 'Ls1', 'Ls2', 'Ls3'))
+    gap = l2 - 2 * ws
+    arm = l3 - ws
+    middle = l1 - 2 * l3
+    clearance = (middle - wm) / 2
+    rho = 2 * l3 / l1
+    failures = []
+    if min(wm, ws, l1, l2, l3) <= 0:
+        failures.append('nonpositive_dimension')
+    if not 0.35 - EPS <= gap <= 0.75 + EPS:
+        failures.append('gap_outside_window')
+    if not 1.40 - EPS <= arm <= 2.30 + EPS:
+        failures.append('arm_outside_window')
+    if rho > 0.50 + EPS:
+        failures.append('fold_occupancy_above_half')
+    if clearance < H - EPS:
+        failures.append('central_microstrip_projection_clearance_below_h')
+    return {
+        'gap_mm': gap, 'arm_net_mm': arm, 'middle_opening_mm': middle,
+        'microstrip_projection_clearance_mm': clearance, 'fold_occupancy': rho,
+        'geometric_path_mm': l1 + 2*l2 + 2*l3 - 4*ws,
+        'minimum_allowed_Ls1_mm': max(4*l3, 2*l3 + wm + 2*H),
+        'inside_research_window': not failures, 'failed_rules': '|'.join(failures),
+    }
+
+
+def save_json(name, data):
+    (OUT / name).write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+
+
+def save_csv(name, rows):
+    with (OUT / name).open('w', newline='', encoding='utf-8-sig') as handle:
+        writer = csv.DictWriter(handle, fieldnames=list(rows[0]))
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def main():
+    source = json.loads(SOURCE.read_text(encoding='utf-8-sig'))
+    by_case = {r['case']: r for r in source['rows']}
+    baseline = by_case['B0']['geometry']
+    keys = ('Wm', 'Lm', 'Ws', 'Ls1', 'Ls2', 'Ls3')
+    base_geom = {key: baseline[key] for key in keys}
+    path_ref = derive(base_geom)['geometric_path_mm']
+    planned = []
+    for name in ('F2', 'B0', 'F3', 'G035', 'G2'):
+        if name == 'G035':
+            geometry = dict(base_geom)
+            geometry['Ls2'] = 2 * geometry['Ws'] + 0.35
+            geometry['Ls1'] = path_ref - 2*geometry['Ls2'] - 2*geometry['Ls3'] + 4*geometry['Ws']
+            state = 'initial_geometry_only_not_simulated'
+            ripple = ''
+        else:
+            geometry = {key: by_case[name]['geometry'][key] for key in keys}
+            state = 'existing_response_available'
+            ripple = by_case[name]['equal_ripple']
+        metrics = derive(geometry)
+        assert metrics['inside_research_window'], name
+        assert abs(metrics['geometric_path_mm'] - path_ref) < 1e-8, name
+        planned.append({'case': name, 'state': state, 'existing_equal_ripple': ripple, **geometry, **metrics})
+    save_csv('first_five_configurations.csv', planned)
+
+    existing = []
+    for record in source['rows']:
+        geometry = record['geometry']
+        if record.get('structure') != 'folded' or any(geometry.get(k) is None for k in keys):
+            continue
+        existing.append({'case': record['case'], 'existing_equal_ripple': record['equal_ripple'],
+                         **{k: geometry[k] for k in keys}, **derive(geometry)})
+    save_csv('existing_case_geometry_checks.csv', existing)
+
+    paper = []
+    for name, values in [
+        ('paper_Fig10', (1.82, 6.21, 0.31, 10.02, 1.33, 2.24)),
+        ('paper_Fig11', (2.58, 6.05, 0.57, 11.19, 1.67, 2.42)),
+    ]:
+        geometry = dict(zip(keys, values))
+        metrics = derive(geometry)
+        assert metrics['inside_research_window'], name
+        paper.append({'case': name, **geometry, **metrics})
+
+    extreme = dict(base_geom)
+    extreme['Ls2'] = 2*extreme['Ws'] + 0.75
+    extreme['Ls3'] = extreme['Ws'] + 2.30
+    extreme['Ls1'] = path_ref - 2*extreme['Ls2'] - 2*extreme['Ls3'] + 4*extreme['Ws']
+    extreme_metrics = derive(extreme)
+    assert not extreme_metrics['inside_research_window']
+    assert 'fold_occupancy_above_half' in extreme_metrics['failed_rules']
+
+    constraints = {
+        'date': '2026-10-02', 'status': 'adopted_geometry_study_window_not_em_validated',
+        'scope': 'Structure B single transition at reference 6.85 GHz; not a six-pole universal bound',
+        'substrate': {'er': 3.55, 'dielectric_loss_tangent': 0.0027,
+                      'paper_nominal_er': 3.38, 'h_mm': H, 'copper_t_mm': 0.035,
+                      'provenance': 'Actual assigned AEDT material inspected in the 2026-10-02 run; paper nominal value kept separately.'},
+        'definitions': {'gap_mm': 'Ls2 - 2*Ws', 'arm_net_mm': 'Ls3 - Ws',
+                        'middle_opening_mm': 'Ls1 - 2*Ls3',
+                        'microstrip_projection_clearance_mm': '(Ls1 - 2*Ls3 - Wm)/2',
+                        'fold_occupancy': '2*Ls3/Ls1',
+                        'geometric_path_mm': 'Ls1 + 2*Ls2 + 2*Ls3 - 4*Ws'},
+        'gap_mm': [0.35, 0.75], 'arm_net_mm': [1.40, 2.30],
+        'fold_occupancy_max': 0.50, 'microstrip_projection_clearance_min_mm': H,
+        'same_layer_unintended_metal_clearance_min_mm': 0.35,
+        'same_layer_clearance_check': 'Requires actual CAD entities and layer connectivity; not checked by this script.',
+        'all_constraints_are_joint': True,
+        'six_pole': {'topology_confirmed': 'Paper Fig.14/Fig.16 back-to-back transitions with connecting and branch microstrips',
+                    'paper_reference_frequency_GHz': 3.02,
+                    'paper_slot_dimensions_mm': {'Ls1': 17.45, 'Ls2': 3.0, 'Ls3': 6.7, 'Ws': 0.55},
+                    'requires_separate_scope': True},
+        'hfss_started_by_geometry_preparation_script': False,
+        'actual_simulation_status_file': 'F:/hfss_f8_261002/batch_status.json',
+    }
+    save_json('geometry_constraints.json', constraints)
+    checks = {'paper_single_transition_examples': paper, 'initial_configurations': planned,
+              'existing_case_count': len(existing),
+              'existing_outside_window': [r['case'] for r in existing if not r['inside_research_window']],
+              'rejected_combination_example': {'geometry': extreme, **extreme_metrics},
+              'validation_scope': 'Offline dimensions and slot geometry only; no performance validation or actual CAD collision check.',
+              'same_layer_metal_collision_check_performed': False, 'hfss_started': False}
+    save_json('geometry_checks.json', checks)
+    print(json.dumps({'paper_examples_inside_window': len(paper),
+                      'five_initial_configurations_valid': all(r['inside_research_window'] for r in planned),
+                      'geometric_path_reference_mm': path_ref,
+                      'outside_window': checks['existing_outside_window'],
+                      'extreme_case_correctly_rejected': not extreme_metrics['inside_research_window'],
+                      'hfss_started': False}, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

@@ -1,0 +1,44 @@
+"""Read-only simulation inputs; write parent progress artifacts only."""
+import json,datetime
+from pathlib import Path
+P=Path(__file__).resolve().parent;R=P/'final_review'
+def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
+def main():
+ ledger=read(R/'case_work_ledger.json');selected=read(R/'selected_sources.json')['cases'];active=read(R/'active.json')
+ tasks={t['case']:t for t in ledger['tasks']};rows=[]
+ for row in selected:
+  case=row['case'];task=tasks.get(case);run=Path('J:/f8_PR18_261027')/case/'direct_smallbatch'
+  item=dict(case=case,mesh=row['actual_elements'],source=row['source'],status='not_started',both_source_inner_peaks_le_minus20=row['both_inner_peaks_le_minus20'])
+  if task:
+   item.update(status=task['status'],analyzes_used=task['analyzes_used'],max_analyzes=task['max_analyzes'])
+   if (run/'worker_error.json').exists():item['attention_file']=str(run/'worker_error.json')
+   if (run/'receiver_ack.json').exists():
+    ack=read(run/'receiver_ack.json');item.update(scoped_accepted=ack['scoped_accepted'],visual_review_completed=ack['visual_review_completed'],comparison=read(run/'comparison.json'))
+  rows.append(item)
+ reviewed=[x for x in rows if x['status']=='reviewed'];accepted=[x for x in reviewed if x['scoped_accepted']]
+ result=dict(at=datetime.datetime.now(datetime.timezone.utc).isoformat(),geometry_phase_complete=True,geometry_attempts=24,selected_baseline_passed=18,source_both_inner_peaks_le_minus20=6,
+  final_direct_reviewed=len(reviewed),final_direct_accepted=len(accepted),final_direct_unresolved=len(reviewed)-len(accepted),final_direct_total=18,
+  final_direct_complete=len(reviewed)==18,all_final_direct_accepted=len(accepted)==18,active=active,analyze_launches_used=ledger['analyze_launches_reserved'],analyze_launches_cap=94,new_geometry_in_direct_stage=0,cases=rows)
+ (P/'direct_progress.json').write_text(json.dumps(result,ensure_ascii=False,indent=2),encoding='utf-8')
+ lines=['# PR18最终同网格离散复核进度','',f"更新UTC：{result['at']}",f"几何调谐已完成：所选18项基础通过（6项双内峰≤-20dB）；最终离散复核已审核{len(reviewed)}/18，通过{len(accepted)}，未解决{len(reviewed)-len(accepted)}。",f"已使用Analyze {result['analyze_launches_used']}/94；本段0新几何、0新自适应。",'', '|配置|状态|网格|S21带宽差MHz|-20联合带宽最大差MHz|','|---|---|---:|---:|---:|']
+ for x in rows:
+  c=x.get('comparison');status=('有限一致性通过' if x.get('scoped_accepted') else '已审查/未解决') if x['status']=='reviewed' else x['status']
+  bw=f"{c['BW_shift_GHz']*1000:.4f}" if c and c['BW_shift_GHz'] is not None else '—'
+  shifts=[b['width_shift_GHz'] for b in c['joint20_band_reviews'] if b['width_shift_GHz'] is not None] if c else []
+  joint=f'{max(shifts)*1000:.4f}' if shifts else '—'
+  lines.append(f"|{x['case']}|{status}|{x['mesh']}|{bw}|{joint}|")
+ unresolved=[x for x in reviewed if not x['scoped_accepted']]
+ if unresolved:
+  lines+=['','## 已审查但未解决（不自动重跑）']
+  for x in unresolved:
+   c=x['comparison'];bad=[]
+   for i,band in enumerate(c['joint20_band_reviews'],1):
+    for edge in band['edges']:
+     if edge['shift_GHz'] is None:bad.append(f'联合-20dB第{i}段在冻结点中未括住带边')
+     elif edge['shift_GHz']>c['limits']['max_edge_shift_GHz']:bad.append(f"联合-20dB第{i}段带边偏移{edge['shift_GHz']*1000:.3f}MHz")
+    if band['width_shift_GHz'] is not None and band['width_shift_GHz']>c['limits']['max_BW_shift_GHz']:bad.append(f"该段宽度差{band['width_shift_GHz']*1000:.3f}MHz")
+   lines.append('- '+x['case']+'：'+('；'.join(bad) if bad else '见comparison.json中数值或采样设计判据')+'。保留部分指标证据，不将整体标为通过。')
+ lines+=['','有限直接频点一致性不是全曲线极值或网格收敛证明；中央谷仅原位置采样，内峰窗口边界最大值不视为独立定位。-20dB科学负例保留，不降低阈值。完整4×4矩阵未认证。','当前活动：`'+json.dumps(active,ensure_ascii=False)+'`']
+ (P/'DIRECT_PROGRESS.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+ print({k:result[k] for k in ['final_direct_reviewed','final_direct_accepted','final_direct_unresolved','final_direct_total','final_direct_complete','analyze_launches_used']})
+if __name__=='__main__':main()

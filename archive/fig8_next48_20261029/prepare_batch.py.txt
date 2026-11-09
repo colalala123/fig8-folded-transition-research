@@ -1,0 +1,174 @@
+"""Prepare one six-case segment of the newly authorized48. No Analyze."""
+import argparse,ast,copy,json,hashlib,sys,shutil
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent;OUT=ROOT.parent;OLD=OUT/'fig8_theory_ml_20261028'
+BASE=Path('D:/hfss_fig8_next48_20261029');TEMP=BASE/'solver_temp'
+AUTH='你现在继续跑48点的计划'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,d):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+ p.write_text(json.dumps(d,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+def resource14(s):
+ return (s.replace("'cores_per_task':16","'cores_per_task':14")
+   .replace('-max_processors 16','-max_processors 14').replace('16core','14core').replace('16核','14核'))
+def verified_ack(row):
+ run=Path(row['run_dir']);a=read(run/'receiver_ack.json');e=read(run/'completion_event.json')
+ assert e['status']=='completed' and e['verified_success']
+ assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed']
+ assert a['event_sha256']==sha(run/'completion_event.json') and a['verification_sha256']==sha(run/'receiver_verification.json')
+ for item in e['artifacts']:assert sha(run/item['path'])==item['sha256']
+ assert read(run/'supervised_start.json')['actual_14core_single_group_observed']
+ return {str(run/n):sha(run/n) for n in ['receiver_ack.json','receiver_verification.json','supervised_start.json','completion_event.json']}
+def pilot_gate():
+ plan=read(ROOT/'campaign_frozen.json');rows=plan['cases'][:2];evidence={}
+ assert [r['case'] for r in rows]==['N02_A14','N02_A18']
+ for row in rows:
+  evidence.update(verified_ack(row));label=read(ROOT/'labels'/f"{row['case']}.json")
+  assert label['primary']['shape_valid'],'Pilot shape needs inspection before broad release'
+  evidence[str(ROOT/'labels'/f"{row['case']}.json")]=sha(ROOT/'labels'/f"{row['case']}.json")
+ dest=ROOT/'pilot_gate.json'
+ if dest.exists():
+  old=read(dest);assert old['passed'] and old['evidence_hashes']==evidence;print('Pilot gate already verified');return
+ write(dest,dict(passed=True,actual_visual_ACKs=2,cases=[r['case'] for r in rows],evidence_hashes=evidence,
+  scope='Real14core/mesh/native mapping/shape and actual image review. Design negatives are allowed; not final direct acceptance.'))
+ print(dict(pilot_gate=True,actual_visual_ACKs=2))
+def prepare(batch):
+ sys.path.insert(0,str(ROOT));from campaign_budget import validate_campaign
+ frozen=read(ROOT/'campaign_frozen.json')
+ for f,h in frozen['source_hashes'].items():assert sha(f)==h,f
+ assert 1<=batch<=8 and not (ROOT/'closure.json').exists()
+ rows=[r for r in frozen['cases'] if r['batch']==batch];assert len(rows)==6
+ for r in frozen['cases']:
+  if r['batch']<batch:verified_ack(r)
+ if batch>1:assert read(ROOT/'pilot_gate.json')['passed']
+ validate_campaign()
+ folder=Path(rows[0]['context']);assert not folder.exists(),'Existing context: inspect, never regenerate'
+ sys.path.insert(0,str(OLD));import prepare_runtime as factory
+ factory.ROOT=ROOT;factory.AUTH=AUTH
+ ev={**frozen['source_hashes'],str(ROOT/'campaign_frozen.json'):sha(ROOT/'campaign_frozen.json')}
+ localrows=copy.deepcopy(rows)
+ for r in localrows:r['parent_evidence_hashes']=ev
+ result=factory.runtime(folder,BASE/f'b{batch:02d}',localrows,f'N48B{batch:02d}')
+ for f in folder.glob('*.py'):f.write_text(resource14(f.read_text(encoding='utf-8')),encoding='utf-8')
+ # Only this campaign's coordination locks; copied protocol stays byte-identical.
+ f=folder/'phase_geometry_context.py';s=f.read_text(encoding='utf-8')
+ s=s.replace("OLD=Path('J:/f8_261007')",f"OLD=Path({str(ROOT/'coordination')!r})")
+ s+=f"\nsys.path.insert(0,{str(ROOT)!r})\nfrom campaign_budget import validate_campaign\n_validate_local=validate_geometry_budget\ndef validate_geometry_budget(spec,path):\n    validate_campaign(case=spec['case'])\n    return _validate_local(spec,path)\n"
+ f.write_text(s,encoding='utf-8')
+ f=folder/'phase_geometry_worker.py';s=f.read_text(encoding='utf-8')
+ s=s.replace('async def solve_stage(project, run, state, label, adaptive):',
+  f"sys.path.insert(0,{str(ROOT)!r})\nfrom campaign_budget import validate_campaign\n\nasync def solve_stage(project, run, state, label, adaptive):",1)
+ s=s.replace("    args={'project_name':project.stem","    validate_campaign(extra_analyze=1,case=state['case'])\n    args={'project_name':project.stem",1)
+ s=s.replace("'cache_copied':False,'full_matrix_approved':False,","'cache_copied':False,'full_matrix_approved':False,'resource_recovery_attempt':spec.get('technical_recovery_attempt',0),",1)
+ s=s.replace('    assert shutil.disk_usage(BASE).free>15*1024**3',"    assert shutil.disk_usage(BASE).free>15*1024**3\n    assert shutil.disk_usage(read(HERE/'desktop_start.json')['temp_directory']).free>15*1024**3",1)
+ f.write_text(s,encoding='utf-8')
+ # Same crash-avoidance ordering actually proven in the closed B05 pilot.
+ f=folder/'configure_projects.py';s=f.read_text(encoding='utf-8')
+ s=s.replace("        reports_before=list(app.post.all_report_names)\n        if reports_before:app.post.delete_report()\n",'')
+ s=s.replace("        g=r['geometry']",f"        temp_target=Path({str(TEMP)!r})\n        temp_target.mkdir(parents=True,exist_ok=True)\n        assert shutil.disk_usage(temp_target).free>15*1024**3\n        assert app.set_temporary_directory(temp_target)\n        assert Path(app.temp_directory).resolve()==temp_target.resolve()\n        report_module=app.odesign.GetModule('ReportSetup')\n        report_module.DeleteAllReports()\n        assert not list(report_module.GetAllReportNames())\n        g=r['geometry']",1)
+ i=s.index('        report_created=app.post.create_report(');j=s.index('        # Some AEDT',i)
+ s=s[:i]+'        report_created=False  # No empty pre-solve display report.\n'+s[j:]
+ assert 'app.post' not in s
+ f.write_text(s,encoding='utf-8')
+ f=folder/'finalize_and_authorize.py';s=f.read_text(encoding='utf-8')
+ s=s.replace("    assert pc.read(pc.HERE/'budget_ledger.json')['tasks']==[]",f"    diagnostic=pc.read(Path({str(OUT/'fig8_B05_fix14_20261029/report_preflight_result.json')!r}))\n    assert diagnostic['passed'] and not diagnostic['Analyze_requested']\n    assert pc.read(pc.HERE/'prepared_reopen_gate.json')['passed']\n    assert pc.read(pc.HERE/'budget_ledger.json')['tasks']==[]",1)
+ s=s.replace("    hashes=dict(pc.read(pc.HERE/'parent_evidence.json')['hashes'])","    hashes=dict(pc.read(pc.HERE/'parent_evidence.json')['hashes'])\n    hashes[str(pc.HERE/'prepared_reopen_gate.json')]=pc.sha(pc.HERE/'prepared_reopen_gate.json')",1)
+ f.write_text(s,encoding='utf-8')
+ f=folder/'launch_one.py';s=f.read_text(encoding='utf-8')
+ s=s.replace('import phase_control as pc',f"import phase_control as pc\nsys.path.insert(0,{str(ROOT)!r})\nfrom campaign_budget import validate_campaign",1)
+ s=s.replace("    assert not (pc.HERE/'closure.json').exists()","    validate_campaign(case=a.case,storage=True)\n    assert not (pc.HERE/'closure.json').exists()",1)
+ f.write_text(s,encoding='utf-8')
+ # Completion hooks: no old C9/B05 tuning instructions, no periodic solve spam.
+ f=folder/'phase_geometry_publish.py';s=(factory.PREVIOUS/'phase_geometry_publish.py').read_text(encoding='utf-8')
+ i=s.index('def prompt(');j=s.index('async def publish',i);s=s[:i]+PROMPT+'\n'+s[j:]
+ s=s.replace("purpose='B6 blind initial6 after explicit execution instruction;16cores serial; no retuning'","purpose='Next48 frozen acquisition;14cores serial;no retuning'")
+ f.write_text(s,encoding='utf-8')
+ f=folder/'phase_heartbeat.py';s=f.read_text(encoding='utf-8')
+ i=s.index('    def prompt(payload, path):');j=s.index('    previous = hook.prompt_for',i)
+ s=s[:i]+HEARTBEAT_PROMPT+s[j:];f.write_text(s,encoding='utf-8')
+ f=folder/'lifecycle_watch.py';s=f.read_text(encoding='utf-8')
+ i=s.index('    def prompt(e,p):');j=s.index('    hook.prompt_for=prompt',i)
+ s=s[:i]+OBSERVER_PROMPT+s[j:];f.write_text(s,encoding='utf-8')
+ policy=read(folder/'policy.json');policy['resources']['cores']=14
+ policy.update(scope='Frozen48 acquisition; unchanged widths/lengths and split; no tuning',bounded_tuning='No tuning;48geometries/624Analyze campaign cap')
+ write(folder/'policy.json',policy)
+ auth=read(folder/'authorization.json');auth.update(combined_development_cap=48,geometry_tuning_authorized=False,cores_per_task=14,concurrent_tasks=1)
+ write(folder/'authorization.json',auth)
+ ep=read(folder/'execution_plan.json');ep.update(development_geometry_cap=48,selected_final_direct_cases_max=0,total_development_Analyze_cap=624,direct_points_per_selected_case=0,direct_launches_per_selected_case=0)
+ write(folder/'execution_plan.json',ep)
+ (folder/'CONTINUATION.md').write_text(CONTINUATION.format(root=ROOT,folder=folder,batch=batch,order=', '.join(r['case'] for r in rows)),encoding='utf-8')
+ (folder/'prepared_reopen.py').write_text(REOPEN,encoding='utf-8')
+ shutil.copyfile(factory.PREVIOUS/'test_lifecycle_watch.py',folder/'test_lifecycle_watch.py')
+ # Source bytes for native reference remain unchanged.
+ assert sha(folder/'case_reference.py')==sha(factory.PREVIOUS/'case_reference.py')
+ for f in folder.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+ write(ROOT/f'batch{batch:02d}_runtime.json',result)
+ print(result)
+
+PROMPT='''def prompt(event,path):
+    return (f'[Fig8新48点完成通知] {path}\\n{event["summary"]}\\n'
+      f'先读{HERE/"CONTINUATION.md"}及主方案。仅本新48点，14核串行、48几何/624Analyze上限。'
+      '运行主目录review48.py --case CASE，实际view_image看图后再acknowledge_review.py，不能自动伪造看图。'
+      '性能未过保留负例，不改几何、不换目标、不重训测试集。初始两项真实审核后写pilot_gate再放行其余。'
+      '按ORDER用launch_one.py启动唯一后继并监督真实14核1组。每段六项结束再prepare_batch.py建下一段。'
+      '失败先查真实进程/缓存，一次技术恢复继承预算，不清工程锁不重复Analyze。正常仿真静默，用户暂停优先。')
+'''
+HEARTBEAT_PROMPT='''    def prompt(payload, path):
+        return (f'[Fig8新48点5分钟接续心跳] {path}\\n原事件：{state["event_path"]}\\n'
+          f'先读{HERE/"CONTINUATION.md"}，核验最新人类意图及真实进程。只执行新48采集，14核串行，48几何624Analyze。'
+          '此通知不是求解失败，不清工程锁，不重复Analyze；暂停/取消/审批等待优先。'
+          '正常仿真不发消息；本次仅检测到完成后无后继且对话已停止。实际看图ACK后继续唯一后继，跨段停旧心跳。')
+'''
+OBSERVER_PROMPT='''    def prompt(e,p):
+        return (f'[Fig8新48点worker监护故障] {p}\\n工作项：{run}\\n'
+          f'先读{ROOT/"CONTINUATION.md"}。已确认真实worker身份退出，但不能据此认为HFSS求解失败。'
+          '先检查原HFSS/solver及现有缓存，仍运行则等，不清工程锁、不重复Analyze。每项最多一次技术恢复，继承48几何624Analyze预算。'
+          '原工作项已有终态则接收该事件，不重跑。正常仿真静默，用户暂停优先。')
+'''
+REOPEN='''"""Zero-Analyze reopen verification of the first two prepared projects in this segment."""
+from pathlib import Path
+import phase_control as pc
+from phase_geometry_worker import dc,inspect_rebuilt_geometry
+from prepared_settings import check_settings
+def main():
+    assert not (pc.HERE/'initial_inputs.json').exists() and not dc.solvers()
+    dest=pc.HERE/'prepared_reopen_gate.json';assert not dest.exists()
+    results=[]
+    for row in pc.read(pc.HERE/'plan.json')['cases'][:2]:
+        source=Path(row['prepared_project']);before=pc.sha(source)
+        proof=pc.read(pc.HERE/'cases'/row['case']/'configuration.json')
+        assert proof['passed'] and not proof['solved'] and before==proof['project_sha256']
+        app=dc.app_for(source)
+        try:
+            assert not app.are_there_simulations_running and not app.get_setup('Setup19').is_solved
+            assert list(app.odesign.GetModule('ReportSetup').GetAllReportNames())==[]
+            assert list(app.post.all_report_names)==[]
+            assert inspect_rebuilt_geometry(app,row['geometry'])['passed']
+            settings=check_settings(app)
+            assert app.close_project(save=False)
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        assert pc.sha(source)==before
+        results.append(dict(case=row['case'],project_sha256=before,settings=settings,passed=True))
+    pc.write(dest,dict(passed=True,Analyze_requested=False,projects=results))
+    print(dict(passed=True,reopened=len(results),Analyze_requested=False))
+if __name__=='__main__':main()
+'''
+CONTINUATION='''# Fig8新48点第{batch}段接续
+主方案：{root}/EXECUTION_PLAN.md。冻结全表/分组/预测：{root}/campaign_frozen.json、predictions_frozen.json。
+本段运行上下文：{folder}；ORDER：{order}。只允许新48个初始几何，14核1任务1组串行；每项最多12自适应+1插值，总624Analyze。固定10–11万目标网格，可记录轻微超限至11.2万。
+1. 先检查真实进程/active/账本。终态完成后运行主目录review48.py --case CASE，独立核验证据和主次窗口/带宽。实际view_image看生成曲线后，本段acknowledge_review.py --run RUN --visual-reviewed --note真实观察。保留设计负例，shape/端口/网格异常要检查，不伪造达标。
+2. 前两个为N02_A14/N02_A18。两者真实看图ACK且数值链路/形状正常后，运行主目录prepare_batch.py --pilot-gate。没有此全局门槛不能启动第3项。每段继承自己的首两项审核门槛。
+3. 按ORDER用本段launch_one.py --case CASE，等待supervised_start证明确有hf3d14核1组与lifecycle observer。Python启动不等于求解开始。不重跑已有state。
+4. 本段6项全部ACK后，用主目录prepare_batch.py --batch 下一段号（最多8段）离线创建后继，再依次运行后继desktop_preflight.py、verify_live_hook.py、configure_projects.py --all、prepared_reopen.py、finalize_and_authorize.py及launch_one.py --case首项。不得在原求解仍运行时配置/并发启动新段。
+5. 跨段在后继真实启动后，记录本段末事件continuation_resolution为batch_complete（只表示本段），用本段phase_heartbeat.py stop停止旧心跳；后继有自己的hook。不要手动再发消息、重置发件箱或定时重算。
+6. 技术失败先读worker_error/创建时间/真实HFSS及缓存。每项最多一次技术恢复，继承已用网格与Analyze预算；能导出就不重新求解，不删工程锁。用户暂停/取消优先停心跳，不自动恢复。主目录PAUSE.json存在时不得求解。
+7. 正常仿真静默；完成/失败hook发本聊天。通知后5分钟无新真实求解才看read_thread，运行中继续等，中断且无审批/暂停则去重唤醒。
+8. 48项全部终态后整理源数据/科学标签/训练测试分别统计、预测误差和成本。测试集不能用于重训/挑模型；本批未优化的初始长度不是合格逆设计标签。新的模型评测/直接认证需另版本化，不自动加几何或直接频点。均匀数据完全分开；不称达到1000点同规模效果。
+9. 本段/整批完成都不重开已闭账B05/C9/原24项。整批完成写闭账并停各段心跳/监护，保留可见AEDT和全部数据。
+'''
+if __name__=='__main__':
+ p=argparse.ArgumentParser();p.add_argument('--batch',type=int);p.add_argument('--pilot-gate',action='store_true');a=p.parse_args()
+ assert bool(a.batch)!=a.pilot_gate
+ if a.pilot_gate:pilot_gate()
+ else:prepare(a.batch)

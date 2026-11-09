@@ -1,0 +1,15 @@
+from pathlib import Path
+from phase_control import *
+def reviewed_source(source,case):
+    source=Path(source).resolve()
+    row=next(r for r in read(HERE/'selected_sources.json')['cases'] if r['case']==case)
+    assert source==Path(row['source']).resolve()
+    for f,h in row['evidence_hashes'].items():assert sha(f)==h,f
+    p=read(source/'input.json');s=read(source/'state.json');a=read(source/'receiver_ack.json');e=read(source/'completion_event.json')
+    assert e['status']=='completed' and e['verified_success'] and e['target_thread_id']==TARGET
+    assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed']
+    assert a['event_sha256']==sha(source/'completion_event.json') and a['verification_sha256']==sha(source/'receiver_verification.json')
+    assert s['status']=='completed' and p['geometry']==s['geometry']==row['geometry'] and 100000<=s['actual_elements']<=112000
+    from case_reference import verify_reference
+    assert verify_reference(source)==s['reference_treatment']
+    return p,s,read(source/'response_metrics.json')

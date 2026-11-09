@@ -1,0 +1,33 @@
+"""One local cycle per failing PR18 case; cumulative history is never reset."""
+import sys
+from pathlib import Path
+from phase_control import HERE,BASE,ORIGINAL,PLAN,ORDER,PARENT,read,write,sha,now,status
+sys.path.insert(0,str(ORIGINAL))
+OLD=Path('J:/f8_261007');status_report=status
+STEPS=['probe_Ls1','probe_Lm','candidate']
+def job_name(n):
+    assert 1<=n<=3
+    return f'g{n+1:02d}_'+STEPS[n-1]
+def validate_geometry_budget(spec,path):
+    assert not (HERE/'closure.json').exists()
+    auth=read(HERE/'authorization.json'); ledger=read(HERE/'budget_ledger.json')
+    assert auth['execution_authorized'] and auth['cases']==ORDER and auth['extra_geometry_cap']==6
+    parent=read(PARENT/'budget_ledger.json')
+    assert len(parent['tasks'])==parent['new_geometry_reserved']==18
+    assert all(t['status']=='reviewed' for t in parent['tasks'])
+    for f,h in read(HERE/'parent_evidence.json')['hashes'].items():assert sha(f)==h
+    tasks=ledger['tasks'];assert len(tasks)==ledger['new_geometry_reserved']<=6
+    assert 18+len(tasks)<=30 and len(tasks)<=12 and ledger['new_cached_tasks_reserved']==0
+    assert spec['case'] in ORDER and spec['historical_geometry_attempts']==1
+    n=spec['new_phase_geometry_ordinal'];assert 1<=n<=3 and spec['role']==STEPS[n-1]
+    assert spec['phase_solve_ordinal_including_history']==1+n<=4
+    own=[t for t in tasks if t['case']==spec['case']]
+    assert len(own)==n and [t['new_phase_geometry_ordinal'] for t in own]==list(range(1,n+1))
+    assert all(t['status']=='reviewed' for t in tasks if t is not own[-1])
+    assert own[-1]['status']=='reserved' and own[-1]['input_sha256']==sha(path)
+    assert Path(own[-1]['path']).resolve()==Path(path).resolve()==Path(spec['input_path']).resolve()
+    assert Path(spec['run_dir']).resolve()==(BASE/spec['case']/job_name(n)).resolve()
+    initial=read(BASE/spec['case']/'g01_initial/input.json')['geometry']
+    assert all(spec['geometry'][k]==initial[k] for k in ['Wm','Ws','Ls2','Ls3'])
+    assert sha(HERE/'phase_geometry_worker.py')==spec['worker_sha256']
+    assert sha(ORIGINAL/'mesh_budget.py')==spec['controller_sha256']

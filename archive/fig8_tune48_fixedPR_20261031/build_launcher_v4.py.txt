@@ -1,0 +1,19 @@
+"""Versioned fix: duplicate-release guard is per runtime context, not all stages of one parent."""
+import ast,hashlib,json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+p=ROOT/'run_context_v3.py';s=p.read_text(encoding='utf-8')
+old="        assert not (ROOT/'releases').exists() or not any(p.stem.startswith(parent+'_') for p in (ROOT/'releases').glob('*.json')),'Existing release requires inspection'"
+new="        assert not has_release_for_context(ROOT/'releases',read(ctx/'plan.json')['cases']), 'Existing release in THIS context requires inspection'"
+assert s.count(old)==1;s=s.replace(old,new)
+needle='def gate(ctx):'
+s=s.replace(needle,"def has_release_for_context(folder,rows):\n    cases={r['case'] for r in rows}\n    return folder.exists() and any(p.stem in cases for p in folder.glob('*.json'))\n\n"+needle,1)
+s=s.replace("ROOT/'run_context_v3.py']","ROOT/'run_context_v3.py',ROOT/'run_context_v4.py',ROOT/'test_launch_context_v4.py']")
+s=s.replace("(ROOT,['test_tuning_contract'])","(ROOT,['test_tuning_contract','test_launch_context_v4'])")
+s=s.replace('launcher_version=3','launcher_version=4')
+dest=ROOT/'run_context_v4.py';assert not dest.exists();ast.parse(s);dest.write_text(s,encoding='utf-8')
+(ROOT/'launcher_v4_provenance.json').write_text(json.dumps(dict(source=str(p),source_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),
+    adapted=str(dest),adapted_sha256=hashlib.sha256(dest.read_bytes()).hexdigest(),
+    reason='Completed S/M probes must not forbid a distinct C1 context. Exact per-case release markers still cannot be reset/reused.',
+    original_frozen_files_unchanged=True,Analyze_added_by_this_fix=0),indent=2),encoding='utf-8')
+print(dest)

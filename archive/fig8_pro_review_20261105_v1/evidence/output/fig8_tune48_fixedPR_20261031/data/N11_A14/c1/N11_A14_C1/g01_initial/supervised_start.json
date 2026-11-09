@@ -1,0 +1,57 @@
+{
+  "at": "2026-10-30T19:04:47.305047+00:00",
+  "input_sha256": "c6368f5dd28850b28cbf615fbc8e4e8376e7823ee6f2f4d920048d5747526169",
+  "worker_pid": 84824,
+  "worker_created": 1793387046.4946475,
+  "worker_command": [
+    "D:\\uv\\python\\cpython-3.12.13-windows-x86_64-none\\python.exe",
+    "${WORKSPACE}\\output\\fig8_tune48_N11_A14_c1_20261031\\phase_geometry_worker.py",
+    "--spec",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A14\\c1\\N11_A14_C1\\g01_initial\\input.json"
+  ],
+  "actual_hf3d": [
+    {
+      "cmdline": [
+        "96840_6",
+        "96840_7",
+        "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_96840.pjt/",
+        "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 1 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+      ],
+      "pid": 96864,
+      "name": "hf3d.exe"
+    },
+    {
+      "pid": 98236,
+      "cmdline": [
+        "96840_3",
+        "96840_4",
+        "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_96840.pjt/",
+        "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 1 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+      ],
+      "name": "hf3d.exe"
+    }
+  ],
+  "active_stage": "supervised_geometry_adaptive",
+  "actual_elements": null,
+  "mcp_requests": [
+    {
+      "project_name": "N11_A14_C1_T48_N11_A14_C1_g01",
+      "design_name": "Wideband vertical transition",
+      "setup_name": "Setup19",
+      "port": 7990,
+      "concurrent_tasks": 1,
+      "cores_per_task": 14,
+      "blocking": false,
+      "timeout": 120
+    }
+  ],
+  "geometry": {
+    "Wm": 1.868639,
+    "Ws": 0.353497,
+    "Lm": 6.586226978578006,
+    "Ls1": 12.637445102864609,
+    "Ls2": 1.2569940000000002,
+    "Ls3": 1.7534969999999999
+  },
+  "actual_14core_single_group_observed": true
+}

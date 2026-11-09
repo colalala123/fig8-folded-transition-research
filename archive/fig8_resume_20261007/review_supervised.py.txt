@@ -1,0 +1,53 @@
+"""Prepare or write first-case release only from completed, observed evidence."""
+import argparse,json,re
+from pathlib import Path
+from guarded_pilot_queue import ROOT,HERE,read,sha,write,verify_result
+from pilot_worker import now
+from recovery_selection import resolve_attempt,validate_data
+
+def review():
+    p=read(ROOT/'production_protocol.json');plan=read(HERE/'resume_queue_plan.json')
+    assert read(ROOT/'pilot_queue_state.json')['status']=='supervised_review_required'
+    for f,h in p['implementation_hashes'].items():assert sha(f)==h
+    cases=[];evidence={};intervals=[]
+    for name in plan['supervised_first']:
+        result_file=ROOT/name/'design_result.json';result=verify_result(read(result_file))
+        assert result['status'] in ['accepted','failed'] and result['new_solves']>=1
+        assert result['total_phase_solves']<=8
+        row={'case':name,'status':result['status'],'reason':result['reason'],'new_solves':result['new_solves'],'runs':[]}
+        evidence[str(result_file)]=sha(result_file);evidence.update(result['evidence_hashes'])
+        for run in map(Path,result['new_iterations']):
+            s=read(run/'state.json');data=resolve_attempt(run,ROOT);m=validate_data(data)
+            assert (s['status']=='completed' or data!=run) and m['status']=='completed' and s['source_unchanged']
+            assert s['cad_verification']['passed'] and s['cores']==16 and s['tasks']==1
+            assert s['settings']==read(Path(p['baseline_run'])/'manifest.json')['settings']
+            assert s['mcp_response']['resource_plan']['cores_per_task']==16 and s['mcp_response']['resource_plan']['concurrent_tasks']==1
+            matrix=read(data/'normalization_recovery_review.json');ports=read(data/'port_review.json')
+            assert matrix['passed'] and ports['passed']
+            assert sha(data/'normalization_recovery_review.json')==m['normalization_recovery_review_sha256']
+            assert sha(data/'port_review.json')==m['port_review_sha256']
+            for f,h in matrix['evidence_hashes'].items():assert sha(f)==h
+            observed=run/'observed_solver_commands.json';obs=read(observed)
+            assert obs['case']==name and obs['observations'],'No actual resource observations'
+            for sample in obs['observations']:
+                assert len(sample['processes'])==1,'Multiple simultaneous HFSS solvers require review'
+                command=' '.join(sample['processes'][0]['cmdline'])
+                assert re.search(r'-max_processors\s+16(?:\s|$)',command)
+                assert re.search(r'-numParallelGroups\s+1(?:\s|$)',command)
+                assert sample['project']==s['project']
+            finished=s['finished_at_utc'] if data==run else read(run/'recovery_acceptance.json')['finished_at_utc']
+            intervals.append((s['started_at_utc'],finished,str(run)))
+            for f in [observed,run/'state.json',data/'normalization_recovery_review.json',data/'port_review.json']:evidence[str(f)]=sha(f)
+            row['runs'].append({'run':str(run),'data_run':str(data),'passivity_violations':matrix['passivity_violations'],'max_sv':matrix['max_sv'],'reciprocity_error':matrix['reciprocity_error'],'observations':len(obs['observations'])})
+        cases.append(row)
+    intervals.sort()
+    assert all(a[1]<=b[0] for a,b in zip(intervals,intervals[1:])),'Solve intervals overlap'
+    return {'passed':True,'cases':plan['supervised_first'],'details':cases,'protocol_sha256':sha(ROOT/'production_protocol.json'),'evidence_hashes':evidence,'reviewed_at_utc':now(),'scope':'Initial supervised execution checks only; remaining cases and corner modes not declared complete.'}
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--write',action='store_true');a=parser.parse_args()
+    result=review()
+    if a.write:
+        dest=ROOT/'supervised_first_review.json';assert not dest.exists();write(dest,result)
+    print(json.dumps(result,indent=2))
+if __name__=='__main__':main()

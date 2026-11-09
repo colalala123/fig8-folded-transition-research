@@ -1,0 +1,34 @@
+"""Invert the empirical P/R equations for INNER PEAK and S21-only bandwidth.
+
+This is NOT the all-band -20dB tool (use model.py for that). Inputs must never
+be relabeled as -20dB joint bandwidth; forward spectrum verification is included.
+"""
+import argparse
+import json
+import numpy as np
+from model import HERE,read,write,widths,propose,Forward,intervals,center_band
+
+def solve(peak,bw,arm):
+    if arm not in (1.4,1.8):raise ValueError('Use validated arm1.4 or1.8')
+    v=read(HERE/'validation.json')['descriptive_formulas']
+    a=np.array(v['worse_inner_peak_dB']['coefficients'])
+    b=np.array(v['transmission2_BW_GHz']['coefficients'])
+    mat=np.array([a[1:3],b[1:3]])
+    logp,logr=np.linalg.solve(mat,[peak-a[0]-a[3]*(arm-1.6),bw-b[0]-b[3]*(arm-1.6)])
+    p,r=np.exp([logp,logr]);wm,ws=widths(p,r)
+    geo=propose(wm,ws,arm);q=Forward(read(HERE/'dataset.json')['rows']).predict(wm,ws,arm)
+    return dict(target_inner_worse_peak_dB=peak,target_S21_minus2_bandwidth_GHz=bw,P=float(p),R=float(r),
+                geometry_mm=geo['geometry_mm'],a_mm=arm,g_mm=.55,
+                predicted_joint20_center_band_GHz=center_band(intervals(q['f'],q['s11'],q['s21'])),
+                equation_condition_number=float(np.linalg.cond(mat)),HFSS_verified=False,
+                caveat='Empirical local formula only. Peak target and S21 bandwidth are NOT a guaranteed joint20 band.',
+                dimension_screen=geo['dimension_screen'],length_parents=geo['length_parents'])
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser(description=__doc__);ap.add_argument('--peak',type=float,required=True)
+    ap.add_argument('--transmission-bw',type=float,required=True);ap.add_argument('--arm',type=float,default=1.8)
+    ap.add_argument('--out');args=ap.parse_args()
+    try:d=solve(args.peak,args.transmission_bw,args.arm)
+    except ValueError as e:ap.error(str(e))
+    if args.out:write(args.out,d)
+    print(json.dumps(d,ensure_ascii=False,indent=2))

@@ -1,0 +1,43 @@
+"""New bounded engineering budget. Never reuses the closed48 acquisition budget."""
+import hashlib,json,shutil
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def validate_campaign(extra_analyze=0,case=None,storage=False):
+    assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'closure.json').exists()
+    plan=read(ROOT/'campaign.json');assert plan['width_changes_authorized'] is False
+    assert plan['target']==dict(f_low_GHz=3.92,f_high_GHz=9.52,BW_GHz=5.6,S11_max_dB=-20,S21_min_dB=-2)
+    assert sha(plan['baseline_index'])==plan['baseline_index_sha256']
+    registry=read(ROOT/'runtime_registry.json');parents={r['case']:r for r in read(plan['baseline_index'])['rows']}
+    counts={};by_parent={};started=0;declared=0;seen=set()
+    for entry in registry['contexts']:
+        ctx=Path(entry['context']);assert sha(ctx/'plan.json')==entry['plan_sha256']
+        for row in read(ctx/'plan.json')['cases']:
+            c=row['case'];assert c not in seen;seen.add(c);declared+=1
+            parent=row['parent_case'];base=parents[parent];g=row['geometry'];bg=base['geometry_mm']
+            assert parent in plan['tuning_order'] and row['target']==plan['target']
+            assert all(g[k]==bg[k] for k in ['Wm','Ws','Ls2','Ls3']), 'P/R/a/g must remain fixed'
+            assert abs(g['Ls1']-bg['Ls1'])<=.200000001 and abs(g['Lm']-bg['Lm'])<=.100000001
+            assert row['P_nominal']==base['P_nominal'] and row['R_nominal']==base['R_nominal']
+            by_parent[parent]=by_parent.get(parent,0)+1;assert by_parent[parent]<=4
+            run=Path(row['run_dir']);assert run.resolve().is_relative_to((ROOT/'data').resolve())
+            n=0
+            if (run/'state.json').exists():
+                s=read(run/'state.json');assert s['case']==c and s['geometry']==g
+                seg=s.get('segments',[]);n=len(seg);started+=1
+                assert n<=13 and sum(bool(x['adaptive_requested']) for x in seg)<=12 and sum(not x['adaptive_requested'] for x in seg)<=1
+                assert all(x['mcp_request']['cores_per_task']==14 and x['mcp_request']['concurrent_tasks']==1 for x in seg)
+            counts[c]=n
+    assert declared<=172 and extra_analyze in (0,1) and (not extra_analyze or case in counts)
+    if case:assert case in counts and counts[case]+extra_analyze<=13
+    assert sum(counts.values())+extra_analyze<=2236
+    if storage:
+        free=shutil.disk_usage(ROOT).free/1024**3
+        assert free>=(172-started)*.75+19, f'F capacity admission failed: {free:.2f}GiB'
+        temporary=Path(plan['temp'])
+        assert shutil.disk_usage(temporary if temporary.exists() else temporary.anchor).free/1024**3>15,'D temporary free space below15GiB'
+    return dict(geometries_started=started,new_geometries_declared=declared,geometry_cap=172,Analyze_used=sum(counts.values()),Analyze_cap=2236,
+       per_case_Analyze=counts,per_parent_declared=by_parent,cores=14,tasks=1,serial=True,historical_acquisition_budget_not_reused=True)
+
+if __name__=='__main__':print(validate_campaign(storage=True))

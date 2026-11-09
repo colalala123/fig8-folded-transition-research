@@ -1,0 +1,17 @@
+from pathlib import Path
+import json
+from ansys.aedt.core import Hfss
+P=Path(r'F:\hfss_f8x_261002\R_tri_align\R_tri_align.aedt')
+app=Hfss(project=str(P),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ out={}
+ for name in ['1','2']:
+  b=next(x for x in app.boundaries if x.name==name)
+  b.props._setitem_without_update('UseLineModeAlignment',True)
+  b.props._setitem_without_update('UseAnalyticAlignment',True)
+  # Put all three modes in the same explicit alignment group.
+  for m in ['Mode1','Mode2','Mode3']:
+   b.props['Modes'][m]._setitem_without_update('AlignmentGroup',1)
+  ok=b.update(); out[name]={'updated':ok,'UseLineModeAlignment':b.props.get('UseLineModeAlignment'),'UseAnalyticAlignment':b.props.get('UseAnalyticAlignment'),'groups':{m:b.props['Modes'][m].get('AlignmentGroup') for m in ['Mode1','Mode2','Mode3']}}
+ app.save_project(); print(json.dumps(out,indent=2,default=str))
+finally: app.release_desktop(close_projects=False,close_desktop=False)

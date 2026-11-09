@@ -1,0 +1,187 @@
+import asyncio
+import copy
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import AsyncMock, patch
+import phase_heartbeat as hb
+from phase_heartbeat_transport import classify
+
+
+class HeartbeatTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory(); self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name); run = self.root / 'run'; run.mkdir()
+        cfg = self.root / 'config.json'
+        hb.hook.init_config(cfg, 'offline-test')
+        hb.write(run / 'result.json', {'synthetic': True})
+        self.event = hb.hook.create_event(run, 'completed', 'Offline test', ['result.json'],
+            config=hb.hook.load_config(cfg), verified_success=True)
+        self.s = {'event_path': str(self.event), 'event_sha256': hb.sha(self.event),
+                  'target_thread_id': 'offline-test', 'enabled': True, 'next_check_epoch': 300,
+                  'expires_epoch': 99999, 'max_reminders': 3, 'attempts': []}
+        hb.write(self.root / 'monitor.json', self.s)
+        self.clock = 300
+        self.status = AsyncMock(return_value={'state': 'stopped', 'turn_id': 't1'})
+        self.send = AsyncMock(return_value={'state': 'accepted'})
+        self.progress = lambda s: {'stop': False, 'reason': 'no_solver'}
+
+    async def tick(self):
+        return await hb.tick(root=self.root, progress_fn=self.progress, status_fn=self.status,
+                             send_fn=self.send, clock=lambda: self.clock)
+
+    async def test_wait_full_five_minutes(self):
+        self.clock = 299; self.assertEqual((await self.tick())['status'], 'not_due')
+        self.status.assert_not_awaited(); self.send.assert_not_awaited()
+
+    async def test_running_waits_another_five_minutes(self):
+        self.status.return_value = {'state': 'running', 'turn_id': 't1'}
+        r = await self.tick(); self.assertEqual(r['status'], 'waiting_ai')
+        self.assertEqual(r['next_check_epoch'], 600); self.send.assert_not_awaited()
+
+    async def test_stopped_sends_once_and_original_unchanged(self):
+        before = self.event.read_bytes(); r = await self.tick()
+        self.assertEqual(r['status'], 'continuation_requested')
+        self.clock = 600; r = await self.tick()
+        self.assertEqual(r['status'], 'same_terminal_turn_no_resend')
+        self.send.assert_awaited_once(); self.assertEqual(self.event.read_bytes(), before)
+
+    async def test_network_error_does_not_mean_interruption(self):
+        self.status.side_effect = TimeoutError('synthetic network error')
+        r = await self.tick(); self.assertEqual(r['status'], 'inspection_error_wait')
+        self.assertTrue(r['enabled']); self.send.assert_not_awaited()
+
+    async def test_new_simulation_stops_without_query(self):
+        self.progress = lambda s: {'stop': True, 'reason': 'new_simulation_running'}
+        self.assertFalse((await self.tick())['enabled']); self.status.assert_not_awaited()
+
+    async def test_pause_stops_without_send(self):
+        self.progress = lambda s: {'stop': True, 'reason': 'paused'}
+        self.assertEqual((await self.tick())['status'], 'paused'); self.send.assert_not_awaited()
+
+    async def test_unknown_state_not_sent(self):
+        self.status.return_value = {'state': 'unknown'}
+        self.assertEqual((await self.tick())['status'], 'status_unknown_wait'); self.send.assert_not_awaited()
+
+    async def test_waiting_approval_not_sent(self):
+        self.status.return_value = {'state': 'attention'}
+        self.assertEqual((await self.tick())['status'], 'waiting_user'); self.send.assert_not_awaited()
+
+    async def test_ai_resumes_before_send(self):
+        self.status.side_effect = [{'state': 'stopped', 'turn_id': 't1'}, {'state': 'running', 'turn_id': 't2'}]
+        self.assertEqual((await self.tick())['status'], 'changed_before_send_wait'); self.send.assert_not_awaited()
+
+    async def test_solver_starts_before_send(self):
+        calls = iter([{'stop': False}, {'stop': True}]); self.progress = lambda s: next(calls)
+        self.assertEqual((await self.tick())['status'], 'changed_before_send_wait'); self.send.assert_not_awaited()
+
+    async def test_three_reminder_budget(self):
+        for i in range(3):
+            self.clock = 300 * (i+1); self.status.return_value = {'state': 'stopped', 'turn_id': str(i)}
+            await self.tick()
+        self.clock = 1200
+        self.assertEqual((await self.tick())['status'], 'reminder_limit_needs_review')
+        self.assertEqual(self.send.await_count, 3)
+
+    async def test_uncertain_delivery_stops(self):
+        self.send.side_effect = TimeoutError('uncertain send')
+        self.assertFalse((await self.tick())['enabled'])
+        self.clock = 600; await self.tick(); self.send.assert_awaited_once()
+
+    async def test_crash_after_reservation_not_resent(self):
+        self.s['attempts'] = [{'turn_id': 'old', 'outcome': 'reserved'}]
+        hb.write(self.root / 'monitor.json', self.s)
+        self.assertEqual((await self.tick())['status'], 'delivery_uncertain_needs_review')
+        self.send.assert_not_awaited()
+
+    async def test_modified_event_never_sends(self):
+        self.event.write_text('{}', encoding='utf-8')
+        self.assertEqual((await self.tick())['status'], 'inspection_error_wait'); self.send.assert_not_awaited()
+
+    async def test_expiry_needs_review(self):
+        self.clock = 100000
+        self.assertEqual((await self.tick())['status'], 'expired_needs_review'); self.send.assert_not_awaited()
+
+    def test_os_mutex_prevents_parallel_ticks(self):
+        with hb.mutex(self.root):
+            with self.assertRaises(OSError):
+                with hb.mutex(self.root): pass
+
+    def test_no_daemon_during_disabled_simulation_watch(self):
+        self.s.update(enabled=False, status='new_simulation_running')
+        hb.write(self.root / 'monitor.json', self.s)
+        with patch.object(hb.subprocess, 'Popen') as spawn:
+            self.assertFalse(hb.ensure_daemon(self.root)['started'])
+        spawn.assert_not_called()
+
+    def test_first_registration_from_configuration_placeholder_and_idempotent(self):
+        cfg=hb.hook.load_config(self.root/'config.json')
+        placeholder={'enabled':False,'status':'not_armed_configuration_only','attempts':[]}
+        hb.write(self.root/'monitor.json',placeholder)
+        old_hash=hb.sha(self.root/'monitor.json')
+        with patch.object(hb.hook,'load_config',return_value=cfg), patch.object(hb.time,'time',return_value=1000):
+            first=hb.register(self.event,root=self.root)
+        self.assertTrue(first['enabled'])
+        self.assertEqual(first['next_check_epoch'],1300)
+        self.assertEqual(hb.read(self.root/'archive'/('unarmed-'+old_hash+'.json')),placeholder)
+        with patch.object(hb.hook,'load_config',return_value=cfg), patch.object(hb.time,'time',return_value=2000):
+            repeat=hb.register(self.event,root=self.root)
+        self.assertEqual(first,repeat)
+
+    async def test_failed_completion_delivery_does_not_arm_watch(self):
+        import phase_geometry_publish as adapter
+        with patch.object(adapter, 'read', return_value={'execution_authorized':True}), \
+             patch.object(adapter.hook, 'load_config', return_value={'default_thread_id':adapter.TARGET,'authorized_threads':[adapter.TARGET]}), \
+             patch.object(adapter.hook, 'deliver', AsyncMock(side_effect=TimeoutError('offline'))), \
+             patch.object(hb, 'arm') as arm:
+            with self.assertRaises(TimeoutError):
+                await adapter.publish(self.event.parent, 'P01G05', 'completed', 'test', [])
+        arm.assert_not_called()
+
+
+class ClassifierTests(unittest.TestCase):
+    def test_legacy_direct_binding_requires_live_exact_worker_and_project(self):
+        run = Path(tempfile.gettempdir()) / 'synthetic_direct'
+        spec = {'role': 'cached_candidate_direct', 'project_name': 'test'}
+        st = {'project': str(run / 'test.aedt')}
+        self.assertEqual(hb.bind_direct_state(st, spec, 'sha', run, True)['input_sha256'], 'sha')
+        self.assertNotIn('input_sha256', st)  # no mutation of solver-owned state
+        self.assertNotIn('input_sha256', hb.bind_direct_state(st, spec, 'sha', run, False))
+        self.assertNotIn('input_sha256', hb.bind_direct_state(st, spec, 'sha', run / 'other', True))
+        changed = {**st, 'input_sha256': 'wrong'}
+        self.assertEqual(hb.bind_direct_state(changed, spec, 'sha', run, True)['input_sha256'], 'wrong')
+
+    def test_recorded_start_survives_no_current_child(self):
+        run = Path(tempfile.gettempdir()) / 'synthetic_hfss'
+        state = {'input_sha256': 'sha', 'project': str(run / 'test.aedt'), 'segments': [
+            {'mcp_response': {'started': True}, 'observations': [[{'name': 'hf3d.exe',
+              'cmdline': ['-solve_broadband_adapt -max_processors 16 -numParallelGroups 1']}]]}]}
+        self.assertTrue(hb.has_recorded_solver_start(state, 'sha', run))
+        self.assertFalse(hb.has_recorded_solver_start(state, 'different', run))
+        self.assertFalse(hb.has_recorded_solver_start(state, 'sha', run / 'other'))
+        state['segments'][0]['observations'] = []
+        self.assertFalse(hb.has_recorded_solver_start(state, 'sha', run))
+
+    def test_preparing_or_mcp_only_is_not_solve(self):
+        run = Path(tempfile.gettempdir()) / 'synthetic_hfss'
+        state = {'input_sha256': 'sha', 'project': str(run / 'test.aedt'), 'segments': []}
+        self.assertFalse(hb.has_recorded_solver_start(state, 'sha', run))
+        state['segments'] = [{'mcp_response': {'started': True}}]
+        self.assertFalse(hb.has_recorded_solver_start(state, 'sha', run))
+
+    def test_status_matrix(self):
+        data = {'thread': {'status': {'type': 'idle', 'activeFlags': []}},
+                'turns': [{'id': 'test', 'status': 'completed'}]}
+        self.assertEqual(classify(data)['state'], 'stopped')
+        for status in ('failed', 'interrupted'):
+            data['turns'][0]['status'] = status
+            self.assertEqual(classify(data)['state'], 'stopped')
+        data['thread']['status']['type'] = 'active'
+        self.assertEqual(classify(data)['state'], 'unknown')
+        data['turns'][0]['status'] = 'inProgress'
+        self.assertEqual(classify(data)['state'], 'running')
+        data['thread']['status']['activeFlags'] = ['waitingOnApproval']
+        self.assertEqual(classify(data)['state'], 'attention')
+
+
+if __name__ == '__main__': unittest.main()

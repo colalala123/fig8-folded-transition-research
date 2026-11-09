@@ -1,0 +1,57 @@
+"""Freeze a geometry-to-response prediction before G035 is solved."""
+import csv
+import hashlib
+import json
+import sys
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+import numpy as np
+
+WORK=Path('${WORKSPACE}')
+ROOT=Path('F:/hfss_f8_261002')
+sys.path.insert(0,str(WORK/'output/folded_simulation_plan_20260920'))
+from response_metrics import analyze
+
+def digest(path): return hashlib.sha256(path.read_bytes()).hexdigest()
+
+def features(path):
+    metrics=analyze(path)
+    with path.open(encoding='utf-8-sig',newline='') as handle:
+        data=list(csv.DictReader(handle))
+    frequency=np.array([float(r['Freq_GHz']) for r in data])
+    s21db=np.array([float(r['S21_dB']) for r in data])
+    return {'BW_2dB_GHz':metrics['passband_2dB']['BW_GHz'],
+            'f_low_GHz':metrics['passband_2dB']['f_low_GHz'],
+            'f_high_GHz':metrics['passband_2dB']['f_high_GHz'],
+            'signed_peak_difference_dB':metrics['signed_peak_difference_dB'],
+            'peak_level_dB':metrics['peak_level_dB'],
+            'central_valley_GHz':metrics['central_valley_GHz'],
+            'S21_at_9p5GHz_dB':float(np.interp(9.5,frequency,s21db))}
+
+def main():
+    output=ROOT/'G035_prediction_frozen.json'
+    if output.exists():raise FileExistsError('Preserve the frozen prediction.')
+    if (ROOT/'G035/sparams.csv').exists():raise RuntimeError('G035 already exported: prospective freezing is no longer allowed.')
+    training=[]
+    for case,gap,relative in [('B0',0.455330,'B0_rerun_20260923'),('G2',0.75,'G2')]:
+        path=Path('F:/hfss_fold_260920')/relative/'sparams.csv'
+        training.append({'case':case,'gap_mm':gap,'curve':str(path),'sha256':digest(path),'features':features(path)})
+    low,high=training
+    target=0.35
+    slopes={k:(high['features'][k]-low['features'][k])/(high['gap_mm']-low['gap_mm']) for k in low['features']}
+    prediction={k:low['features'][k]+slopes[k]*(target-low['gap_mm']) for k in slopes}
+    data={'frozen_at':datetime.now(timezone(timedelta(hours=8))).isoformat(timespec='seconds'),
+          'model':'Local linear geometry-response model using historical B0 and G2 only.',
+          'domain':'Fixed Wm/Ws/Lm/fold arm, geometrical path compensated by Ls1.',
+          'target_case':'G035','target_gap_mm':target,'target_curve_existed_at_freeze':False,
+          'target_is_extrapolation_below_training_gap':True,
+          'training':training,'slopes_per_mm':slopes,'prediction':prediction,
+          'screening_tolerances_not_physical_guarantees':{
+              'BW_2dB_GHz':0.05,'f_low_GHz':0.05,'f_high_GHz':0.05,
+              'signed_peak_difference_dB':0.30,'central_valley_GHz':0.03,
+              'peak_level_dB':0.30,'S21_at_9p5GHz_dB':0.10},
+          'limitations':'One prospective geometry check can validate a local correction only; it cannot establish a universal P/R law or radiation mechanism.'}
+    output.write_text(json.dumps(data,indent=2,ensure_ascii=False)+'\n',encoding='utf-8')
+    print(json.dumps({'frozen_at':data['frozen_at'],'prediction':prediction},indent=2))
+
+if __name__=='__main__':main()

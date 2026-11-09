@@ -1,0 +1,22 @@
+import unittest
+import numpy as np
+from pathlib import Path
+import phase_control as pc
+from case_reference import native_matrix,table,validate_native,transform
+
+class ReferenceTests(unittest.TestCase):
+    def test_selected_legacy_curves_are_native(self):
+        rows=pc.read(pc.HERE.parent/'fig8_remediation_B_20261025/deliverables/effective_all24_results.json')['rows']
+        for case in ['D04G02','D01G02','D12G05']:
+            run=Path(next(r for r in rows if r['case']==case)['selected_run']);f,s,z=native_matrix(run);validate_native(f,s,run/'sparams.csv')
+    def test_legacy_D12_50ohm_is_separate(self):
+        run=Path('J:/f8_261007/D12G05/i06');f,s,z=native_matrix(run);d=np.load(run/'scalar_reference_50ohm.npz')
+        self.assertLess(float(abs(transform(s,z)-d['S']).max()),1e-10)
+    def test_equal50ohm_identity(self):
+        s=np.eye(4,dtype=complex)[None,:,:]*.2;z=np.full((1,4),50+0j)
+        self.assertTrue(np.allclose(transform(s,z),s,atol=1e-14))
+    def test_nonfinite_rejected(self):
+        s=np.zeros((1,4,4),complex);s[0,0,0]=complex('nan')
+        with self.assertRaises(AssertionError):transform(s,np.full((1,4),50+0j))
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,22 @@
+import unittest
+import numpy as np
+from blind_direct_science import cross,edge_points,make_plan,compare_arrays
+class Tests(unittest.TestCase):
+ def test_cross_no_extrapolation(self):self.assertEqual(cross(np.array([1.,2.]),np.array([1.,2.])),[])
+ def test_cross(self):self.assertEqual(cross(np.array([1.,2.]),np.array([1.,-1.])),[1.5])
+ def test_nested_edge_points(self):
+  p=edge_points(8.38096);self.assertEqual(len(p),4);self.assertAlmostEqual(p[2]-p[1],.01)
+ def fixture(self):
+  f=np.arange(1,1501)/100
+  d=np.zeros(len(f),dtype=[(k,float) for k in ['Freq_GHz','S11_dB','S21_dB','S11_real','S11_imag','S21_real','S21_imag']]);d['Freq_GHz']=f;d['S11_dB']=-25;d['S21_dB']=-1;d['S11_real']=10**(-25/20);d['S21_real']=10**(-1/20)
+  met=dict(peaks=[dict(frequency_GHz=5),dict(frequency_GHz=8)],central_valley_GHz=6.72,passband_2dB=dict(f_low_GHz=3,f_high_GHz=10))
+  tar=dict(f_low_GHz=4.22,f_high_GHz=9.22)
+  return d,met,tar
+ def test_planner_budget_and_target_endpoints(self):
+  d,m,t=self.fixture();p=make_plan(d,m,t,[3.8,9.7,5.9]);self.assertLessEqual(len(p['requested_frequencies_GHz']),24)
+  for x in [4.22,9.22]:self.assertIn(x,p['requested_frequencies_GHz'])
+ def test_direct_violation_not_hidden_by_dense_pass(self):
+  d,m,t=self.fixture();p=make_plan(d,m,t,[None,None,0]);freq=p['requested_frequencies_GHz'];b=d[np.rint(np.array(freq)*100).astype(int)-1].copy();b['S11_dB'][np.argmin(abs(b['Freq_GHz']-5))]=-19.9
+  limits=dict(max_complex_error=.005,max_inband_S21_error_dB=.05,max_peak_error_dB=.1,max_edge_shift_GHz=.02,max_BW_shift_GHz=.02)
+  r=compare_arrays(d,b,m,p,limits);self.assertTrue(r['dense_target_covered']);self.assertTrue(r['target_finite_direct_failure_confirmed']);self.assertFalse(r['sampled_design_supported'])
+if __name__=='__main__':unittest.main()

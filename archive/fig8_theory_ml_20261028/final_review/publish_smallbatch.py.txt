@@ -1,0 +1,13 @@
+from phase_control import HERE,read,write,now
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(HERE/'hook/config.json');path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Bounded C9 corrected design same-mesh direct review, no adaptive')
+    def prompt(e,p):return f'[Fig8校正结果直接复核] {p}\n{summary}\n先读{HERE/"CONTINUATION.md"}。实际核验/看图/ACK后继续唯一后继。首轮24点6批，预留8点2批，32点8批总上限。直接违例保留，不能凑全部达标或改原盲测。'
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as e:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(e)))
+    return receipt

@@ -1,0 +1,33 @@
+import asyncio,json,traceback,shutil
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+from pilot_worker import write_json,now,sha,plain
+ROOT=Path('F:/hfss_f8x_261002');RUN=ROOT/'R_B0_rebuild_max500';NAME=RUN.name;PORT=12704
+def attach(): return Hfss(project=str(RUN/(NAME+'.aedt')),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+async def main():
+ if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])): raise RuntimeError('Solver active')
+ snap=RUN/(NAME+'.before_noportimp.aedt');shutil.copy2(RUN/(NAME+'.aedt'),snap)
+ m={'status':'preparing','started_at_utc':now(),'project':str(RUN/(NAME+'.aedt')),'snapshot':str(snap),'cores':16,'tasks':1,'diagnostic_only':True,'rationale':'Fixed 0.1% tolerance and 500 max basis; disable only InterpUsePortImped to isolate Loewner convergence path. Passivity remains enabled at 0.0001.'}
+ app=attach()
+ try:
+  setup=app.get_setup('ModalRepair')
+  for s in setup.sweeps:
+   if s.name=='SweepRepair500': s.props['IsEnabled']=False;assert s.update()
+  sw=setup.add_sweep('SweepRepairNoPortImp','Interpolating');sw.props.update({'RangeType':'LinearStep','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz','InterpTolerance':.1,'InterpMaxSolns':500,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':False,'InterpUsePropConst':True,'UseFullBasis':True,'EnforcePassivity':True,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SaveFields':True,'SaveRadFields':False});assert sw.update();m['sweep']=plain(sw.props);m['messages_before']=list(app.odesktop.GetMessages(NAME,app.design_name,0));app.save_project();write_json(RUN/'repair_noportimp_manifest.json',m)
+ finally: app.release_desktop(close_projects=False,close_desktop=False)
+ m['mcp_start']=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120});assert m['mcp_start'].get('started');m['status']='solving';write_json(RUN/'repair_noportimp_manifest.json',m)
+ while True:
+  await asyncio.sleep(30);st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','port':PORT,'timeout':120})
+  if not st.get('running'): break
+ app=attach()
+ try:
+  m['messages']=list(app.odesktop.GetMessages(NAME,app.design_name,0));m['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in s for s in m['messages']);m['nonpassive_warning']=any('non passive' in s.lower() or 'passivity cannot' in s.lower() for s in m['messages']);m['new_messages']=[s for s in m['messages'] if s not in m['messages_before']]
+  for norm in (False,True): assert app.export_touchstone(setup='ModalRepair',sweep='SweepRepairNoPortImp',output_file=str(RUN/('hfss_50ohm_noportimp.s6p' if norm else 'hfss_native_noportimp.s6p')),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+  m['source_unchanged']=True;m['status']='exported_needs_review';m['finished_at_utc']=now();app.save_project();write_json(RUN/'repair_noportimp_manifest.json',m)
+ finally: app.release_desktop(close_projects=False,close_desktop=False)
+if __name__=='__main__':
+ try: asyncio.run(main())
+ except Exception:
+  (RUN/'repair_noportimp_error.txt').write_text(traceback.format_exc(),encoding='utf-8');raise

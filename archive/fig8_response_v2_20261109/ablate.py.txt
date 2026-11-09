@@ -1,0 +1,12 @@
+from models import *
+pp=np.full_like(Y,np.nan);pas=np.zeros(len(rows),bool);scores={};searches=[]
+for k,(tr,va) in enumerate(folds(dev,6)):
+ c,search=choose(tr,'C0');m=fit(tr,'C0',c);searches.append({'fold':k,'config':c,'search':search})
+ for i,z in zip(va,decode(predict(m,X[va]))):
+  q=label(f,z);scores[str(i)]=q;pp[i]=[q.get(key,float('nan')) for key in LABELS];pas[i]=q['passed']
+ print('C0',k,c,flush=True)
+valid=dev[np.isfinite(pp[dev]).all(axis=1)];s=stats(valid,pp[valid],pas[valid]);s['shape_failures']=len(dev)-len(valid);s['unconditional_false_passes']=int((pas[dev]&~truth[dev]).sum())
+write('CURVE_ABLATION.json',{'metrics':s,'searches':searches,'oof':[{'case':rows[i]['case'],'score':scores[str(i)]} for i in dev],'reason':'same curve output and nested folds, removes length features only; added to separate representation improvement from length improvement'})
+c=read(ROOT/'METRICS.json')['C'];gate=c['family_balanced_MAE']['worst_S11_dB']<=.9*s['family_balanced_MAE']['worst_S11_dB'] and c['unconditional_false_passes']<=s['unconditional_false_passes'] and c['shape_failures']==0
+write('CURVE_GATE.json',{'eligible':bool(gate),'C0_metrics':s,'C_metrics':c,'criterion':'same representation length ablation, >=10% worstS11 error improvement and no more false passes'})
+print('GATE',gate,'C0',s,flush=True)

@@ -1,0 +1,62 @@
+"""Finish only D04's approved numerical recovery, never start pilot tuning.
+
+Waits for the currently active direct fill, checks its evidence, then runs the
+small upper-tail check serially and assembles a separate review candidate.
+"""
+import argparse,os,subprocess,sys,time,traceback
+from pathlib import Path
+import psutil
+from broadband_recovery import ROOT,HERE,read,write_json,sha,now
+
+BASE=ROOT/'local_repair/D04G05';RUN=BASE/'recovery_flow';STATE=RUN/'state.json'
+
+def save(**updates):
+    s=read(STATE) if STATE.exists() else {}
+    s.update(updates,pid=os.getpid(),updated_at_utc=now());write_json(STATE,s)
+
+def fill_processes():
+    result=[]
+    for p in psutil.process_iter(['pid','name','cmdline']):
+        try:
+            if (p.info['name'] or '').lower()=='python.exe' and any('run_recovery_fill.py' in x for x in p.info['cmdline'] or []):
+                result.append(p.info['pid'])
+        except (psutil.NoSuchProcess,psutil.AccessDenied):pass
+    return result
+
+def main():
+    assert not STATE.exists(),'An existing recovery flow must be inspected before any restart'
+    assert not (ROOT/'pilot_queue.lock').exists()
+    active=fill_processes();assert active,'The specific direct-fill controller must be live'
+    RUN.mkdir(exist_ok=True)
+    save(status='waiting_for_direct_fill',observed_fill_pids=active,started_at_utc=now(),
+        scope='D04G05 numerical recovery only; no new geometry, no pilot dispatch, no production approval.')
+    try:
+        while not (BASE/'recovery_fill/fill_review.json').exists():
+            s=read(BASE/'recovery_fill/local_state.json')
+            if s['status']=='review_required':raise RuntimeError('Direct fill requires review; no further dispatch')
+            if not fill_processes():raise RuntimeError('Direct fill exited before review; recover exports, do not repeat solve')
+            save(status='waiting_for_direct_fill',observed_fill_pids=fill_processes())
+            time.sleep(15)
+        review=read(BASE/'recovery_fill/fill_review.json')
+        assert review['passed'] and review['mesh_reuse_verified']
+        for f,h in review['evidence_hashes'].items():assert sha(f)==h
+        assert not (ROOT/'protocol.lock').exists()
+        save(status='checking_upper_tail',fill_review_sha256=sha(BASE/'recovery_fill/fill_review.json'))
+        rc=subprocess.call([sys.executable,str(HERE/'run_recovery_upper.py'),'--run'],cwd='${WORKSPACE}')
+        if rc:raise RuntimeError(f'Upper-tail check exited {rc}; retain results for review')
+        upper=read(BASE/'upper_segment/upper_review.json')
+        assert upper['matrix_passed'] and upper['all_sample_full_matrix_errors_le_0p005'] and upper['mesh_reuse_verified']
+        save(status='assembling_review_candidate')
+        rc=subprocess.call([sys.executable,str(HERE/'assemble_d04_recovery.py')],cwd='${WORKSPACE}')
+        if rc:raise RuntimeError(f'Assembly exited {rc}; inspect existing exports')
+        result=read(ROOT/'D04G05/i00/verified_recovery/recovery_candidate_review.json')
+        assert result['numerical_and_port_passed'] and result['seams_passed']
+        save(status='candidate_ready_protocol_review_required',finished_at_utc=now(),
+            candidate_run=result['candidate_run'],production_approved=False)
+    except Exception:
+        save(status='review_required',error=traceback.format_exc());raise
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--run',action='store_true');a=p.parse_args()
+    if a.run:main()
+    else:print('Dry-run: wait for current direct fill, check upper tail, assemble separate D04 candidate; no pilot dispatch.')

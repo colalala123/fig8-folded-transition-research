@@ -1,0 +1,274 @@
+{
+  "scope": "Fig8 only; six-pole deferred",
+  "parent_data": "Fresh five-case simulations",
+  "method": "Historical B0 local 2x2 Jacobian, applied as a bounded initial correction.",
+  "jacobian_rows": [
+    "signed_peak_difference_dB",
+    "central_valley_GHz"
+  ],
+  "jacobian_columns": [
+    "Ls1_mm",
+    "Lm_mm"
+  ],
+  "jacobian": [
+    [
+      7.316150424602732,
+      -18.976857150847053
+    ],
+    [
+      0.3500000000000014,
+      -1.6999999999999993
+    ]
+  ],
+  "target_center_definition": "Central S11 valley of freshly solved B0.",
+  "widths_fold_arm_and_gap_held_fixed": true,
+  "geometrical_path_may_change_during_phase_correction": true,
+  "proposals": [
+    {
+      "case": "T_F2",
+      "parent": "F2",
+      "source": "F:\\hfss_f8_261002\\F2\\F2.aedt",
+      "geometry": {
+        "Wm": 1.103314,
+        "Lm": 6.499465,
+        "Ws": 0.437335,
+        "Ls1": 12.277791371641241,
+        "Ls2": 1.33,
+        "Ls3": 1.84
+      },
+      "changes_mm": {
+        "Ls1": -0.27220862835875925,
+        "Lm": 0.0
+      },
+      "strategy": "Adjust Ls1 first; the local prediction already keeps the central valley within tolerance.",
+      "step_scale": 1.0,
+      "geometry_check": {
+        "gap_mm": 0.4553300000000001,
+        "arm_net_mm": 1.402665,
+        "middle_opening_mm": 8.597791371641241,
+        "microstrip_projection_clearance_mm": 3.7472386858206206,
+        "fold_occupancy": 0.2997281749305432,
+        "geometric_path_mm": 16.868451371641243,
+        "minimum_allowed_Ls1_mm": 7.36,
+        "inside_research_window": true,
+        "failed_rules": ""
+      },
+      "target_signed_peak_difference_dB": 0.0,
+      "target_central_valley_GHz": 6.74,
+      "expected_response_change_linearized": {
+        "signed_peak_difference_dB": -1.9915192719474637,
+        "central_valley_GHz": -0.09527301992556612
+      },
+      "predicted_signed_peak_difference_dB": 2.220446049250313e-16,
+      "predicted_central_valley_GHz": 6.744726980074434,
+      "followup_if_peak_gate_fails": "Bracket Ls1 around this candidate with +/- 0.05 mm at the same fold/gap; update the local slope. Use Lm only if center correction remains necessary.",
+      "status": "simulated_accepted",
+      "actual_response": {
+        "BW_2dB_GHz": 6.751136726820961,
+        "f_low_GHz": 3.2287559340779843,
+        "f_high_GHz": 9.979892660898946,
+        "signed_peak_difference_dB": 0.2964968569999673,
+        "peak_level_dB": -13.540789536566022,
+        "central_valley_GHz": 6.76,
+        "S21_at_9p5GHz_dB": -1.1458760098045544
+      },
+      "validation": {
+        "acceptance_passed": true,
+        "equal_ripple_gate": true,
+        "center_gate": true,
+        "converged": true,
+        "sweep_converged": true,
+        "frequency_point_gate": true
+      },
+      "prediction_file": "F:\\hfss_f8_261002\\T_F2\\prediction_frozen.json",
+      "validation_path": "F:\\hfss_f8_261002\\T_F2\\prospective_validation.json"
+    },
+    {
+      "case": "T_F3",
+      "parent": "F3",
+      "source": "F:\\hfss_f8_261002\\F3\\F3.aedt",
+      "geometry": {
+        "Wm": 1.103314,
+        "Lm": 6.499465,
+        "Ws": 0.437335,
+        "Ls1": 11.181608226649235,
+        "Ls2": 1.33,
+        "Ls3": 2.64
+      },
+      "changes_mm": {
+        "Ls1": 0.23160822664923675,
+        "Lm": 0.0
+      },
+      "strategy": "Adjust Ls1 first; the local prediction already keeps the central valley within tolerance.",
+      "step_scale": 1.0,
+      "geometry_check": {
+        "gap_mm": 0.4553300000000001,
+        "arm_net_mm": 2.202665,
+        "middle_opening_mm": 5.901608226649235,
+        "microstrip_projection_clearance_mm": 2.3991471133246174,
+        "fold_occupancy": 0.47220398827926424,
+        "geometric_path_mm": 17.372268226649236,
+        "minimum_allowed_Ls1_mm": 10.56,
+        "inside_research_window": true,
+        "failed_rules": ""
+      },
+      "target_signed_peak_difference_dB": 0.0,
+      "target_central_valley_GHz": 6.74,
+      "expected_response_change_linearized": {
+        "signed_peak_difference_dB": 1.6944806257412992,
+        "central_valley_GHz": 0.08106287932723319
+      },
+      "predicted_signed_peak_difference_dB": 0.0,
+      "predicted_central_valley_GHz": 6.741062879327234,
+      "followup_if_peak_gate_fails": "Bracket Ls1 around this candidate with +/- 0.05 mm at the same fold/gap; update the local slope. Use Lm only if center correction remains necessary.",
+      "status": "simulated_accepted",
+      "actual_response": {
+        "BW_2dB_GHz": 6.698438818204601,
+        "f_low_GHz": 3.2666767419264344,
+        "f_high_GHz": 9.965115560131036,
+        "signed_peak_difference_dB": -0.05533657441853457,
+        "peak_level_dB": -14.069652097555403,
+        "central_valley_GHz": 6.73,
+        "S21_at_9p5GHz_dB": -0.94873502277123
+      },
+      "validation": {
+        "acceptance_passed": true,
+        "equal_ripple_gate": true,
+        "center_gate": true,
+        "converged": true,
+        "sweep_converged": true,
+        "frequency_point_gate": true
+      },
+      "prediction_file": "F:\\hfss_f8_261002\\T_F3\\prediction_frozen.json",
+      "validation_path": "F:\\hfss_f8_261002\\T_F3\\prospective_validation.json"
+    },
+    {
+      "case": "T_G035",
+      "parent": "G035",
+      "source": "F:\\hfss_f8_261002\\G035\\G035.aedt",
+      "geometry": {
+        "Wm": 1.103314,
+        "Lm": 6.499465,
+        "Ws": 0.437335,
+        "Ls1": 12.103300611623029,
+        "Ls2": 1.22467,
+        "Ls3": 2.24
+      },
+      "changes_mm": {
+        "Ls1": 0.1426406116230273,
+        "Lm": 0.0
+      },
+      "strategy": "Adjust Ls1 first; the local prediction already keeps the central valley within tolerance.",
+      "step_scale": 1.0,
+      "geometry_check": {
+        "gap_mm": 0.35,
+        "arm_net_mm": 1.8026650000000002,
+        "middle_opening_mm": 7.623300611623028,
+        "microstrip_projection_clearance_mm": 3.259993305811514,
+        "fold_occupancy": 0.3701469660018005,
+        "geometric_path_mm": 17.28330061162303,
+        "minimum_allowed_Ls1_mm": 8.96,
+        "inside_research_window": true,
+        "failed_rules": ""
+      },
+      "target_signed_peak_difference_dB": 0.0,
+      "target_central_valley_GHz": 6.74,
+      "expected_response_change_linearized": {
+        "signed_peak_difference_dB": 1.0435801712914046,
+        "central_valley_GHz": 0.049924214068059754
+      },
+      "predicted_signed_peak_difference_dB": 0.0,
+      "predicted_central_valley_GHz": 6.74992421406806,
+      "followup_if_peak_gate_fails": "Bracket Ls1 around this candidate with +/- 0.05 mm at the same fold/gap; update the local slope. Use Lm only if center correction remains necessary.",
+      "status": "simulated_accepted",
+      "actual_response": {
+        "BW_2dB_GHz": 6.748656143304528,
+        "f_low_GHz": 3.237812517325397,
+        "f_high_GHz": 9.986468660629924,
+        "signed_peak_difference_dB": -0.08840097109149347,
+        "peak_level_dB": -13.707697955116295,
+        "central_valley_GHz": 6.75,
+        "S21_at_9p5GHz_dB": -1.08720481293894
+      },
+      "validation_path": "F:\\hfss_f8_261002\\T_G035\\prospective_validation.json"
+    },
+    {
+      "case": "T_G2",
+      "parent": "G2",
+      "source": "F:\\hfss_f8_261002\\G2\\G2.aedt",
+      "geometry": {
+        "Wm": 1.103314,
+        "Lm": 6.499465,
+        "Ws": 0.437335,
+        "Ls1": 10.891636862092323,
+        "Ls2": 1.62467,
+        "Ls3": 2.24
+      },
+      "changes_mm": {
+        "Ls1": -0.2690231379076768,
+        "Lm": 0.0
+      },
+      "strategy": "Adjust Ls1 first; the local prediction already keeps the central valley within tolerance.",
+      "step_scale": 1.0,
+      "geometry_check": {
+        "gap_mm": 0.7500000000000001,
+        "arm_net_mm": 1.8026650000000002,
+        "middle_opening_mm": 6.4116368620923225,
+        "microstrip_projection_clearance_mm": 2.654161431046161,
+        "fold_occupancy": 0.4113247675005,
+        "geometric_path_mm": 16.871636862092323,
+        "minimum_allowed_Ls1_mm": 8.96,
+        "inside_research_window": true,
+        "failed_rules": ""
+      },
+      "target_signed_peak_difference_dB": 0.0,
+      "target_central_valley_GHz": 6.74,
+      "expected_response_change_linearized": {
+        "signed_peak_difference_dB": -1.968213744631209,
+        "central_valley_GHz": -0.09415809826768726
+      },
+      "predicted_signed_peak_difference_dB": -2.220446049250313e-16,
+      "predicted_central_valley_GHz": 6.735841901732313,
+      "followup_if_peak_gate_fails": "Bracket Ls1 around this candidate with +/- 0.05 mm at the same fold/gap; update the local slope. Use Lm only if center correction remains necessary.",
+      "status": "simulated_accepted",
+      "actual_response": {
+        "BW_2dB_GHz": 6.75525239276447,
+        "f_low_GHz": 3.2541082240526555,
+        "f_high_GHz": 10.009360616817126,
+        "signed_peak_difference_dB": 0.09380112827222753,
+        "peak_level_dB": -13.94520681080662,
+        "central_valley_GHz": 6.75,
+        "S21_at_9p5GHz_dB": -0.9563948563544494
+      },
+      "validation": {
+        "acceptance_passed": true,
+        "equal_ripple_gate": true,
+        "center_gate": true,
+        "converged": true,
+        "sweep_converged": true,
+        "frequency_point_gate": true
+      },
+      "prediction_file": "F:\\hfss_f8_261002\\T_G2\\prediction_frozen.json",
+      "validation_path": "F:\\hfss_f8_261002\\T_G2\\prospective_validation.json"
+    }
+  ],
+  "acceptance": {
+    "absolute_peak_difference_max_dB": 0.5,
+    "central_valley_deviation_max_GHz": 0.03
+  },
+  "limitation": "These are initial guesses, not guaranteed roots; verify with HFSS and update sensitivities if needed.",
+  "phase_round": {
+    "status": "completed",
+    "cases": [
+      "T_F2",
+      "T_F3",
+      "T_G2"
+    ],
+    "method": "Run the three bounded Ls1 corrections proposed from the historical B0 Q1/Q2 sensitivity.",
+    "acceptance": {
+      "absolute_peak_difference_max_dB": 0.5,
+      "central_valley_deviation_max_GHz": 0.03
+    },
+    "all_acceptance_passed": true
+  }
+}

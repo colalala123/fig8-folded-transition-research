@@ -1,0 +1,44 @@
+{
+  "training_cases": 40,
+  "holdout_used": false,
+  "results": {
+    "length_residual": {
+      "training_group_CV": {
+        "delta_Lm_mm": {
+          "MAE": 0.009920896334340469,
+          "P95": 0.025867598039919823,
+          "max": 0.03359924125356989,
+          "RMSE": 0.013150080241140828
+        },
+        "delta_Ls1_mm": {
+          "MAE": 0.04401890958894132,
+          "P95": 0.1568575081800235,
+          "max": 0.20214685072523642,
+          "RMSE": 0.06755536682783975
+        }
+      },
+      "score": 0.1296903315243133
+    },
+    "forward_performance": {
+      "training_group_CV": {
+        "S21_minus2_BW_GHz": {
+          "MAE": 0.023538948968559414,
+          "P95": 0.07148482380238098,
+          "max": 0.13301271622023858,
+          "RMSE": 0.03649752108067912
+        },
+        "worse_inner_peak_dB": {
+          "MAE": 0.2996145737707868,
+          "P95": 0.6826325161622879,
+          "max": 1.2242659987098463,
+          "RMSE": 0.38538740457398757
+        }
+      },
+      "score": 0.11952211268901022
+    }
+  },
+  "warnings": [],
+  "deployment_changed": false,
+  "reason": "Investigate LBFGS abnormal termination without selecting against holdout",
+  "original_benchmark_preserved": true
+}

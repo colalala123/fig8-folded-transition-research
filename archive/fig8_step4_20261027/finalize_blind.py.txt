@@ -1,0 +1,151 @@
+"""Finalize only all-reviewed B6 blind results. Never starts a solver/refits."""
+import json,sys
+from pathlib import Path
+import numpy as np
+from scipy.signal import find_peaks
+import phase_control as pc
+sys.path.insert(0,str(pc.HERE.parent/'fig8_inverse_PR_20261027'))
+from model import intervals,center_band,band_score
+
+def predicted_metrics(q):
+    f=np.array(q['frequency_GHz']);s11=np.array(q['S11_dB']);s21=np.array(q['S21_dB'])
+    transmission=intervals(f,np.full(len(f),-1000.),s21)
+    band=max(transmission,key=lambda b:b[1]-b[0]);ii=find_peaks(-s11,prominence=.5)[0];ii=[int(i) for i in ii if band[0]<f[i]<band[1] and s11[i]<-10]
+    result=dict(S21_BW_GHz=band[1]-band[0],S21_band_GHz=band,central_joint20_band_GHz=center_band(intervals(f,s11,s21)),prominent_valley_count=len(ii),derived_only_from_frozen_curve=True)
+    if len(ii)==3:
+        peaks=[int(a+1+np.argmax(s11[a+1:b])) for a,b in zip(ii,ii[1:])]
+        result.update(central_valley_GHz=float(f[ii[1]]),inner_peaks=[dict(GHz=float(f[i]),dB=float(s11[i])) for i in peaks],worse_inner_peak_dB=float(max(s11[peaks])),peak_difference_dB=float(abs(np.diff(s11[peaks])[0])))
+    return result
+
+def main():
+    from phase_geometry_worker import dc
+    assert not dc.solvers()
+    predictions=pc.read(pc.HERE/'predictions_frozen.json');results=[];all_evidence={}
+    frozen_formulas=pc.read(pc.HERE.parent/'fig8_PR18_delivery_20261027/model_validation.json')['local_PR18_formulas']
+    for p in predictions['cases']:
+        case=p['case']
+        if p['category']=='N':
+            results.append(dict(case=case,category='N',design_status='no_candidate',numerical_status='not_run'));continue
+        source=pc.BASE/case/'g01_initial';state=pc.read(source/'state.json');ia=pc.read(source/'receiver_ack.json')
+        assert state['status']=='completed' and ia['visual_review_completed'] and ia['operation_success']
+        direct=pc.BASE/case/'direct_smallbatch';context=pc.HERE/'final_review'
+        reserve=pc.BASE/case/'direct_reserved'
+        if (reserve/'receiver_ack.json').exists():direct=reserve;context=pc.HERE/'reserved_review'
+        ack=pc.read(direct/'receiver_ack.json');v=pc.read(direct/'receiver_verification.json');c=pc.read(direct/'comparison.json')
+        assert ack['visual_review_completed'] and ack['artifacts_verified'] and ack['operation_success']
+        assert ack['event_sha256']==pc.sha(direct/'completion_event.json') and ack['verification_sha256']==pc.sha(direct/'receiver_verification.json')
+        for f,h in v['artifacts_verified'].items():assert pc.sha(f)==h,f
+        if c['needs_reserved_points'] and not c['target_finite_direct_failure_confirmed'] and direct==pc.BASE/case/'direct_smallbatch':
+            raise AssertionError(f'{case}: reserve review needed before final closure')
+        actual=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True);met=pc.read(source/'response_metrics.json')
+        score=band_score(actual['Freq_GHz'],actual['S11_dB'],actual['S21_dB'],p['f_low_GHz'],p['f_high_GHz'])
+        pm=predicted_metrics(p['predicted_curve']);baseline=state['design_passed']
+        features=np.array([1,np.log(p['P']),np.log(p['R']),p['a_mm']-1.6])
+        fp=dict(S21_BW_GHz=float(features@frozen_formulas['S21_BW_GHz']['coefficients']),worse_inner_peak_dB=float(features@frozen_formulas['worse_inner_peak_dB']['coefficients']),source='Frozen PR18 local formulas, not refitted with these six')
+        target_failure=c['target_finite_direct_failure_confirmed'];num=c['numerical_review_passed']
+        design='failed' if target_failure or not baseline else ('passed_with_finite_evidence' if num and c['sampled_design_supported'] else 'unresolved')
+        numerical='finite_consistency_passed' if num else ('direct_target_failure_confirmed_partial_review' if target_failure else 'finite_consistency_unresolved')
+        source_band=pc.read(source/'target20_metrics.json')['joint20_center_band_GHz']
+        dbands=c['direct_bandwidths'];effective_joint=dbands.get('S11',{}).get('BW_GHz',source_band[2]);effective_trans=dbands.get('S21',{}).get('BW_GHz',met['passband_2dB']['BW_GHz'])
+        phase_points=len(pc.read(pc.BASE/case/'direct_smallbatch/input.json')['requested_frequencies_GHz'])
+        direct_launches=len(pc.read(pc.BASE/case/'direct_smallbatch/state.json')['segments'])
+        if direct==reserve:
+            phase_points=len(np.genfromtxt(reserve/'sparams.csv',delimiter=',',names=True));direct_launches+=len(pc.read(reserve/'state.json')['segments'])
+        assert phase_points<=32 and direct_launches<=8 and len(state['segments'])<=13
+        s21_label_verified=bool('S21' in dbands and dbands['S21']['width_shift_GHz']<=.02 and all(e['shift_GHz'] is not None and e['shift_GHz']<=.02 for e in c['edge_reviews'] if e['kind']=='S21') and c['max_complex_error']<=.005 and c['max_nearband_S21_error_dB']<=.05)
+        row=dict(case=case,category=p['category'],target=dict(f_low_GHz=p['f_low_GHz'],f_high_GHz=p['f_high_GHz'],BW_GHz=p['target_BW_GHz']),geometry=p['geometry'],P=p['P'],R=p['R'],a_mm=p['a_mm'],
+            predicted=pm,frozen_local_PR_formula_prediction=fp,predicted_target_score=p['predicted_score'],dense_actual_target_score=score,baseline_passed=baseline,actual_central_valley_GHz=met.get('central_valley_GHz'),actual_peak_difference_dB=met.get('peak_difference_dB'),
+            design_status=design,numerical_status=numerical,target_direct_failure_confirmed=target_failure,
+            target_finite_coverage_supported=bool(num and c['dense_target_covered'] and not target_failure),S21_bandwidth_label_verified=s21_label_verified,
+            direct_comparison=c,actual_elements=state['actual_elements'],direct_run=str(direct),
+            measured_metrics=dict(S21_BW_GHz=effective_trans,center_joint20_BW_GHz=effective_joint,center_joint_source_band_GHz=source_band,
+                S21_BW_evidence='finite_direct_edges' if 'S21' in dbands else 'dense_interpolating_not_independently_resolved',
+                center_joint20_BW_evidence='finite_direct_edges' if 'S11' in dbands else 'dense_interpolating_not_independently_resolved'),
+            errors=dict(S21_BW_MHz=(effective_trans-pm['S21_BW_GHz'])*1000,local_PR_formula_S21_BW_MHz=(effective_trans-fp['S21_BW_GHz'])*1000,
+                local_PR_formula_sampled_inner_peak_dB=max(x['actual_sampled_peak_dB'] for x in c['peak_reviews'])-fp['worse_inner_peak_dB'],
+                center_joint20_BW_MHz=(effective_joint-pm['central_joint20_band_GHz'][2])*1000,dense_target_worst_S11_dB=score['worst_S11_dB']-p['predicted_score']['worst_S11_dB']),
+            initial_Analyze=len(state['segments']),direct_new_points=phase_points,direct_Analyze=direct_launches,full_matrix_approved=False)
+        results.append(row)
+        for folder in [source,direct]:
+            for file in ['input.json','state.json','completion_event.json','receiver_ack.json','receiver_verification.json','sparams.csv']:
+                path=folder/file;all_evidence[str(path)]=pc.sha(path)
+    for f,h in pc.read(pc.HERE/'model_freeze.json')['source_hashes'].items():assert pc.sha(f)==h,f
+    counts={key:sum(r['design_status']==key for r in results) for key in ['passed_with_finite_evidence','failed','unresolved','no_candidate']}
+    target_supported=sum(r.get('target_finite_coverage_supported',False) for r in results)
+    valid_errors=[r['errors']['S21_BW_MHz'] for r in results if r.get('S21_bandwidth_label_verified')]
+    formula_errors=[r['errors']['local_PR_formula_S21_BW_MHz'] for r in results if r.get('S21_bandwidth_label_verified')]
+    error_summary=dict(S21_verified_label_count=len(valid_errors),overall_finite_accepted_count=sum(r.get('numerical_status')=='finite_consistency_passed' for r in results),
+        frozen_curve_proxy_S21_BW_MAE_MHz=float(np.mean(np.abs(valid_errors))) if valid_errors else None,frozen_curve_proxy_S21_BW_max_error_MHz=float(np.max(np.abs(valid_errors))) if valid_errors else None,
+        local_PR_formula_S21_BW_MAE_MHz=float(np.mean(np.abs(formula_errors))) if formula_errors else None,local_PR_formula_S21_BW_max_error_MHz=float(np.max(np.abs(formula_errors))) if formula_errors else None)
+    out=dict(at=pc.now(),requested=6,results=results,design_counts=counts,target_only_supported=target_supported,error_summary=error_summary,categories={cat:sum(r['category']==cat for r in results) for cat in ['R','E','N']},
+        new_geometries=sum(r['category']!='N' for r in results),geometry_tuning=0,model_refitted=False,training_results_added=False,
+        first_output_end_to_end_success=f"{counts['passed_with_finite_evidence']}/6",independent_within_domain_pilot_only=True,universal_design_guarantee=False,source_evidence_hashes=all_evidence)
+    pc.write(pc.HERE/'blind_results.json',out)
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig,axes=plt.subplots(3,2,figsize=(13,11));detail,daxes=plt.subplots(3,2,figsize=(13,10))
+    for p,r,ax,dx in zip(predictions['cases'],results,axes.flat,daxes.flat):
+        if p['category']=='N':ax.set_title(p['case']+' no candidate');dx.set_title(p['case']+' no candidate');continue
+        source=pc.BASE/p['case']/'g01_initial';actual=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+        direct=np.genfromtxt(Path(r['direct_run'])/'sparams.csv',delimiter=',',names=True)
+        for key,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+            ax.plot(p['predicted_curve']['frequency_GHz'],p['predicted_curve'][key],color=color,linestyle='--',alpha=.6,label=key+' frozen')
+            ax.plot(actual['Freq_GHz'],actual[key],color=color,label=key+' HFSS')
+        ax.axvspan(p['f_low_GHz'],p['f_high_GHz'],color='green',alpha=.08);ax.axhline(-20,color='red',linestyle=':',linewidth=.7)
+        ax.set(title=p['case']+' '+r['design_status'],xlim=(2.8,10.3),ylim=(-55,2),xlabel='GHz',ylabel='dB');ax.grid(alpha=.2)
+        dx.plot(p['predicted_curve']['frequency_GHz'],p['predicted_curve']['S11_dB'],color='gray',linestyle='--',label='Frozen S11')
+        dx.plot(actual['Freq_GHz'],actual['S11_dB'],color='tab:blue',label='Interpolating HFSS')
+        dx.scatter(direct['Freq_GHz'],direct['S11_dB'],s=15,facecolors='none',edgecolors='tab:orange',label='Native direct')
+        dx.axvspan(p['f_low_GHz'],p['f_high_GHz'],color='green',alpha=.08,label='Requested band')
+        for boundary in [p['f_low_GHz'],p['f_high_GHz']]:dx.axvline(boundary,color='green',linestyle=':',linewidth=.7)
+        dx.axhline(-20,color='red',linestyle=':');dx.set(title=p['case']+' target reflection',xlim=(p['f_low_GHz']-.05,p['f_high_GHz']+.05),ylim=(-23,-18),xlabel='GHz',ylabel='S11 dB');dx.grid(alpha=.2)
+    axes.flat[0].legend(fontsize=7);daxes.flat[0].legend(fontsize=7)
+    fig.tight_layout();detail.tight_layout();fig.savefig(pc.HERE/'predicted_vs_actual.png',dpi=150);detail.savefig(pc.HERE/'target_reflection_detail.png',dpi=150);plt.close(fig);plt.close(detail)
+    lines=['# Fig8第四步：六项独立逆向首测结果','',f"更新UTC：{out['at']}",'',
+        f"**六项请求均已处理：有限证据支持的完整首测通过 {counts['passed_with_finite_evidence']}/6，明确设计失败 {counts['failed']}，未解决 {counts['unresolved']}，无候选 {counts['no_candidate']}。**",'',
+        '六项均为E类名义探索候选，严格余量筛选没有R类推荐。本结果不能写成严格可靠推荐成功率，亦不能由六点推广为任意材料/中心频率/间隔的通用保证。模型和六项几何在首个Analyze前冻结；本轮没有调参、没有重训、没有将失败样本换成容易目标。',
+        f"单看指定区间的S11≤−20/S21≥−2联合覆盖，有有限一致性支持{target_supported}/6；完整首测另要求原三谷/中心/等峰条件。",'',
+        '本轮逆向链路为“理论P/R坐标→局部全曲线代理搜索→几何/长度预测→HFSS”；不是直接把S21单独带宽公式当联合−20 dB公式，也没有训练神经网络。冻结的P/R公式另作独立前向预测检查，数据与代理误差分开统计。','',
+        '|任务|联合目标BW/GHz|网格|基准调谐|目标直接违例|数值状态|完整首测状态|','|---|---:|---:|---|---|---|---|']
+    for r in results:
+        if r['category']=='N':lines.append(f"|{r['case']}|—|—|—|—|未运行|无候选|");continue
+        lines.append(f"|{r['case']}|{r['target']['BW_GHz']}|{r['actual_elements']:,}|{r['baseline_passed']}|{r['target_direct_failure_confirmed']}|{r['numerical_status']}|{r['design_status']}|")
+    lines+=['','## 冻结预测的独立误差','',
+        f"已单独核验的S21带宽标签数：{error_summary['S21_verified_label_count']}。冻结全曲线代理的S21带宽MAE/max：{error_summary['frozen_curve_proxy_S21_BW_MAE_MHz']:.3f}/{error_summary['frozen_curve_proxy_S21_BW_max_error_MHz']:.3f}MHz。",
+        f"冻结局部P/R公式的S21带宽MAE/max：{error_summary['local_PR_formula_S21_BW_MAE_MHz']:.3f}/{error_summary['local_PR_formula_S21_BW_max_error_MHz']:.3f}MHz。",
+        '两种预测器分开统计；S21指标可用不等于联合−20 dB目标达标。这里只是6个新宽度组合的局部先导验证，不是认证误差上界。','']
+    lines+=['','## 如何解释','',
+        '- 基准调谐指三谷、中心6.72±0.03GHz及两内峰差≤0.5dB；它与指定区间内联合−20/−2覆盖分别统计。',
+        '- 初始密扫通过不能替代直接频点复核；直接违例保留为设计失败，不跨越不达标内峰拼接通带。',
+        '- 数值通过仅为预算内原网格有限一致性，不是数学连续极值证明、独立网格收敛或完整4×4矩阵验收。',
+        '- 无额外几何调谐；若需要修正长度或模型，按执行方案第9节另行确认，首次失败不回填成首次成功。','',
+        '## 逐项预测误差与失败原因','']
+    for r in results:
+        if r['category']=='N':continue
+        lines += [f"### {r['case']}（E类，a={r['a_mm']}mm）",'',
+            f"目标 {r['target']['f_low_GHz']}–{r['target']['f_high_GHz']}GHz；P={r['P']:.7f}，R={r['R']:.7f}。",
+            f"密扫最差S11={r['dense_actual_target_score']['worst_S11_dB']:.6f}dB，最小S21={r['dense_actual_target_score']['min_S21_dB']:.6f}dB。",
+            f"中央谷={r['actual_central_valley_GHz']}GHz；密扫内峰差={r['actual_peak_difference_dB']:.6f}dB。",
+            f"冻结曲线S21带宽预测误差（实测−预测）={r['errors']['S21_BW_MHz']:.3f}MHz；中央联合带宽误差={r['errors']['center_joint20_BW_MHz']:.3f}MHz。",
+            f"实际目标内直接违例：{json.dumps(r['direct_comparison']['direct_target_violations'],ensure_ascii=False)}。",
+            f"新直接频点{r['direct_new_points']}，直接Analyze {r['direct_Analyze']}；初始自适应/插值启动合计{r['initial_Analyze']}。",'']
+    lines+=['## 前三步与未解决事项的最终衔接','',
+        '本轮可以确认：理论P/R坐标配合局部曲线代理已经能生成并通过HFSS验证的新弯折结构，但还不能把所有名义可行目标一次可靠实现。S21带宽公式在新点上仍较准；联合−20 dB要求还受带边位置、内峰门限和等峰/长度预测影响。',
+        'B02联合5GHz覆盖通过，但直接等峰差0.541871dB不满足0.5dB；B05在9.52GHz约−19.4966dB，目标频段高端不满足−20；B06在8.2GHz约−19.97395dB且峰差约0.596913dB。不得把后两项按四舍五入算过。',
+        '前三步已在SUMMARY_V2.md和dataset_index_v2.json版本化汇总。旧52条/50条代理输入未改，均匀数据未使用。旧PR18两项高频带边已经由修正标签处理；原插值曲线仍未重新认证，不能把该限制删除。',
+        '神经网络大样本泛化、弯折辐射损耗机制、高阶性能、跨材料/中心频率/间隔，以及两条旧插值曲线全曲线重认证仍为另行研究事项。','',
+        '## 执行故障与保护','',
+        'B02直接复核worker在最后一点真实求解后、导出前消失，原因未知；HFSS桌面存活且缓存有效。按本项一次恢复预算，只读导出了已求解的9.94GHz并合并已完成五批，新增Analyze为0，未重划网格、未改几何。原始中断状态和资源观察均保留在J:/f8_B6_261027/B02/direct_smallbatch/recovery1。',
+        '为覆盖“worker硬退出、来不及发送终态事件”的盲区，增加了运行级外部只读监护lifecycle_watch.py：正常求解静默；核验PID/创建时间/命令行身份确实消失且无终态时，单独发故障hook，不直接启动或终止求解。身份不明不当作死亡。该扩展有5项单测，未故意杀掉真实仿真验证；不代表Python/HFSS根因永久修复，也未重打包旧便携hook。',
+        '预留阶段开跑前另修复一次JSON重序列化导致的参考元数据字节哈希差异，语义、参考处理与验收标准未改变；修前文件/清单及修复记录保留在reserved_review/prelaunch_metadata_repair。','',
+        '机器可读结果：blind_results.json；所有完整曲线和直接采样均保留原生来源，未合成假HFSS数据。',
+        '带宽误差的证据来源逐项标在measured_metrics中；未有直接交点时采用的密扫值不作独立认证。',
+        f"[冻结预测与HFSS曲线对照]({pc.HERE/'predicted_vs_actual.png'})；[目标区间−20 dB细节与原生直接点]({pc.HERE/'target_reflection_detail.png'})。",'']
+    report=pc.HERE/'FINAL_REPORT.md';report.write_text('\n'.join(lines),encoding='utf-8')
+    pc.write(pc.HERE/'closure.json',dict(at=pc.now(),execution_complete=True,requests=6,design_counts=counts,new_geometry_tuning=0,model_refitted=False))
+    last=max((Path(r['direct_run']) for r in results if r.get('direct_run')),key=lambda p:pc.read(p/'completion_event.json')['created_at'])
+    pc.write(last/'continuation_resolution.json',dict(event_sha256=pc.sha(last/'completion_event.json'),disposition='batch_complete',reason='All six B6 first-output blind requests have reviewed terminal results and final report; no geometry tuning or new batch authorized.'))
+    pc.write(pc.HERE/'active.json',dict(at=pc.now(),stage='B6_blind_execution_complete',solver_running=False,final_report=str(report),design_counts=counts))
+    print(dict(report=str(report),counts=counts,solver_running=False))
+if __name__=='__main__':main()

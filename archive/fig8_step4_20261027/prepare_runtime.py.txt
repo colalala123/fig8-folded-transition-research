@@ -1,0 +1,65 @@
+"""Create separate B6 execution context from proven PR18 code. No Analyze."""
+import ast,json,hashlib
+from pathlib import Path
+R=Path(__file__).resolve().parent;S=R.parent/'fig8_PR18_20261027';F=S/'final_review'
+assert not (R/'implementation_provenance.json').exists(),'Existing context: inspect, do not regenerate'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,x):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(x,ensure_ascii=False,indent=2,allow_nan=False),encoding='utf-8')
+selected=read(R/'predictions_frozen.json')['cases'];order=[x['case'] for x in selected if x['category']!='N'];assert len(order)<=6
+provenance={}
+def copy(name,change=lambda x:x,source=S):
+ a=source/name;b=R/name;text=change(a.read_text(encoding='utf-8'));b.write_text(text,encoding='utf-8')
+ provenance[name]=dict(source=str(a),source_sha256=sha(a),local_sha256=sha(b))
+def control(s):
+ s=s.replace("BASE=Path('J:/f8_PR18_261027')","BASE=Path('J:/f8_B6_261027')").replace('PR18','B6')
+ i=s.index('ORDER=');j=s.index('\n',i);return s[:i]+'ORDER='+repr(order)+s[j:]
+copy('phase_control.py',control)
+copy('phase_geometry_context.py',lambda s:s.replace('PR18','B6').replace('<=18','<=6'))
+for name in ['aedt_session_guard.py','case_reference.py','reference_validation.json','prepared_settings.py','phase_publish.py','phase_heartbeat_transport.py','verify_live_hook.py','supervise_start.py','target_metrics.py']:
+ copy(name)
+copy('phase_geometry_worker.py',lambda s:s.replace("state['build']=apply_folded_geometry(app,wm=g['Wm'],lm=g['Lm'],ws=g['Ws'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3'])", "state['build']={'prepared_geometry_reused':True,'configuration_sha256':sha(HERE/'cases'/case/'configuration.json')}")
+ .replace("'new_geometry_needs_bounded_tuning'","'blind_initial_baseline_failed_no_tuning_authorized'")
+ .replace('未通过、需有界调参','未通过、保留盲测失败，不调参'))
+copy('configure_projects.py',lambda s:s.replace('PR18','B6').replace('18 unsolved','6 unsolved').replace('all18','all6').replace('f8_B6_261027','f8_B6_261027'))
+copy('desktop_preflight.py')
+copy('dispatch.py',lambda s:s.replace("len(ledger['tasks'])<18","len(ledger['tasks'])<6"))
+copy('review_phase_geometry.py')
+copy('acknowledge_review.py')
+copy('phase_heartbeat.py',lambda s:s.replace('仅在PR18这18个验证配置的已授权执行范围内接续；原24项已完成，不重开旧账本。','仅执行B6六个独立盲测首轮；不调参、不重训，不重开PR18及其他旧账本。')
+ .replace('先完成18个初始几何，再在有界累计预算内按实际结果调谐/最终直接复核','六个初始几何后完成有界同网格直接复核；6新几何，最多32点/8次离散Analyze每项，无额外调谐'))
+copy('test_phase_heartbeat.py')
+copy('finalize_and_authorize.py',lambda s:s.replace('PR18','B6').replace('prepared_projects=18','prepared_projects=len(pc.ORDER)').replace('prepared=18','prepared=len(pc.ORDER)').replace("'18 initial +shared12 extras, total30, at most4/case'","'6 initial only, no tuning'")
+ .replace("'predictions_frozen.json','CONTINUATION.md'","'predictions_frozen.json','model_freeze.json','dataset_index_v2.json','CONTINUATION.md'"))
+cfg=read(S/'hook/config.json');cfg.update(state_dir=str(R/'hook/state'),authorization='你按照这个方案跑完他：B6首轮6项独立逆向设计盲测，含明确标识E类探索候选；完成/失败通知当前聊天，5分钟状态感知接续，不含失败后调谐。')
+write(R/'hook/config.json',cfg);write(R/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_first_completion'))
+policy=read(S/'policy.json');policy.update(version='B6_blind_v1',user_authorization='你按照这个方案跑完他',scope='6 new inverse-design blind candidates; no refitting or geometry tuning',bounded_tuning='6 initial only; no extra geometry. Direct<=32points and8launches per case,<=4/launch',blind_target_source=str(R/'predictions_frozen.json'))
+write(R/'policy.json',policy);write(R/'mesh_policy_addendum_v2.json',read(S/'mesh_policy_addendum_v2.json'))
+oldplan=read(S/'plan.json');plan={k:v for k,v in oldplan.items() if k!='cases'}
+plan.update(stage='B6',prediction_source=str(R/'predictions_frozen.json'),prediction_source_sha256=sha(R/'predictions_frozen.json'),initial_geometry_cap=6,overall_geometry_cap=6,overall_geometry_cap_per_case=1,predictions_refitted=False,cases=[])
+for x in selected:
+ if x['category']=='N':continue
+ case=x['case'];g=x['geometry']
+ plan['cases'].append(dict(case=case,group=case,target_P=x['P'],target_R=x['R'],P_nominal=x['P'],R_nominal=x['R'],geometry=g,initial_geometry=g,a_mm=x['a_mm'],g_mm=.55,category=x['category'],target=dict(f_low_GHz=x['f_low_GHz'],f_high_GHz=x['f_high_GHz'],BW_GHz=x['target_BW_GHz'],S11_max_dB=-20,S21_min_dB=-2),prepared_project=f'J:/f8_B6_261027/{case}/prepared/{case}_B6_Prepared.aedt',predictions_frozen_before_HFSS=True))
+write(R/'plan.json',plan)
+write(R/'execution_plan.json',dict(plan_path=str(R.parent/'fig8_step4_plan_20261027/EXECUTION_PLAN.md'),plan_sha256=sha(R.parent/'fig8_step4_plan_20261027/EXECUTION_PLAN.md'),new_geometries=6,adaptive_stages_per_case=12,adaptive_max_passes=36,normal_max_passes_from_stage_cap=27,interpolating_sweeps_per_case=1,direct_points_per_case=32,direct_launches_per_case=8,points_per_direct_launch=4,total_Analyze_cap=126,geometry_tuning=False,model_refitting=False,conservative_screen_R=0,exploratory_E=6))
+write(R/'authorization.json',dict(stage='B6',cases=order,configuration_authorized=True,execution_authorized=False,launch_user_instruction='你按照这个方案跑完他',geometry_cap=6,direct_point_cap_per_case=32,direct_launch_cap_per_case=8,geometry_tuning_authorized=False))
+write(R/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+write(R/'active.json',dict(stage='offline_complete_configuration_pending',solver_started=False))
+write(R/'implementation_provenance.json',provenance)
+(R/'CONTINUATION.md').write_text('''# B6第四步：已授权按执行方案完成六项首轮盲测
+人类：你按照这个方案跑完他。范围是本目录EXECUTION_PLAN链接与plan.json六项B01–B06；不是旧PR18，也不是失败后调谐。六项均E类探索候选，严格推荐余量不变。没有R类；不得宣称可靠推荐成功率。
+先读本目录plan/authorization/execution_plan/budget_ledger/active和当前事件。模型与六项预测已在第一次Analyze前冻结，不能用前两项结果重训或换后四项。
+可见AEDT2024R2端口7990，本机MCP，16核1任务串行，网格100000–110000，允许记录到112000。最多6新几何，每项1周期自适应(<=12阶段、首段16pass后每段1pass)、1插值扫频、<=32直接点/8次Analyze(每次4点)；不额外几何调谐，不重扫旧数据。
+初始几何：dispatch.py --case CASE --solve，然后supervise_start.py --run J:/f8_B6_261027/CASE/g01_initial --seconds600记录真实16核进程。前两项必须监督核验后才放行其他项。
+收到初始完成：review_phase_geometry.py --run RUN，实际view_image看响应；acknowledge_review.py --run RUN --visual-reviewed --note实际观察。design_passed仅旧三谷/中心/等峰基准，不是联合-20dB通过。保持科学失败。
+按ORDER全部初始几何看图ACK，再准备本目录独立final_review阶段完成目标相关直接复核。不得调用旧PR18 final_review队列。直接复核实施遵循本执行方案第6节：首轮<=24点，保留8点，只核验影响目标的端点/极值/联合段带边，不为远端独立通带耗尽预算。明确设计失败允许直接证据确认后早停。
+若后续脚本尚未建成，可以新建B6独立direct上下文复用已验证小批worker；不得修改已冻结初始/模型输入；新阶段须有自己的输入哈希/预算/独立receiver和实际看图ACK。
+每项完成或失败由hook通知当前聊天。正常求解安静；送达5分钟无真实后继才查对话状态，执行中等待，确认中断/终止且idle才去重续发。审批/未知状态不盲重发。
+技术异常先保存原状态与进程/时间证据，不清工程锁、不重复Analyze。每项最多一次受控恢复，预算不扩张；无法安全恢复则记录数值未解决。用户暂停时立即停心跳且不恢复。
+最终交付所有6请求终态，R/E/N分别统计：一次命中、设计失败、数值未解决、无候选/无效CAD。不得隐藏失败。报告后绑定最后事件resolution=batch_complete、停止心跳。新一轮几何修正必须另行询问，不含在本次授权。
+''',encoding='utf-8')
+for file in R.glob('*.py'):ast.parse(file.read_text(encoding='utf-8'),filename=str(file))
+print(dict(context_prepared=str(R),cases=order,predictions_frozen=True,configuration_started=False))
+if False:pass

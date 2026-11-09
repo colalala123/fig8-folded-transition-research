@@ -1,0 +1,21 @@
+import tempfile,unittest
+from pathlib import Path
+from run_context_v4 import has_release_for_context
+class ReleaseScope(unittest.TestCase):
+    def test_previous_probes_do_not_block_candidate(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d);(p/'N17_A18_S.json').write_text('{}');(p/'N17_A18_M.json').write_text('{}')
+            self.assertFalse(has_release_for_context(p,[dict(case='N17_A18_C1')]))
+    def test_same_candidate_is_blocked(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d);(p/'N17_A18_C1.json').write_text('{}')
+            self.assertTrue(has_release_for_context(p,[dict(case='N17_A18_C1')]))
+    def test_existing_one_of_two_probe_releases_is_blocked(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d);(p/'N17_A18_S.json').write_text('{}')
+            self.assertTrue(has_release_for_context(p,[dict(case='N17_A18_S'),dict(case='N17_A18_M')]))
+    def test_other_parent_does_not_block(self):
+        with tempfile.TemporaryDirectory() as d:
+            p=Path(d);(p/'N17_A18_C1.json').write_text('{}')
+            self.assertFalse(has_release_for_context(p,[dict(case='N11_A18_S'),dict(case='N11_A18_M')]))
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,15 @@
+import numpy as np,json
+from pathlib import Path
+# import parser from validate by executing? quick
+p=Path(r'F:\hfss_f8x_261002\R_tri_diagC\50ohm_full_repaired.s6p');vals=[];u=1;fmt='RI'
+for ln in p.read_text(errors='ignore').splitlines():
+ ln=ln.strip()
+ if not ln or ln.startswith('!'):continue
+ if ln.startswith('#'):
+  t=ln.upper().split();u={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+ vals += [float(x.replace('D','E')) for x in ln.split()]
+ch=[vals[i:i+73] for i in range(0,len(vals)-72,73)];f=np.array([c[0]*u/1e9 for c in ch]);s=np.zeros((len(ch),6,6),complex)
+for k,c in enumerate(ch):
+ x=np.array(c[1:]).reshape(36,2);z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1]));s[k]=z.reshape(6,6)
+d=np.max(np.abs(s[1:]-s[:-1]),axis=(1,2));ix=np.argsort(d)[-20:][::-1]
+print([(float(f[i+1]),float(d[i])) for i in ix])

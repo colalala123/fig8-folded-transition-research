@@ -1,0 +1,88 @@
+import csv,json,re,sys
+from pathlib import Path
+from datetime import datetime,timezone,timedelta
+import numpy as np
+HERE=Path(__file__).resolve().parent;ROOT=Path('J:/f8_261007');BASE=Path('J:/f8_speed_261021')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def write(p,v):Path(p).write_text(json.dumps(v,indent=2,ensure_ascii=False),encoding='utf-8')
+def profiles(folder,sweep_only=False):
+    paths=list(folder.glob('*.aedtresults/**/*.profile'))
+    results=[]
+    old=read(folder/'state.json').get('profile_hashes_before',{}) if sweep_only else {}
+    for p in paths:
+        if sweep_only:
+            import hashlib
+            if old.get(str(p))==hashlib.sha256(p.read_bytes()).hexdigest():continue
+        text=p.read_text(encoding='utf-8',errors='replace');items={}
+        for stage in (['Frequency Sweep'] if sweep_only else ['Initial Meshing','Adaptive Meshing','Frequency Sweep']):
+            lines=[x for x in text.splitlines() if f"ProfileItem('{stage}'" in x]
+            if lines:
+                times=re.findall(r'\b(\d{2}:\d{2}:\d{2})\b',lines[-1])
+                if times:
+                    h,m,s=map(int,times[0].split(':'));items[stage]=h*3600+m*60+s
+        if len(items)==(1 if sweep_only else 3):results.append({'path':str(p),'stages_seconds':items,'sum_seconds':sum(items.values())})
+    assert len(results)<=1,results
+    return results[0] if results else None
+def passes(path):
+    rows=[]
+    for line in path.read_text(encoding='utf-8',errors='replace').splitlines():
+        m=re.match(r'\s*(\d+)\|\s*(\d+)\|\s*([\d.eE+-]+)\|',line)
+        if m:rows.append([int(m[1]),int(m[2]),float(m[3])])
+    return rows
+def main():
+    evidence=[]
+    for case in ['D05G02','D08G05']:
+        ref=ROOT/case/'i00';p=profiles(ref);history=passes(ref/'convergence.txt');pred={}
+        for tol in [.005,.01,.02]:
+            hits=[b for a,b in zip(history,history[1:]) if b[0]>=6 and a[2]<=tol and b[2]<=tol]
+            pred[str(tol)]=hits[0] if hits else None
+        evidence.append({'case':case,'strict_profile':p,'historical_stopping_estimates':pred,'note':'Historical threshold replay estimates potential only; fresh-mesh trials determine actual speed/accuracy.'})
+    trials=[]
+    for label,case in [('M','D05G02'),('M','D08G05'),('C','D08G05'),('I','D05G02'),('I','D08G05'),('F','D05G02')]:
+        folder=BASE/f'{label}_{case}'
+        if not (folder/'comparison.json').exists():continue
+        r=read(folder/'comparison.json');s=read(folder/'state.json');p=profiles(folder,label=='I')
+        reference=next(x for x in evidence if x['case']==case)['strict_profile']
+        total=p['sum_seconds'] if p else None
+        cached=s.get('all_frequency_basis_cached',False)
+        if label=='I':total=None
+        row={'profile':label,'case':case,'status':s['status'],'fresh_mesh_verified':s['fresh_mesh_verified'],
+          'actual_convergence':s['convergence'],'actual_sweep_converged':s['sweep_converged'],
+          'measured_profile':p,'wall_seconds':s.get('solve_wall_seconds',s.get('elapsed_seconds')),'reference_profile':reference,
+          'total_seconds_for_comparison':total,'all_frequency_basis_cached':cached,
+          'total_timing_kind':'cached_reconstruction_not_a_speed_benchmark' if label=='I' else 'measured_fresh_mesh_and_sweep',
+          'speedup_factor':reference['sum_seconds']/total if total else None,
+          'time_saved_percent':100*(1-total/reference['sum_seconds']) if total else None,
+          'comparison':{k:v for k,v in r.items() if k not in ['reference_metrics','candidate_metrics']},
+          'final_elements':passes(folder/'convergence.txt')[-1][1]}
+        trials.append(row)
+    # Show why indiscriminately raising the full-matrix tolerances is not the selected optimization.
+    audit=read(HERE.parent/'fig8_acceptance_audit_20261021/offline_audit.json')
+    backlog=[c['attempts'][-1] for c in audit['cases'] if c['production_status']=='unfinished' and c['attempts'] and c['attempts'][-1].get('full_max_sv') is not None]
+    grid=[]
+    for rec in [1e-6,1e-5,1e-4,1e-3,1e-2,.03]:
+        grid.append({'reciprocity_threshold':rec,'passivity_threshold':1.001,'cases_passing_both':sum(a['full_reciprocity']<=rec and a['full_max_sv']<=1.001 for a in backlog),'out_of':len(backlog)})
+    write(HERE/'study_summary.json',{'reference_evidence':evidence,'trials':trials,'full_matrix_threshold_grid':grid})
+    print(json.dumps({'trials':[{k:v for k,v in r.items() if k not in ['comparison','reference_profile','measured_profile']}|{'BW_error_MHz':r['comparison']['BW_error_GHz']*1000,'peak_errors':r['comparison']['peak_height_errors_dB'],'coarse_pass':r['comparison']['coarse_tuning_pass'],'strict_pass':r['comparison']['strict_response_comparison_pass']} for r in trials],'full_matrix_threshold_grid':grid},indent=2))
+    if not trials:return
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig,axes=plt.subplots(2,2,figsize=(12,7))
+    for i,case in enumerate(['D05G02','D08G05']):
+        for label,path in [('Strict reference',ROOT/case/'i00')]+[(r['profile'],BASE/(r['profile']+'_'+case)) for r in trials if r['case']==case]:
+            rows=list(csv.DictReader((path/'sparams.csv').open(encoding='utf-8-sig')));f=[float(x['Freq_GHz']) for x in rows]
+            for j,key in enumerate(['S11','S21']):
+                y=[20*np.log10(max(abs(complex(float(x[key+'_real']),float(x[key+'_imag']))),1e-300)) for x in rows]
+                axes[i,j].plot(f,y,label=label,lw=1.3)
+        for j in range(2):
+            axes[i,j].set(title=case+' '+['S11','S21'][j],xlim=(2.5,11),ylim=(-45,0) if j==0 else (-4,0),xlabel='Frequency (GHz)',ylabel='dB')
+            axes[i,j].grid(alpha=.2);axes[i,j].legend()
+    fig.tight_layout();fig.savefig(HERE/'precision_comparison.png',dpi=170);plt.close(fig)
+    timed=[r for r in trials if r['total_seconds_for_comparison'] is not None]
+    labels=[r['profile']+' '+r['case'] for r in timed]
+    fig,ax=plt.subplots(figsize=(8,4));x=np.arange(len(timed));w=.35
+    ax.bar(x-w/2,[r['reference_profile']['sum_seconds']/60 for r in timed],w,label='Historical strict HFSS time')
+    ax.bar(x+w/2,[r['total_seconds_for_comparison']/60 for r in timed],w,label='Measured cold-start trial HFSS time')
+    ax.set_xticks(x,labels);ax.set_ylabel('Minutes');ax.legend();fig.tight_layout();fig.savefig(HERE/'time_comparison.png',dpi=170);plt.close(fig)
+if __name__=='__main__':main()

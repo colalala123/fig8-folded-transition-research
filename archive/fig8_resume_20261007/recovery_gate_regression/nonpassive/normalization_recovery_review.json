@@ -1,0 +1,25 @@
+{
+  "passed": false,
+  "max_sv": 1.3609474728884663,
+  "passivity_violations": 27,
+  "reciprocity_error": 1.4283618423056803e-07,
+  "reciprocity_gate_note": "1e-6 is a conservative review trigger; exceeding it requires explicit numerical review, not a declaration of physical failure.",
+  "points": 1500,
+  "original_HFSS_passivity_messages": [
+    "Project: i02, Design: Wideband vertical transition, [info] The interpolating frequency sweep converged but had one or more non passive basis solutions.  Passivity cannot be enforced for the sweep. (12:29:37 PM  Oct 03, 2026)\r\n"
+  ],
+  "warning_disposition": "Explicit modal scalar Zo and full complex S used for calibrated traveling-wave reference conversion. Original HFSS full-Z export/warnings retained. Recovery is accepted only when convergence, matrix, port identity and independent reference comparisons pass.",
+  "method": "S50 = B A^-1, D=sqrt(Zo/50), A=(D+D^-1)I+(D-D^-1)S, B=(D-D^-1)I+(D+D^-1)S. No clipping, projection, symmetrization, interpolation or fitted correction.",
+  "reviewed_at_utc": "2026-10-07T11:40:56+00:00",
+  "evidence_hashes": {
+    "F:\\hfss_f8x_261002\\D03G02\\i02\\manifest.json": "cec0dcd89f7fbe1d15a7e263ca7e023c4e9cd39c4057810b169c713f4013380f",
+    "F:\\hfss_f8x_261002\\D03G02\\i02\\all_modes_sparams.csv": "eba4c6037e85557b842d89079fe38b4b29b514f14bb0e1b92f1b5eb3907a7eeb",
+    "F:\\hfss_f8x_261002\\D03G02\\i02\\mode_impedance_gamma.csv": "1bcdf497130997ad9fdb686a688808a930ad52c9165286fca69cec3e678559a6",
+    "F:\\hfss_f8x_261002\\D03G02\\i02\\sparams.csv": "bb8034bccc472cbbd19c7908dcc883da9864e9981b5122438a2782349c0960bd",
+    "F:\\hfss_f8x_261002\\D03G02\\i02\\mode_map.json": "33ab6e879a7a82b8f28b0c2b532a4375cf5d75f69c2ef8567975c829906c3767",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\normalization_2mode_confirmation.json": "1d5a624885d91b85113dd65abe219a733a9806e9c1cf4ab5c88190f7cb53ac63",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\external_normalization_diagnostic.json": "ab8244296582d4c5fd7e77b2f6bf378aad335f59e9cf7c959e8888543c1cdc7e",
+    "F:\\hfss_f8x_261002\\modal_seed_transfer_audit.json": "e8e72983b6fd550f326bffd77ae0b951009abf0cda0cc22bd8448cebd2fc958a",
+    "output\\fig8_resume_20261007\\recovery_gate_regression\\nonpassive\\scalar_reference_50ohm.npz": "f216ad24d740814552fda65c88ed41da4667993a9d7f74ec5738e98747d94f9d"
+  }
+}

@@ -1,0 +1,37 @@
+import unittest
+import numpy as np
+from common import *
+from correction import assess,propose
+
+class PipelineTests(unittest.TestCase):
+    def test_nominal_fold_roundtrip(self):
+        g=dict(Ls1=10.02,Ls2=1.33,Ls3=2.24,Ws=.3)
+        c=fold_coordinates(g);r=unfold(c['Lpath_nominal_mm'],c['rho_nominal'],c['eta_nominal'])
+        for k in r:self.assertAlmostEqual(r[k],g[k])
+        self.assertAlmostEqual(c['rho_nominal'],7.14/17.16)
+        self.assertNotAlmostEqual(c['rho_nominal'],c['arm_overlap_ratio_legacy'])
+    def test_no_achieved_length_feature_leakage(self):
+        r=read(SOURCE52)['rows'][0];import copy
+        q=copy.deepcopy(r);q['geometry_mm']['Lm']+=.3;q['geometry_mm']['Ls1']+=.5
+        self.assertEqual(features(r),features(q))
+    def test_reject_invalid_coordinates(self):
+        for x in [(10,.5,.4),(10,.4,1),(0,.4,.4)]:
+            with self.assertRaises(ValueError):unfold(*x)
+    def test_fixed_group_holdout(self):
+        split=read(ROOT/'benchmark_v1/split.json')
+        self.assertFalse(set(split['train_groups'])&set(split['test_groups']))
+        self.assertEqual(split['train_count']+split['test_count'],52)
+    def test_target_not_just_transmission(self):
+        f=np.linspace(3,10,701)
+        # Three deep valleys, but matching almost everywhere is worse than-20.
+        db=-19-15*sum(np.exp(-((f-x)/.12)**2) for x in [4,6.72,9])
+        s=np.column_stack([10**(db/20),np.ones(len(f))*.95])
+        r=assess(f,s,dict(f_low_GHz=4.22,f_high_GHz=9.22))
+        self.assertTrue(r['shape_valid']);self.assertFalse(r['passed']);self.assertGreater(r['worst_S11_dB'],-20)
+    def test_nonidentical_probe_grids_rejected(self):
+        f=np.array([1.,2.,3.]);s=np.ones((3,2))*.1
+        with self.assertRaises(ValueError):propose((f,s),(f+.001,s),(f,s),{}, {})
+    def test_frozen_training_does_not_use_blind_six(self):
+        c=read(ROOT/'benchmark_v1/split.json')
+        self.assertFalse(set(['B01','B02','B03','B04','B05','B06'])&set(c['train_cases']+c['test_cases']))
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,150 @@
+"""Supplement: preserve strict mesh; rerun only a new 1% interpolation sweep."""
+import asyncio,csv,json,os,shutil,time,traceback
+from pathlib import Path
+import numpy as np
+from run_study import HERE,ROOT,BASE,read,write,sha,now,solvers,app_for,canonical_ports,convergence,inspect_rebuilt_geometry,compare,connected_client,session_call
+SWEEP='SpeedInterp1pct'
+def progress():
+    lines=['# 保留严格网格：扫频放宽试验','',f'更新时间（UTC）：{now()}','',
+      'ΔS=0.005不变，复用严格网格；新建1%插值扫频，关闭强制无源性。16核串行。','',
+      '| 配置 | 状态 | 带宽偏差/MHz | 严格响应误差预算 |','|---|---|---|---|']
+    for case in ['D05G02','D08G05']:
+        folder=BASE/('I_'+case);s=read(folder/'state.json') if (folder/'state.json').exists() else {}
+        r=read(folder/'comparison.json') if (folder/'comparison.json').exists() else {}
+        lines.append(f"| {case} | {s.get('status','pending')} | {1000*r['BW_error_GHz'] if r else '—'} | {r.get('strict_response_comparison_pass','—')} |")
+    (HERE/'扫频试验进度.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+def getdata(app,sweep):
+    modes=['1:1','1:2','2:1','2:2'];expr=[f'S({a},{b})' for a in modes for b in modes];aux=[f'{k}({a})' for k in ['Zo','Gamma'] for a in modes]
+    d=app.post.get_solution_data(expressions=expr+aux,setup_sweep_name='Setup19 : '+sweep,domain='Sweep',report_category='Modal Solution Data')
+    assert d
+    f=np.array(d.primary_sweep_values)*{'GHz':1,'MHz':1e-3,'Hz':1e-9}[d.units_sweeps['Freq']]
+    assert len(f)==1500 and np.allclose(f,np.arange(1,1501)/100,rtol=0,atol=1e-9)
+    v={}
+    for e in expr+aux:
+        _,r=d.get_expression_data(e,formula='real');_,i=d.get_expression_data(e,formula='imag');v[e]=np.array(r)+1j*np.array(i)
+        assert np.isfinite(v[e]).all()
+    return f,v,expr,aux
+def export(app,folder):
+    f,v,expr,aux=getdata(app,SWEEP)
+    for filename,labels in [('all_modes_sparams.csv',{e:e for e in expr}),('mode_impedance_gamma.csv',{e:e for e in aux}),
+      ('sparams.csv',{'S11':'S(1:1,1:1)','S21':'S(2:1,1:1)','S12':'S(1:1,2:1)','S22':'S(2:1,2:1)'})]:
+        rows=[{'Freq_GHz':float(x)} for x in f]
+        for label,e in labels.items():
+            for row,z in zip(rows,v[e]):
+                row[label+'_real']=float(z.real);row[label+'_imag']=float(z.imag)
+                if filename=='sparams.csv':row[label+'_dB']=float(20*np.log10(max(abs(z),1e-300)))
+        with (folder/filename).open('w',newline='',encoding='utf-8') as h:
+            w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    return {'points':len(f),'sweep':SWEEP,'modes_per_port':2}
+def collect(folder,s):
+    s.setdefault('solve_wall_seconds',s.get('elapsed_seconds'))
+    s.setdefault('solve_finished_at_utc',s.get('updated_at_utc'))
+    assert not solvers();app=app_for(Path(s['project']))
+    try:
+        assert not app.are_there_simulations_running
+        app.save_project();s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        assert any('Normal completion' in x for x in s['messages'])
+        s['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in s['messages'])
+        s['export']=export(app,folder);app.export_convergence('Setup19',output_file=str(folder/'convergence.txt'))
+        s['convergence']=convergence(folder/'convergence.txt')
+        assert (folder/'convergence.txt').read_bytes()==(folder/'convergence_before.txt').read_bytes()
+        s['profile_export']=str(app.export_profile('Setup19',output_file=str(folder/'profile.prof')))
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(Path(s['source']))==s['source_sha256']
+    commands=[' '.join(x['cmdline'] or []) for obs in s['observations'] for x in obs]
+    s['actual_frequency_solver_observed']=any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    if not s['actual_frequency_solver_observed']:
+        paths=list(folder.glob('*.aedtresults/**/*.profile'));assert len(paths)==1
+        last=paths[0].read_text(encoding='utf-8',errors='replace').rsplit("Name='Solution Process'",1)[-1]
+        assert 'has already been solved' in last and "ProfileItem('Matrix Solve'" not in last
+        s['all_frequency_basis_cached']=True;s['timing_scope']='Cached basis interpolation reconstruction ONLY; not a cold solve speed measurement.'
+        s['new_frequency_solves_added']=0
+    s.update(source_unchanged=True,same_mesh_verified=True,status='exported');write(folder/'state.json',s)
+    write(folder/'manifest.json',{**s,'modes':2,'curve_sha256':sha(folder/'sparams.csv'),'full_matrix_approved':False})
+    r=compare(folder,s['case']);s.update(status='completed',coarse_tuning_pass=r['coarse_tuning_pass'],strict_response_comparison_pass=r['strict_response_comparison_pass'])
+    write(folder/'state.json',s);progress();return r
+async def execute(case):
+    assert not solvers()
+    folder=BASE/('I_'+case);folder.mkdir(exist_ok=True)
+    if (folder/'state.json').exists():
+        s=read(folder/'state.json')
+        if s['status']=='completed':return read(folder/'comparison.json')
+        if s['status']=='solving' and s.get('last_mcp_status',{}).get('running') is False and (folder/'profile.prof').exists():
+            assert not solvers() and not s.get('observations')
+            s['recovery']='Collect completed cached interpolation; do not solve again.'
+            return collect(folder,s)
+        raise RuntimeError('Existing attempt requires explicit recovery; do not replay')
+    ref=ROOT/case/'i00';m=read(ref/'manifest.json');src=Path(m['project']);project=folder/('I_'+case+'.aedt')
+    assert not project.exists();shutil.copy2(src,project)
+    cache=src.with_suffix('.aedtresults');dest=project.with_suffix('.aedtresults')
+    files=[p for p in cache.rglob('*') if p.is_file() and not p.name.endswith('.semaphore')]
+    assert shutil.disk_usage(BASE).free>sum(p.stat().st_size for p in files)+10*1024**3
+    for p in files:
+        out=dest/p.relative_to(cache);out.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,out)
+    s={'case':case,'profile':'I','status':'preparing','source':str(src),'source_sha256':sha(src),'project':str(project),
+       'geometry':m['geometry'],'started_at_utc':now(),'cache_copied':True,'fresh_mesh_verified':False,
+       'geometry_tuning_iterations_added':0,'fresh_numerical_solves_added':0,'new_sweep_solves_added':1,
+       'tolerances':{'MaxDeltaS':.005,'InterpTolerance':1.0},'timing_scope':'Only new sweep measured; total estimate uses historical strict mesh time.',
+       'profile_hashes_before':{str(p):sha(p) for p in dest.rglob('*.profile')}}
+    write(folder/'state.json',s);progress();app=app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        s['setup_before']=json.loads(json.dumps(setup.props,default=str));assert setup.props['MaxDeltaS']==.005
+        app.export_convergence('Setup19',output_file=str(folder/'convergence_before.txt'))
+        assert convergence(folder/'convergence_before.txt')==m['convergence']
+        f,v,_,_=getdata(app,'Sweep1');old=list(csv.DictReader((ref/'sparams.csv').open(encoding='utf-8-sig')))
+        for key,expr in [('S11','S(1:1,1:1)'),('S21','S(2:1,1:1)')]:
+            ov=np.array([complex(float(r[key+'_real']),float(r[key+'_imag'])) for r in old])
+            assert max(abs(ov-v[expr]))<1e-10
+        s['copied_original_curves_verified']=True
+        s['cad_verification']=inspect_rebuilt_geometry(app,m['geometry']);assert s['cad_verification']['passed']
+        s['ports']={b.name:json.loads(json.dumps(b.props,default=str)) for b in app.boundaries if b.type=='Wave Port'}
+        assert canonical_ports(s['ports'])==canonical_ports(m['port_settings']['after'])
+        original=next(w for w in setup.sweeps if w.name=='Sweep1');original.auto_update=False
+        original.props.update({'Type':'Interpolating','IsEnabled':False});assert original.update()
+        sweep=setup.add_sweep(SWEEP,sweep_type='Interpolating');sweep.auto_update=False
+        settings={k:v for k,v in s['setup_before']['Sweeps']['Sweep1'].items() if k!='ID'}
+        settings.update({'InterpTolerance':1.0,'EnforcePassivity':False,'IsEnabled':True})
+        sweep.props.update(settings);assert sweep.update()
+        s['setup_after']=json.loads(json.dumps(setup.props,default=str));s['sweep_after']=json.loads(json.dumps(sweep.props,default=str))
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+    s.update(status='solving',mcp_request=args,observations=[],solve_started_at_utc=now());write(folder/'state.json',s);progress();started=time.monotonic()
+    async with connected_client() as client:
+        s['mcp_response']=await session_call(client,'start_analysis',args);assert s['mcp_response'].get('started')
+        while True:
+            await asyncio.sleep(15);live=solvers()
+            for p in live:
+                command=' '.join(p['cmdline'] or [])
+                if '-solve_broadband_adapt' in command or '-solve_adapt' in command:
+                    app=app_for(project)
+                    try:app.stop_simulations(clean_stop=True)
+                    finally:app.release_desktop(close_projects=False,close_desktop=False)
+                    raise RuntimeError('Unexpected adaptive solve: stopped isolated trial')
+            if live and (not s['observations'] or s['observations'][-1]!=live):s['observations'].append(live)
+            status=await session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+            s.update(last_mcp_status=status,elapsed_seconds=time.monotonic()-started,updated_at_utc=now());write(folder/'state.json',s);progress()
+            if not live and not status.get('running'):break
+            if time.monotonic()-started>7200:raise RuntimeError('Two-hour review trigger; retain running solve')
+    s['solve_wall_seconds']=time.monotonic()-started;s['solve_finished_at_utc']=now()
+    return collect(folder,s)
+async def main():
+    assert (HERE/'results.json').exists(),'Finish initial M experiments first'
+    assert not solvers() and not (ROOT/'pilot_queue.lock').exists()
+    plan={'profile':'I','cases':['D05G02','D08G05'],'MaxDeltaS':.005,'InterpTolerance':1.0,'EnforcePassivity':False,'mode_count':2,'cores':16,'tasks':1,
+      'basis':'M_D05G02 failed predeclared error budget. Preserve strict mesh and test only new sweep, reusing strict cache.',
+      'error_budgets':{k:v for k,v in read(HERE/'frozen_plan.json').items() if k in ['coarse_error_budget','strict_error_budget']},
+      'source_sha256':read(HERE/'frozen_plan.json')['source_sha256']}
+    pf=HERE/'sweep_only_plan.json'
+    if pf.exists():assert read(pf)==plan
+    else:write(pf,plan)
+    lock=ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:write(HERE/'sweep_only_results.json',[await execute(c) for c in plan['cases']])
+    except BaseException:write(HERE/'sweep_only_error.json',{'at_utc':now(),'error':traceback.format_exc()});raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+        progress()
+if __name__=='__main__':asyncio.run(main())

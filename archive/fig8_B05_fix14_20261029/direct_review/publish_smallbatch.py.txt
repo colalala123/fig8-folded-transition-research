@@ -1,0 +1,13 @@
+from phase_control import HERE,read,write,now
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(HERE/'hook/config.json');path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B05 second-cycle14core selected same-mesh finite direct review; no adaptive')
+    def prompt(e,p):return f'[B05二轮14核同网格复核] {p}\n{summary}\n先读{HERE/"CONTINUATION.md"}。核验实际原生数据/看图/ACK；首轮<=24点6批，预留<=8点2批，两阶段共32点8批。本轮<=4几何60Analyze。不重复Analyze、不清工程锁、不重开旧队列、不启动48点。'
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as e:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(e)))
+    return receipt

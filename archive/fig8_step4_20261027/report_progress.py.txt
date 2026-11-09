@@ -1,0 +1,28 @@
+"""Read-only simulation progress -> local reports. No solver/hook dispatch."""
+import phase_control as pc
+def main():
+    pred=pc.read(pc.HERE/'predictions_frozen.json');rows=[]
+    for p in pred['cases']:
+        case=p['case'];run=pc.BASE/case/'g01_initial';row=dict(case=case,category=p['category'],target_BW_GHz=p['target_BW_GHz'],stage='not_started',baseline_passed=None,target_dense_covered=None,numerical_status='pending')
+        if (run/'state.json').exists():
+            s=pc.read(run/'state.json');row.update(stage=s['status'],actual_elements=s.get('actual_elements'),initial_Analyze=len(s['segments']),baseline_passed=s.get('design_passed'))
+        if (run/'sparams.csv').exists():
+            import numpy as np,sys
+            sys.path.insert(0,str(pc.HERE.parent/'fig8_inverse_PR_20261027'));from model import band_score
+            d=np.genfromtxt(run/'sparams.csv',delimiter=',',names=True);score=band_score(d['Freq_GHz'],d['S11_dB'],d['S21_dB'],p['f_low_GHz'],p['f_high_GHz'])
+            row.update(dense_score=score,target_dense_covered=score['worst_S11_dB']<=-20 and score['min_S21_dB']>=-2)
+        direct=pc.BASE/case/'direct_smallbatch'
+        reserve=pc.BASE/case/'direct_reserved'
+        if (reserve/'receiver_ack.json').exists():direct=reserve
+        elif (reserve/'state.json').exists():row['stage']='reserved_'+pc.read(reserve/'state.json')['status']
+        if (direct/'receiver_ack.json').exists():
+            c=pc.read(direct/'comparison.json');row.update(numerical_status='finite_consistency_passed' if c['numerical_review_passed'] else ('direct_target_failure_confirmed_partial_review' if c['target_finite_direct_failure_confirmed'] else 'finite_checks_unresolved'),target_direct_failure=c['target_finite_direct_failure_confirmed'],needs_reserved_points=c['needs_reserved_points'],target_finite_covered=bool(c['numerical_review_passed'] and c['dense_target_covered'] and not c['target_finite_direct_failure_confirmed']))
+        rows.append(row)
+    out=dict(at=pc.now(),cases=rows,active=pc.read(pc.HERE/'active.json'),training_updated=False,geometry_tuning=False)
+    pc.write(pc.HERE/'progress.json',out)
+    lines=['# Fig8第四步独立逆向首轮进展','',f"更新UTC：{out['at']}",'','六项均E类探索候选，非可靠推荐；冻结模型未重训，几何不调谐。','',
+      '|任务|目标联合BW/GHz|阶段|实际网格|基准调谐|密扫目标覆盖|有限数值复核|','|---|---:|---|---:|---|---|---|']
+    for r in rows:lines.append(f"|{r['case']}|{r['target_BW_GHz']}|{r['stage']}|{r.get('actual_elements','—')}|{r['baseline_passed']}|{r['target_dense_covered']}|{r['numerical_status']}|")
+    lines+=['','密扫目标覆盖不是最终验收；基准调谐不是联合−20 dB要求通过。','']
+    (pc.HERE/'PROGRESS.md').write_text('\n'.join(lines),encoding='utf-8');print(out)
+if __name__=='__main__':main()

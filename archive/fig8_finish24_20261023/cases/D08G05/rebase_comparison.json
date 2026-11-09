@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-23T18:11:19.551723+00:00",
+  "case": "D08G05",
+  "run": "J:\\f8_finish24_261023\\D08G05\\g00_rebase",
+  "actual_elements": 100697,
+  "comparison": {
+    "M": {
+      "reference_elements": 112136,
+      "signed_BW_shift_MHz": -2.9584660082946357,
+      "signed_central_shift_MHz": 0.0,
+      "signed_peak_difference_shift_dB": 0.1425258254882973,
+      "max_peak_height_shift_dB": 0.1067176556631022
+    },
+    "I": {
+      "reference_elements": 179560,
+      "signed_BW_shift_MHz": -8.976303766164762,
+      "signed_central_shift_MHz": 40.000000000000036,
+      "signed_peak_difference_shift_dB": -0.10719984798016213,
+      "max_peak_height_shift_dB": 0.2746414270400521
+    },
+    "N090": {
+      "reference_elements": 89965,
+      "signed_BW_shift_MHz": 3.3027204896143303,
+      "signed_central_shift_MHz": 0.0,
+      "signed_peak_difference_shift_dB": 0.004369625036195757,
+      "max_peak_height_shift_dB": 0.022208834045986947
+    },
+    "legacy": {
+      "reference_elements": 179560,
+      "signed_BW_shift_MHz": -8.740972057864838,
+      "signed_central_shift_MHz": 40.000000000000036,
+      "signed_peak_difference_shift_dB": -0.08408190398166582,
+      "max_peak_height_shift_dB": 0.26662047753392315
+    }
+  },
+  "source_hashes": {
+    "J:\\f8_finish24_261023\\D08G05\\g00_rebase\\response_metrics.json": "870c004cf1125845451e4d37119b6213e7261cce759256285199426d33df46b4",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\cases\\D08G05\\rebase_decision.json": "f6cae504cd165f392d71dcb1e6f330227f1831352e76d32442a605b378694df5"
+  },
+  "conclusion": "Staged-count center established, not a strict-mesh-equivalent result. Central valley remains40MHz above I/legacy, BW about8.976MHz below I. Preserve mesh sensitivity; no second baseline rebuild or threshold change. Proceed only with local same-controller probes and actual candidate validation."
+}

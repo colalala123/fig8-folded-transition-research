@@ -1,0 +1,48 @@
+import asyncio, hashlib, json, time, traceback
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+
+ROOT = Path(r"F:\hfss_f8x_261002\R_B0_manual_noport26")
+PROJECT = ROOT / "R_B0_manual_noport26.aedt"
+MANIFEST = ROOT / "manual_noport26_manifest.json"
+PORT = 12704
+NAME = "R_B0_manual_noport26"
+
+def sha(path):
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""):
+            h.update(b)
+    return h.hexdigest()
+
+def save(d): MANIFEST.write_text(json.dumps(d, indent=2, default=str), encoding="utf-8")
+def hf3d_alive(): return any((p.info.get("name") or "").lower() == "hf3d.exe" for p in psutil.process_iter(["name"]))
+
+async def main():
+    if hf3d_alive(): raise RuntimeError("hf3d already active")
+    d=json.loads(MANIFEST.read_text(encoding="utf-8")); d.update(status="starting", started_at_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime())); save(d)
+    d["mcp_start"]=await call("start_analysis", {"project_name":NAME,"design_name":"Wideband vertical transition","setup_name":"ModalManualNoPort26","port":PORT,"concurrent_tasks":1,"cores_per_task":16,"blocking":False,"timeout":120})
+    if not d["mcp_start"].get("started"): raise RuntimeError(d["mcp_start"])
+    d["status"]="solving"; save(d)
+    deadline=time.time()+3*3600
+    while time.time()<deadline and hf3d_alive():
+        await asyncio.sleep(30)
+    d["solver_present_after_wait"]=hf3d_alive()
+    if d["solver_present_after_wait"]: raise TimeoutError("solver still active after 3 hours")
+    app=Hfss(project=str(PROJECT),design="Wideband vertical transition",version="2024.2",machine="localhost",port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+    try:
+        d["messages"]=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        for norm,name in ((False,"hfss_native_manual_noport26.s6p"),(True,"hfss_50ohm_manual_noport26.s6p")):
+            app.export_touchstone(setup="ModalManualNoPort26",sweep="SweepManualNoPort26",output_file=str(ROOT/name),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+        app.export_convergence("ModalManualNoPort26",output_file=str(ROOT/"convergence_manual_noport26.txt"))
+        d.update({"project_sha256_after":sha(PROJECT),"finished_at_utc":time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()),"status":"exported_needs_review"}); save(d)
+    finally: app.release_desktop(close_projects=False,close_desktop=False)
+
+if __name__=='__main__':
+    try: asyncio.run(main())
+    except Exception:
+        try:d=json.loads(MANIFEST.read_text(encoding='utf-8'))
+        except Exception:d={}
+        d.update(status='failed',error=traceback.format_exc()); save(d); raise

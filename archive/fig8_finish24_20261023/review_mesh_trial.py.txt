@@ -1,0 +1,58 @@
+"""Verify the mesh trial event, recompute errors, and record a scoped receiver decision."""
+import csv
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from mesh_continue_trial import *
+
+def curve(p):
+    with p.open(encoding='utf-8-sig',newline='') as h:rows=list(csv.DictReader(h))
+    return {k:np.array([float(row[k]) for row in rows]) for k in rows[0]}
+
+def main():
+    folder=FOLDER;event=read(folder/'completion_event.json');verified={}
+    assert event['status']=='completed' and event['verified_success']
+    for a in event['artifacts']:
+        p=(folder/a['path']).resolve();assert p.is_relative_to(folder.resolve())
+        assert sha(p)==a['sha256'];verified[str(p)]=a['sha256']
+    frozen=read(folder/'plan.json');assert sha(frozen['source_project'])==frozen['source_sha256']
+    s=read(folder/'state.json');before=passes(folder/'convergence_before.txt');after=passes(folder/'convergence.txt')
+    assert after[:-1]==before and after[-1][:2]==[23,111552]
+    assert s['sweep_converged'] and s['observed_16core_process'] and s['observed_adaptive_process']
+    recalculated=compare(folder,REFERENCE,'D05G02')
+    stored=read(folder/'comparison.json')
+    for p,digest in stored['source_hashes'].items():assert sha(p)==digest
+    for k in ['BW_error_MHz','max_peak_error_dB','max_S21_dB_error']:assert abs(recalculated[k]-stored[k])<1e-12
+    for name in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        data=curve(folder/name)
+        assert len(data['Freq_GHz'])==1500 and np.allclose(data['Freq_GHz'],np.arange(1,1501)/100)
+        assert all(np.isfinite(v).all() for v in data.values())
+    fig,axes=plt.subplots(2,1,figsize=(9,7),sharex=True)
+    ref=curve(REFERENCE/'sparams.csv');candidate=curve(folder/'sparams.csv')
+    for col,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+        axes[0].plot(ref['Freq_GHz'],ref[col],color=color,label=col+' reference')
+        axes[0].plot(candidate['Freq_GHz'],candidate[col],color=color,ls='--',label=col+' 111552 cells')
+        axes[1].plot(ref['Freq_GHz'],candidate[col]-ref[col],label=col+' difference')
+    axes[0].set(ylim=(-65,2),ylabel='dB',title='D05G02 mesh continuation trial - NOT design acceptance')
+    axes[1].set(xlim=(3,10.5),ylim=(-.2,.2),xlabel='Frequency (GHz)',ylabel='Candidate - reference (dB)')
+    for ax in axes:ax.grid(alpha=.25);ax.legend(fontsize=8)
+    fig.tight_layout();image=HERE/'mesh_trial_response.png';fig.savefig(image,dpi=150);plt.close(fig)
+    review={'at':now(),'actual_elements':111552,'overshoot_count':1552,'overshoot_percent':100*(111552/110000-1),
+            'actual_added_elements':111552-90937,'requested_max_added_elements':14000,
+            'settings_persisted':True,'control_did_not_bound_solved_elements':True,
+            'cause':'Not established. Saved settings show MaxTetIncrease=14000, but observed increment is 20615; do not assume this bounds final solved elements in this broadband continuation.',
+            'tuning_response_error_budget_passed':recalculated['error_budgets']['tuning'],
+            'strict_response_error_budget_passed':recalculated['error_budgets']['strict_response'],
+            'delta_s':s['convergence'],'recalculated_comparison':recalculated,'verified_hashes':verified,
+            'plot':str(image),'new_geometry_runner_released':False,
+            'decision':'Preserve result, do not rerun to shave 1552 elements without deciding mesh allowance. Asked user whether <=112000 is acceptable as a recorded exception. No global/full-network acceptance.'}
+    write(HERE/'mesh_trial_review.json',review)
+    write(folder/'receiver_ack.json',{'event_id':'cd4fc2abdd3553603940c837','at':now(),'event_sha256':sha(folder/'completion_event.json'),
+            'artifacts_verified':True,'review_path':str(HERE/'mesh_trial_review.json'),'review_sha256':sha(HERE/'mesh_trial_review.json'),
+            'operation_success':True,'mesh_target_met':False,'tuning_response_error_budget_passed':True,'design_acceptance':False})
+    write(HERE/'active.json',{'case':'D05G02','stage':'mesh_trial_reviewed_awaiting_tolerance_preference','solver_running':False,
+            'run_dir':str(folder),'updated_at':now(),'note':'No automatic rerun; implementing bounded actual-count controller offline.'})
+    status_report();print({'hashes_verified':len(verified),'actual_elements':111552,'BW_error_MHz':recalculated['BW_error_MHz'],'plot':str(image)})
+
+if __name__=='__main__':main()

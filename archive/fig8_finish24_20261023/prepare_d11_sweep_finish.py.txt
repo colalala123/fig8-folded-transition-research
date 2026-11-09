@@ -1,0 +1,46 @@
+"""Continue from verified completed pass23; not a second adaptive recovery."""
+import shutil
+from geometry_worker import *
+
+def main():
+    old=BASE/'D11G02/g00_recovery1';run=BASE/'D11G02/g00_sweep_finish'
+    assert not run.exists() and not dc.solvers() and not (HERE/'worker.lock').exists() and not (OLD/'protocol.lock').exists()
+    event=read(old/'completion_event.json')
+    for a in event['artifacts']:assert sha(old/a['path'])==a['sha256']
+    inspection=read(HERE/'cases/D11G02/recovery1_inspection.json')
+    assert not inspection['running'] and inspection['history'][-1][:2]==[23,102443]
+    assert any('Normal completion' in x for x in inspection['messages']) and not any('[error]' in x.lower() for x in inspection['messages'])
+    s=read(old/'state.json');source_project=Path(s['project']);project=run/'D11G02_sweep_finish.aedt'
+    cached=source_project.with_suffix('.aedtresults');files=[p for p in cached.rglob('*') if p.is_file() and not p.name.endswith('.semaphore')]
+    assert shutil.disk_usage(BASE).free>sum(p.stat().st_size for p in files)+15*1024**3
+    run.mkdir(parents=True);shutil.copy2(source_project,project)
+    for p in files:
+        dest=project.with_suffix('.aedtresults')/p.relative_to(cached);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,dest)
+    for i in range(7):shutil.copy2(old/f'convergence_stage_{i:02d}.txt',run/f'convergence_stage_{i:02d}.txt')
+    export=HERE/'cases/D11G02/recovery1_convergence_inspection.txt'
+    shutil.copy2(export,run/'convergence_stage_07.txt');shutil.copy2(export,run/'resume_convergence.txt')
+    previous=passes(run/'convergence_stage_06.txt');actual=passes(export)
+    assert actual[:-1]==previous
+    s['mesh_stages'][-1].update(actual_passes=23,actual_elements=102443,history_prefix_verified=True)
+    seg=s['segments'][-1];commands=[' '.join(p['cmdline'] or []) for obs in seg['observations'] for p in obs]
+    seg['observed_16core_process']=any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    seg['observed_adaptive_process']=any('-solve_broadband_adapt' in c for c in commands)
+    assert seg['observed_16core_process'] and seg['observed_adaptive_process']
+    seg.update(messages=inspection['messages'],completion_verified_at=now(),completion_verification='Direct AEDT read and completed 23-pass convergence export; broker timeout was a monitoring failure')
+    s.update(project=str(project),status='sweep_finish_checkpoint',actual_passes=23,actual_elements=102443,
+             parent_monitoring_failed_run=str(old),resource_recovery_attempt=1,cache_copied=True)
+    checkpoint=run/'resume_checkpoint.json';write(checkpoint,s)
+    spec=read(old/'input.json');spec.update(run_dir=str(run),resume_checkpoint=str(checkpoint),resume_checkpoint_sha256=sha(checkpoint),
+         resume_project_sha256=sha(project),worker_sha256=sha(HERE/'geometry_worker.py'),created_at=now(),
+         recovery_reason='Read-only monitoring failure after successful pass23; only finish Sweep1 on verified 102443-cell mesh. NO adaptive rerun.')
+    write(run/'input.json',spec)
+    previous_release=read(HERE/'supervised_release.json');assert previous_release['case']=='D11G02'
+    archive=HERE/'supervised_releases/D11G02_g00_recovery1_monitoring_failed.json';assert not archive.exists();write(archive,previous_release)
+    write(HERE/'supervised_release.json',{'case':'D11G02','input_path':str((run/'input.json').resolve()),'input_sha256':sha(run/'input.json'),
+          'bulk_dispatch_released':False,'at':now(),'reason':'Complete sweep after actual successful pass23; no additional adaptive recovery'})
+    write(old/'receiver_ack.json',{'event_id':'e8434b4d9b582a0152f1ea50','at':now(),'event_sha256':sha(old/'completion_event.json'),
+          'artifacts_verified':True,'monitoring_failed':True,'actual_adaptive_success':True,'actual_elements':102443,
+          'inspection_sha256':sha(HERE/'cases/D11G02/recovery1_inspection.json'),'next_run':str(run),'no_adaptive_rerun':True})
+    print(run/'input.json')
+
+if __name__=='__main__':main()

@@ -1,0 +1,51 @@
+"""Freeze four actually configured projects and apply already received human authorization."""
+from pathlib import Path
+import ast
+import phase_control as pc
+
+def main():
+    assert not (pc.HERE/'initial_inputs.json').exists()
+    plan=pc.read(pc.HERE/'plan.json');auth=pc.read(pc.HERE/'authorization.json')
+    assert auth['configuration_authorized'] and not auth['execution_authorized']
+    assert pc.read(pc.HERE/'budget_ledger.json')['tasks']==[]
+    assert pc.read(pc.HERE/'hook_live_read_preflight.json')['supported_read_thread_verified']
+    for key in ['seed','prediction_source','training_source','source_validation_result']:
+        hashkey='source_validation_sha256' if key=='source_validation_result' else key+'_sha256'
+        assert pc.sha(plan[key])==plan[hashkey]
+    common=['plan.json','policy.json','mesh_policy_addendum_v2.json','reference_validation.json',
+        'case_reference.py','phase_control.py','phase_geometry_context.py','phase_geometry_worker.py',
+        'prepared_settings.py','phase_geometry_publish.py','phase_publish.py','phase_heartbeat.py',
+        'phase_heartbeat_transport.py','hook/config.json','implementation_provenance.json',
+        'predictions_frozen.json','CONTINUATION.md','execution_plan.json','aedt_session_guard.py']
+    hashes={str(pc.HERE/f):pc.sha(pc.HERE/f) for f in common}
+    hashes[str(pc.ORIGINAL/'mesh_budget.py')]=pc.sha(pc.ORIGINAL/'mesh_budget.py')
+    entries=[]
+    for row in plan['cases']:
+        case=row['case']; proofpath=pc.HERE/'cases'/case/'configuration.json';proof=pc.read(proofpath)
+        project=Path(row['prepared_project'])
+        assert proof['passed'] and not proof['solved'] and not proof['analyze_requested']
+        assert pc.sha(project)==proof['project_sha256'] and proof['geometry']==row['geometry']
+        assert not project.with_suffix('.aedt.lock').exists()
+        run=pc.BASE/case/'g01_initial';path=run/'input.json'
+        assert not path.exists() and not (run/'state.json').exists()
+        parents={**hashes,str(proofpath):pc.sha(proofpath)}
+        spec=dict(case=case,role='initial',geometry=row['geometry'],source=str(project),source_sha256=pc.sha(project),
+            source_seed=plan['seed'],source_seed_sha256=plan['seed_sha256'],run_dir=str(run),input_path=str(path),
+            project_name=f'{case}_I4_g01',policy_sha256=pc.sha(pc.HERE/'policy.json'),
+            mesh_addendum_sha256=pc.sha(pc.HERE/'mesh_policy_addendum_v2.json'),new_phase_geometry_ordinal=1,
+            historical_geometry_attempts=0,phase_solve_ordinal_including_history=1,
+            worker_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),controller_sha256=pc.sha(pc.ORIGINAL/'mesh_budget.py'),
+            parent_evidence_hashes=parents,created_at=pc.now(),scope='I4 initial geometry only')
+        pc.write(path,spec)
+        entries.append(dict(case=case,input_path=str(path),input_sha256=pc.sha(path),project_sha256=pc.sha(project),launched=False))
+    for path in pc.HERE.glob('*.py'):ast.parse(path.read_text(encoding='utf-8'))
+    pc.write(pc.HERE/'initial_inputs.json',dict(stage='I4',entries=entries))
+    pc.write(pc.HERE/'configuration_readiness.json',dict(at=pc.now(),prepared_projects=4,CAD_checked=True,
+        settings_checked=True,source_hashes_verified=True,simulation_started=False))
+    auth.update(execution_authorized=True,launch_authorized_at=pc.now(),
+        execution_plan_sha256=pc.sha(pc.HERE/'execution_plan.json'),current_segment='initial_four_only')
+    pc.write(pc.HERE/'authorization.json',auth)
+    pc.write(pc.HERE/'active.json',dict(stage='four_prepared_authorized',at=pc.now(),solver_started=False));pc.status()
+    print(dict(prepared=4,execution_authorized=True,solver_started=False))
+
+if __name__=='__main__':main()

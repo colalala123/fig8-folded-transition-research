@@ -1,0 +1,123 @@
+{
+  "case": "B06S",
+  "case_state": "needs_review",
+  "reason": "correction_probe_requires_target_review",
+  "operation_success": true,
+  "design_passed": false,
+  "numerical_review_passed": null,
+  "full_matrix_approved": false,
+  "selected_run": "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial",
+  "geometry": {
+    "Wm": 1.781991,
+    "Ws": 0.350642,
+    "Lm": 6.566221232908472,
+    "Ls1": 12.073353943402624,
+    "Ls2": 1.251284,
+    "Ls3": 2.150642
+  },
+  "actual_elements": 103011,
+  "mesh_target_met": true,
+  "mesh_exception_used": false,
+  "metrics": {
+    "extraction_version": "response_pr_v1_20260920",
+    "curve_path": "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\sparams.csv",
+    "curve_sha256": "c51c89382ed22a080bd0685edd65e90099ede5d254a07642bcc2fdcca9ca4ac3",
+    "points": 1500,
+    "frequency_range_GHz": [
+      0.01,
+      15.0
+    ],
+    "f0_reference_GHz": 6.85,
+    "peak_average": "linear magnitude mean, then 20log10",
+    "R_definition": "zm/zs",
+    "max_S21_dB": -0.3889526378368849,
+    "power_excess_S11_S21": -0.0006328292847703754,
+    "formal_response_PR": null,
+    "diagnostic_response_PR": {
+      "P_response": 1.525500254970444,
+      "R_BW": 0.9490067828343255,
+      "Zm_response_ohm": 60.16041242342103,
+      "Zs_response_ohm": 63.39302680613573,
+      "f0_reference_GHz": 6.85
+    },
+    "passband_2dB": {
+      "f_low_GHz": 3.0447255818660306,
+      "f_high_GHz": 9.947828975337401,
+      "BW_GHz": 6.903103393471371,
+      "touches_sweep_edge": false
+    },
+    "passband_joint": {
+      "f_low_GHz": 3.2948960506162526,
+      "f_high_GHz": 9.870451911178078,
+      "BW_GHz": 6.575555860561826,
+      "touches_sweep_edge": false
+    },
+    "prominent_valley_count": 3,
+    "valley_prominence_dB": 0.5,
+    "valleys": [
+      {
+        "frequency_GHz": 3.96,
+        "S11_dB": -34.94414651410986
+      },
+      {
+        "frequency_GHz": 6.77,
+        "S11_dB": -47.582094928363986
+      },
+      {
+        "frequency_GHz": 9.2,
+        "S11_dB": -37.711238738559146
+      }
+    ],
+    "peaks": [
+      {
+        "frequency_GHz": 5.2,
+        "S11_dB": -19.96170701944435,
+        "S21_dB": -0.438455276393246
+      },
+      {
+        "frequency_GHz": 8.22,
+        "S11_dB": -20.827946596993865,
+        "S21_dB": -0.6295100822423019
+      }
+    ],
+    "signed_peak_difference_dB": 0.8662395775495142,
+    "peak_difference_dB": 0.8662395775495142,
+    "peak_level_dB": -20.384032573582743,
+    "central_valley_GHz": 6.77,
+    "band_center_GHz": 6.496277278601716,
+    "worst_S11_between_valleys_dB": -19.96170701944435,
+    "min_S21_between_valleys_dB": -0.7943085516426787,
+    "validity": {
+      "peak_difference_le_0p5": false,
+      "S11_below_minus10_between_valleys": true,
+      "S21_ge_minus2_between_valleys": true,
+      "band_not_truncated": true,
+      "nonpositive_transmission": true,
+      "equal_ripple": false,
+      "solver_convergence_verified": false
+    },
+    "bandcenter_sensitivity_PR": {
+      "P_response": 1.525500254970444,
+      "R_BW": 0.7984820127801415,
+      "Zm_response_ohm": 55.18343306839063,
+      "Zs_response_ohm": 69.11042726717645,
+      "f0_reference_GHz": 6.496277278601716
+    },
+    "R_side_poles_diagnostic": 0.7252393788445703,
+    "unused_shape_checks": {
+      "S11_magnitude_RMSE": 0.120420622016344,
+      "S21_dB_RMSE": 0.7361913002652577,
+      "low_edge_error_GHz": 0.35372272139828365,
+      "high_edge_error_GHz": 0.35372272139828453,
+      "central_valley_error_GHz": 0.08000000000000007,
+      "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+    }
+  },
+  "finished_at": "2026-10-28T09:58:54.377481+00:00",
+  "evidence_hashes": {
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\state.json": "e818a1f463d88bb2916d96435d81a0917aefad4313cae18b6c2c4517666090a6",
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\manifest.json": "8ba041f2c77c752fbd0f4cc6ece35b4d2018f4ea79342ec28b5f10724e32d669",
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\sparams.csv": "c51c89382ed22a080bd0685edd65e90099ede5d254a07642bcc2fdcca9ca4ac3",
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\convergence.txt": "c207beeb2e3f289cdedb4e5fb4617fda2893128cf0937eb2c5d18855fe359d94"
+  }
+}

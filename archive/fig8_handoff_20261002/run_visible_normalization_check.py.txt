@@ -1,0 +1,23 @@
+"""Two bounded normalization trials; no pilot launch before reviewing their evidence."""
+import traceback
+import psutil
+from pilot_queue import ROOT,OLD,freeze,read,status
+from pilot_worker import write_json,now
+from visible_pilot_queue import visible_solve
+
+def main():
+    if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])):
+        raise RuntimeError('Existing solver active; refusing another solve')
+    for case in ('B0','T_F3'):
+        run=ROOT/f'M_{case}_3w16'
+        freeze(run,OLD/case/(case+'.aedt'),read(OLD/case/'manifest.json')['geometry'],3,False,
+               'port_normalization_verification',cores=16,tasks=1,mode_impedance_overrides={'3':'Zwave'},
+               diagnostic_only_until_protocol_review=True,
+               rationale='Supported normalization change of third cutoff mode only; fundamental/second mode Zpi and all accuracy/passivity settings preserved. Requires independent numerical, field, auxiliary and passivity review before validating production.')
+        visible_solve(run)
+    status(status='normalization_checks_need_review',active_run=None,active_worker_pid=None)
+
+if __name__=='__main__':
+    try:main()
+    except Exception:
+        status(status='review_required',error=traceback.format_exc());raise

@@ -1,0 +1,60 @@
+"""Export and review the existing-mesh full-band Zo convergence diagnostic."""
+import csv,json,math
+from pathlib import Path
+import numpy as np
+from broadband_recovery import ROOT,read,sha,write_json,audit_matrix
+from run_broadband_case import connect
+from check_legacy_scalar_reference import load_modal
+from check_external_normalization import impedance,transform
+from audit_existing import touchstone
+from recover_exported_diagnostics import main as recover_diagnostics
+
+RUN=ROOT/'local_repair/D04G05/zo_fullband'
+def main():
+    s=read(RUN/'state.json');assert s['status']=='segments_exported_review_required' and s['mesh_reuse_verified']
+    rec=s['segments']['Zo'];assert rec['status']=='exported' and rec['convergence']['converged'] and rec['sweep_converged']
+    source=ROOT/'D04G05/i00';original=read(source/'manifest.json')
+    modes=[f'{p}:{m}' for p in [1,2] for m in [1,2]]
+    expressions=[f'S({a},{b})' for a in modes for b in modes]
+    auxiliary=[f'{kind}({m})' for kind in ['Zo','Gamma'] for m in modes]
+    app=connect(Path(s['project']),7990)
+    try:
+        assert not app.are_there_simulations_running
+        d=app.post.get_solution_data(expressions=expressions+auxiliary,setup_sweep_name='Setup19 : RecoveryZoV1',domain='Sweep',report_category='Modal Solution Data')
+        assert d
+        f=np.asarray(d.primary_sweep_values)*{'GHz':1,'MHz':1e-3,'Hz':1e-9}[d.units_sweeps['Freq']]
+        assert len(f)==1500 and np.allclose(f,np.arange(1,1501)*.01,rtol=0,atol=1e-9)
+        values={}
+        for e in expressions+auxiliary:
+            _,a=d.get_expression_data(e,formula='real');_,b=d.get_expression_data(e,formula='imag');values[e]=np.asarray(a)+1j*np.asarray(b)
+            assert len(values[e])==1500 and np.isfinite(values[e]).all()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    def export(name,mapping,magnitude=False):
+        rows=[{'Freq_GHz':float(freq)} for freq in f]
+        for label,e in mapping.items():
+            for i,z in enumerate(values[e]):
+                rows[i][label+'_real']=float(z.real);rows[i][label+'_imag']=float(z.imag)
+                if magnitude:rows[i][label+'_mag']=float(abs(z));rows[i][label+'_dB']=float(20*np.log10(max(abs(z),1e-300)))
+        with (RUN/name).open('w',newline='',encoding='utf-8') as h:
+            w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    mapping={'S11':'S(1:1,1:1)','S21':'S(2:1,1:1)','S12':'S(1:1,2:1)','S22':'S(2:1,2:1)'}
+    export('all_modes_sparams.csv',{e:e for e in expressions});export('mode_impedance_gamma.csv',{e:e for e in auxiliary});export('sparams.csv',mapping,True)
+    write_json(RUN/'mode_map.json',{'fundamental_report_mapping':mapping,'mode_count_per_port':2,'excitations':modes,'source':'Explicit original port:mode report quantities; geometry/ports unchanged.'})
+    manifest={**original,'project':s['project'],'status':'exported_review_required','curve_sha256':sha(RUN/'sparams.csv'),
+              'convergence':rec['convergence'],'sweep_converged':rec['sweep_converged'],'messages':rec['messages'],
+              'settings':{'setup':s['setup_props'],'sweep':s['diagnostic_sweep']},'diagnostic_only':True,'source_unchanged':s['source_unchanged']}
+    write_json(RUN/'manifest.json',manifest);matrix=audit_matrix(RUN);recover_diagnostics(RUN)
+    full_f,full,zo,_=load_modal(RUN);converted=transform(full,zo,'traveling')
+    df,direct=touchstone(RUN.parent/'native_direct.s4p',4);dz=impedance(RUN.parent/'native_direct.s4p',4);d50=transform(direct,dz,'traveling')
+    checks=[]
+    for i,freq in enumerate(df):
+        j=int(np.argmin(abs(full_f-freq)));assert abs(full_f[j]-freq)<1e-9
+        checks.append({'GHz':float(freq),'S11_magnitude_error':float(abs(abs(full[j,0,0])-abs(direct[i,0,0]))),
+                      'S21_magnitude_error':float(abs(abs(full[j,2,0])-abs(direct[i,2,0]))),
+                      'full_50ohm_complex_error':float(abs(converted[j]-d50[i]).max()),
+                      'Zo_max_complex_error':float(abs(zo[j]-dz[i]).max())})
+    result={'matrix':matrix,'direct_sample_comparisons':checks,'all_sample_full_matrix_errors_le_0p005':all(x['full_50ohm_complex_error']<=.005 for x in checks),
+            'production_approved':False,'scope':'Diagnostic repair validation; baseline comparability and protocol integration remain required before production dispatch.'}
+    write_json(RUN/'zo_repair_review.json',result)
+    print(json.dumps({'matrix_passed':matrix['passed'],'max_sv':matrix['max_sv'],'passivity_violations':matrix['passivity_violations'],'reciprocity_error':matrix['reciprocity_error'],'direct':checks},indent=2))
+if __name__=='__main__':main()

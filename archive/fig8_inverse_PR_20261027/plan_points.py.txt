@@ -1,0 +1,47 @@
+"""Freeze18 training additions before any new HFSS result. Not a blind test."""
+from model import HERE,read,write,widths,pr,propose,Forward,intervals,center_band
+import numpy as np
+import hashlib
+
+def main():
+    target=HERE/'supplement_plan.json'
+    assert not target.exists(),'Frozen plan exists; do not overwrite'
+    data=read(HERE/'dataset.json');model=Forward(data['rows']);cases=[]
+    pairs=[]
+    for p in [2.04,2.16,2.28]:
+        for r in [.43,.455,.475]:
+            wm,ws=widths(p,r);wm=round(wm,6);ws=round(ws,6)
+            assert all(np.hypot((wm-x['geometry_mm']['Wm'])/1.1,(ws-x['geometry_mm']['Ws'])/.28)>.015 for x in data['rows'])
+            pairs.append((p,r,wm,ws))
+    # First two different PR cells deliberately supervised. Long arms first;
+    # then short-arm replicates; both held fixed to already validated arm values.
+    for arm,suffix in [(1.8,'G05'),(1.4,'G02')]:
+        for i,(p,r,wm,ws) in enumerate(pairs,1):
+            case=f'P{i:02d}{suffix}';geo=propose(wm,ws,arm);q=model.predict(wm,ws,arm)
+            p2,r2=pr(wm,ws)
+            assert abs(p2/p-1)<1e-5 and abs(r2/r-1)<1e-5
+            mask=(q['f']>=4.5)&(q['f']<=8.8)
+            predicted_peak=float(max(q['s11'][mask]))
+            cases.append(dict(case=case,group=f'P{i:02d}',target_P=p,target_R=r,P_nominal=p2,R_nominal=r2,
+                geometry=geo['geometry_mm'],initial_geometry=geo['geometry_mm'],a_mm=arm,g_mm=.55,
+                initialization=dict(method=geo['lengths_method'],parents=geo['length_parents']),geometry_gate=geo['dimension_screen'],
+                predicted_BW_GHz=geo['predicted_BW_GHz'],
+                predicted_joint20_center_band_GHz=center_band(intervals(q['f'],q['s11'],q['s21'])),
+                predicted_max_S11_4p5to8p8_dB=predicted_peak,
+                role='training_addition_fixed_PR_not_blind_inverse_acceptance',
+                tune_only=['Lm','Ls1'],widths_frozen=True))
+    write(target,dict(stage='PR18',cases=cases,count=18,independent_width_pairs=9,
+        scope='Fixed nominal analyticP/R grid near -20dB boundary, g=.55, a1.4/1.8, current material; no uniform data',
+        user_authorization='你现在把前三步做了，补点仿真用记得用hook',
+        budget=dict(initial_geometries=18,total_geometry_cap=30,per_case_geometry_cap=4,additional_geometry_shared_cap=12,
+                    final_direct_points_cap_per_case=24,frequencies_per_launch=4,final_direct_launch_cap_per_case=6),
+        numerical_policy=dict(cores=16,tasks=1,mesh_target=[100000,110000],slight_exception_max=112000),
+        acceptance=dict(operation_success_separate=True,center_GHz=6.72,center_tolerance=.03,peak_difference_max_dB=.5,
+                        minus20_is_measured_label_not_tuning_stop_requirement=True,
+                        do_not_tune_widths_to_force_theory_or_minus20=True),
+        first_supervised=[r['case'] for r in cases[:2]],
+        true_blind_inverse_validation='Step4 not included; do not call these18 blind tests',
+        source_hashes={str(HERE/n):hashlib.sha256((HERE/n).read_bytes()).hexdigest() for n in ['dataset.json','validation.json','model.py']}))
+    print([(r['case'],r['geometry']['Wm'],r['geometry']['Ws'],round(r['predicted_joint20_center_band_GHz'][2],3)) for r in cases])
+
+if __name__=='__main__':main()

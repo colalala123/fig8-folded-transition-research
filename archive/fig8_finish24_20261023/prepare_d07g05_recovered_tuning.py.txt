@@ -1,0 +1,27 @@
+"""D07G05 tuning after the single verified ordinal2 cache recovery, no rebase."""
+import argparse
+from pathlib import Path
+import prepare_tuning as core
+from control import HERE, BASE, read, sha
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser()
+    p.add_argument('--center', type=Path, required=True)
+    p.add_argument('--cycle', choices=['c01', 'c02'], required=True)
+    p.add_argument('--step', choices=['probe_Ls1', 'probe_Lm', 'candidate'], required=True)
+    a = p.parse_args()
+    case = 'D07G05'
+    recovery = BASE/case/'g00_recovery1'
+    decision = HERE/'cases'/case/'rebase_decision.json'
+    d = read(decision)
+    assert d['case'] == case and d['old_results_preserved'] and not d['reuse_old_sensitivities']
+    for path, digest in d['evidence_hashes'].items():
+        assert sha(path) == digest
+    spec, _, _ = core.reviewed(recovery, case)
+    assert spec['phase_solve_ordinal_including_history'] == 2
+    assert spec['parent_evidence_hashes'][str(decision)] == sha(decision)
+    assert read(spec['resume_checkpoint'])['resource_recovery_attempt'] == 1
+    expected = recovery if a.cycle == 'c01' else BASE/case/'c01_candidate'
+    assert a.center.resolve() == expected.resolve()
+    core.ALLOWED = {case}
+    core.prepare(case, a.center, a.cycle, a.step)

@@ -1,0 +1,73 @@
+{
+  "case": "N09_A14",
+  "family_id": "N09",
+  "role": "training_acquisition_family",
+  "source": "D:\\hfss_fig8_next48_20261029\\n07_recovery1\\N09_A14\\g01_initial",
+  "source_curve_sha256": "4e2e046638fe40030ebf123bafa1885c23a6c14e334e6636334e35d70480a891",
+  "primary": {
+    "worst_S11_dB": -18.253122314856938,
+    "min_S21_dB": -1.0371444119820379,
+    "shape_valid": true,
+    "passed": false,
+    "central_valley_GHz": 6.74,
+    "peak_difference_dB": 0.30123365167887073,
+    "inner_peaks": [
+      {
+        "GHz": 5.22,
+        "S11_dB": -20.416319654190627
+      },
+      {
+        "GHz": 8.17,
+        "S11_dB": -20.717553305869497
+      }
+    ],
+    "objective": 305.15816468507825,
+    "nominal_buffer_satisfied": false
+  },
+  "secondary": {
+    "worst_S11_dB": -20.416319654190627,
+    "min_S21_dB": -0.8521620202515966,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.74,
+    "peak_difference_dB": 0.30123365167887073,
+    "inner_peaks": [
+      {
+        "GHz": 5.22,
+        "S11_dB": -20.416319654190627
+      },
+      {
+        "GHz": 8.17,
+        "S11_dB": -20.717553305869497
+      }
+    ],
+    "objective": 0.0,
+    "nominal_buffer_satisfied": true
+  },
+  "S21_minus2_BW_GHz": 6.857783763495078,
+  "joint20": {
+    "joint20_intervals_GHz": [
+      [
+        3.6809458611375088,
+        9.466128728487936
+      ]
+    ],
+    "joint20_center_band_GHz": [
+      3.6809458611375088,
+      9.466128728487936,
+      5.785182867350427
+    ],
+    "inner_peak_count": 2,
+    "worse_inner_peak_dB": -20.416319654190627,
+    "both_inner_peaks_le_minus20": true,
+    "fixed_4to9": {
+      "worst_S11_dB": -20.416319654190627,
+      "min_S21_dB": -0.8078057813944415
+    },
+    "is_scientific_label_not_solver_success": true
+  },
+  "forward_BW_error_GHz": -0.004570947806402437,
+  "numerical_scope": "Mesh-controlled interpolated acquisition; not final native direct certification",
+  "optimized_inverse_length_label": false,
+  "visual_ACK_pending": true
+}

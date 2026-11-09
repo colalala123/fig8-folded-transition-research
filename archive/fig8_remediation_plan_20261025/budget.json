@@ -1,0 +1,183 @@
+{
+  "schema": "fig8_remediation_proposal_v1",
+  "created_at": "2026-10-24T17:16:43.268512+00:00",
+  "status": "proposed_not_launched",
+  "user_request": "Prepare a new bounded simulation plan for the unresolved/failed items; execution not yet authorized.",
+  "scope": "Six problem cases of original24 folded Fig8; no uniform data or six-pole models",
+  "plan_path": "${WORKSPACE}\\output\\fig8_remediation_plan_20261025\\PLAN.md",
+  "plan_sha256": "11992b72f54219862362ca8ece1244de1daf1f515702c07896e1f7ce78199f95",
+  "old_batch_closure": "${WORKSPACE}\\output\\fig8_finish24_20261023\\batch_closure.json",
+  "old_batch_closure_sha256": "b918a657df93368ed4a84e5cc3b0de8f66629514f54ad6f191c7363541d559d4",
+  "original_eight_attempt_limit_preserved": true,
+  "new_phase_requires_explicit_execution_release": true,
+  "new_geometry_cap": 17,
+  "new_cached_task_cap": 8,
+  "new_work_item_cap": 25,
+  "units_note": "New geometry configurations and separate cached analysis tasks; not number of internal Analyze calls or individual frequencies.",
+  "stages": {
+    "A": {
+      "cases": [
+        "D11G05",
+        "D09G02"
+      ],
+      "geometry_cap": 3,
+      "cached_task_cap": 4,
+      "work_item_cap": 7,
+      "released": false
+    },
+    "B": {
+      "cases": [
+        "D04G02",
+        "D09G05"
+      ],
+      "geometry_cap": 6,
+      "cached_task_cap": 2,
+      "work_item_cap": 8,
+      "released": false
+    },
+    "C": {
+      "cases": [
+        "D01G02",
+        "D12G05"
+      ],
+      "geometry_cap": 8,
+      "cached_task_cap": 2,
+      "work_item_cap": 10,
+      "released": false
+    }
+  },
+  "cases": [
+    {
+      "case": "D11G05",
+      "stage": "A",
+      "parent_state": "unresolved_numerical",
+      "parent_result": "${WORKSPACE}\\output\\fig8_finish24_20261023\\cases\\D11G05\\result.json",
+      "parent_result_sha256": "e8e646cb1c532220cacc384778ccf230132a4622cc9be834ed51777e78eecd7d",
+      "selected_run": "J:\\f8_finish24_261023\\D11G05\\c02_candidate",
+      "geometry": {
+        "Wm": 2.0,
+        "Ws": 0.44,
+        "Lm": 6.524564655199935,
+        "Ls1": 12.160660000000002,
+        "Ls2": 1.4300000000000002,
+        "Ls3": 2.24
+      },
+      "historical_geometry_attempts": 7,
+      "new_geometry_cap": 0,
+      "new_cached_task_cap": 2,
+      "new_work_item_cap": 2,
+      "lifetime_geometry_cap_if_released": 7
+    },
+    {
+      "case": "D09G02",
+      "stage": "A",
+      "parent_state": "bounded_design_failed",
+      "parent_result": "${WORKSPACE}\\output\\fig8_finish24_20261023\\cases\\D09G02\\result.json",
+      "parent_result_sha256": "c4e691e87c2393c2148a4abc1f1718ad885ec0a05c2e03923462bb87e03fb0d9",
+      "selected_run": "J:\\f8_finish24_261023\\D09G02\\c01_candidate",
+      "geometry": {
+        "Wm": 1.6,
+        "Ws": 0.58,
+        "Lm": 6.483603479215181,
+        "Ls1": 12.48066,
+        "Ls2": 1.71,
+        "Ls3": 1.98
+      },
+      "historical_geometry_attempts": 7,
+      "new_geometry_cap": 3,
+      "new_cached_task_cap": 2,
+      "new_work_item_cap": 5,
+      "lifetime_geometry_cap_if_released": 10
+    },
+    {
+      "case": "D04G02",
+      "stage": "B",
+      "parent_state": "bounded_design_failed",
+      "parent_result": "${WORKSPACE}\\output\\fig8_finish24_20261023\\cases\\D04G02\\result.json",
+      "parent_result_sha256": "fc7a03235d489a1e510be95bae0cf27918a6233dfd2f93c4a816b50065a952d7",
+      "selected_run": "J:\\f8_finish24_261023\\D04G02\\c01_candidate",
+      "geometry": {
+        "Wm": 1.2,
+        "Ws": 0.3,
+        "Lm": 6.5147442317782405,
+        "Ls1": 12.34066,
+        "Ls2": 1.15,
+        "Ls3": 1.7
+      },
+      "historical_geometry_attempts": 6,
+      "new_geometry_cap": 3,
+      "new_cached_task_cap": 1,
+      "new_work_item_cap": 4,
+      "lifetime_geometry_cap_if_released": 9
+    },
+    {
+      "case": "D09G05",
+      "stage": "B",
+      "parent_state": "bounded_design_failed",
+      "parent_result": "${WORKSPACE}\\output\\fig8_finish24_20261023\\cases\\D09G05\\result.json",
+      "parent_result_sha256": "bee70471b070eb50c9b4915267ce0c258678ae78b0e169acfa4d54323439fab3",
+      "selected_run": "J:\\f8_finish24_261023\\D09G05\\c01_candidate",
+      "geometry": {
+        "Wm": 1.6,
+        "Ws": 0.58,
+        "Lm": 6.511681830297532,
+        "Ls1": 11.680660000000001,
+        "Ls2": 1.71,
+        "Ls3": 2.38
+      },
+      "historical_geometry_attempts": 7,
+      "new_geometry_cap": 3,
+      "new_cached_task_cap": 1,
+      "new_work_item_cap": 4,
+      "lifetime_geometry_cap_if_released": 10
+    },
+    {
+      "case": "D01G02",
+      "stage": "C",
+      "parent_state": "preserved_design_failed",
+      "parent_result": "J:\\f8_261007\\D01G02\\design_result.json",
+      "parent_result_sha256": "e84a8cca6261b880c49f8a24d80305eef2a3cc2d614f2dad15f46b427fb903ed",
+      "selected_run": "J:\\hfss_f8x_261002_archive\\D01G02\\i06",
+      "geometry": {
+        "Wm": 0.9,
+        "Ws": 0.3,
+        "Lm": 6.597158087928181,
+        "Ls1": 12.063852924857146,
+        "Ls2": 1.15,
+        "Ls3": 1.7
+      },
+      "historical_geometry_attempts": 7,
+      "new_geometry_cap": 4,
+      "new_cached_task_cap": 1,
+      "new_work_item_cap": 5,
+      "lifetime_geometry_cap_if_released": 11
+    },
+    {
+      "case": "D12G05",
+      "stage": "C",
+      "parent_state": "preserved_design_failed",
+      "parent_result": "J:\\f8_261007\\D12G05\\design_result.json",
+      "parent_result_sha256": "aa23cf01806ff9b2da43dd19518d02902c6e41ea44055268024cf1b5d5feb7b7",
+      "selected_run": "J:\\f8_261007\\D12G05\\i06",
+      "geometry": {
+        "Wm": 2.0,
+        "Ws": 0.58,
+        "Lm": 6.455785384346105,
+        "Ls1": 11.880660000000002,
+        "Ls2": 1.71,
+        "Ls3": 2.38
+      },
+      "historical_geometry_attempts": 7,
+      "new_geometry_cap": 4,
+      "new_cached_task_cap": 1,
+      "new_work_item_cap": 5,
+      "lifetime_geometry_cap_if_released": 11
+    }
+  ],
+  "automatic_dispatch_released": false,
+  "simulations_started": false,
+  "hook_armed": false,
+  "recommended_first_stage": "A",
+  "recommended_first_case": "D11G05",
+  "prior_results_overwritten": false
+}

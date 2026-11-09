@@ -1,0 +1,157 @@
+"""Exact D12/i03 interrupted collection recovery; never repeat direct solves.
+
+The old session's transient completion message is unavailable. Require instead
+its persisted HFSS normal-completion profile, unchanged adaptive convergence,
+and all 109 native and renormalized matrices identical to the archived exports.
+No numerical, port, geometry or calibration gates are relaxed.
+"""
+import argparse
+import asyncio
+import os
+from pathlib import Path
+import traceback
+import numpy as np
+import psutil
+import recover_d12_i03 as d
+
+r = d.r
+ARCHIVE = d.BASE/'interrupted_collection'
+ADOPTION = d.BASE/'interrupted_collection_adoption.json'
+RESUMPTION = d.BASE/'interrupted_resumption.json'
+
+
+def evidence():
+    plan = d.validate_plan()
+    assert r.read(d.BASE/'plan.json') == plan
+    archived = r.read(ARCHIVE/'evidence.json')
+    r.hashes(archived['files'])
+    assert archived['solver_dispatches'] == 0
+    assert not psutil.pid_exists(archived['original_controller_pid'])
+    assert not psutil.pid_exists(121028)
+    assert not (d.ATTEMPT/'recovery_acceptance.json').exists()
+    assert not (r.ROOT/'protocol.lock').exists()
+    r.direct.idle()
+    return plan, archived
+
+
+def collect_existing():
+    plan, archived = evidence()
+    assert not ADOPTION.exists() and not RESUMPTION.exists()
+    run = d.BASE/'direct'
+    s = r.read(run/'local_state.json')
+    assert s == r.read(ARCHIVE/'local_state.json')
+    assert s['status'] == 'solving' and not s['last_mcp_status']['running'] and s['solver_processes'] == []
+    assert s['expected_frequencies_GHz'] == plan['direct_frequencies_GHz']
+    app = r.direct.connect(d.PROJECT, 7990)
+    comparisons = {}
+    try:
+        assert not app.are_there_simulations_running
+        assert app.get_setup('Setup19').is_solved
+        assert 'Setup19 : '+r.DIRECT_NAME in app.existing_analysis_sweeps
+        messages = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+        assert not any('[error]' in x.lower() for x in messages)
+        profile = ARCHIVE/'recollection_profile.prof'
+        assert not profile.exists()
+        app.export_profile('Setup19', output_file=str(profile))
+        text = profile.read_text(encoding='utf-8', errors='replace')
+        assert 'Solution - '+r.DIRECT_NAME in text and 'HFSS: Discrete sweep' in text
+        assert 'Status: Normal Completion' in text and 'Total number of cores: 16' in text
+        assert 'Max number of processes/frequency: 1' in text
+        saved = r.direct.persisted_sweeps(d.PROJECT)
+        assert saved[r.DIRECT_NAME]['Type'] == 'Discrete'
+        assert saved == s['saved_sweeps']
+        for norm, label in [(False, 'native'), (True, '50ohm_original')]:
+            dest = run/f'{label}_direct.s4p'
+            old_f, old_s = r.direct.touchstone(ARCHIVE/dest.name, 4)
+            assert len(old_f) == 109 and np.isfinite(old_s).all()
+            assert app.export_touchstone(setup='Setup19', sweep=r.DIRECT_NAME, output_file=str(dest),
+                                        renormalization=norm, impedance=50, gamma_impedance_comments=True)
+            f, mat = r.direct.touchstone(dest, 4)
+            assert np.allclose(f, s['expected_frequencies_GHz'], rtol=0, atol=1e-9)
+            assert np.array_equal(f, old_f) and np.array_equal(mat, old_s)
+            comparisons[label] = {'points':len(f), 'max_complex_difference':float(abs(mat-old_s).max())}
+            s[label] = {'path':str(dest), 'sha256':r.sha(dest), 'points':len(f)}
+        app.export_convergence('Setup19', output_file=str(run/'convergence_after.txt'))
+        after = r.direct.convergence(run/'convergence_after.txt')
+        assert after == s['original_convergence'] == r.read(d.BASE/'snapshot.json')['original_convergence']
+        assert after == {'converged':True, 'passes':22.0, 'final_delta_s':.0043613}
+        s['convergence_after'] = after
+        s['messages'] = messages
+    finally:
+        app.release_desktop(close_projects=False, close_desktop=False)
+    r.direct.export_aux(d.PROJECT, 'Setup19', {'Direct':r.DIRECT_NAME}, run/'auxiliary', 7990, 2)
+    snap = r.read(d.BASE/'snapshot.json')
+    assert r.sha(snap['original_project']) == snap['original_project_sha256']
+    s.update(status='exported_review_required', finished_at_utc=r.now(), source_unchanged=True,
+             completion_evidence_kind='persisted_profile_and_identical_archived_full_matrices',
+             completion_evidence_file=str(ADOPTION))
+    r.write_json(run/'local_state.json', s)
+    files = [*map(Path, archived['files']), ARCHIVE/'evidence.json', profile,
+             ARCHIVE/'D12G05_i03_repair.aedt.lock', run/'local_state.json',
+             run/'convergence_after.txt', Path(__file__).resolve()]
+    r.write_json(ADOPTION, {'status':'direct_exports_recovered', 'original_attempt':str(d.ATTEMPT),
+        'repeated_solver_dispatches':0, 'phase_solves_added':0, 'production_approved':False,
+        'archived_matrix_comparisons':comparisons, 'convergence':after,
+        'missing_transient_message':True, 'persisted_normal_completion_verified':True,
+        'source_unchanged':True, 'evidence_hashes':{str(p):r.sha(p) for p in files},
+        'finished_at_utc':r.now()})
+
+
+def readiness():
+    plan, _ = evidence()
+    adopted = r.read(ADOPTION); r.hashes(adopted['evidence_hashes'])
+    assert adopted['status'] == 'direct_exports_recovered' and adopted['repeated_solver_dispatches'] == 0
+    assert adopted['persisted_normal_completion_verified'] and adopted['source_unchanged']
+    assert not RESUMPTION.exists()
+    assert not any((d.BASE/n).exists() for n in d.SEGMENTS)
+    assert not (d.ATTEMPT/'verified_recovery').exists()
+    review = d.reviewer.review(d.ATTEMPT)
+    saved = r.read(d.BASE/'direct/normalization_export_schema_review.json')
+    assert {k:v for k,v in review.items() if k!='reviewed_at_utc'} == {k:v for k,v in saved.items() if k!='reviewed_at_utc'}
+    r.audit_observations(d.BASE)
+    return plan
+
+
+async def resume():
+    plan = readiness()
+    record = {'started_at_utc':r.now(), 'pid':os.getpid(), 'original_attempt':str(d.ATTEMPT),
+              'direct_solver_dispatches':0, 'segments':plan['segments_GHz'], 'production_approved':False,
+              'evidence_hashes':{str(p):r.sha(p) for p in [ADOPTION, Path(__file__).resolve(), d.REVIEW]}}
+    with RESUMPTION.open('x', encoding='utf-8') as h:
+        import json
+        json.dump(record,h,indent=2)
+    r.DIRECT = [round(f*100) for f in plan['direct_frequencies_GHz']]
+    r.direct.NAME = r.DIRECT_NAME
+    events = []; original_write = r.write_json
+    def write(path,value):
+        return d.retry_metadata('write_json:'+str(path),lambda:original_write(path,value),events)
+    r.write_json = r.direct.write_json = d.reviewer.write_json = write
+    def state(status,**extra):
+        write(d.BASE/'flow.json',{'status':status,'pid':os.getpid(),'updated_at_utc':r.now(),
+             'production_approved':False,'monitor_interval_seconds':600,'retry_events':events,
+             'resumption_record':str(RESUMPTION),**extra})
+    r.direct.solvers = r.resource_observer(d.BASE,r.direct.solvers)
+    r.backend.active_solvers = r.resource_observer(d.BASE,r.backend.active_solvers)
+    r.direct.asyncio = d.Poll600(5,lambda:r.direct.solvers())
+    r.backend.asyncio = d.Poll600(30,lambda:r.backend.active_solvers())
+    r.direct.session_call = d.timeout_wrapper(r.direct.session_call,d.BASE,d.PROJECT)
+    r.backend.session_call = d.timeout_wrapper(r.backend.session_call,d.BASE,d.PROJECT)
+    original_save = r.backend.save
+    r.backend.save = lambda s:d.retry_metadata('run_protocol_tf3.save',lambda:original_save(s),events)
+    try:
+        m = r.read(d.ATTEMPT/'manifest.json')
+        for name,(lo,hi) in d.SEGMENTS.items():
+            state('checking_'+name)
+            await r.segment(d.BASE,d.PROJECT,m,name,lo,hi)
+            r.audit_observations(d.BASE)
+        state('assembling'); d.assemble(m)
+        state('candidate_ready_review_required')
+    except BaseException:
+        state('review_required',error=traceback.format_exc()); raise
+
+
+if __name__ == '__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('action',choices=['collect','check','run']);a=ap.parse_args()
+    if a.action=='collect':collect_existing()
+    elif a.action=='check':readiness();print('Ready: reuse direct; only three pending segments')
+    else:asyncio.run(resume())

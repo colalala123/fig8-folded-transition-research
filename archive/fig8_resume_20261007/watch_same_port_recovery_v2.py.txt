@@ -1,0 +1,63 @@
+"""Watch one already-running D04 trial; recover a known numerical failure once.
+
+No new geometry, production approval, queue release, or retry of diagnostics.
+Versioned recipe and all checks are bound before watching starts.
+"""
+import argparse,os,subprocess,sys,time,traceback
+from pathlib import Path
+from broadband_recovery import ROOT,HERE,read,write_json,sha,now
+from watch_d04_trial_recovery import live_controllers
+from recovery_selection import hashes
+from run_same_port_recovery_v2 import plan
+from run_broadband_case import solvers
+
+def main(attempt):
+    attempt=Path(attempt).resolve();initial=plan(attempt)
+    assert not (attempt/'recovery_acceptance.json').exists()
+    base=ROOT/'local_repair'/('D04G05_'+attempt.name)
+    assert not base.exists(),'Existing diagnostics require inspection; never start twice'
+    output=ROOT/f'trial_recovery_watch_{attempt.name}_v2.json'
+    # Exclusive creation reserves this watcher before any solver work.
+    with output.open('x',encoding='utf-8') as h:h.write('{}')
+    implementations={**initial['implementation_hashes'],str(Path(__file__)):sha(__file__)}
+    def save(status,**extra):
+        temp=output.with_suffix('.tmp')
+        write_json(temp,{'status':status,'attempt':str(attempt),'pid':os.getpid(),
+            'updated_at_utc':now(),'implementation_hashes':implementations,**extra})
+        os.replace(temp,output)
+    try:
+        live=live_controllers();assert live,'Only watch an existing supervised solve'
+        state=read(attempt/'state.json');assert state['status']=='solving'
+        while True:
+            manifest=attempt/'manifest.json'
+            if manifest.exists() and read(manifest)['status']=='completed':
+                save('not_needed_original_passed',recovery_started=False);return
+            live=live_controllers()
+            if not live:break
+            save('watching_live_trial',observed_controller_pids=[p['pid'] for p in live])
+            time.sleep(15)
+        assert not (ROOT/'pilot_queue.lock').exists() and not (ROOT/'protocol.lock').exists()
+        assert not solvers(),'Solver still active after controller exit; retain it for review'
+        assert manifest.exists(),'Exports missing; recover existing result instead of re-solving'
+        m=read(manifest)
+        assert m['status']=='numerical_or_port_review_required'
+        assert read(attempt/'port_review.json')['passed']
+        assert not read(attempt/'normalization_recovery_review.json')['passed']
+        assert m['convergence']['converged'] and m['sweep_converged'] and m['source_unchanged']
+        assert not base.exists() and not (attempt/'recovery_acceptance.json').exists()
+        hashes(implementations)
+        actual=plan(attempt);assert actual['layout_evidence']['original_export_available']
+        save('starting_same_mesh_recovery',recovery_started=True,actual_plan=actual)
+        logpath=ROOT/f'trial_recovery_{attempt.name}_v2.log'
+        with logpath.open('x',encoding='utf-8') as log:
+            rc=subprocess.call([sys.executable,str(HERE/'run_same_port_recovery_v2.py'),str(attempt),'--run'],
+                cwd='${WORKSPACE}',stdout=log,stderr=subprocess.STDOUT)
+        assert rc==0,f'Recovery stopped for review, exit={rc}; see {logpath}'
+        assert read(base/'flow.json')['status']=='candidate_ready_review_required'
+        save('candidate_ready_review_required',recovery_started=True,production_approved=False)
+    except Exception:
+        save('review_required',error=traceback.format_exc());raise
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('attempt');args=parser.parse_args()
+    main(args.attempt)

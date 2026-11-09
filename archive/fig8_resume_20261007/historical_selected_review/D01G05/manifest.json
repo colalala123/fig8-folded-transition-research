@@ -1,0 +1,1126 @@
+{
+  "case": "D01G05",
+  "stage": "pilot",
+  "source": "F:\\hfss_f8_261002\\B0\\B0.aedt",
+  "source_sha256": "95ab17f8078e39ad35884a824360e7b5dd3f26afa404089077c3b0d65b9bf06b",
+  "geometry": {
+    "Wm": 0.9,
+    "Ws": 0.3,
+    "Lm": 6.591437759300216,
+    "Ls1": 11.297431276648513,
+    "Ls2": 1.15,
+    "Ls3": 2.1
+  },
+  "modes": 2,
+  "rebuild": true,
+  "frozen_at_utc": "2026-10-03T13:43:24+00:00",
+  "cores": 16,
+  "tasks": 1,
+  "prediction": {
+    "jacobian": [
+      [
+        4.545585414950075,
+        -28.325697558415612
+      ],
+      [
+        0.19999999999999574,
+        -2.2000000000000064
+      ]
+    ],
+    "normalized_condition": 15.671870148721123,
+    "unclipped_step_mm": [
+      -0.4959840588740615,
+      -0.013271278079459011
+    ],
+    "trust_scale": 0.604858149435353,
+    "current_error": [
+      1.8786196949732865,
+      0.07000000000000028
+    ],
+    "probe_runs": [
+      "F:\\hfss_f8x_261002\\D01G05\\i04",
+      "F:\\hfss_f8x_261002\\D01G05\\i05"
+    ],
+    "delta_mm": [
+      -0.3,
+      -0.008027240699783543
+    ],
+    "predicted_error": [
+      0.7423212627789371,
+      0.02765992953952541
+    ]
+  },
+  "worker_sha256": "cdae15ee8ee62e554700969f640816cbc7738078fc71757d9d0a68c21d75712a",
+  "iteration": "i06",
+  "role": "newton",
+  "metadata": {
+    "case": "D01G05",
+    "split": "development",
+    "phase": "pilot",
+    "width_family": "development_01",
+    "shape_id": "development_G05",
+    "Wm": "0.9",
+    "Ws": "0.3",
+    "Lm": "6.499465",
+    "Ls1": "11.840660000000002",
+    "Ls2": "1.15",
+    "Ls3": "2.1",
+    "a_mm": "1.8",
+    "g_mm": "0.55",
+    "initial_path_mm": "17.14066",
+    "minimum_Ls1_mm": "8.4",
+    "Ls1_lower_margin_mm": "3.440660000000001",
+    "geometry_valid": "True",
+    "stage_status": "proposed_not_simulated",
+    "run_dir": "F:/hfss_f8x_261002/D01G05"
+  },
+  "geometry_check": {
+    "passed": true,
+    "geometry": {
+      "gap_mm": 0.5499999999999999,
+      "arm_net_mm": 1.8,
+      "middle_opening_mm": 7.097431276648513,
+      "microstrip_projection_clearance_mm": 3.0987156383242564,
+      "fold_occupancy": 0.37176592600136343,
+      "geometric_path_mm": 16.597431276648514,
+      "minimum_allowed_Ls1_mm": 8.4,
+      "inside_research_window": true,
+      "failed_rules": ""
+    },
+    "Lm_window": "True",
+    "Ls1_delta": "True",
+    "Lm_delta": "True",
+    "width_shape_preserved": true
+  },
+  "port_protocol_id": "fig8_er355_mode2_v2_visible_mcp16",
+  "central_valley_target_GHz": 6.72,
+  "parent_curve": "F:\\hfss_f8x_261002\\D01G05\\i03\\sparams.csv",
+  "parent_curve_sha256": "9ac45e2b551705d0b5a99db87e9a908794795ad45347a5f8030938a78c58e511",
+  "project": "J:\\hfss_f8x_261002_archive\\D01G05\\i06\\i06.aedt",
+  "status": "completed",
+  "started_at_utc": "2026-10-03T13:43:25+00:00",
+  "desktop_pid": 40432,
+  "build": {
+    "requested_geometry_mm": {
+      "Wm": 0.9,
+      "Lm": 6.591437759300216,
+      "Ls1": 11.297431276648513,
+      "Ls2": 1.15,
+      "Ls3": 2.1,
+      "Ws": 0.3
+    },
+    "slot_rectangles_mm": [
+      {
+        "name": "main",
+        "origin_xy": [
+          -5.648715638324257,
+          -0.15
+        ],
+        "size_xy": [
+          11.297431276648513,
+          0.3
+        ]
+      },
+      {
+        "name": "right_connector",
+        "origin_xy": [
+          5.348715638324257,
+          -0.9999999999999999
+        ],
+        "size_xy": [
+          0.3,
+          0.8499999999999999
+        ]
+      },
+      {
+        "name": "right_leg",
+        "origin_xy": [
+          3.5487156383242566,
+          -1.0
+        ],
+        "size_xy": [
+          1.8,
+          0.3
+        ]
+      },
+      {
+        "name": "left_connector",
+        "origin_xy": [
+          -5.648715638324257,
+          -0.9999999999999999
+        ],
+        "size_xy": [
+          0.3,
+          0.8499999999999999
+        ]
+      },
+      {
+        "name": "left_leg",
+        "origin_xy": [
+          -5.348715638324257,
+          -1.0
+        ],
+        "size_xy": [
+          1.8,
+          0.3
+        ]
+      }
+    ],
+    "deleted_original_ground": true,
+    "layers": {
+      "top": {
+        "ground": "Substrate_7",
+        "operations": [
+          {
+            "tool": "StructureBSlot_top_main",
+            "name": "main",
+            "origin_xy": [
+              -5.648715638324257,
+              -0.15
+            ],
+            "size_xy": [
+              11.297431276648513,
+              0.3
+            ]
+          },
+          {
+            "tool": "StructureBSlot_top_right_connector",
+            "name": "right_connector",
+            "origin_xy": [
+              5.348715638324257,
+              -0.9999999999999999
+            ],
+            "size_xy": [
+              0.3,
+              0.8499999999999999
+            ]
+          },
+          {
+            "tool": "StructureBSlot_top_right_leg",
+            "name": "right_leg",
+            "origin_xy": [
+              3.5487156383242566,
+              -1.0
+            ],
+            "size_xy": [
+              1.8,
+              0.3
+            ]
+          },
+          {
+            "tool": "StructureBSlot_top_left_connector",
+            "name": "left_connector",
+            "origin_xy": [
+              -5.648715638324257,
+              -0.9999999999999999
+            ],
+            "size_xy": [
+              0.3,
+              0.8499999999999999
+            ]
+          },
+          {
+            "tool": "StructureBSlot_top_left_leg",
+            "name": "left_leg",
+            "origin_xy": [
+              -5.348715638324257,
+              -1.0
+            ],
+            "size_xy": [
+              1.8,
+              0.3
+            ]
+          }
+        ]
+      },
+      "bottom": {
+        "ground": "Substrate_9",
+        "operations": [
+          {
+            "tool": "StructureBSlot_bottom_main",
+            "name": "main",
+            "origin_xy": [
+              -5.648715638324257,
+              -0.15
+            ],
+            "size_xy": [
+              11.297431276648513,
+              0.3
+            ]
+          },
+          {
+            "tool": "StructureBSlot_bottom_right_connector",
+            "name": "right_connector",
+            "origin_xy": [
+              5.348715638324257,
+              -0.9999999999999999
+            ],
+            "size_xy": [
+              0.3,
+              0.8499999999999999
+            ]
+          },
+          {
+            "tool": "StructureBSlot_bottom_right_leg",
+            "name": "right_leg",
+            "origin_xy": [
+              3.5487156383242566,
+              -1.0
+            ],
+            "size_xy": [
+              1.8,
+              0.3
+            ]
+          },
+          {
+            "tool": "StructureBSlot_bottom_left_connector",
+            "name": "left_connector",
+            "origin_xy": [
+              -5.648715638324257,
+              -0.9999999999999999
+            ],
+            "size_xy": [
+              0.3,
+              0.8499999999999999
+            ]
+          },
+          {
+            "tool": "StructureBSlot_bottom_left_leg",
+            "name": "left_leg",
+            "origin_xy": [
+              -5.348715638324257,
+              -1.0
+            ],
+            "size_xy": [
+              1.8,
+              0.3
+            ]
+          }
+        ]
+      }
+    },
+    "setup_names": [
+      "Setup18",
+      "Setup19"
+    ],
+    "saved": true
+  },
+  "cad_verification": {
+    "passed": true,
+    "slot_area_mm2": 4.9792293829945535,
+    "expected_aperture_corners_xy_mm": [
+      [
+        -5.648715638324257,
+        -1.0
+      ],
+      [
+        -5.648715638324257,
+        -0.9999999999999999
+      ],
+      [
+        -5.648715638324257,
+        0.15
+      ],
+      [
+        -5.348715638324257,
+        -0.7
+      ],
+      [
+        -5.348715638324257,
+        -0.15000000000000002
+      ],
+      [
+        -5.348715638324257,
+        -0.15
+      ],
+      [
+        -3.548715638324257,
+        -1.0
+      ],
+      [
+        -3.548715638324257,
+        -0.9999999999999999
+      ],
+      [
+        -3.548715638324257,
+        -0.7
+      ],
+      [
+        3.5487156383242566,
+        -1.0
+      ],
+      [
+        3.5487156383242566,
+        -0.9999999999999999
+      ],
+      [
+        3.5487156383242566,
+        -0.7
+      ],
+      [
+        5.348715638324257,
+        -0.7
+      ],
+      [
+        5.348715638324257,
+        -0.15000000000000002
+      ],
+      [
+        5.348715638324257,
+        -0.15
+      ],
+      [
+        5.648715638324257,
+        -1.0
+      ],
+      [
+        5.648715638324257,
+        -0.9999999999999999
+      ],
+      [
+        5.648715638324257,
+        0.15
+      ]
+    ],
+    "layers": {
+      "Substrate_7": {
+        "vertices_mm": [
+          [
+            -3.54871564,
+            -0.7,
+            0.035
+          ],
+          [
+            -3.54871564,
+            -1.0,
+            0.0
+          ],
+          [
+            -3.54871564,
+            -1.0,
+            0.035
+          ],
+          [
+            -5.34871564,
+            -0.7,
+            0.0
+          ],
+          [
+            -5.34871564,
+            -0.7,
+            0.035
+          ],
+          [
+            -5.34871564,
+            -0.15,
+            0.035
+          ],
+          [
+            -5.64871564,
+            -1.0,
+            0.0
+          ],
+          [
+            -5.64871564,
+            -1.0,
+            0.035
+          ],
+          [
+            5.34871564,
+            -0.7,
+            0.0
+          ],
+          [
+            5.34871564,
+            -0.7,
+            0.035
+          ],
+          [
+            3.54871564,
+            -0.7,
+            0.035
+          ],
+          [
+            3.54871564,
+            -1.0,
+            0.0
+          ],
+          [
+            3.54871564,
+            -1.0,
+            0.035
+          ],
+          [
+            5.64871564,
+            -1.0,
+            0.0
+          ],
+          [
+            5.64871564,
+            -1.0,
+            0.035
+          ],
+          [
+            5.34871564,
+            -0.15,
+            0.0
+          ],
+          [
+            5.34871564,
+            -0.15,
+            0.035
+          ],
+          [
+            5.64871566,
+            0.15,
+            0.035
+          ],
+          [
+            -5.64871564,
+            0.15,
+            0.0
+          ],
+          [
+            -5.64871564,
+            0.15,
+            0.035
+          ],
+          [
+            15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            25.0,
+            0.0
+          ],
+          [
+            15.0,
+            25.0,
+            0.0
+          ],
+          [
+            15.0,
+            -25.0,
+            0.035
+          ],
+          [
+            15.0,
+            25.0,
+            0.035
+          ],
+          [
+            -15.0,
+            25.0,
+            0.035
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.035
+          ],
+          [
+            5.64871566,
+            0.15,
+            0.0
+          ],
+          [
+            3.54871564,
+            -0.7,
+            0.0
+          ],
+          [
+            -5.34871564,
+            -0.15,
+            0.0
+          ],
+          [
+            -3.54871564,
+            -0.7,
+            0.0
+          ]
+        ],
+        "actual_volume_mm3": 52.325726971122506,
+        "expected_volume_mm3": 52.325726971595195,
+        "missing_aperture_corners": [],
+        "passed": true
+      },
+      "Substrate_9": {
+        "vertices_mm": [
+          [
+            -3.54871564,
+            -0.7,
+            0.0
+          ],
+          [
+            -3.54871564,
+            -1.0,
+            -0.035
+          ],
+          [
+            -3.54871564,
+            -1.0,
+            0.0
+          ],
+          [
+            -5.34871564,
+            -0.7,
+            -0.035
+          ],
+          [
+            -5.34871564,
+            -0.7,
+            0.0
+          ],
+          [
+            -5.34871564,
+            -0.15,
+            0.0
+          ],
+          [
+            -5.64871564,
+            -1.0,
+            -0.035
+          ],
+          [
+            -5.64871564,
+            -1.0,
+            0.0
+          ],
+          [
+            5.34871564,
+            -0.7,
+            -0.035
+          ],
+          [
+            5.34871564,
+            -0.7,
+            0.0
+          ],
+          [
+            3.54871564,
+            -0.7,
+            0.0
+          ],
+          [
+            3.54871564,
+            -1.0,
+            -0.035
+          ],
+          [
+            3.54871564,
+            -1.0,
+            0.0
+          ],
+          [
+            5.64871564,
+            -1.0,
+            -0.035
+          ],
+          [
+            5.64871564,
+            -1.0,
+            0.0
+          ],
+          [
+            5.34871564,
+            -0.15,
+            -0.035
+          ],
+          [
+            5.34871564,
+            -0.15,
+            0.0
+          ],
+          [
+            5.64871566,
+            0.15,
+            0.0
+          ],
+          [
+            -5.64871564,
+            0.15,
+            -0.035
+          ],
+          [
+            -5.64871564,
+            0.15,
+            0.0
+          ],
+          [
+            15.0,
+            -25.0,
+            -0.035
+          ],
+          [
+            -15.0,
+            -25.0,
+            -0.035
+          ],
+          [
+            -15.0,
+            25.0,
+            -0.035
+          ],
+          [
+            15.0,
+            25.0,
+            -0.035
+          ],
+          [
+            15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            15.0,
+            25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            5.64871566,
+            0.15,
+            -0.035
+          ],
+          [
+            3.54871564,
+            -0.7,
+            -0.035
+          ],
+          [
+            -5.34871564,
+            -0.15,
+            -0.035
+          ],
+          [
+            -3.54871564,
+            -0.7,
+            -0.035
+          ]
+        ],
+        "actual_volume_mm3": 52.325726971122506,
+        "expected_volume_mm3": 52.325726971595195,
+        "missing_aperture_corners": [],
+        "passed": true
+      }
+    },
+    "clearance": {
+      "slot_branch_metal_web_mm": 0.5499999999999999,
+      "opposing_arm_tip_separation_mm": 7.097431276648513,
+      "microstrip_stub_layer_separation_mm": 1.696,
+      "intentional_connections": "Each stub joins its own feed at y=0; top and bottom stubs are on distinct layers.",
+      "intentional_slot_width_mm": 0.3,
+      "note": "Slot width is a specified aperture, not an unintended spacing. CAD aperture verified by vertices and volume."
+    }
+  },
+  "port_settings": {
+    "before": {
+      "1": {
+        "ID": 43,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          12391
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 1,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12113,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0.5,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12395,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0.5,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true
+        ]
+      },
+      "2": {
+        "ID": 48,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          19891
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 1,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12152,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0.5,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 19895,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0.5,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true
+        ]
+      }
+    },
+    "after": {
+      "1": {
+        "ID": 43,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          12391
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "Start": [
+                "0mm",
+                "-25mm",
+                "0.883mm"
+              ],
+              "End": [
+                "0mm",
+                "-25mm",
+                "-1.38140158943821e-15mm"
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      },
+      "2": {
+        "ID": 48,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          19891
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "Start": [
+                "0mm",
+                "25mm",
+                "-0.883mm"
+              ],
+              "End": [
+                "0mm",
+                "25mm",
+                "-1.38140158943821e-15mm"
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "settings": {
+    "setup": {
+      "ID": 55,
+      "SetupType": "HfssDriven",
+      "SolveType": "Broadband",
+      "MultipleAdaptiveFreqsSetup": {
+        "Low": "0.1GHz",
+        "High": "15GHz"
+      },
+      "MaxDeltaS": 0.005,
+      "MaximumPasses": 40,
+      "MinimumPasses": 6,
+      "MinimumConvergedPasses": 2,
+      "PercentRefinement": 30,
+      "IsEnabled": true,
+      "MeshLink": {
+        "ImportMesh": false
+      },
+      "BasisOrder": 1,
+      "DoLambdaRefine": true,
+      "DoMaterialLambda": true,
+      "SetLambdaTarget": false,
+      "Target": 0.3333,
+      "UseMaxTetIncrease": false,
+      "PortAccuracy": 2,
+      "UseABCOnPort": false,
+      "SetPortMinMaxTri": false,
+      "PortMinTri": 100,
+      "PortMaxTri": 500,
+      "DrivenSolverType": "Direct Solver",
+      "EnhancedLowFreqAccuracy": false,
+      "SaveRadFieldsOnly": false,
+      "SaveAnyFields": true,
+      "IESolverType": "Auto",
+      "LambdaTargetForIESolver": 0.15,
+      "UseDefaultLambdaTgtForIESolver": true,
+      "IE Solver Accuracy": "Balanced",
+      "InfiniteSphereSetup": -1,
+      "MaxPass": 10,
+      "MinPass": 1,
+      "MinConvPass": 1,
+      "PerError": 1,
+      "PerRefine": 30,
+      "Sweeps": {
+        "NextUniqueID": 1,
+        "MoveBackwards": false,
+        "Sweep1": {
+          "ID": 0,
+          "IsEnabled": true,
+          "RangeType": "LinearStep",
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "SaveFields": false,
+          "SaveRadFields": false,
+          "InterpTolerance": 0.5,
+          "InterpMaxSolns": 250,
+          "InterpMinSolns": 0,
+          "InterpMinSubranges": 1,
+          "InterpUseS": true,
+          "InterpUsePortImped": false,
+          "InterpUsePropConst": true,
+          "UseDerivativeConvergence": false,
+          "InterpDerivTolerance": 0.2,
+          "UseFullBasis": true,
+          "EnforcePassivity": true,
+          "PassivityErrorTolerance": 0.0001,
+          "SMatrixOnlySolveMode": "Auto"
+        }
+      }
+    },
+    "sweep": {
+      "Type": "Interpolating",
+      "IsEnabled": true,
+      "RangeType": "LinearStep",
+      "RangeStart": "0.01GHz",
+      "RangeEnd": "15GHz",
+      "SaveSingleField": false,
+      "RangeCount": 401,
+      "RangeStep": "0.01GHz",
+      "RangeSamples": 11,
+      "SaveFields": false,
+      "SaveRadFields": false,
+      "GenerateFieldsForAllFreqs": false,
+      "InterpTolerance": 0.5,
+      "InterpMaxSolns": 250,
+      "InterpMinSolns": 0,
+      "InterpMinSubranges": 1,
+      "InterpUseS": true,
+      "InterpUsePortImped": false,
+      "InterpUsePropConst": true,
+      "UseDerivativeConvergence": false,
+      "InterpDerivTolerance": 0.2,
+      "EnforcePassivity": true,
+      "UseFullBasis": true,
+      "PassivityErrorTolerance": 0.0001,
+      "EnforceCausality": false,
+      "UseQ3DForDCSolve": false,
+      "SMatrixOnlySolveMode": "Auto",
+      "SMatrixOnlySolveAbove": "1MHz"
+    }
+  },
+  "material": {
+    "er": 3.55,
+    "tand": 0.0027,
+    "h_mm": 0.813
+  },
+  "microstrip_boxes": {
+    "Substrate_3": [
+      -0.45,
+      0.0,
+      0.848,
+      0.45,
+      6.59143776,
+      0.883
+    ],
+    "Substrate_18": [
+      -0.45,
+      -6.59143776,
+      -0.883,
+      0.45,
+      0.0,
+      -0.848
+    ]
+  },
+  "mcp_analysis_start": {
+    "target": {
+      "kind": "port",
+      "value": 12704
+    },
+    "project_name": "i06",
+    "design_name": "Wideband vertical transition",
+    "setup_name": "Setup19",
+    "blocking": false,
+    "resource_plan": {
+      "mode": "custom",
+      "concurrent_tasks": 1,
+      "cores_per_task": 16,
+      "total_cores": 16
+    },
+    "started": true
+  },
+  "solve_started_at_utc": "2026-10-03T13:43:51+00:00",
+  "solve_seconds": 1902.4808022975922,
+  "messages": [
+    "Project: i06, Design: Wideband vertical transition, [warning] For broadband frequency models it is recommended to set 'Automatically use causal materials' in the HFSS Design Settings for Lossy Dielectrics.  See 'Design Settings for HFSS' in the help for more information. (06:43:52 AM  Oct 03, 2026)\r\n",
+    "Project: i06, Design: Wideband vertical transition, [info] An interpolating frequency sweep with 1500 points has been started using HFSS. (07:15:25 AM  Oct 03, 2026)\r\n",
+    "Project: i06, Design: Wideband vertical transition, [info] The interpolating frequency sweep converged but had one or more non passive basis solutions.  Passivity cannot be enforced for the sweep. (07:15:25 AM  Oct 03, 2026)\r\n",
+    "Project: i06, Design: Wideband vertical transition, [info] Interpolating frequency sweep complete. Converged. (07:15:25 AM  Oct 03, 2026)\r\n",
+    "Project: i06, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (07:15:25 AM  Oct 03, 2026)\r\n"
+  ],
+  "export": {
+    "points": 1500,
+    "frequency_unit": "GHz",
+    "complex_matrix_entries": 16,
+    "fundamental_mapping": {
+      "S11": "S(1:1,1:1)",
+      "S21": "S(2:1,1:1)",
+      "S12": "S(1:1,2:1)",
+      "S22": "S(2:1,2:1)"
+    }
+  },
+  "convergence": {
+    "converged": true,
+    "passes": 22.0,
+    "final_delta_s": 0.0027113
+  },
+  "sweep_converged": true,
+  "curve_sha256": "42babe4a397ba0dbe9c49120b988d9548c4688e6ff79f2f9e27dac52461e565d",
+  "finished_at_utc": "2026-10-03T14:15:45+00:00",
+  "source_sha256_after": "95ab17f8078e39ad35884a824360e7b5dd3f26afa404089077c3b0d65b9bf06b",
+  "source_unchanged": true,
+  "metadata_correction_at_utc": "2026-10-04T01:31:06+00:00",
+  "solve_seconds_legacy_timezone_error": -23297.519197702408,
+  "timing_correction": "Original code parsed UTC start as local UTC-7. Added 25200 s; wall duration includes MCP status polling.",
+  "historical_manifest": "J:\\hfss_f8x_261002_archive\\D01G05\\i06\\manifest.json",
+  "historical_manifest_sha256": "5ca80804405c6caee1ee6c018273a02734a6e65b31f36c942e589e78572fb382"
+}

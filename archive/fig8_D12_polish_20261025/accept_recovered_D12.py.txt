@@ -1,0 +1,78 @@
+"""Formal acceptance only after a receiver has viewed the generated actual plot."""
+import argparse
+from pathlib import Path
+import shutil
+import phase_control as pc
+from phase_final_direct import compare
+from phase_geometry_worker import dc
+from phase_publish import hook
+
+
+def accept(visual_ack):
+    assert visual_ack and not dc.solvers()
+    run=pc.BASE/'D12G05/recover_single_10p19';merged=run/'assembled_review'
+    rfile=pc.HERE/'cases/D12G05/result.json'
+    pending=pc.read(rfile);assert pending['case_state']=='needs_review' and pending['numerical_review_passed'] is None
+    archive=rfile.with_name('geometry_pending_result.json');assert not archive.exists()
+    p=pc.read(run/'input.json');src=Path(p['source']);s=pc.read(run/'state.json')
+    v=pc.read(run/'receiver_verification.json');e=pc.read(run/'completion_event.json')
+    assert e['status']=='completed' and e['verified_success']
+    assert v['source_row_union_verified'] and v['same_mesh_verified'] and v['observed_16core_process']
+    assert pc.sha(v['plot'])==v['plot_sha256']
+    c=compare(src,merged);assert c==v['comparison'] and c['points']==63
+    assert c['numerical_review_passed'] and c['sampled_design_supported']
+    for file,digest in p['parent_evidence_hashes'].items():assert pc.sha(file)==digest,file
+    for file,digest in v['artifacts_verified'].items():assert pc.sha(file)==digest,file
+    assert pc.read(run/'notification_receipt.json')['state']=='accepted'
+    # Startup watcher expired while AEDT was opening the cached project. Preserve
+    # its timeout honestly; later proof comes from the worker's actual PID snapshots.
+    assert not (run/'supervised_start.json').exists()
+    seg=s['segments'][0]
+    pc.write(run/'supervised_start.json',dict(at=pc.now(),input_sha256=pc.sha(run/'input.json'),
+        actual_hf3d=[x for obs in seg['observations'] for x in obs],
+        actual_16core_single_group_observed=seg['observed_16core_process'],
+        no_adaptive_observed=not seg['observed_adaptive_process'],
+        mcp_request=seg['mcp_request'],solve_started_at=seg['started_at'],solve_finished_at=seg['finished_at'],
+        proof_source='Persisted process snapshots collected by the running worker; independently inspected after solve.',
+        initial_startup_observer_timed_out_during_project_preparation=True,
+        live_start_observer_success_claimed=False))
+    ack=dict(at=pc.now(),event_id=hook.event_id(e),event_sha256=pc.sha(run/'completion_event.json'),
+        verification_sha256=pc.sha(run/'receiver_verification.json'),artifacts_verified=True,
+        operation_success=True,visual_review_completed=True,source_row_union_verified=True,
+        design_passed=True,numerical_review_passed=True,sampled_design_supported=True,
+        actual_elements=100013,full_matrix_approved=False,
+        visual_note='Viewed actual full S11/S21 overlay, both internal-peak panels and central-window samples. Central direct minimum6.74GHz, two-peak difference0.124517691dB. Original62 rows plus one separately solved10.19GHz; no filling or clipping.')
+    pc.write(run/'receiver_ack.json',ack)
+    rb=pc.read(pc.HERE/'recovery_budget.json');assert rb['reserved']==1
+    rb['tasks'][0].update(status='reviewed',reviewed_at=pc.now(),receiver_ack_sha256=pc.sha(run/'receiver_ack.json'))
+    pc.write(pc.HERE/'recovery_budget.json',rb)
+    evidence=dict(p['parent_evidence_hashes'])
+    files=[run/name for name in ['input.json','state.json','completion_event.json','notification_receipt.json',
+        'receiver_ack.json','receiver_verification.json','supervised_start.json','convergence_before.txt','convergence_after.txt',
+        'sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','reference_review.json','solver_messages.json']]
+    files += [merged/name for name in ['comparison.json','assembly_provenance.json','reference_review.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']]
+    files += [src/name for name in ['input.json','state.json','manifest.json','response_metrics.json','sparams.csv','convergence.txt','receiver_ack.json','receiver_verification.json','reference_review.json']]
+    files += [pc.HERE/'recovery_budget.json',Path(__file__).resolve(),pc.HERE/'review_single_recovery.py',Path(v['plot'])]
+    for file in files:evidence[str(file)]=pc.sha(file)
+    shutil.copy2(rfile,archive);assert pc.sha(archive)==pc.sha(rfile)
+    evidence[str(archive)]=pc.sha(archive)
+    common=dict(at=pc.now(),case='D12G05',case_state='scoped_accepted',design_passed=True,
+        numerical_review_passed=True,operation_success=True,full_matrix_approved=False,
+        selected_run=str(src),selected_role='residual_trial',direct_run=str(merged),direct_work_run=str(run),
+        actual_elements=100013,comparison=c,geometry=p['source_geometry'],
+        metrics=pc.read(src/'response_metrics.json'),historical_geometry_attempts=11,
+        new_phase_geometry_used=1,lifetime_geometry_attempts=12,
+        reason='Small residual geometry correction passed the unchanged design criteria; finite native63-point direct review completed by62+1 same-mesh measured samples.',
+        risk_note='Finite critical-frequency validation, not full-curve independent convergence, continuous-extrema or manufacturing qualification. Original C3 direct central6.76 failure and P12 missing-point failed event preserved.',
+        scope=c['scope'],original_failure_preserved=True,original_failed_direct_event_preserved=True,
+        recovery_point_GHz=10.19,source_interpolation_percent=1.,evidence_hashes=evidence)
+    scope=pc.HERE/'cases/D12G05/scoped_acceptance.json';pc.write(scope,common)
+    result={**common,'evidence_hashes':{**evidence,str(scope):pc.sha(scope)}};pc.write(rfile,result)
+    pc.write(pc.HERE/'cases/D12G05/disposition.json',dict(at=pc.now(),case='D12G05',state='scoped_accepted',
+        result_path=str(rfile),result_sha256=pc.sha(rfile),original_failed_event_preserved=True,
+        evidence_hashes={str(rfile):pc.sha(rfile),str(scope):pc.sha(scope)}))
+    print(dict(case='D12G05',accepted=True,central_GHz=c['direct_central_valley']['GHz'],peak_difference_dB=c['direct_peak_difference_dB'],BW_GHz=c['direct_BW_GHz']))
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--visual-ack',action='store_true');accept(p.parse_args().visual_ack)

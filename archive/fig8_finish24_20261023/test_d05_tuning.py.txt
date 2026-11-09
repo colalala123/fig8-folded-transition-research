@@ -1,0 +1,38 @@
+import copy
+import unittest
+from prepare_d05_tuning import check_eligibility
+
+class TrialCenterTests(unittest.TestCase):
+    def setUp(self):
+        self.g={'Wm':1.2};self.a={'user_authorized':True,'reviewed_exception_upper':112000}
+        self.c={'error_budgets':{'tuning':True,'strict_response':False}}
+        self.s={'case':'D05G02','geometry':self.g,'status':'completed','actual_elements':111552,
+          'history_prefix_preserved':True,'one_new_pass_verified':True,'sweep_converged':True,
+          'observed_16core_process':True,'observed_adaptive_process':True,'source_unchanged':True,
+          'cad_verification':{'passed':True},'sweep_after':{'InterpTolerance':1.,'EnforcePassivity':False,
+          'RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz'},'ports':{'1':{'NumModes':2},'2':{'NumModes':2}},
+          'trial_passed':False,'convergence':{'converged':False}}
+    def check(self):check_eligibility('D05G02',self.s,self.a,self.c,self.g)
+    def test_approved_exception_is_tuning_only(self):self.check();self.assertFalse(self.s['trial_passed'])
+    def test_no_unapproved_exception(self):
+        self.a['user_authorized']=False
+        with self.assertRaises(AssertionError):self.check()
+    def test_mesh_upper_bound(self):
+        self.s['actual_elements']=112001
+        with self.assertRaises(AssertionError):self.check()
+    def test_geometry_change_rejected(self):
+        self.s['geometry']={'Wm':2.0}
+        with self.assertRaises(AssertionError):self.check()
+    def test_settings_change_rejected(self):
+        self.s['sweep_after']['EnforcePassivity']=True
+        with self.assertRaises(AssertionError):self.check()
+    def test_missing_solver_evidence(self):
+        self.s['observed_16core_process']=False
+        with self.assertRaises(AssertionError):self.check()
+    def test_failed_tuning_budget(self):
+        self.c['error_budgets']['tuning']=False
+        with self.assertRaises(AssertionError):self.check()
+    def test_other_case_rejected(self):
+        with self.assertRaises(AssertionError):check_eligibility('D04G02',self.s,self.a,self.c,self.g)
+
+if __name__=='__main__':unittest.main()

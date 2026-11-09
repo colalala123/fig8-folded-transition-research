@@ -1,0 +1,70 @@
+"""Read-only science summary after finite development/direct reviews; never dispatch."""
+from common import *
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+def main():
+    selected=read(ROOT/'selected_correction_sources.json');results=[];hashes={};actual_geometry=0;launches=0
+    for ctx in [OUT/'fig8_ml_probes_20261028',OUT/'fig8_ml_candidates_20261028']:
+        if not ctx.exists():continue
+        ledger=read(ctx/'budget_ledger.json')
+        assert all(t['status']=='reviewed' for t in ledger['tasks'])
+        actual_geometry+=len(ledger['tasks'])
+        for t in ledger['tasks']:
+            run=Path(t['path']).parent;s=read(run/'state.json');launches+=len(s['segments'])
+            assert len(s['segments'])<=13
+            for name in ['input.json','state.json','completion_event.json','receiver_ack.json']:hashes[str(run/name)]=sha(run/name)
+    assert actual_geometry<=9
+    for ctx in [ROOT/'final_review',ROOT/'reserved_review']:
+        if not ctx.exists():continue
+        ledger=read(ctx/'case_work_ledger.json');assert all(t['status']=='reviewed' for t in ledger['tasks'])
+        for t in ledger['tasks']:
+            run=Path(t['path']).parent;launches+=len(read(run/'state.json')['segments'])
+            for name in ['input.json','state.json','completion_event.json','receiver_ack.json','comparison.json']:hashes[str(run/name)]=sha(run/name)
+    assert launches<=141
+    fig,axes=plt.subplots(3,2,figsize=(13,12))
+    for index,case in enumerate(['B02','B05','B06']):
+        row=next(x for x in selected['cases'] if x['case']==case)
+        source=Path(row['source']) if row.get('source') else None
+        first=Path('J:/f8_MLD_261028')/case/'direct_smallbatch';reserved=first.parent/'direct_reserved'
+        direct=reserved if (reserved/'receiver_ack.json').exists() else first
+        if source and (direct/'comparison.json').exists():
+            comparison=read(direct/'comparison.json');ack=read(direct/'receiver_ack.json')
+            assert ack['visual_review_completed'] and ack['event_sha256']==sha(direct/'completion_event.json')
+            if comparison['needs_reserved_points'] and not comparison['target_finite_direct_failure_confirmed'] and direct==first:
+                assert (ROOT/'reserved_decisions.json').exists(),'Need finite reserve disposition, not silent early closure'
+            if comparison['numerical_review_passed'] and comparison['sampled_design_supported']:status='complete_target_pass_with_finite_evidence'
+            elif comparison['target_finite_direct_failure_confirmed']:status='target_failure_confirmed'
+            elif not comparison.get('baseline_tuning_passed',True):status='baseline_condition_failed'
+            else:status='finite_evidence_unresolved'
+        else:comparison=None;status='no_valid_corrected_candidate'
+        results.append(dict(case=case,status=status,selection=row,direct_run=str(direct) if comparison else None,comparison=comparison,
+             first_blind_result_unchanged=True))
+        baseline=Path('J:/f8_B6_261027')/case/'g01_initial/sparams.csv'
+        for path,label,linestyle in [(baseline,'original first output','--')]+([(source/'sparams.csv','corrected selection','-')] if source else []):
+            data=np.genfromtxt(path,delimiter=',',names=True)
+            for j in [0,1]:
+                axes[index,j].plot(data['Freq_GHz'],data['S11_dB'],ls=linestyle,label=label+' S11')
+                if j==0:axes[index,j].plot(data['Freq_GHz'],data['S21_dB'],ls=linestyle,label=label+' S21')
+            hashes[str(path)]=sha(path)
+        target=next(x['target'] for x in read(ROOT/'candidate_decisions.json')['cases'] if x['parent_case']==case)
+        for j in [0,1]:
+            ax=axes[index,j];ax.axhline(-20,color='red',ls='--',lw=.8);ax.axvspan(target['f_low_GHz'],target['f_high_GHz'],color='green',alpha=.08)
+            ax.set(xlabel='GHz',ylabel='dB',title=case+' '+status);ax.grid(alpha=.2)
+            ax.set(xlim=(2.5,10.5) if j==0 else (target['f_low_GHz']-.1,target['f_high_GHz']+.1),ylim=(-65,2) if j==0 else (-23,-18))
+        axes[index,0].legend(fontsize=7)
+    fig.tight_layout();fig.savefig(ROOT/'correction_comparison.png',dpi=150);plt.close(fig)
+    counts={k:sum(r['status']==k for r in results) for k in sorted({r['status'] for r in results})}
+    write(ROOT/'correction_results.json',dict(at=now(),results=results,counts=counts,actual_new_geometries=actual_geometry,
+       actual_Analyze_launches=launches,source_hashes=hashes,old_blind_results_unchanged=True,uniform_equivalent_effect_established=False,
+       note='This is a three-family development correction test, not prospective inverse-design generalization'))
+    lines=['# 三项弯折设计有界校正结果','',f'新增几何{actual_geometry}个，实际Analyze共{launches}次。原六项盲测未改写。',
+           '', '|原目标|本轮结果|','|---|---|']+[f"|{r['case']}|{r['status']}|" for r in results]
+    lines+=['','该结果验证的是旧失败家族的校正流程，不是新独立设计的预测命中率。达到均匀模型周报同规模效果仍需独立样本扩充和留出HFSS验证。',
+       '最终图：correction_comparison.png。接收者需实际看图后记录QA，再关闭终态心跳；本脚本不自动声称视觉审查完成。']
+    (ROOT/'CORRECTION_REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    print(dict(results=counts,actual_new_geometries=actual_geometry,actual_Analyze=launches,plot=str(ROOT/'correction_comparison.png'),visual_review_pending=True))
+
+if __name__=='__main__':main()

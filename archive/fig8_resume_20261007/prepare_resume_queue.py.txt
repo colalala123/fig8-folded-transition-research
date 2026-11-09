@@ -1,0 +1,31 @@
+"""Freeze an explicit bounded queue; does not launch HFSS or bypass review."""
+import csv,json,hashlib
+from pathlib import Path
+HERE=Path(__file__).resolve().parent
+OLD=Path('F:/hfss_f8x_261002')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def write(p,x):Path(p).write_text(json.dumps(x,indent=2,ensure_ascii=False),encoding='utf-8')
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+
+def main():
+    inventory={x['case']:x for x in read(HERE/'existing_inventory.json')}
+    with (OLD/'pilot_24.csv').open(encoding='utf-8-sig') as h:matrix=list(csv.DictReader(h))
+    assert len(matrix)==24 and sha(OLD/'pilot_24.csv')=='ec1f55c9d18edd4bff5c9965af5c69f72667a67bc51dcd3ba2d424665df6c001'
+    rows=[]
+    for row in matrix:
+        it=inventory[row['case']];initial={k:float(row[k]) for k in ('Wm','Ws','Lm','Ls1','Ls2','Ls3')}
+        count=len(it['iterations']);assert count<=8
+        result=None
+        if it['iterations']:
+            folder=Path(it['iterations'][0]['run']).parent
+            if (folder/'design_result.json').exists():result=read(folder/'design_result.json')
+        action='new_initial'
+        if result:
+            if result['status']=='accepted':action='recover_and_validate_existing_selected_first'
+            elif result['reason']=='solver_unconverged':action='repair_failed_solver_then_resume_within_budget'
+            else:action='retain_recorded_design_failure'
+        rows.append({'case':row['case'],'width_family':row['width_family'],'shape_id':row['shape_id'],'metadata':row,'initial_geometry':initial,'historical_solves':count,'remaining_phase_solve_budget':8-count,'action':action,'selected_geometry':result['geometry'] if result else None,'existing_iterations':[x['run'] for x in it['iterations']],'new_run_root':str(Path('J:/f8_261007')/row['case'])})
+    supervised=['D04G05','D08G02','D12G05']
+    write(HERE/'resume_queue_plan.json',{'status':'prepared_not_released','matrix_sha256':sha(OLD/'pilot_24.csv'),'pilot_count':24,'cores':16,'tasks':1,'supervised_first':supervised,'supervised_note':'Review three selected provisional results/recoveries spanning both folds and multiple width families before unattended dispatch. If solver repair is necessary it consumes remaining budget; no blind rerun of verified success.','release_requires':['port_protocol_verified','collector_verified','supervised_first_review.json with evidence hashes'],'cases':rows})
+    print(json.dumps({'configurations':len(rows),'historical_solves':sum(x['historical_solves'] for x in rows),'remaining_maximum':sum(x['remaining_phase_solve_budget'] for x in rows),'supervised_first':supervised},indent=2))
+if __name__=='__main__':main()

@@ -1,0 +1,72 @@
+"""New immutable startup incarnation for SAME recovery, after approved zero-cost restart."""
+import ast,copy,shutil
+from pathlib import Path
+from build_runtime import ROOT,OUT,read,sha,new,write,now
+
+def main():
+    sourcectx=OUT/'fig8_tune48_N20_A14_c2_retry1_20261031'
+    ctx=OUT/'fig8_tune48_N20_A14_c2_retry1_boot2_20261031'
+    oldcase='N20_A14_C2_TR1';case='N20_A14_C2_TR1B'
+    closed=ROOT/'data/N20_A14/c2_retry1'/oldcase/'g01_initial'
+    base=ROOT/'data/N20_A14/c2_retry1/boot2';stage='T48_N20_A14_C2_TR1B'
+    assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'coordination/protocol.lock').exists()
+    assert not ctx.exists() and not base.exists()
+    state=read(closed/'state.json');assert not state['segments'] and not state['mesh_stages']
+    assert read(closed/'completion_event.json')['status']=='failed' and not (closed/'receiver_ack.json').exists()
+    shutdown=ROOT/'N20_recovery_restart_shutdown_proof.json'
+    assert read(shutdown)['old_worker_absent'] and read(shutdown)['zero_Analyze']
+    assert not read(shutdown)['protocol_lock_exists']
+    authpath=ROOT/'N20_RESTART_CONTINUATION_AUTH.json'
+    hashes={str(closed/f):sha(closed/f) for f in ['input.json','state.json','worker_error.json','completion_event.json']}
+    new(authpath,dict(at=now(),authorized=True,human_reply='允许重启HFSS后检查接续（推荐）',same_recovery_budget=True,
+      closed_zero_startup_run=str(closed),closed_zero_startup_hashes=hashes,geometry=state['geometry'],
+      remaining_new_Analyze_cap=12,combined_physical_C2_Analyze_cap=13,global_Analyze_cap=2236,
+      no_new_design_geometry=True,no_second_technical_recovery=True,no_automatic_second_restart=True,
+      restart_marker_sha256=sha(ROOT/'N20_recovery_restart_attempt1.json'),shutdown_proof_sha256=sha(shutdown),
+      new_desktop_identity_sha256=sha(ROOT/'desktop_epoch4_N20_20261031.json')))
+    ctx.mkdir();base.mkdir(parents=True)
+    for p in sourcectx.glob('*.py'):
+        t=p.read_text(encoding='utf-8').replace(oldcase,case)
+        t=t.replace('from tuning_budget_recovery_v1 import validate_campaign','from tuning_budget_recovery_v2 import validate_campaign')
+        if p.name=='phase_control.py':t='\n'.join('BASE=Path('+repr(str(base))+')' if x.startswith('BASE=') else x for x in t.splitlines())+'\n'
+        if p.name=='lifecycle_watch.py':t='\n'.join('ROOT=Path(__file__).resolve().parent;BASE=Path('+repr(str(base))+')' if x.startswith('ROOT=') else x for x in t.splitlines())+'\n'
+        if p.name=='phase_geometry_publish.py':t=t.replace('continue_tuning_v2.py','continue_tuning_v3.py')
+        ast.parse(t);(ctx/p.name).write_text(t,encoding='utf-8')
+    plan=copy.deepcopy(read(sourcectx/'plan.json'));row=plan['cases'][0]
+    source=Path(row['prepared_project']);proof=read(sourcectx/'cases'/oldcase/'configuration.json')
+    assert proof['passed'] and not proof['solved'] and sha(source)==proof['project_sha256']
+    assert proof['geometry']==state['geometry']
+    prepared=base/case/'prepared'/f'{case}_{stage}_Prepared.aedt';prepared.parent.mkdir(parents=True)
+    shutil.copy2(source,prepared);assert sha(prepared)==sha(source)
+    row.update(case=case,context=str(ctx),run_dir=str(base/case/'g01_initial'),prepared_project=str(prepared),
+      category='same_technical_recovery_after_zero_Analyze_restart',closed_zero_startup_run=str(closed))
+    plan.update(stage=stage,at=now());new(ctx/'plan.json',plan)
+    copied=copy.deepcopy(proof);copied.update(case=case,project=str(prepared),project_sha256=sha(prepared),
+      preparation_note='Same prepared bytes; explicitly approved server restart, zero-Analyze previous startup preserved')
+    new(ctx/'cases'/case/'configuration.json',copied)
+    for name in ['mesh_policy_addendum_v2.json','reference_validation.json','desktop_start.json']:
+        shutil.copyfile(sourcectx/name,ctx/name)
+    shutil.copyfile(ROOT/'desktop_epoch4_N20_20261031.json',ctx/'aedt_identity.json')
+    policy=read(sourcectx/'policy.json');policy.update(version=stage,user_authorization='允许重启HFSS后检查接续（推荐）；同一恢复<=12新Analyze，原C2合计<=13，全轮<=2236')
+    new(ctx/'policy.json',policy)
+    new(ctx/'authorization.json',dict(stage=stage,cases=[case],configuration_authorized=True,execution_authorized=False,
+      launch_user_instruction='允许重启HFSS后检查接续（推荐）；同一技术恢复预算不增加',geometry_cap=1))
+    new(ctx/'execution_plan.json',dict(parent='N20_A14',new_geometry_cap=0,technical_attempt_cap=1,
+      same_recovery_after_zero_startup=True,geometry_Analyze_cap=12,combined_physical_case_Analyze_cap=13,global_Analyze_cap=2236,cores=14,serial=True))
+    new(ctx/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    cfg=read(sourcectx/'hook/config.json');cfg['state_dir']=str(ctx/'hook/state');new(ctx/'hook/config.json',cfg)
+    new(ctx/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_terminal'))
+    ev=copy.deepcopy(read(sourcectx/'parent_evidence.json'))
+    for p in [authpath,shutdown,ROOT/'desktop_epoch4_N20_20261031.json',ROOT/'restart_N20_recovery_epoch4.py',Path(__file__),
+              ROOT/'tuning_budget_recovery_v2.py',ROOT/'continue_tuning_v3.py',ROOT/'run_context_v6.py',source]+[Path(f) for f in hashes]:
+        ev['hashes'][str(p)]=sha(p)
+    new(ctx/'parent_evidence.json',ev)
+    new(ROOT/'technical_recovery_registry_v2.json',dict(contexts=[dict(context=str(ctx),base=str(base),parent='N20_A14',kind='technical_recovery_c2',
+      plan_sha256=sha(ctx/'plan.json'),authorization_sha256=sha(authpath))],closed_zero_startup=str(sourcectx),same_single_recovery_slot=True))
+    (ctx/'CONTINUATION.md').write_text(f'''# N20 C2同一次技术恢复：重启后的加载接续
+用户已明确允许重启HFSS后检查接续。旧加载TR1为零Analyze，已故障终态封存；新TR1B不是第三个设计候选或第二次技术恢复。源prepared字节、P/R/a/g/材料/端口精度/验收窗口不变。原C2失败1请求保留，新恢复仍最多12请求（11自适应+1扫频），合计<=13，全轮<=2236。
+仅使用已核验epoch4桌面，不重启第二次、不清任何工程锁、不覆盖旧input/state/event。新启动用{ROOT/'run_context_v6.py'} --context {ctx} --case {case}；已有state/release不可重复派发。必须见真实14核1组和活observer后才能称启动。
+终态先review_phase_geometry --run RUN，实际view_image，再acknowledge_review --visual-reviewed --note真实结论，然后{ROOT/'continue_tuning_v3.py'} --context {ctx}。仅full_primary代表原3.92–9.52GHz目标；不能只看传输带宽、峰差或中心。再次技术故障就报告，不自动再恢复。成功才选择本有效目录，旧失败目录永不补成功ACK。后续新项目使用run_context_v6和continue_tuning_v3；write_status_summary更新MD。正常求解静默，只终态hook当前聊天；用户暂停优先。
+''',encoding='utf-8')
+    print(dict(context=str(ctx),case=case,same_prepared_bytes=True,Analyze_requested=False))
+if __name__=='__main__':main()

@@ -1,0 +1,54 @@
+"""Continue SAME approved recovery after native Save hung. Snapshot first; one desktop restart, no Analyze."""
+import json,hashlib,shutil,subprocess,socket,time
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+ROOT=Path(__file__).resolve().parent;OLD=Path('D:/hfss_fig8_next48_20261029/b08/N23_A18/g01_initial')
+BASE=Path('D:/hfss_fig8_next48_20261029/n23_export_recovery1');CTX=ROOT.parent/'fig8_next48_n23export_20261030'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now():return datetime.now(timezone.utc).isoformat()
+def new(p,d):
+    with Path(p).open('x',encoding='utf-8') as f:json.dump(d,f,indent=2,ensure_ascii=False);f.write('\n')
+def native():return [p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+def main():
+    assert read(ROOT/'N23_A18_replacement_authorization_v4.json')['approved']
+    assert read(ROOT/'N23_A18_cache_inspection3/inspection.json')['native_1500_row_export_verified']
+    assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'N23_restart_attempt1.json').exists()
+    live=native();assert len(live)==1 and live[0]['pid']==50712 and abs(live[0]['create_time']-1793286319.113606)<.01
+    assert live[0]['cmdline']==read(ROOT.parent/'fig8_next48_b08_20261029/aedt_identity.json')['command']
+    stopped=[]
+    for pid,created,name in [(90156,1793355624.8575864,'persist_N23_completed_native_sweep1.py'),(35760,1793355624.8112347,'persist_N23_completed_native_sweep1.py'),
+                             (74436,1793355500.759255,'recover_N23_existing_export_v4.py'),(89068,1793355500.7139516,'recover_N23_existing_export_v4.py')]:
+        try:
+            p=psutil.Process(pid);cmd=p.cmdline();assert abs(p.create_time()-created)<.01 and len(cmd)==2 and cmd[1]==str(ROOT/name).replace('\\','/') and time.time()-created>=180
+            stopped.append(dict(pid=pid,created=created,command=cmd));p.terminate()
+        except psutil.NoSuchProcess:pass
+    new(ROOT/'N23_native_clients_stopped_phase2.json',dict(at=now(),reason='Native save/attach >180s; stop own clients only',clients=stopped,no_solver_stopped=True))
+    assert shutil.disk_usage(BASE).free>20*1024**3
+    snap=BASE/'source_snapshot';snap.mkdir(exist_ok=False)
+    project=Path(read(OLD/'state.json')['project']);cache=project.with_suffix('.aedtresults');hashes={}
+    for p in [project]+[p for p in cache.rglob('*') if p.is_file() and not p.name.endswith(('.semaphore','.lock','.lck'))]:
+        rel=p.relative_to(OLD);dst=snap/rel;dst.parent.mkdir(parents=True,exist_ok=True);before=sha(p)
+        shutil.copy2(p,dst);assert sha(dst)==sha(p)==before;hashes[str(rel)]=before
+    new(CTX/'snapshot_manifest.json',dict(at=now(),source=str(OLD),snapshot=str(snap),hashes=hashes,original_locks_not_deleted=True,
+       native_valid_sweep_proof_sha256=sha(ROOT/'N23_A18_cache_inspection3/inspection.json')))
+    new(ROOT/'N23_restart_attempt1.json',dict(at=now(),old_identity=live[0],same_technical_recovery_attempt=1,
+       snapshot_manifest_sha256=sha(CTX/'snapshot_manifest.json'),Analyze_added=0))
+    p=psutil.Process(50712);assert abs(p.create_time()-1793286319.113606)<.01 and p.cmdline()==live[0]['cmdline'];p.terminate();p.wait(timeout=30)
+    assert not native()
+    child=subprocess.Popen(['D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe','-grpcsrv','7990'],stdin=subprocess.DEVNULL)
+    for _ in range(180):
+        live=native();assert not any(p['name'].lower()=='hf3d.exe' for p in live)
+        if len(live)==1:
+            try:
+                with socket.create_connection(('127.0.0.1',7990),timeout=1):pass
+                q=psutil.Process(live[0]['pid']);identity=dict(at=now(),pid=q.pid,created=q.create_time(),command=q.cmdline(),port=7990,visible_requested=True,
+                   old_pid=50712,Analyze_requested=False,reason='Approved same recovery; valid Sweep exported; native Save then stalled; cache snapshot verified before restart')
+                new(ROOT/'desktop_epoch3_N23_20261030.json',identity)
+                (CTX/'aedt_identity.json').write_text(json.dumps(identity,indent=2),encoding='utf-8') # New context NOT frozen/input-bound yet.
+                print(json.dumps(identity),flush=True);return
+            except OSError:pass
+        time.sleep(1)
+    raise TimeoutError('New desktop readiness timed out; no automatic retry')
+if __name__=='__main__':main()

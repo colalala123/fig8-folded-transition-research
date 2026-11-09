@@ -1,0 +1,80 @@
+import copy
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+import phase_geometry_context as ctx
+import phase_control as pc
+from tuning_proposal import propose_probes
+from target_metrics import compute20
+
+
+class SegmentTests(unittest.TestCase):
+    def fixture(self, n=1):
+        initial=pc.read(pc.BASE/'P01G05/g01_initial/input.json')['geometry']
+        run=pc.BASE/'P01G05'/ctx.job_name(n)
+        spec=dict(case='P01G05',role=ctx.STEPS[n-1],geometry=initial,
+            historical_geometry_attempts=1,new_phase_geometry_ordinal=n,
+            phase_solve_ordinal_including_history=n+1,run_dir=str(run),input_path=str(run/'input.json'),
+            worker_sha256='hash',controller_sha256='hash')
+        ledger=dict(new_geometry_reserved=n,new_cached_tasks_reserved=0,tasks=[
+            dict(case='P01G05',new_phase_geometry_ordinal=i,path=str(pc.BASE/'P01G05'/ctx.job_name(i)/'input.json'),
+                 input_sha256='hash',status='reserved' if i==n else 'reviewed') for i in range(1,n+1)])
+        parent=dict(new_geometry_reserved=18,tasks=[dict(status='reviewed') for _ in range(18)])
+        auth=dict(execution_authorized=True,cases=pc.ORDER,extra_geometry_cap=6)
+        def read(path):
+            path=Path(path)
+            if path==pc.HERE/'authorization.json':return auth
+            if path==pc.HERE/'budget_ledger.json':return ledger
+            if path==pc.PARENT/'budget_ledger.json':return parent
+            if path==pc.HERE/'parent_evidence.json':return dict(hashes={'frozen':'hash'})
+            if path==pc.BASE/'P01G05/g01_initial/input.json':return dict(geometry=initial)
+            raise AssertionError(path)
+        return spec,ledger,parent,read
+
+    def validate(self,spec,read):
+        with patch.object(ctx,'read',side_effect=read),patch.object(ctx,'sha',return_value='hash'):
+            ctx.validate_geometry_budget(spec,Path(spec['input_path']))
+
+    def test_valid_first_and_last(self):
+        for n in (1,3):
+            s,l,p,r=self.fixture(n);self.validate(s,r)
+
+    def test_history_cannot_reset(self):
+        s,l,p,r=self.fixture();s['historical_geometry_attempts']=0
+        with self.assertRaises(AssertionError):self.validate(s,r)
+
+    def test_width_change_rejected(self):
+        s,l,p,r=self.fixture();s['geometry']=copy.deepcopy(s['geometry']);s['geometry']['Wm']+=.01
+        with self.assertRaises(AssertionError):self.validate(s,r)
+
+    def test_unreviewed_parent_rejected(self):
+        s,l,p,r=self.fixture();p['tasks'][0]['status']='reserved'
+        with self.assertRaises(AssertionError):self.validate(s,r)
+
+    def test_fourth_extra_rejected(self):
+        s,l,p,r=self.fixture(3);s['new_phase_geometry_ordinal']=4;s['phase_solve_ordinal_including_history']=5
+        with self.assertRaises(AssertionError):self.validate(s,r)
+
+    def test_wrong_path_rejected(self):
+        s,l,p,r=self.fixture();s['run_dir']=str(pc.BASE/'P04G05/g02_probe_Ls1')
+        with self.assertRaises(AssertionError):self.validate(s,r)
+
+    def test_previous_probe_must_be_reviewed(self):
+        s,l,p,r=self.fixture(2);l['tasks'][0]['status']='reserved'
+        with self.assertRaises(AssertionError):self.validate(s,r)
+
+    def test_probe_and_early_stop(self):
+        for case in pc.ORDER:
+            run=pc.BASE/case/'g01_initial';g=pc.read(run/'input.json')['geometry'];m=pc.read(run/'response_metrics.json')
+            result=propose_probes(g,g,m,0);self.assertEqual(result['action'],'probe')
+            for probe in result['probes']:
+                self.assertEqual([k for k in g if g[k]!=probe['geometry'][k]],[probe['parameter']])
+        run=pc.BASE/'P02G05/g01_initial';g=pc.read(run/'input.json')['geometry'];m=pc.read(run/'response_metrics.json')
+        self.assertEqual(propose_probes(g,g,m,0)['action'],'direct_review')
+
+    def test_threshold_extractor_unchanged(self):
+        run=pc.BASE/'P09G02/g01_initial'
+        self.assertEqual(compute20(run/'sparams.csv',pc.read(run/'response_metrics.json')),pc.read(run/'target20_metrics.json'))
+
+
+if __name__=='__main__':unittest.main()

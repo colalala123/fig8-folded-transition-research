@@ -1,0 +1,25 @@
+"""Completion-only current-chat hook for PR18. Configuration never sends a message."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+def prompt(event,path):
+    return (f'[Fig8 PR18长度补偿完成事件]\n事件ID：{hook.event_id(event)}\n状态：{event["status"]}\n摘要：{event["summary"]}\n事件：{path}\n'
+        f'先读{HERE/"CONTINUATION.md"}，核验事件/原始曲线/网格，实际看图后ACK。'
+        '这是原18补点的长度补偿子段，仅P01G05/P04G05；不是新批次。16核串行、10–11万网格、完成hook。'
+        '两探针加一候选，每项最多3额外几何，总计最多6；初始历史18不清零，全部几何<=30、每项<=4。'
+        'advance.py --case CASE --solve会先检查早停：任何探针基础通过即选中转下一项，不得强求-20dB。'
+        '两项完成后准备原18项同网格直接抽查，每项<=24点、每次<=4点、最多6次。不得启动第4步盲测或改均匀数据。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] is True
+    assert case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json')
+    assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='PR18 bounded length tuning authorized within first three steps')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

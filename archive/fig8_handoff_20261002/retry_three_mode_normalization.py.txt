@@ -1,0 +1,52 @@
+"""Prospective additional-mode normalization study, then strict protocol review.
+
+Zwave is documented in HFSS Help 2024 R2 PDF pp.2908-2909. It is an
+alternative normalization for the added cutoff mode, not a physical impedance
+claim for the inhomogeneous microstrip or a passivity-tolerance relaxation.
+"""
+import argparse,time,traceback,os
+import psutil
+from pilot_queue import ROOT,OLD,read,freeze,solve,status,collector_stage,pilot_stage,corner_stage
+from pilot_supervisor import review_and_freeze,final_report
+from pilot_worker import now,write_json
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--wait-pid',type=int);args=ap.parse_args()
+    if args.wait_pid:
+        try:
+            previous=psutil.Process(args.wait_pid)
+            if not any('continue_tf3_protocol.py' in part for part in previous.cmdline()):
+                raise RuntimeError('Wait PID is not the expected T_F3 continuation')
+            write_json(ROOT/'normalization_retry_state.json',{'status':'waiting','pid':os.getpid(),
+                'wait_pid':args.wait_pid,'wait_process_created':previous.create_time(),'updated_at_utc':now()})
+            while previous.is_running():time.sleep(15)
+        except psutil.NoSuchProcess:
+            pass
+    active=[p.info for p in psutil.process_iter(['pid','name','cmdline'])
+            if (p.info['name'] or '').lower()=='hf3d.exe'
+            or any('pilot_worker.py' in x for x in (p.info['cmdline'] or []))]
+    if active:raise RuntimeError(f'Another solver/worker is active; refusing concurrent launch: {active}')
+    for case in ('B0','T_F3'):
+        m=read(ROOT/f'M_{case}_2'/'manifest.json')
+        if m['status']!='completed' or not m.get('sweep_converged') or not m.get('source_unchanged'):
+            raise RuntimeError(f'Two-mode prerequisite requires review: {case}')
+    write_json(ROOT/'normalization_retry_state.json',{'status':'running','pid':os.getpid(),'updated_at_utc':now()})
+    for case in ('B0','T_F3'):
+        run=ROOT/f'M_{case}_3w';source=OLD/case/(case+'.aedt')
+        freeze(run,source,read(OLD/case/'manifest.json')['geometry'],3,False,'port_normalization_diagnostic',
+               mode_impedance_overrides={'3':'Zwave'},
+               rationale='Original third-mode Zpi has negative real parts at many native solved frequencies, with severe full-matrix interpolation/passivity failure. Test supported Zwave only for the additional third cutoff mode; original fundamental and second-mode references, geometry, material, integration lines, setup/sweep accuracy and passivity checks remain fixed.',
+               source_document='D:/Program Files/AnsysEM/v242/Win64/Help/HFSS/HFSS.pdf pp.2908-2909,2725-2727',
+               diagnostic_only_until_protocol_review=True)
+        if read(run/'prediction_frozen.json').get('mode_impedance_overrides')!={'3':'Zwave'}:
+            raise RuntimeError(f'Frozen normalization does not match trial: {run}')
+        solve(run)
+    review_and_freeze('3w')
+    collector_stage();pilot_stage();corner_stage();final_report()
+
+if __name__=='__main__':
+    try:main()
+    except Exception:
+        write_json(ROOT/'normalization_retry_state.json',{'status':'review_required','pid':os.getpid(),
+            'error':traceback.format_exc(),'updated_at_utc':now()})
+        status(status='review_required',error=traceback.format_exc());print(traceback.format_exc(),flush=True);raise

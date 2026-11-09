@@ -1,0 +1,14 @@
+"""Add a whole-worker serial gate to the versioned launcher; old frozen launchers unchanged."""
+from pathlib import Path
+import ast,json,hashlib
+ROOT=Path(__file__).resolve().parent
+source=ROOT/'run_context_v2.py';s=source.read_text(encoding='utf-8')
+s=s.replace("    assert not (ROOT/'PAUSE.json').exists()", "    assert not (ROOT/'PAUSE.json').exists()\n    assert not (ROOT/'coordination/protocol.lock').exists(), 'An existing whole worker owns the serial lease; do not steal native hf3d gaps'",1)
+s=s.replace("ROOT/'observer_retry_v2.py']","ROOT/'observer_retry_v2.py',ROOT/'run_context_v3.py']")
+s=s.replace("    observer=ensure_observer(ctx,path.parent)","    observer=ensure_observer(ctx,path.parent)\n    time.sleep(1)\n    observer=read(path.parent/'lifecycle_observer/daemon.json')\n    q=psutil.Process(observer['pid'])\n    assert abs(q.create_time()-observer['created'])<.01 and q.cmdline()==observer['command']")
+s=s.replace("input_sha256=sha(path),context=str(ctx),native=gate(ctx)","input_sha256=sha(path),context=str(ctx),native=gate(ctx),launcher_version=3,launcher_sha256=sha(Path(__file__))")
+dest=ROOT/'run_context_v3.py';assert not dest.exists();ast.parse(s);dest.write_text(s,encoding='utf-8')
+(ROOT/'launcher_v3_provenance.json').write_text(json.dumps(dict(source=str(source),source_sha256=hashlib.sha256(source.read_bytes()).hexdigest(),
+    adapted=str(dest),adapted_sha256=hashlib.sha256(dest.read_bytes()).hexdigest(),changes=['Whole-worker coordination lease required absent before configuration/release','Re-read real observer identity after child registration'],
+    original_frozen_files_unchanged=True),indent=2),encoding='utf-8')
+print(dest)

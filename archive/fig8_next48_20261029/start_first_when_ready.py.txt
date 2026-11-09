@@ -1,0 +1,49 @@
+"""Single guarded first release after the other2core task exits. No retries."""
+import sys,json,hashlib,ast,shutil,subprocess,os
+from pathlib import Path
+from datetime import datetime,timezone
+from resource_wait_check import check
+ROOT=Path(__file__).resolve().parent;OUT=ROOT.parent
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,d):p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+def main():
+ resource=check();assert resource['ready'],resource
+ assert not (ROOT/'first_release_attempt.json').exists(),'Existing release attempt: inspect, never retry'
+ ctx=Path(resource['context']);frozen=read(ROOT/'campaign_frozen.json')
+ for f,h in frozen['source_hashes'].items():assert sha(f)==h,f
+ assert read(ctx/'prepared_reopen_gate.json')['passed']
+ assert read(ctx/'hook_live_read_preflight.json')['supported_read_thread_verified']
+ sys.path.insert(0,str(ROOT));from campaign_budget import validate_campaign
+ budget=validate_campaign(case='N02_A14',storage=True)
+ plan=read(ctx/'plan.json');assert len(plan['cases'])==6
+ for row in plan['cases']:
+  proof=read(ctx/'cases'/row['case']/'configuration.json');source=Path(row['prepared_project'])
+  assert proof['passed'] and not proof['solved'] and not proof['analyze_requested']
+  assert proof['geometry']==row['geometry'] and sha(source)==proof['project_sha256']
+  assert not source.with_suffix('.aedt.lock').exists() and not (Path(row['run_dir'])/'state.json').exists()
+ for p in ctx.glob('*.py'):ast.parse(p.read_text(encoding='utf-8'))
+ path=ctx/'prelaunch_audit.json';assert not path.exists()
+ audit=dict(at=datetime.now(timezone.utc).isoformat(),passed=True,tests_passed=35,all48_inputs_and_predictions_frozen=True,
+  split_train=38,split_test=10,configured_projects=6,reopened_zero_Analyze=2,resource_wait_satisfied=resource,
+  cores_per_task=14,tasks=1,D_free_GiB=shutil.disk_usage('D:/').free/1024**3,budget=budget,
+  actual_transformed_source_hashes={str(p):sha(p) for p in ctx.glob('*.py')},Analyze_requested=False)
+ write(path,audit)
+ parents=read(ctx/'parent_evidence.json');parents['hashes'][str(path)]=sha(path)
+ for dep in [ROOT/'resource_wait.json',ROOT/'resource_wait_check.py',Path(__file__),
+    OUT/'fig8_B05_fix14_20261029/b05_corrector.py',OUT/'fig8_B05_fix14_20261029/report_preflight_result.json']:
+  parents['hashes'][str(dep)]=sha(dep)
+ write(ctx/'parent_evidence.json',parents)
+ # Marker is exclusive and persists on any error; no second dispatcher can run.
+ with (ROOT/'first_release_attempt.json').open('x',encoding='utf-8') as f:
+  json.dump(dict(at=audit['at'],pid=os.getpid(),case='N02_A14',resource_gate=resource),f,indent=2)
+ subprocess.run([sys.executable,str(ctx/'finalize_and_authorize.py')],check=True)
+ # Re-evaluate the external task identity immediately before actual release.
+ assert check()['ready']
+ subprocess.run([sys.executable,str(ctx/'launch_one.py'),'--case','N02_A14'],check=True)
+ run=Path(resource['run']);proof=read(run/'supervised_start.json')
+ assert proof['actual_14core_single_group_observed']
+ write(ROOT/'first_release_success.json',dict(at=datetime.now(timezone.utc).isoformat(),case='N02_A14',run=str(run),
+  proof_sha256=sha(run/'supervised_start.json'),actual14core=True,hook_config_sha256=sha(ctx/'hook/config.json')))
+ print(dict(first_case_actually_started=True,case='N02_A14',actual14core=True,run=str(run)))
+if __name__=='__main__':main()

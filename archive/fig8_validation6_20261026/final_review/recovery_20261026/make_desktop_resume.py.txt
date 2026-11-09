@@ -1,0 +1,85 @@
+"""Versioned remainder-only worker after a proven native AEDT crash."""
+import ast
+from pathlib import Path
+import recovery_control as pc
+
+def generate():
+    target=pc.HERE/'desktop_resume_worker.py';assert not (pc.HERE/'resume1_plan.json').exists()
+    source=pc.HERE/'smallbatch_worker.py';s=source.read_text(encoding='utf-8')
+    start=s.index('def validate(path):');end=s.index('\nasync def execute',start)
+    replacement='''def validate(path):
+    p=pc.read(path);run=Path(p['run_dir'])
+    assert p['case']=='V01G05' and run.resolve()==(pc.BASE/'V01G05/direct_resume1').resolve()
+    assert Path(path).resolve()==Path(p['input_path']).resolve()
+    assert p['role']=='cached_desktop_resume' and not p['adaptive_allowed'] and p['geometry_budget_increment']==0
+    assert p['worker_sha256']==pc.sha(Path(__file__).resolve()) and not (run/'state.json').exists()
+    rows=[f for c in p['chunks'] for f in c]
+    assert all(1<=len(c)<=4 for c in p['chunks']) and len(p['chunks'])==5
+    assert len(rows)==len(set(rows))==19 and len(p['existing_frequencies_GHz'])==44
+    assert set(rows).isdisjoint(p['existing_frequencies_GHz']) and sorted(rows+p['existing_frequencies_GHz'])==p['requested_frequencies_GHz']
+    budget=pc.read(pc.HERE/'resume1_budget.json');assert budget['analyzes_used']==0 and budget['max_analyzes']==5
+    ledger=pc.read(pc.ledger_path());own=next(t for t in ledger['tasks'] if t['case']==p['case'])
+    assert own['status']=='reserved' and own['analyzes_used']==12 and own['resume_input_sha256']==pc.sha(path)
+    for file,digest in p['input_parent_hashes'].items():assert pc.sha(file)==digest,file
+    old=pc.read(Path(p['recovered_from'])/'state.json')
+    assert len(old['completed_chunks'])==11 and all(x['observed_16core_process'] and not x['observed_adaptive_process'] for x in old['segments'][:11])
+    reviewed_source(p['source'],p['case']);return p
+
+def reserve_launch(case,index):
+    assert case=='V01G05'
+    budget=pc.read(pc.HERE/'resume1_budget.json');assert budget['analyzes_used']==index<budget['max_analyzes']==5
+    budget['analyzes_used']+=1;pc.write(pc.HERE/'resume1_budget.json',budget)
+    ledger=pc.read(pc.ledger_path());own=next(t for t in ledger['tasks'] if t['case']==case)
+    own['resume_analyzes_used']=index+1
+    ledger['resume_analyze_launches_reserved']=index+1;pc.write(pc.ledger_path(),ledger)
+'''
+    s=s[:start]+replacement+s[end:]
+    start=s.index("    cache=source.with_suffix('.aedtresults')");end=s.index('\n    state=dict',start)
+    s=s[:start]+'''    project=Path(p['prepared_project']);assert project.parent==run
+    assert pc.sha(project)==p['prepared_project_sha256']
+'''+s[end:]
+    start=s.index("    if case=='V01G02':");end=s.index('\n    for index,frequencies',start)
+    s=s[:start]+'''    for baseline in p['baseline_chunks']:
+        folder=Path(baseline['folder'])
+        for file,digest in baseline['hashes'].items():assert pc.sha(file)==digest,file
+        actual=exported_rows(folder);assert sorted(actual)==baseline['frequencies'];add_disjoint(all_rows,actual)
+        sources.append(dict(kind='preserved_successful_chunk',frequencies=baseline['frequencies'],hashes=baseline['hashes']))
+    assert sorted(all_rows)==p['existing_frequencies_GHz']
+'''+s[end:]
+    s=s.replace("name=f'V6_SmallBatch{index+1:02d}'","name=f'V6_Resume1_Batch{index+1:02d}'")
+    s=s.replace('from publish_smallbatch import publish','from publish_desktop_resume import publish')
+    # The native-crash recovery must not silently create another AEDT instance
+    # when its fixed PID disappears. This is a process-local API guard only.
+    needle="    p=validate(path);case=p['case'];run=Path(p['run_dir'])"
+    replacement=needle+'''
+    import psutil
+    original_app_for=dc.app_for
+    def guarded_app_for(project):
+        expected=pc.read(pc.HERE/'resume1_plan.json')['backend']
+        proc=psutil.Process(expected['pid'])
+        assert proc.is_running() and abs(proc.create_time()-expected['created'])<.001,'Known AEDT backend was lost; explicit recovery required'
+        return original_app_for(project)
+    dc.app_for=guarded_app_for'''
+    assert needle in s;s=s.replace(needle,replacement)
+    target.write_text(s,encoding='utf-8')
+    reader=(pc.HERE/'receive_verified.py').read_text(encoding='utf-8')
+    needle="    result=compare(source,run);assert result==read(run/'comparison.json')"
+    extra='''    previous=read(Path(plan['recovered_from'])/'state.json')
+    assert len(previous['completed_chunks'])==11
+    assert all(x['observed_16core_process'] and not x['observed_adaptive_process'] for x in previous['segments'][:11])
+'''
+    assert needle in reader;reader=reader.replace(needle,extra+needle)
+    (pc.HERE/'receive_desktop_resume.py').write_text(reader,encoding='utf-8')
+    ack=(pc.HERE/'acknowledge_smallbatch.py').read_text(encoding='utf-8')
+    ack=ack.replace("'direct_smallbatch'","'direct_resume1'")
+    ack=ack.replace("own[0]['input_sha256']==pc.sha(run/'input.json')","own[0]['resume_input_sha256']==pc.sha(run/'input.json')")
+    ack=ack.replace("own[0].update(status='reviewed',scoped_accepted=bool(accepted),ack_sha256=pc.sha(run/'receiver_ack.json'))",
+        "own[0].update(status='reviewed',scoped_accepted=bool(accepted),ack_sha256=pc.sha(run/'receiver_ack.json'),effective_run=str(run),original_failed_run=p['recovered_from'])")
+    (pc.HERE/'acknowledge_desktop_resume.py').write_text(ack,encoding='utf-8')
+    for f in [target,pc.HERE/'receive_desktop_resume.py',pc.HERE/'acknowledge_desktop_resume.py']:
+        ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    pc.write(pc.HERE/'desktop_resume_implementation.json',dict(source=str(source),source_sha256=pc.sha(source),
+        worker=str(target),worker_sha256=pc.sha(target),scope='Resume only19 unavailable frequencies on preserved100001 mesh;11 completed4-point chunks stay immutable.'))
+    print(dict(worker=str(target),new_geometry=0,maximum_new_Analyze=5))
+
+if __name__=='__main__':generate()

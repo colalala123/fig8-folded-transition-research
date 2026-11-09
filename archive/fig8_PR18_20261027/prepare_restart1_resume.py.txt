@@ -1,0 +1,59 @@
+"""One preserved-cache recovery, same reserved geometry and explicit ledger audit."""
+import sys,shutil,json,ast
+from pathlib import Path
+P=Path(__file__).resolve().parent;C=P/'length_tuning';sys.path.insert(0,str(C))
+import phase_control as pc
+r=Path('J:/f8_PR18_261027/P04G05/g02_probe_Ls1');b=r/'restart1_preserved'
+assert pc.read(P/'restart1_preflight.json')['passed']
+assert not (r/'restart1_checkpoint.json').exists()
+original=C/'phase_geometry_worker.py';src=original.read_text(encoding='utf-8')
+old="assert run.resolve().is_relative_to(BASE.resolve()) and not (run/'state.json').exists(),'Existing run requires explicit recovery'"
+new="assert run.resolve().is_relative_to(BASE.resolve()) and spec.get('resource_recovery_attempt')==1 and spec.get('resume_checkpoint'),'Explicit restart1 resume only'"
+assert src.count(old)==1;src=src.replace(old,new)
+old="locks=[HERE/'worker.lock',OLD/'protocol.lock'];assert all(not p.exists() for p in locks)"
+new="""locks=[HERE/'worker.lock',OLD/'protocol.lock']
+    import psutil
+    for p in locks:
+        if p.exists():
+            assert p.read_text()=='47456' and not psutil.pid_exists(47456), 'Only exact confirmed dead recovery owner may be adopted'
+    assert sha(HERE/'restart1_geometry_worker.py')==spec['recovery_worker_sha256']"""
+assert src.count(old)==1;src=src.replace(old,new)
+old="with lock.open('x') as h:h.write(str(os.getpid()))"
+new="""if lock.exists():
+                assert lock.read_text()=='47456'
+                with lock.open('r+') as h:
+                    h.seek(0);h.write(str(os.getpid()));h.truncate();h.flush();os.fsync(h.fileno())
+            else:
+                with lock.open('x') as h:h.write(str(os.getpid()))"""
+assert src.count(old)==1;src=src.replace(old,new)
+old='async def main(spec_path):\n'
+new="""async def main(spec_path):
+    import faulthandler
+    trace=(HERE/'restart1_worker_stack.log').open('a')
+    faulthandler.dump_traceback_later(120,repeat=True,file=trace)
+"""
+assert src.count(old)==1;src=src.replace(old,new)
+ast.parse(src);worker=C/'restart1_geometry_worker.py';assert not worker.exists();worker.write_text(src,encoding='utf-8')
+supervisor=(C/'supervise_start.py').read_text(encoding='utf-8')
+assert "s.get('segments',[])" in supervisor
+supervisor=supervisor.replace("s.get('segments',[])","s.get('segments',[])[3:]")
+ast.parse(supervisor);(C/'supervise_restart1.py').write_text(supervisor,encoding='utf-8')
+state=pc.read(b/'state.json');assert len(state['segments'])==len(state['mesh_stages'])==3
+pre=pc.read(P/'restart1_preflight.json');project=Path(pre['project'])
+state.update(project=str(project),resource_recovery_attempt=1)
+checkpoint=r/'restart1_checkpoint.json';pc.write(checkpoint,state)
+shutil.copy2(r/'restart1_preflight_convergence.txt',r/'resume_convergence.txt')
+spec=pc.read(b/'input.json');assert pc.sha(r/'input.json')==pc.sha(b/'input.json')
+spec.update(project_name=project.stem,resume_checkpoint=str(checkpoint),resume_checkpoint_sha256=pc.sha(checkpoint),resume_project_sha256=pc.sha(project),resource_recovery_attempt=1,recovery_worker_sha256=pc.sha(worker))
+spec['parent_evidence_hashes'].update({str(p):pc.sha(p) for p in [worker,C/'supervise_restart1.py',P/'restart1_preflight.json',P/'restart1_shutdown.json',P/'restart1_desktop.json',b/'input.json',checkpoint,r/'resume_convergence.txt']})
+ledger=pc.read(C/'budget_ledger.json');assert ledger['new_geometry_reserved']==4 and len(ledger['tasks'])==4
+t=ledger['tasks'][-1];assert t['case']=='P04G05' and t['status']=='reserved' and t['input_sha256']==pc.sha(r/'input.json')
+pc.write(P/'restart1_ledger_before.json',ledger)
+pc.write(r/'input.json',spec)
+t.update(input_sha256=pc.sha(r/'input.json'),resource_recovery_attempt=1,previous_input_sha256=pc.sha(b/'input.json'),new_geometry_added=False)
+pc.write(C/'budget_ledger.json',ledger)
+release=dict(case='P04G05',input_path=str(r/'input.json'),input_sha256=pc.sha(r/'input.json'),bulk_dispatch_released=False,at=pc.now(),resource_recovery_attempt=1)
+for folder in [P,C]:pc.write(folder/'supervised_release.json',release)
+proof=r/'supervised_start.json';assert proof.exists() and not (r/'restart1_initial_supervised_start.json').exists();proof.rename(r/'restart1_initial_supervised_start.json')
+pc.write(P/'restart1_implementation.json',dict(at=pc.now(),original_worker_sha256=pc.sha(original),recovery_worker_sha256=pc.sha(worker),new_geometry_added=False,geometry_budget=4,changes=['Explicit resume branch permits preserved state','Adopt exact confirmed-dead 47456 protocol locks without deletion','Periodic diagnostic stack logging','Supervision excludes old pre-restart solver observations'],user_authorization='你排查一下，实在不行就关掉后重启hfss'))
+print(dict(spec=str(r/'input.json'),input_sha256=pc.sha(r/'input.json'),worker=str(worker),cached_passes=18,cached_elements=81330,new_geometry_added=False))

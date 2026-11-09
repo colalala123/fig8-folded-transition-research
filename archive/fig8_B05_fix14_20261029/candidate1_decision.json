@@ -1,0 +1,123 @@
+{
+  "at": "2026-10-29T07:40:05.089342+00:00",
+  "base": "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial",
+  "base_cores": 16,
+  "probe_cores": 14,
+  "probe_scores": [
+    {
+      "run": "D:\\hfss_fig8_B05_20261029\\probes\\B05N_S\\g01_initial",
+      "score": {
+        "worst_S11_dB": -19.25341911818066,
+        "min_S21_dB": -1.0268275268322067,
+        "shape_valid": true,
+        "passed": false,
+        "central_valley_GHz": 6.75,
+        "peak_difference_dB": 0.6155863072037668,
+        "inner_peaks": [
+          {
+            "GHz": 5.17,
+            "S11_dB": -19.9331068739928
+          },
+          {
+            "GHz": 8.22,
+            "S11_dB": -20.548693181196565
+          }
+        ],
+        "objective": 57.074320751114826,
+        "nominal_buffer_satisfied": false
+      }
+    },
+    {
+      "run": "D:\\hfss_fig8_B05_20261029\\probes\\B05N_M\\g01_initial",
+      "score": {
+        "worst_S11_dB": -19.078996968251882,
+        "min_S21_dB": -1.0183991964110797,
+        "shape_valid": true,
+        "passed": false,
+        "central_valley_GHz": 6.62,
+        "peak_difference_dB": 2.1610189666119375,
+        "inner_peaks": [
+          {
+            "GHz": 5.17,
+            "S11_dB": -21.24001593486382
+          },
+          {
+            "GHz": 8.2,
+            "S11_dB": -19.078996968251882
+          }
+        ],
+        "objective": 409.7230591933808,
+        "nominal_buffer_satisfied": false
+      }
+    }
+  ],
+  "proposal": {
+    "action": "candidate",
+    "geometry": {
+      "Wm": 1.823189,
+      "Ws": 0.349179,
+      "Lm": 6.586957928753325,
+      "Ls1": 12.619669608302255,
+      "Ls2": 1.248358,
+      "Ls3": 1.7491789999999998
+    },
+    "delta_mm": [
+      0.04386380805450728,
+      -0.0023926539826344545
+    ],
+    "predicted": {
+      "worst_S11_dB": -20.206277262062798,
+      "min_S21_dB": -1.0037165688427545,
+      "shape_valid": true,
+      "passed": true,
+      "central_valley_GHz": 6.74,
+      "peak_difference_dB": 1.718011672480202e-05,
+      "inner_peaks": [
+        {
+          "GHz": 5.18,
+          "S11_dB": -20.206277262062798
+        },
+        {
+          "GHz": 8.24,
+          "S11_dB": -20.206294442179523
+        }
+      ],
+      "objective": 3.7528499193885785,
+      "nominal_buffer_satisfied": false
+    },
+    "baseline": {
+      "worst_S11_dB": -19.87570263305876,
+      "min_S21_dB": -0.9879634065670577,
+      "shape_valid": true,
+      "passed": false,
+      "central_valley_GHz": 6.71,
+      "peak_difference_dB": 0.6105759937920823,
+      "inner_peaks": [
+        {
+          "GHz": 5.19,
+          "S11_dB": -20.486278626850844
+        },
+        {
+          "GHz": 8.26,
+          "S11_dB": -19.87570263305876
+        }
+      ],
+      "objective": 40.49027762806635,
+      "nominal_buffer_satisfied": false
+    },
+    "method": "Native complex S11/S21 first-order finite differences, bounded2D search",
+    "trust_region_mm": {
+      "Ls1": 0.2,
+      "Lm": 0.1
+    },
+    "prediction_is_HFSS": false,
+    "complex_sensitivity_condition": 1.9390337531714414,
+    "reflection_buffer_dB": 0.4,
+    "buffer_is_certified": false,
+    "strict_R_screen_not_changed": true,
+    "keep_original_blind_outcome": true,
+    "reason": "Predicted pass and meaningful constraint improvement"
+  },
+  "not_independent_blind": true,
+  "not_a_guarantee": true
+}

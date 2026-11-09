@@ -1,0 +1,50 @@
+"""Wait for the current reference only; export/review, never launch any solver."""
+import csv,json,sys,time,traceback,os
+from pathlib import Path
+HERE=Path(__file__).resolve().parent
+RUN=Path('J:/f8_261007/TF3M3')
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def record(**x):
+    p=RUN/'postprocess_state.json';tmp=p.with_suffix('.tmp')
+    tmp.write_text(json.dumps(x,indent=2),encoding='utf-8');os.replace(tmp,p)
+
+def main():
+    record(status='waiting_for_corrected_segments',solver_dispatch_allowed=False)
+    while True:
+        s=read(RUN/'state.json')
+        if s['status']=='review_required':
+            record(status='stopped_solver_review_required',solver_dispatch_allowed=False);return
+        if s['status']=='segments_exported_review_required' and not (RUN.parent/'protocol.lock').exists():break
+        time.sleep(30)
+    record(status='reviewing',solver_dispatch_allowed=False)
+    from review_tf3 import review
+    review()
+    from export_segment_auxiliary import export
+    mapping={k:s.get('sweep_names',{}).get(k,k) for k in ['Low','Bridge','High','Endpoint']}
+    export(s['project'],s['setup'],mapping,RUN/'auxiliary',s['port'],3)
+    datasets={}
+    for k in mapping:
+        with (RUN/'auxiliary'/f'{k}_auxiliary.csv').open(encoding='utf-8') as h:
+            datasets[k]={round(float(row['Freq_GHz']),2):row for row in csv.DictReader(h)}
+    rows=[]
+    for i in range(1,1501):
+        f=round(i*.01,2)
+        k='Bridge' if 6.96<=f<=7.01 else 'Endpoint' if i==1500 else 'Low' if f<6.98 else 'High'
+        rows.append(datasets[k][f])
+    with (RUN/'mode_impedance_gamma.csv').open('w',newline='',encoding='utf-8') as h:
+        w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+    from pilot_supervisor import aux_compare,verify_boundaries
+    from audit_existing import write,sha
+    aux=aux_compare(Path('F:/hfss_f8x_261002/M_T_F3_2'),RUN)
+    boundaries=verify_boundaries(RUN)
+    write(RUN/'auxiliary_continuity.json',aux)
+    write(RUN/'boundary_review.json',boundaries)
+    r=read(RUN/'protocol_review.json')
+    record(status='complete_reference_review_required',numerical_passed=r['numerical_gate_passed'],fields_passed=r['fields']['passed'],auxiliary_passed=aux['passed'],boundaries_passed=boundaries['passed'],protocol_review_sha256=sha(RUN/'protocol_review.json'),production_release=False,solver_dispatch_allowed=False)
+
+if __name__=='__main__':
+    try:main()
+    except Exception:
+        record(status='postprocess_failed',error=traceback.format_exc(),solver_dispatch_allowed=False);raise

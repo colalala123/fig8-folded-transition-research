@@ -1,0 +1,23 @@
+import re, shutil
+from pathlib import Path
+
+root = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+p = root / "R_B0_rebuild_max500.aedt"
+shutil.copy2(p, root / "R_B0_rebuild_max500.before_renorm50.aedt")
+t = p.read_text(encoding="utf-8", errors="ignore")
+a = t.rindex("NextUniqueID=50")
+b = t.index("\t\t\t$end 'Boundaries'", a)
+block = t[a:b]
+if block.count("$begin '1'") != 1 or block.count("$begin '2'") != 1:
+    raise RuntimeError("active port block not uniquely found")
+for name in ["1", "2"]:
+    ps = block.index(f"$begin '{name}'")
+    pe = block.index(f"$end '{name}'", ps)
+    port = block[ps:pe]
+    if "RenormalizeAllTerminals" not in port:
+        port = port.replace("\t\t\t\t\tParentBndID=-1\n", "\t\t\t\t\tParentBndID=-1\n\t\t\t\t\tRenormalizeAllTerminals=true\n", 1)
+    port = re.sub(r"(\n\s*CharImp='(?:Zpi|Zwave)')", r"\1\n\t\t\t\t\t\t\tRenormImp='50ohm'", port)
+    block = block[:ps] + port + block[pe:]
+t = t[:a] + block + t[b:]
+p.write_text(t, encoding="utf-8")
+print({"renormalized_ports": 2, "renorm_modes": block.count("RenormImp='50ohm'")}, flush=True)

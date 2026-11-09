@@ -1,0 +1,47 @@
+{
+  "date": "2026-10-02",
+  "status": "adopted_geometry_study_window_not_em_validated",
+  "scope": "Structure B single transition at reference 6.85 GHz; not a six-pole universal bound",
+  "substrate": {
+    "er": 3.55,
+    "dielectric_loss_tangent": 0.0027,
+    "paper_nominal_er": 3.38,
+    "provenance": "Actual assigned AEDT material inspected in the 2026-10-02 run; paper nominal value kept separately.",
+    "h_mm": 0.813,
+    "copper_t_mm": 0.035
+  },
+  "definitions": {
+    "gap_mm": "Ls2 - 2*Ws",
+    "arm_net_mm": "Ls3 - Ws",
+    "middle_opening_mm": "Ls1 - 2*Ls3",
+    "microstrip_projection_clearance_mm": "(Ls1 - 2*Ls3 - Wm)/2",
+    "fold_occupancy": "2*Ls3/Ls1",
+    "geometric_path_mm": "Ls1 + 2*Ls2 + 2*Ls3 - 4*Ws"
+  },
+  "gap_mm": [
+    0.35,
+    0.75
+  ],
+  "arm_net_mm": [
+    1.4,
+    2.3
+  ],
+  "fold_occupancy_max": 0.5,
+  "microstrip_projection_clearance_min_mm": 0.813,
+  "same_layer_unintended_metal_clearance_min_mm": 0.35,
+  "same_layer_clearance_check": "Requires actual CAD entities and layer connectivity; not checked by this script.",
+  "all_constraints_are_joint": true,
+  "six_pole": {
+    "topology_confirmed": "Paper Fig.14/Fig.16 back-to-back transitions with connecting and branch microstrips",
+    "paper_reference_frequency_GHz": 3.02,
+    "paper_slot_dimensions_mm": {
+      "Ls1": 17.45,
+      "Ls2": 3.0,
+      "Ls3": 6.7,
+      "Ws": 0.55
+    },
+    "requires_separate_scope": true
+  },
+  "hfss_started_by_geometry_preparation_script": false,
+  "actual_simulation_status_file": "F:/hfss_f8_261002/batch_status.json"
+}

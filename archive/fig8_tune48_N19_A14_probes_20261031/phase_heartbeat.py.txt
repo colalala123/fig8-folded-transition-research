@@ -1,0 +1,317 @@
+"""Five-minute, status-aware continuation heartbeat. No solver dispatch or lock deletion.
+
+One completion-triggered registration, OS-held tick lock, immutable reminders.
+No unconditional app automation: nothing wakes this chat during normal solves.
+"""
+import argparse
+import asyncio
+from contextlib import contextmanager
+import json
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import psutil
+from phase_control import HERE, HOOK, read, sha, now
+sys.path.insert(0, str(HOOK))
+import completion_hook as hook
+from phase_heartbeat_transport import read_status
+
+ROOT = HERE / 'hook' / 'heartbeat'
+write = hook.write_json
+
+
+@contextmanager
+def mutex(root):
+    root.mkdir(parents=True, exist_ok=True)
+    with (root / 'tick.lock').open('a+b') as f:
+        if f.tell() == 0:
+            f.write(b'0'); f.flush()
+        f.seek(0)
+        if os.name == 'nt':
+            import msvcrt
+            msvcrt.locking(f.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        try:
+            yield
+        finally:
+            f.seek(0)
+            if os.name == 'nt':
+                msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+            else:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+
+def process_matches(pid, spec):
+    try:
+        p = psutil.Process(int(pid)); cmd = p.cmdline()
+        return p.is_running() and Path(cmd[cmd.index('--spec') + 1]).resolve() == Path(spec).resolve()
+    except (psutil.Error, TypeError, ValueError, IndexError):
+        return False
+
+
+def has_recorded_solver_start(state, spec_sha, run):
+    """Actual observed HFSS child survives normal gaps between frequency jobs.
+
+    Not a liveness test: caller must separately verify the current worker.
+    A queued MCP request, preparing state or unrelated input is insufficient.
+    """
+    if state.get('input_sha256') != spec_sha:
+        return False
+    if Path(state.get('project', '__missing__')).resolve().parent != Path(run).resolve():
+        return False
+    for segment in state.get('segments', []):
+        if segment.get('mcp_response', {}).get('started') is not True:
+            continue
+        for observation in segment.get('observations', []):
+            for process in observation:
+                cmd = ' '.join(process.get('cmdline') or [])
+                if ((process.get('name') or '').lower() == 'hf3d.exe'
+                        and '-max_processors 14' in cmd and '-numParallelGroups 1' in cmd):
+                    return True
+    return False
+
+
+def bind_direct_state(state, spec, spec_sha, run, worker_live):
+    """Legacy direct worker lacks input_sha256 in state; bind without editing it.
+
+    The caller has verified the release hash and live worker's exact --spec.
+    Only the documented cached-direct role/project layout is supported here.
+    """
+    if ('input_sha256' not in state and worker_live and spec.get('role') == 'cached_candidate_direct'
+            and Path(state.get('project', '__missing__')).resolve() ==
+            (Path(run) / (spec.get('project_name', '') + '.aedt')).resolve()):
+        return {**state, 'input_sha256': spec_sha}
+    return state
+
+
+def progress(state):
+    event = Path(state['event_path']); run = event.parent
+    resolution = run / 'continuation_resolution.json'
+    if resolution.exists() and sha(resolution) != state.get('ignored_resolution_sha256'):
+        r = read(resolution)
+        if (r.get('event_sha256') == state['event_sha256'] and r.get('reason')
+                and r.get('disposition') in ('paused', 'blocked', 'batch_complete')):
+            return {'stop': True, 'reason': r['disposition']}
+    release = read(HERE / 'supervised_release.json'); specpath = Path(release['input_path'])
+    if sha(specpath) != release['input_sha256']:
+        raise ValueError('Changed released input')
+    spec = read(specpath); nxt = Path(spec['run_dir']).resolve()
+    if nxt == run.resolve():
+        return {'stop': False, 'reason': 'no_next_release'}
+    terminal = nxt / 'completion_event.json'
+    if terminal.exists():
+        successor = hook.load_event(terminal)
+        if successor['target_thread_id'] != state['target_thread_id']:
+            raise ValueError('Next event target mismatch')
+        return {'stop': True, 'reason': 'next_run_terminal', 'next_run': str(nxt)}
+    active = read(HERE / 'active.json')
+    live = (Path(active.get('run_dir', '__missing__')).resolve() == nxt
+            and process_matches(active.get('pid'), specpath))
+    solvers = [p.pid for p in psutil.process_iter(['name'])
+               if (p.info['name'] or '').lower() == 'hf3d.exe']
+    st = read(nxt / 'state.json') if (nxt / 'state.json').exists() else {}
+    st = bind_direct_state(st, spec, release['input_sha256'], nxt, live)
+    # Worker launch/preparing alone is NOT a new simulation. HFSS replaces
+    # child processes between frequency jobs; absence in one snapshot is normal.
+    recorded = has_recorded_solver_start(st, release['input_sha256'], nxt)
+    bound = st.get('input_sha256') == release['input_sha256']
+    started = live and bound and (recorded or (bool(solvers) and bool(st.get('segments')))) and active.get('stage') in (
+        'supervised_geometry_adaptive', 'supervised_geometry_sweep', 'candidate_cached_direct')
+    return {'stop': bool(started), 'reason': 'new_simulation_running' if started else
+            ('worker_preparing_or_between_stages' if live else 'no_live_next_worker'),
+            'next_run': str(nxt), 'worker_live': live, 'solver_pids': solvers,
+            'recorded_actual_solver_start': recorded}
+
+
+def register(event, *, root=ROOT, resume_existing_block=False):
+    event = Path(event).resolve(); payload = hook.load_event(event)
+    config = hook.load_config(HERE / 'hook/config.json'); hook.authorize(payload, config)
+    # This field records explicit operator rearming of a known recoverable block.
+    # It never ignores a subsequent user pause or a newly written resolution.
+    resolution = event.parent / 'continuation_resolution.json'
+    ignored = None
+    if resume_existing_block and resolution.exists():
+        r = read(resolution)
+        if r.get('disposition') != 'blocked':
+            raise ValueError('Cannot ignore a pause or completed batch')
+        ignored = sha(resolution)
+    with mutex(root):
+        current = root / 'monitor.json'
+        if current.exists() and read(current).get('event_sha256') == sha(event):
+            return read(current)  # Duplicate arm never resets timer/budget.
+        t = time.time()
+        state = {'schema_version': 1, 'event_path': str(event), 'event_sha256': sha(event),
+                 'target_thread_id': payload['target_thread_id'], 'registered_at': now(),
+                 'interval_seconds': 300, 'next_check_epoch': t + 300, 'expires_epoch': t + 48 * 3600,
+                 'max_reminders': 3, 'attempts': [], 'enabled': True,
+                 'ignored_resolution_sha256': ignored, 'status': 'armed'}
+        if current.exists():
+            old = read(current)
+            # A newly configured batch has a disabled placeholder, not a prior
+            # event. Archive it without assuming an event hash exists.
+            archive_key = old.get('event_sha256') or ('unarmed-' + sha(current))
+            write(root / 'archive' / (archive_key + '.json'), old)
+        write(current, state)
+        return state
+
+
+async def send_reminder(state, observation, thread, folder):
+    config = hook.load_config(HERE / 'hook/config.json'); folder.mkdir(parents=True, exist_ok=True)
+    event = folder / 'completion_event.json'
+    if not event.exists():
+        write(folder / 'evidence.json', {'at': now(), 'kind': 'continuation_heartbeat',
+            'solver_failure_asserted': False, 'original_event': state['event_path'],
+            'original_sha256': state['event_sha256'], 'progress': observation, 'thread': thread})
+        event = hook.create_event(folder, 'failed', '5分钟心跳：未发现新仿真，对话已停止；请检查并接续原授权任务。',
+            ['evidence.json'], config=config, target_thread_id=state['target_thread_id'],
+            run_id='heartbeat-' + state['event_sha256'] + '-' + thread['turn_id'],
+            purpose='User-authorized continuation heartbeat; not a solver failure')
+    def prompt(payload, path):
+        return (f'[Fig8新48点5分钟接续心跳] {path}\n原事件：{state["event_path"]}\n'
+          f'先读{HERE/"CONTINUATION.md"}，核验最新人类意图及真实进程。只执行新48采集，14核串行，新阶段172几何2236Analyze，原48不可修改。'
+          '此通知不是求解失败，不清工程锁，不重复Analyze；暂停/取消/审批等待优先。'
+          '正常仿真不发消息；本次仅检测到完成后无后继且对话已停止。实际看图ACK后继续唯一后继，跨段停旧心跳。')
+    previous = hook.prompt_for; hook.prompt_for = prompt
+    try:
+        return await hook.deliver(event, config=config)
+    finally:
+        hook.prompt_for = previous
+
+
+async def tick(*, root=ROOT, progress_fn=progress, status_fn=None, send_fn=send_reminder, clock=time.time):
+    with mutex(root):
+        file = root / 'monitor.json'
+        if not file.exists():
+            return {'status': 'unregistered'}
+        s = read(file)
+        if not s['enabled']:
+            return s
+        t = clock()
+        if t < s['next_check_epoch']:
+            return {'status': 'not_due', 'next_check_epoch': s['next_check_epoch']}
+        s.update(next_check_epoch=t + 300, last_check_at=now())
+        write(file, s)  # Persist spacing before network I/O or a process crash.
+        try:
+            if t >= s['expires_epoch']:
+                s.update(enabled=False, status='expired_needs_review'); return s
+            event = Path(s['event_path']); hook.load_event(event)
+            if sha(event) != s['event_sha256']:
+                raise ValueError('Original event changed')
+            obs = progress_fn(s); s['progress'] = obs
+            if obs['stop']:
+                s.update(enabled=False, status=obs['reason']); return s
+            if any(a['outcome'] in ('reserved', 'unknown', 'sending', 'delivery_unknown') for a in s['attempts']):
+                s.update(enabled=False, status='delivery_uncertain_needs_review'); return s
+            if status_fn is None:
+                config = hook.load_config(HERE / 'hook/config.json')
+                async def status_fn(target):
+                    return await read_status(hook, config, target)
+            thread = await status_fn(s['target_thread_id']); s['thread'] = thread
+            if thread['state'] != 'stopped':
+                s['status'] = {'running': 'waiting_ai', 'attention': 'waiting_user'}.get(thread['state'], 'status_unknown_wait')
+                return s
+            if len(s['attempts']) >= s['max_reminders']:
+                s.update(enabled=False, status='reminder_limit_needs_review'); return s
+            if any(a['turn_id'] == thread['turn_id'] for a in s['attempts']):
+                s['status'] = 'same_terminal_turn_no_resend'; return s
+            # Recheck immediately before sending. There is no atomic desktop
+            # compare-and-send API; the receiver must also check latest intent.
+            obs = progress_fn(s)
+            check = await status_fn(s['target_thread_id'])
+            if obs['stop'] or check['state'] != 'stopped' or check['turn_id'] != thread['turn_id']:
+                s['status'] = 'changed_before_send_wait'; return s
+            folder = root / 'reminders' / s['event_sha256'] / str(len(s['attempts']) + 1)
+            attempt = {'turn_id': thread['turn_id'], 'at': now(), 'folder': str(folder), 'outcome': 'reserved'}
+            s['attempts'].append(attempt); write(file, s)
+            try:
+                receipt = await send_fn(s, obs, thread, folder)
+                attempt['outcome'] = receipt.get('state', 'unknown'); attempt['receipt'] = receipt
+                s['status'] = 'continuation_requested'
+                if attempt['outcome'] != 'accepted':
+                    s.update(enabled=False, status='delivery_uncertain_needs_review')
+            except Exception as exc:
+                attempt.update(outcome='unknown', error=repr(exc))
+                s.update(enabled=False, status='delivery_uncertain_needs_review')
+            return s
+        except Exception as exc:
+            # Network/status/validation errors are NOT an interrupted turn.
+            s.update(status='inspection_error_wait', last_error=repr(exc))
+            return s
+        finally:
+            write(file, s)
+
+
+def ensure_daemon(root=ROOT):
+    with mutex(root):
+        monitor = root / 'monitor.json'
+        if not monitor.exists() or not read(monitor).get('enabled'):
+            return {'started': False, 'reason': 'no_enabled_completion_watch'}
+        path = root / 'daemon.json'
+        if path.exists():
+            r = read(path)
+            try:
+                p = psutil.Process(r['pid'])
+                if abs(p.create_time() - r['created']) < .001 and p.cmdline() == r['command']:
+                    return {'already_running': True, 'pid': p.pid}
+            except (psutil.Error, KeyError):
+                pass
+        args = [sys.executable, str(Path(__file__).resolve()), 'watch']
+        with (root / 'daemon.log').open('ab') as log:
+            p = subprocess.Popen(args, cwd=str(HERE), stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0)
+        actual = psutil.Process(p.pid)
+        r = {'pid': p.pid, 'created': actual.create_time(), 'command': actual.cmdline(), 'at': now()}
+        write(path, r); return r
+
+
+async def watch():
+    # Venv launchers may be transient; replace daemon identity with the real PID.
+    for attempt in range(20):
+        try:
+            with mutex(ROOT):
+                p = psutil.Process()
+                write(ROOT / 'daemon.json', {'pid': p.pid, 'created': p.create_time(), 'command': p.cmdline(), 'at': now()})
+            break
+        except OSError:
+            await asyncio.sleep(.5)
+    else:
+        raise RuntimeError('Could not register daemon identity')
+    while True:
+        try:
+            state = await tick()
+            if state.get('enabled') is False or state.get('status') == 'unregistered':
+                return
+        except OSError:
+            pass  # Another tick holds the OS lock. Never start another sender.
+        await asyncio.sleep(5)  # Local clock only; external/thread checks remain 300s apart.
+
+
+def arm(event, resume_existing_block=False):
+    s = register(event, resume_existing_block=resume_existing_block)
+    return {'registration': s, 'daemon': ensure_daemon()}
+
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(); sub = p.add_subparsers(dest='command', required=True)
+    a = sub.add_parser('arm'); a.add_argument('--event', type=Path, required=True)
+    a.add_argument('--resume-existing-block', action='store_true')
+    for name in ('watch', 'tick', 'ensure', 'status', 'probe-thread', 'stop'):
+        sub.add_parser(name)
+    args = p.parse_args()
+    if args.command == 'arm': result = arm(args.event, args.resume_existing_block)
+    elif args.command == 'watch': result = asyncio.run(watch())
+    elif args.command == 'tick': result = asyncio.run(tick())
+    elif args.command == 'ensure': result = ensure_daemon()
+    elif args.command == 'status': result = read(ROOT / 'monitor.json')
+    elif args.command == 'probe-thread':
+        cfg = hook.load_config(HERE / 'hook/config.json')
+        result = asyncio.run(read_status(hook, cfg, cfg['default_thread_id']))
+    else:
+        with mutex(ROOT):
+            result = read(ROOT / 'monitor.json'); result.update(enabled=False, status='operator_stopped')
+            write(ROOT / 'monitor.json', result)
+    print(json.dumps(result, ensure_ascii=False, indent=2))

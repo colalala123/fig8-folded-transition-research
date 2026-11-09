@@ -1,0 +1,23 @@
+"""A completed marker alone must never skip changed simulation evidence."""
+import ast,hashlib,tempfile,unittest
+from pathlib import Path
+HERE=Path(__file__).resolve().parent
+
+class ResumeEvidence(unittest.TestCase):
+    def test_changed_result_and_protocol_are_rejected(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);protocol=root/'production_protocol.json';curve=root/'sparams.csv'
+            protocol.write_text('protocol 1');curve.write_text('actual curve')
+            ns={'ROOT':root,'hashlib':hashlib,'Path':Path}
+            tree=ast.parse((HERE/'guarded_pilot_queue.py').read_text(encoding='utf-8'))
+            functions=[x for x in tree.body if isinstance(x,ast.FunctionDef) and x.name in ['sha','verify_result','seal_result']]
+            exec(compile(ast.Module(body=functions,type_ignores=[]),'queue_evidence','exec'),ns)
+            result=ns['seal_result']({'status':'accepted'},[curve])
+            ns['verify_result'](result)
+            curve.write_text('changed curve')
+            with self.assertRaises(AssertionError):ns['verify_result'](result)
+            curve.write_text('actual curve');protocol.write_text('protocol 2')
+            with self.assertRaises(AssertionError):ns['verify_result'](result)
+            with self.assertRaises(KeyError):ns['verify_result']({'status':'accepted'})
+
+if __name__=='__main__':unittest.main()

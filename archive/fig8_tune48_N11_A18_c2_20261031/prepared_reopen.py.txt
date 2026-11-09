@@ -1,0 +1,27 @@
+"""Zero-Analyze reopen verification of the first two prepared projects in this segment."""
+from pathlib import Path
+import phase_control as pc
+from phase_geometry_worker import dc,inspect_rebuilt_geometry
+from prepared_settings import check_settings
+def main():
+    assert not (pc.HERE/'initial_inputs.json').exists() and not dc.solvers()
+    dest=pc.HERE/'prepared_reopen_gate.json';assert not dest.exists()
+    results=[]
+    for row in pc.read(pc.HERE/'plan.json')['cases'][:2]:
+        source=Path(row['prepared_project']);before=pc.sha(source)
+        proof=pc.read(pc.HERE/'cases'/row['case']/'configuration.json')
+        assert proof['passed'] and not proof['solved'] and before==proof['project_sha256']
+        app=dc.app_for(source)
+        try:
+            assert not app.are_there_simulations_running and not app.get_setup('Setup19').is_solved
+            assert list(app.odesign.GetModule('ReportSetup').GetAllReportNames())==[]
+            assert list(app.post.all_report_names)==[]
+            assert inspect_rebuilt_geometry(app,row['geometry'])['passed']
+            settings=check_settings(app)
+            assert app.close_project(save=False)
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        assert pc.sha(source)==before
+        results.append(dict(case=row['case'],project_sha256=before,settings=settings,passed=True))
+    pc.write(dest,dict(passed=True,Analyze_requested=False,projects=results))
+    print(dict(passed=True,reopened=len(results),Analyze_requested=False))
+if __name__=='__main__':main()

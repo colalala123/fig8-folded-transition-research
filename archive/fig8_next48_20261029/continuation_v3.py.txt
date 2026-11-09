@@ -1,0 +1,81 @@
+"""Versioned effective review/adoption/launch; no automatic visual ACK."""
+import argparse,copy,json,subprocess,sys,shutil
+from pathlib import Path
+import effective_budget_v3 as budget
+import continuation_v2 as old
+ROOT=Path(__file__).resolve().parent
+read=budget.read;sha=budget.sha
+
+def write_new(p,d):
+    with Path(p).open('x',encoding='utf-8') as h:json.dump(d,h,ensure_ascii=False,indent=2);h.write('\n')
+
+def rows():return read(ROOT/'campaign_frozen.json')['cases']
+def verified_ack(row):return old.module('_original_prepare_v3',ROOT/'prepare_batch.py').verified_ack(budget.effective(row))
+
+def review(case):
+    budget.validate_campaign(case=case);m=old.module('_review_v3',ROOT/'review48.py');original=m.read
+    def routed(p):
+        d=original(p)
+        if Path(p).resolve()==(ROOT/'campaign_frozen.json').resolve():
+            d=copy.deepcopy(d);d['cases']=[budget.effective(r) for r in d['cases']]
+        return d
+    m.read=routed;m.main(case)
+
+def adopt():
+    budget.validate_campaign();selected=[r for r in rows() if r['case'] in ['N07_A14','N07_A18']];evidence={}
+    for row in selected:
+        evidence.update(verified_ack(row));lp=ROOT/'labels'/f"{row['case']}.json";label=read(lp)
+        assert label['primary']['shape_valid'] and Path(label['source']).resolve()==Path(budget.effective(row)['run_dir']).resolve()
+        evidence[str(lp)]=sha(lp)
+    ctx=Path(selected[0]['context']);path=ctx/'budget_ledger.json';ledger=read(path);marker=ROOT/'N07_A18_adoption_v3.json'
+    run=Path(budget.effective(selected[1])['run_dir'])
+    if marker.exists():
+        record=read(marker);assert record['effective_ACK_sha256']==sha(run/'receiver_ack.json')
+        if ledger==record['before']:
+            tmp=path.with_suffix('.json.tmp');tmp.write_text(json.dumps(record['after'],ensure_ascii=False,indent=2),encoding='utf-8');tmp.replace(path)
+            ledger=record['after']
+        task=next(t for t in ledger['tasks'] if t['case']=='N07_A18')
+        assert Path(task['path']).resolve()==(run/'input.json').resolve() and task['status']=='reviewed'
+    else:
+        assert len(ledger['tasks'])==ledger['new_geometry_reserved']==2
+        task=ledger['tasks'][1];assert task['case']=='N07_A18' and task['status']=='reserved'
+        before=copy.deepcopy(ledger);a=read(run/'receiver_ack.json')
+        task.update(path=str(run/'input.json'),input_sha256=sha(run/'input.json'),status='reviewed',ack_sha256=sha(run/'receiver_ack.json'),design_passed=a['design_passed'],technical_recovery_attempt=1)
+        write_new(marker,dict(before=before,after=ledger,effective_ACK_sha256=sha(run/'receiver_ack.json'),original_path=budget.manifest()['routes']['N07_A18']['original_run']))
+        tmp=path.with_suffix('.json.tmp');tmp.write_text(json.dumps(ledger,ensure_ascii=False,indent=2),encoding='utf-8');tmp.replace(path)
+    gate=dict(passed=True,cases=['N07_A14','N07_A18'],evidence_hashes=evidence,meaning='Actual visual ACK/native/mesh chain; design negatives allowed; original failure retained')
+    for p in [ROOT/'batch02_effective_pilot_gate_v3.json',ctx/'supervised_first_review.json']:
+        if p.exists():assert read(p)==gate
+        else:write_new(p,gate)
+
+def launch(case):
+    row=next(r for r in rows() if r['case']==case)
+    if row['ordinal']>8:adopt()
+    budget.validate_campaign(case=case,storage=True);row=budget.effective(row)
+    subprocess.run([sys.executable,str(Path(row['context'])/'launch_one.py'),'--case',case],check=True)
+    print(json.dumps(budget.validate_campaign(),ensure_ascii=False))
+
+def prepare_batch(number):
+    assert 3<=number<=8;adopt();old.budget=budget
+    old.prepare_batch(number)
+    ctx=Path(next(r for r in rows() if r['batch']==number)['context']);assert not (ctx/'initial_inputs.json').exists()
+    for name in ['phase_geometry_context.py','phase_geometry_worker.py','launch_one.py']:
+        p=ctx/name;s=p.read_text(encoding='utf-8');assert 'from effective_budget_v2 import validate_campaign' in s
+        p.write_text(s.replace('from effective_budget_v2 import validate_campaign','from effective_budget_v3 import validate_campaign'),encoding='utf-8')
+    shutil.copyfile(ROOT/'desktop_epoch2_20261030.json',ctx/'aedt_identity.json')
+    p=ctx/'phase_geometry_publish.py';s=p.read_text(encoding='utf-8')
+    s=s.replace('运行主目录review48.py --case CASE','运行主目录continuation_v3.py review --case CASE')
+    s=s.replace('按ORDER用launch_one.py启动唯一后继','按ORDER用主目录continuation_v3.py launch --case CASE启动唯一后继')
+    s=s.replace('每段六项结束再prepare_batch.py建下一段。','每段六项结束再continuation_v3.py prepare-batch --batch N建下一段。先读主目录CONTINUATION_V3.md。')
+    p.write_text(s,encoding='utf-8')
+    p=ctx/'CONTINUATION.md';p.write_text(p.read_text(encoding='utf-8')+'\n新桌面及两次不同物理项恢复后的路由以 '+str(ROOT/'CONTINUATION_V3.md')+' 为最高接续说明。本段首两项由本段ORDER给定，不重写旧全局pilot_gate。\n',encoding='utf-8')
+    p=ctx/'parent_evidence.json';d=read(p)
+    for f in [ROOT/'session_epoch2_overlay_v3.json',Path(__file__),Path(budget.__file__),ROOT/'desktop_epoch2_20261030.json',ROOT/'batch02_effective_pilot_gate_v3.json',ROOT/'N07_A18_adoption_v3.json']:
+        d['hashes'][str(f)]=sha(f)
+    p.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('action',choices=['review','adopt','launch','prepare-batch']);p.add_argument('--case');p.add_argument('--batch',type=int);a=p.parse_args()
+    if a.action in ('review','launch'):assert a.case;globals()[a.action](a.case)
+    elif a.action=='prepare-batch':prepare_batch(a.batch)
+    else:adopt()

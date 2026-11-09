@@ -1,0 +1,20 @@
+import unittest
+import tempfile
+from pathlib import Path
+import numpy as np
+from diagnose_d09 import compare,FREQUENCIES
+
+class SinglePointTests(unittest.TestCase):
+    def test_one_finite_point_is_not_full_acceptance(self):
+        with tempfile.TemporaryDirectory() as t:
+            s=Path(t)/'s';r=Path(t)/'r';s.mkdir();r.mkdir()
+            f=np.arange(1,1501)/100
+            header='Freq_GHz,S11_real,S11_imag,S21_real,S21_imag'
+            np.savetxt(s/'sparams.csv',np.c_[f,f*0+.1,f*0,f*0+.2,f*0],delimiter=',',header=header,comments='')
+            np.savetxt(r/'sparams.csv',[[10.19,.1,0,.201,0]],delimiter=',',header=header,comments='')
+            c=compare(s,None,r)
+            self.assertEqual(FREQUENCIES,[10.19]);self.assertTrue(c['previous_failed_frequency_recovered'])
+            self.assertFalse(c['full_direct_review_completed']);self.assertIsNone(c['numerical_review_passed'])
+            self.assertAlmostEqual(c['max_complex_error'],.001)
+            np.savetxt(r/'sparams.csv',[[10.19,.1,0,float('nan'),0]],delimiter=',',header=header,comments='')
+            with self.assertRaises(AssertionError):compare(s,None,r)

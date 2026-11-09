@@ -1,0 +1,72 @@
+"""Zero-Analyze segment admission: frozen inputs, real CAD/reopen, tests, native resources."""
+import argparse,ast,json,re,shutil,subprocess,sys
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+from effective_budget_v3 import read,sha,validate_campaign,effective
+ROOT=Path(__file__).resolve().parent
+
+def main(batch):
+    frozen=read(ROOT/'campaign_frozen.json');rows=[r for r in frozen['cases'] if r['batch']==batch]
+    assert len(rows)==6
+    ctx=Path(rows[0]['context']);dest=ctx/'prelaunch_audit.json'
+    assert not dest.exists(),'Existing admission: inspect it, never overwrite'
+    assert not (ctx/'initial_inputs.json').exists() and not read(ctx/'budget_ledger.json')['tasks']
+    assert not read(ctx/'authorization.json')['execution_authorized']
+    for f,h in frozen['source_hashes'].items():assert sha(f)==h,f
+    for f,h in read(ctx/'parent_evidence.json')['hashes'].items():assert sha(f)==h,f
+    for r in frozen['cases']:
+        if r['batch']>=batch:continue
+        rr=Path(effective(r)['run_dir']);a=read(rr/'receiver_ack.json')
+        assert a['artifacts_verified'] and a['visual_review_completed'] and a['operation_success']
+        assert a['event_sha256']==sha(rr/'completion_event.json') and a['verification_sha256']==sha(rr/'receiver_verification.json')
+    plan=read(ctx/'plan.json');assert [r['case'] for r in plan['cases']]==[r['case'] for r in rows]
+    for r,local in zip(rows,plan['cases']):
+        for key in ['case','geometry','family_id','role','ordinal','run_dir','target','secondary_target']:
+            assert local[key]==r[key],(r['case'],key)
+        run=Path(local['run_dir']);assert not (run/'state.json').exists()
+        proof=read(ctx/'cases'/r['case']/'configuration.json');source=Path(local['prepared_project'])
+        assert proof['passed'] and not proof['solved'] and not proof['analyze_requested']
+        assert proof['geometry']==r['geometry'] and sha(source)==proof['project_sha256']
+        assert not source.with_suffix('.aedt.lock').exists() and not proof['solver_processes_after']
+        assert sha(proof['source'])==proof['source_sha256']
+    gate=read(ctx/'prepared_reopen_gate.json')
+    assert gate['passed'] and not gate['Analyze_requested']
+    assert [p['case'] for p in gate['projects']]==[r['case'] for r in rows[:2]]
+    assert all(p['passed'] for p in gate['projects'])
+    assert read(ctx/'hook_live_read_preflight.json')['supported_read_thread_verified']
+    assert read(ctx/'policy.json')['resources']['cores']==14
+    for p in ctx.glob('*.py'):ast.parse(p.read_text(encoding='utf-8'),filename=str(p))
+    w=(ctx/'phase_geometry_worker.py').read_text(encoding='utf-8');c=(ctx/'configure_projects.py').read_text(encoding='utf-8')
+    assert "'cores_per_task':14" in w and "'cores_per_task':16" not in w
+    assert 'from effective_budget_v3 import validate_campaign' in w
+    assert c.index('report_module.DeleteAllReports()')<c.index('build=apply_folded_geometry') and 'app.post' not in c
+    b01=ROOT.parent/'fig8_next48_b01_20261029'
+    for name in ['case_reference.py','reference_validation.json']:assert sha(ctx/name)==sha(b01/name)
+    results=[];total=0
+    for folder in [ctx,ROOT]:
+        cmd=[sys.executable,'-m','unittest','discover','-s',str(folder),'-p','test*.py','-v']
+        p=subprocess.run(cmd,capture_output=True,text=True)
+        assert p.returncode==0,p.stderr
+        match=re.search(r'Ran (\d+) tests?',p.stderr);assert match
+        n=int(match.group(1));total+=n
+        results.append(dict(command=cmd,exit_code=p.returncode,count=n,stdout=p.stdout,stderr=p.stderr))
+    assert total>=62
+    live=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+    assert len(live)==1 and live[0]['pid']==read(ROOT/'desktop_epoch2_20261030.json')['pid'] and abs(live[0]['create_time']-read(ROOT/'desktop_epoch2_20261030.json')['created'])<.01 and '7990' in live[0]['cmdline']
+    tests=ctx/'tests_prelaunch.json';assert not tests.exists()
+    tests.write_text(json.dumps(dict(passed=True,total=total,results=results),ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    audit=dict(at=datetime.now(timezone.utc).isoformat(),batch=batch,passed=True,Analyze_requested=False,
+        tests_passed=total,tests_sha256=sha(tests),configured_unsolved=6,reopened_unsolved=2,
+        actual_geometry_and_grouping_unchanged=True,native_resources=live,budget=validate_campaign(storage=True),
+        D_free_GiB=shutil.disk_usage(frozen['D_base']).free/1024**3,
+        actual_source_hashes={str(p):sha(p) for p in ctx.glob('*.py')},
+        explicit_v2_hook_and_continuation=(('continuation_v3.py' in (ctx/'phase_geometry_publish.py').read_text(encoding='utf-8'))))
+    dest.write_text(json.dumps(audit,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    parent=read(ctx/'parent_evidence.json')
+    for p in [dest,tests,Path(__file__),ctx/'recovery_routing_v2.json']:parent['hashes'][str(p)]=sha(p)
+    (ctx/'parent_evidence.json').write_text(json.dumps(parent,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    print(json.dumps(dict(batch=batch,passed=True,tests=total,configured_unsolved=6,reopened_unsolved=2,Analyze_requested=False,D_free_GiB=audit['D_free_GiB'])))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--batch',type=int,required=True);main(p.parse_args().batch)

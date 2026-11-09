@@ -1,0 +1,62 @@
+{
+  "at": "2026-11-09T05:12:41.175029+00:00",
+  "scope": "one new width geometry within existing development hull; not old batch resume; no automatic retuning/retry",
+  "human_instruction": "允许调整 P/R，仅验证一个新候选（推荐）",
+  "cores": 14,
+  "serial": true,
+  "geometry_cap": 1,
+  "Analyze_cap": 13,
+  "per_case_Analyze_cap": 13,
+  "cases": [
+    {
+      "parent": "INV01",
+      "case": "INV01_A14",
+      "geometry": {
+        "Wm": 1.9136201833872932,
+        "Ws": 0.34596701899421023,
+        "Lm": 6.584499793266415,
+        "Ls1": 12.619994699196244,
+        "Ls2": 1.2419340379884205,
+        "Ls3": 1.74596701899421
+      },
+      "predicted": {
+        "worst_S11_dB": -20.805704006516194,
+        "min_S21_dB": -0.9875481934776245,
+        "shape_valid": true,
+        "passed": true,
+        "central_valley_GHz": 6.72,
+        "peak_difference_dB": 0.38470200159222045,
+        "inner_peaks": [
+          {
+            "GHz": 5.25,
+            "S11_dB": -21.19040600810844
+          },
+          {
+            "GHz": 8.22,
+            "S11_dB": -20.80570400651622
+          }
+        ],
+        "objective": 0.0,
+        "nominal_buffer_satisfied": true,
+        "S21_BW_GHz": 6.973606061981925,
+        "joint_intervals": [
+          [
+            3.6558195391958166,
+            9.542268883424098
+          ]
+        ],
+        "joint_components": 1,
+        "joint_center_band": [
+          3.6558195391958166,
+          9.542268883424098,
+          5.886449344228282
+        ]
+      },
+      "source": "${WORKSPACE}\\output\\fig8_inverse_case1_20261109\\PREDICTION_FROZEN.json",
+      "source_sha256": "351eed5149e26afad2a7dab8c43825dea15834c9dcd9e635f491b37c3a83df78"
+    }
+  ],
+  "old_pause_preserved": true,
+  "no_automatic_retry": true,
+  "no_N15_recovery": true
+}

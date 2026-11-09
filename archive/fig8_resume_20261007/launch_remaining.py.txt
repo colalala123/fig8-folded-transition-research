@@ -1,0 +1,54 @@
+"""Final unattended-dispatch gate. Default read-only; never blindly repeats history."""
+import argparse,json,subprocess,sys
+from pathlib import Path
+import psutil
+from guarded_pilot_queue import ROOT,HERE,read,sha,verify_result
+from recovery_selection import compatible_protocol,resolve_attempt,validate_data
+
+def readiness():
+    p=read(ROOT/'production_protocol.json');plan=read(HERE/'resume_queue_plan.json');blockers=[]
+    for file,digest in p['implementation_hashes'].items():assert sha(file)==digest,'Frozen implementation changed'
+    for key in ['reference_review','collector_review']:
+        e=p[key];assert sha(e['path'])==e['sha256'] and read(e['path'])['passed']
+    first=ROOT/'supervised_first_review.json'
+    if not first.exists():blockers.append('The first three actual configurations have not passed supervised review.')
+    else:
+        r=read(first);assert r['passed'] and r['protocol_sha256']==sha(ROOT/'production_protocol.json')
+        assert set(r['cases'])==set(plan['supervised_first'])
+        for file,digest in r['evidence_hashes'].items():assert sha(file)==digest
+    for case in plan['cases']:
+        finished=ROOT/case['case']/'design_result.json'
+        if finished.exists():verify_result(read(finished));continue
+        if case['historical_solves']:
+            path=ROOT/case['case']/'historical_recovery_review.json'
+            if not path.exists():blockers.append(f'{case["case"]}: historical recovery decision missing');continue
+            r=read(path);compatible_protocol(r['protocol_sha256'],ROOT)
+            for file,digest in r['evidence_hashes'].items():assert sha(file)==digest
+            if r['decision'] not in ['reuse_verified','retain_verified_design_failure']:
+                blockers.append(f'{case["case"]}: unresolved {r["decision"]}; targeted repair and reviewed evidence are required before dispatch, not an identical repeat solve')
+        incomplete=[]
+        for state in (ROOT/case['case']).glob('i*/state.json'):
+            s=read(state)
+            if s['status']!='completed':
+                data=resolve_attempt(state.parent,ROOT)
+                if data==state.parent:incomplete.append(str(state))
+                else:validate_data(data)
+        if incomplete:blockers.append(f'{case["case"]}: unfinished attempts must be recovered: {incomplete}')
+    for lock in ['pilot_queue.lock','protocol.lock']:
+        if (ROOT/lock).exists():blockers.append(f'Exclusive lock exists: {lock}; inspect its owner, never delete blindly')
+    live=[]
+    for proc in psutil.process_iter(['pid','name','cmdline']):
+        info=proc.info;command=' '.join(info['cmdline'] or [])
+        if (info['name'] or '').lower()=='hf3d.exe' or ((info['name'] or '').lower()=='python.exe' and ('guarded_pilot_queue.py' in command or 'run_guarded_case.py' in command)):
+            live.append({'pid':info['pid'],'name':info['name']})
+    if live:blockers.append(f'Solver or queue processes are still live: {live}')
+    return {'ready':not blockers,'blockers':blockers,'planned_count':24,'protocol_id':p['protocol_id'],'heartbeat_used':False}
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--run',action='store_true');args=parser.parse_args();result=readiness()
+    print(json.dumps(result,indent=2),flush=True)
+    if args.run:
+        assert result['ready'],'Unattended dispatch remains blocked by unresolved evidence'
+        # Remain attached to the existing bounded queue so its exit status is visible.
+        raise SystemExit(subprocess.call([sys.executable,str(HERE/'guarded_pilot_queue.py'),'--stage','remaining','--solve']))
+if __name__=='__main__':main()

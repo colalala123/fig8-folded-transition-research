@@ -1,0 +1,72 @@
+{
+  "success": true,
+  "message": "Optimization terminated successfully",
+  "features": [
+    0.7173268418300718,
+    -0.8042059965252308,
+    1.4,
+    -0.04810642510915747,
+    1.6519409136646592
+  ],
+  "P": 2.0489487194444234,
+  "R": 0.44744305689527486,
+  "geometry": {
+    "Wm": 1.9136201833872932,
+    "Ws": 0.34596701899421023,
+    "Lm": 6.584499793266415,
+    "Ls1": 12.619994699196244,
+    "Ls2": 1.2419340379884205,
+    "Ls3": 1.74596701899421
+  },
+  "predicted": {
+    "worst_S11_dB": -20.805704006516194,
+    "min_S21_dB": -0.9875481934776245,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.72,
+    "peak_difference_dB": 0.38470200159222045,
+    "inner_peaks": [
+      {
+        "GHz": 5.25,
+        "S11_dB": -21.19040600810844
+      },
+      {
+        "GHz": 8.22,
+        "S11_dB": -20.80570400651622
+      }
+    ],
+    "objective": 0.0,
+    "nominal_buffer_satisfied": true,
+    "S21_BW_GHz": 6.973606061981925,
+    "joint_intervals": [
+      [
+        3.6558195391958166,
+        9.542268883424098
+      ]
+    ],
+    "joint_components": 1,
+    "joint_center_band": [
+      3.6558195391958166,
+      9.542268883424098,
+      5.886449344228282
+    ]
+  },
+  "hull_max_violation": 4.884981308350689e-15,
+  "nearest_train_distance": 0.05433093233127938,
+  "case": "INV01_A14",
+  "at": "2026-11-09T05:12:41.174031+00:00",
+  "human_authorization": "允许调整 P/R，仅验证一个新候选（推荐）",
+  "model_file": "${WORKSPACE}\\output\\fig8_response_v2_20261109\\model_C.joblib",
+  "model_sha256": "3546b562d67e15722750f9aa91479f0fdb676507915a39178a9a4db2d549a887",
+  "new_HFSS_not_yet_started": true,
+  "target": {
+    "f_low_GHz": 3.92,
+    "f_high_GHz": 9.52,
+    "BW_GHz": 5.6,
+    "S11_max_dB": -20,
+    "S21_min_dB": -2
+  },
+  "scope": "one new width geometry within existing development hull; not old batch resume; no automatic retuning/retry",
+  "is_independent_broad_generalization_test": false,
+  "prospective_new_geometry_after_prediction_freeze": true
+}

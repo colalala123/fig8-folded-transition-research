@@ -1,0 +1,60 @@
+"""Watch one live trial, and recover only its failed numerical exports.
+
+Never starts a new geometry, approves recovery, or releases the pilot queue.
+If the original trial passes, do nothing. A stopped/missing export is reviewed,
+not restarted. Existing recovery state is never automatically repeated.
+"""
+import json,os,subprocess,sys,time,traceback
+from pathlib import Path
+import psutil
+from broadband_recovery import ROOT,HERE,read,write_json,now
+from recover_same_port_phase import plan
+
+ATTEMPT=ROOT/'D04G05/i01'
+OUT=ROOT/'trial_recovery_watch_i01.json'
+
+def live_controllers():
+    matches=[]
+    for process in psutil.process_iter(['pid','name','cmdline']):
+        info=process.info;command=' '.join(info['cmdline'] or [])
+        if (info['name'] or '').lower()=='python.exe' and any(x in command for x in ['guarded_pilot_queue.py','run_guarded_case.py']):matches.append(info)
+    return matches
+
+def save(status,**extra):
+    temporary=OUT.with_suffix('.tmp')
+    write_json(temporary,{'status':status,'attempt':str(ATTEMPT),'pid':os.getpid(),'updated_at_utc':now(),**extra})
+    os.replace(temporary,OUT)
+
+def main():
+    assert not OUT.exists(),'Inspect existing watch state; do not start a duplicate'
+    live=live_controllers();assert live,'No live production handle to watch'
+    plan(ATTEMPT)
+    save('watching_live_trial',observed_controller_pids=[p['pid'] for p in live])
+    while True:
+        manifest=ATTEMPT/'manifest.json'
+        if manifest.exists() and read(manifest)['status']=='completed':
+            save('not_needed_original_passed',recovery_started=False);return
+        live=live_controllers()
+        if not live:break
+        save('watching_live_trial',observed_controller_pids=[p['pid'] for p in live])
+        time.sleep(15)
+    assert not (ROOT/'pilot_queue.lock').exists() and not (ROOT/'protocol.lock').exists()
+    assert manifest.exists(),'Controller stopped without completed exports; recover export, never rerun'
+    m=read(manifest)
+    assert m['status']=='numerical_or_port_review_required'
+    assert read(ATTEMPT/'port_review.json')['passed'],'Port failure requires separate review'
+    assert not read(ATTEMPT/'normalization_recovery_review.json')['passed'],'Unclassified failure'
+    assert not (ROOT/'local_repair/D04G05_i01').exists(),'Existing recovery must be inspected'
+    plan(ATTEMPT)
+    save('starting_same_mesh_recovery',recovery_started=True)
+    with (ROOT/'trial_recovery_i01.log').open('x',encoding='utf-8') as log:
+        result=subprocess.call([sys.executable,str(HERE/'recover_same_port_phase.py'),str(ATTEMPT),'--run'],
+            cwd='${WORKSPACE}',stdout=log,stderr=subprocess.STDOUT)
+    assert result==0,f'Recovery needs review; see trial_recovery_i01.log, exit={result}'
+    save('candidate_ready_review_required',recovery_started=True,production_approved=False)
+
+if __name__=='__main__':
+    assert not OUT.exists(),'Inspect existing watch state; do not start a duplicate'
+    try:main()
+    except Exception:
+        save('review_required',error=traceback.format_exc());raise

@@ -1,0 +1,24 @@
+from pathlib import Path
+import numpy as np
+from phase_control import HERE,read
+from solver_runtime import passes
+from blind_direct_science import compare_arrays
+def compare(source,run):
+    source=Path(source);run=Path(run);p=read(run/'input.json')
+    plan=read(HERE/'cases'/p['case']/'frequency_plan.json')
+    a=np.atleast_1d(np.genfromtxt(source/'sparams.csv',delimiter=',',names=True));b=np.atleast_1d(np.genfromtxt(run/'sparams.csv',delimiter=',',names=True))
+    assert np.allclose(b['Freq_GHz'],plan['requested_frequencies_GHz'],rtol=0,atol=1e-9)
+    result=compare_arrays(a,b,read(source/'response_metrics.json'),plan,read(HERE/'policy.json')['direct_criteria'])
+    result['baseline_tuning_passed']=read(source/'state.json')['design_passed']
+    result['sampled_design_supported']=bool(result['sampled_design_supported'] and result['baseline_tuning_passed'] and result['direct_peak_difference_dB'] is not None and result['direct_peak_difference_dB']<=.5)
+    center_points=plan.get('central_neighborhood_GHz',[])
+    if center_points:
+        indices=[int(np.flatnonzero(abs(b['Freq_GHz']-x)<1e-8)[0]) for x in center_points]
+        j=int(np.argmin(b['S11_dB'][indices])); center=float(b['Freq_GHz'][indices[j]])
+        interior=0<j<len(indices)-1
+        center_ok=abs(center-plan['center_target_GHz'])<=plan['center_tolerance_GHz']+1e-10
+        result['central_valley_finite_review']=dict(points_GHz=center_points,minimum_GHz=center,interior=interior,within_tolerance=center_ok)
+        result['numerical_review_passed']=bool(result['numerical_review_passed'] and interior)
+        result['sampled_design_supported']=bool(result['sampled_design_supported'] and center_ok)
+        result['needs_reserved_points']=bool(not result['direct_target_violations'] and not result['numerical_review_passed'])
+    return result

@@ -1,0 +1,35 @@
+"""V5 serial/native gates with known epoch4 and zero-Analyze startup continuation."""
+import argparse
+from pathlib import Path
+import run_context_v5 as v5
+from tuning_budget_recovery_v2 import validate_campaign,registry
+from build_runtime import ROOT,read,write,sha
+
+def main(context,case):
+    ctx=Path(context).resolve();validate_campaign(storage=True)
+    assert not (ROOT/'PAUSE.json').exists()
+    if not (ctx/'initial_inputs.json').exists():
+        assert not any((Path(r['run_dir'])/'state.json').exists() for r in read(ctx/'plan.json')['cases'])
+        identity=ROOT/'desktop_epoch4_N20_20261031.json'
+        write(ctx/'aedt_identity.json',read(identity))
+        for p in ctx.glob('*.py'):
+            t=p.read_text(encoding='utf-8')
+            t=t.replace('from tuning_budget import validate_campaign','from tuning_budget_recovery_v2 import validate_campaign')
+            t=t.replace('from tuning_budget_recovery_v1 import validate_campaign','from tuning_budget_recovery_v2 import validate_campaign')
+            if p.name=='phase_geometry_publish.py':
+                t=t.replace('continue_tuning.py','continue_tuning_v3.py').replace('continue_tuning_v2.py','continue_tuning_v3.py')
+            p.write_text(t,encoding='utf-8')
+        ev=read(ctx/'parent_evidence.json')
+        for p in [identity,ROOT/'N20_RESTART_CONTINUATION_AUTH.json',ROOT/'run_context_v6.py',ROOT/'continue_tuning_v3.py',ROOT/'tuning_budget_recovery_v2.py',ROOT/'test_restart_continuation_v1.py']:
+            ev['hashes'][str(p)]=sha(p)
+        write(ctx/'parent_evidence.json',ev)
+        doc=ctx/'CONTINUATION.md'
+        with doc.open('a',encoding='utf-8') as f:
+            f.write('\n## V5 cost overlay entrypoints\nSuperseded by the following V6 epoch4 override.\n\n## V6 epoch4 final override\nUse '+str(ROOT/'run_context_v6.py')+' for all next starts. Known desktop epoch4 only; do not use old85208 identity. After terminal review/actual image ACK, use '+str(ROOT/'continue_tuning_v3.py')+'. This supersedes V4/V5 entries and includes true technical-recovery costs. Same one recovery; no automatic second restart or extra candidate. After launch render MD with write_status_summary.py.\n')
+    v5.validate_campaign=validate_campaign;v5.registry=registry
+    v5.main(str(ctx),case)
+    s=read(ROOT/'CURRENT_STATUS.json');s.update(budget=validate_campaign(),next_launcher=str(ROOT/'run_context_v6.py'),
+        post_terminal_controller=str(ROOT/'continue_tuning_v3.py'),desktop_identity=str(ROOT/'desktop_epoch4_N20_20261031.json'))
+    write(ROOT/'CURRENT_STATUS.json',s)
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);p.add_argument('--case');a=p.parse_args();main(a.context,a.case)

@@ -1,0 +1,99 @@
+"""One offline recovery context from zero-Analyze failed N02_A18; never solves."""
+import ast,copy,json,shutil
+from pathlib import Path
+from datetime import datetime,timezone
+from effective_budget_v2 import read,sha
+ROOT=Path(__file__).resolve().parent;OLD=ROOT.parent/'fig8_next48_b01_20261029'
+CTX=ROOT.parent/'fig8_next48_r1_20261029';BASE=Path('D:/hfss_fig8_next48_20261029/recovery1')
+CASE='N02_A18'
+
+def write(p,d):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8') as h:json.dump(d,h,ensure_ascii=False,indent=2);h.write('\n')
+
+def main():
+    assert not CTX.exists() and not BASE.exists() and not (ROOT/'recovery1_overlay.json').exists()
+    frozen=read(ROOT/'campaign_frozen.json');row=next(r for r in read(OLD/'plan.json')['cases'] if r['case']==CASE)
+    original=Path(row['run_dir']);state=read(original/'state.json');event=read(original/'completion_event.json')
+    assert event['status']=='failed' and not state['segments'] and not state['mesh_stages']
+    for p,h in frozen['source_hashes'].items():assert sha(p)==h,p
+    for p,h in read(original/'input.json')['parent_evidence_hashes'].items():assert sha(p)==h,p
+    src=Path(row['prepared_project']);proof=read(OLD/'cases'/CASE/'configuration.json')
+    assert proof['passed'] and not proof['solved'] and sha(src)==proof['project_sha256']
+    assert not src.with_suffix('.aedt.lock').exists()
+    CTX.mkdir();BASE.mkdir(parents=True)
+    provenance={}
+    for p in OLD.glob('*.py'):
+        shutil.copyfile(p,CTX/p.name);provenance[p.name]={'source':str(p),'source_sha256':sha(p)}
+    for name in ['policy.json','mesh_policy_addendum_v2.json','reference_validation.json','desktop_start.json','aedt_identity.json']:
+        shutil.copyfile(OLD/name,CTX/name)
+    # Isolated base/order/stage, retaining identical native reference bytes.
+    p=CTX/'phase_control.py';s=p.read_text(encoding='utf-8');lines=s.splitlines()
+    lines=[('BASE=Path('+repr(str(BASE))+')') if l.startswith('BASE=') else ('ORDER='+repr([CASE])) if l.startswith('ORDER=') else l.replace('N48B01','N48R1') for l in lines]
+    p.write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    p=CTX/'lifecycle_watch.py';s=p.read_text(encoding='utf-8')
+    oldbase="BASE=Path("+repr(str(Path('D:/hfss_fig8_next48_20261029/b01')))+")"
+    assert oldbase in s;s=s.replace(oldbase,'BASE=Path('+repr(str(BASE))+')');p.write_text(s,encoding='utf-8')
+    p=CTX/'phase_geometry_context.py';s=p.read_text(encoding='utf-8').replace("auth['stage']=='N48B01'","auth['stage']=='N48R1'")
+    s=s.replace("<=6","<=1");p.write_text(s,encoding='utf-8')
+    p=CTX/'dispatch.py';s=p.read_text(encoding='utf-8').replace("len(ledger['tasks'])<6","len(ledger['tasks'])<1");p.write_text(s,encoding='utf-8')
+    for name in ['phase_geometry_context.py','phase_geometry_worker.py','launch_one.py']:
+        p=CTX/name;s=p.read_text(encoding='utf-8');assert 'from campaign_budget import validate_campaign' in s
+        p.write_text(s.replace('from campaign_budget import validate_campaign','from effective_budget_v2 import validate_campaign'),encoding='utf-8')
+    p=CTX/'finalize_and_authorize.py';s=p.read_text(encoding='utf-8')
+    s=s.replace("spec=dict(case=case,role='initial',geometry=", "spec=dict(technical_recovery_attempt=1,recovery_overlay_sha256=pc.sha(Path("+repr(str(ROOT/'recovery1_overlay.json'))+")),case=case,role='initial',geometry=")
+    assert 'technical_recovery_attempt=1' in s;p.write_text(s,encoding='utf-8')
+    # New hooks point to effective-path receiver, not frozen original run.
+    p=CTX/'phase_geometry_publish.py';s=p.read_text(encoding='utf-8');i=s.index('def prompt(');j=s.index('async def publish',i)
+    s=s[:i]+'''def prompt(event,path):
+    return (f'[Fig8新48点N02_A18唯一技术恢复终态] {path}\\n{event["summary"]}\\n'
+      '先读 ${WORKSPACE}/output/fig8_next48_20261029/CONTINUATION_V2.md 与CURRENT_STATUS。'
+      '必须用 continuation_v2.py review --case N02_A18 解析恢复路径，实际view_image后才用恢复上下文acknowledge_review。'
+      '然后continuation_v2.py adopt建立有效ACK接续，launch --case N05_A14；原失败input/state/event不覆盖不造ACK。'
+      '14核1组串行、同48几何、总624Analyze，本项唯一恢复≤13，已用technical_recovery_attempt=1，不再自动恢复。'
+      '正常仿真静默，用户暂停优先；失败先查真实进程和缓存，不清锁、不重复Analyze，不新增几何/调谐/直接点。')
+
+'''+s[j:];p.write_text(s,encoding='utf-8')
+    for name in ['phase_heartbeat.py','lifecycle_watch.py']:
+        p=CTX/name;s=p.read_text(encoding='utf-8')
+        # Prepend versioned route to existing prompt return; still terminal/dedup transport.
+        needle="return (f'[Fig8新48点"
+        assert needle in s
+        s=s.replace(needle,"return ('先读 ${WORKSPACE}/output/fig8_next48_20261029/CONTINUATION_V2.md；这是N02_A18唯一恢复，本项已用1次技术恢复，不可再次自动恢复。' f'[Fig8新48点",1)
+        p.write_text(s,encoding='utf-8')
+    for p in CTX.glob('*.py'):ast.parse(p.read_text(encoding='utf-8'),filename=str(p))
+    dest=BASE/CASE/'prepared'/f'{CASE}_N48R1_Prepared.aedt';dest.parent.mkdir(parents=True);shutil.copy2(src,dest)
+    assert sha(dest)==sha(src)
+    newrow=copy.deepcopy(row);newrow.update(context=str(CTX),D_batch=str(BASE),run_dir=str(BASE/CASE/'g01_initial'),prepared_project=str(dest))
+    plan=read(OLD/'plan.json');plan.update(stage='N48R1',initial_geometry_cap=1,overall_geometry_cap=1,cases=[newrow])
+    write(CTX/'plan.json',plan)
+    cfg=read(OLD/'hook/config.json');cfg['state_dir']=str(CTX/'hook/state');write(CTX/'hook/config.json',cfg)
+    write(CTX/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_completion'))
+    auth=read(OLD/'authorization.json');auth.update(stage='N48R1',segment='N48R1',cases=[CASE],geometry_cap=1,execution_authorized=False,technical_recovery_attempt=1)
+    write(CTX/'authorization.json',auth)
+    ep=read(OLD/'execution_plan.json');ep.update(geometries_this_segment=1,geometry_Analyze_cap=13);write(CTX/'execution_plan.json',ep)
+    newproof={**proof,'project':str(dest),'copied_prepared_bytes':True,'original_configuration':str(OLD/'cases'/CASE/'configuration.json'),
+        'original_configuration_sha256':sha(OLD/'cases'/CASE/'configuration.json'),'copied_at':datetime.now(timezone.utc).isoformat()}
+    write(CTX/'cases'/CASE/'configuration.json',newproof)
+    write(CTX/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    (CTX/'CONTINUATION.md').write_text((ROOT/'CONTINUATION_V2.md').read_text(encoding='utf-8'),encoding='utf-8')
+    for name in provenance:provenance[name]['local_sha256']=sha(CTX/name)
+    write(CTX/'recovery_implementation_provenance.json',provenance)
+    assert sha(CTX/'case_reference.py')==sha(OLD/'case_reference.py')
+    assert sha(CTX/'reference_validation.json')==sha(OLD/'reference_validation.json')
+    immutable=[original/n for n in ['input.json','state.json','completion_event.json','worker_error.json','notification_receipt.json']]
+    immutable += [src,OLD/'cases'/CASE/'configuration.json',ROOT/'campaign_frozen.json',ROOT/'predictions_frozen.json',ROOT/'EXECUTION_PLAN.md',ROOT/'RECOVERY_REQUIREMENTS_N02_A18.md',
+        ROOT/'effective_budget_v2.py',ROOT/'continuation_v2.py',ROOT/'CONTINUATION_V2.md',Path(__file__)]
+    immutable += list(CTX.glob('*.py'))
+    overlay=dict(version=1,case=CASE,technical_recovery_attempt=1,original_run=str(original),effective_run=newrow['run_dir'],context=str(CTX),
+        original_Analyze=0,geometry_cap=48,Analyze_cap=624,per_physical_geometry_cap=13,
+        geometry=row['geometry'],family_id=row['family_id'],role=row['role'],
+        immutable_hashes={str(p):sha(p) for p in immutable},
+        upper_bound_proof='47 other physical cases*13 + original N02_A18 0 + unique recovery1*13 = 624; merge actual state segments per case')
+    write(ROOT/'recovery1_overlay.json',overlay)
+    parent=read(OLD/'parent_evidence.json');parent['hashes'].update(overlay['immutable_hashes'])
+    parent['hashes'][str(ROOT/'recovery1_overlay.json')]=sha(ROOT/'recovery1_overlay.json')
+    write(CTX/'parent_evidence.json',parent)
+    print(dict(context=str(CTX),base=str(BASE),prepared_copy_sha256=sha(dest),original_Analyze=0,Analyze_requested=False))
+
+if __name__=='__main__':main()

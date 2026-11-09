@@ -1,0 +1,16 @@
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(pc.HERE/'hook/config.json');path=run/'completion_event.json'
+    assert pc.read(pc.HERE/'authorization.json')['execution_authorized'] and case in pc.ORDER
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B6 frozen first-wave same-mesh direct target review; no new geometry or adaptive')
+    def prompt(e,p):
+        return (f'[Fig8 B6直接复核完成] {p}\n{summary}\n先读'+str(pc.HERE/'CONTINUATION.md')+'。运行receive_verified.py核验，实际看图后acknowledge_smallbatch.py --run RUN --visual-reviewed --note实际说明。'
+          '保留明确的目标失败与数值未解决，不把baseline或插值通过当联合-20达标。按ORDER继续未复核项；所有首轮后只在已授权预留8点/2次每项内处理确需的峰或边界。'
+          '六项均E类，不重训不调参。全部终态后报告首测命中、失败、未解决，关闭hook；不得重开旧队列。')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(error=traceback.format_exc(),at=pc.now()))

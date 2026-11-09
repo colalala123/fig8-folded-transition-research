@@ -1,0 +1,133 @@
+"""One-shot continuation watchdog, NOT a solver dispatcher or periodic reminder.
+
+Each immutable completion event gets at most one distinct orchestration-stall
+event. Never resends the completion, starts HFSS, alters locks, or changes results.
+"""
+import argparse
+import asyncio
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+import traceback
+import psutil
+from control import HERE, HOOK, read, write, sha, now
+
+
+def json_if_exists(path):
+    return read(path) if Path(path).exists() else {}
+
+
+def worker_alive(pid, spec):
+    try:
+        cmd = psutil.Process(int(pid)).cmdline()
+        i = cmd.index('--spec')
+        return Path(cmd[i+1]).resolve() == Path(spec).resolve()
+    except (psutil.Error, ValueError, TypeError, IndexError):
+        return False
+
+
+def inspect(event_path, here=HERE):
+    event_path = Path(event_path).resolve(); run = event_path.parent
+    digest = sha(event_path)
+    resolution = json_if_exists(run/'continuation_resolution.json')
+    if (resolution.get('event_sha256') == digest and resolution.get('reason')
+            and resolution.get('disposition') in ('blocked', 'paused', 'batch_complete')):
+        return {'resolved': True, 'reason': 'explicit_disposition', 'resolution': resolution}
+    ack = json_if_exists(run/'receiver_ack.json')
+    valid_ack = (ack.get('event_sha256') == digest
+                 and ack.get('artifacts_verified') and ack.get('visual_review_completed'))
+    if not valid_ack:
+        return {'resolved': False, 'reason': 'receiver_ack_missing_or_incomplete'}
+    release = json_if_exists(here/'supervised_release.json')
+    spec_path = Path(release.get('input_path', '__missing__'))
+    if not spec_path.is_file() or release.get('input_sha256') != sha(spec_path):
+        return {'resolved': False, 'reason': 'next_release_missing_or_invalid'}
+    spec = read(spec_path); next_run = Path(spec['run_dir']).resolve()
+    if next_run == run:
+        return {'resolved': False, 'reason': 'acknowledged_but_no_next_work_item'}
+    active = json_if_exists(here/'active.json')
+    if (Path(active.get('run_dir', '__missing__')).resolve() == next_run
+            and worker_alive(active.get('pid'), spec_path)):
+        return {'resolved': True, 'reason': 'next_worker_running', 'next_run': str(next_run)}
+    # A fast next worker may already have completed and armed its own guard.
+    if (next_run/'completion_event.json').is_file():
+        return {'resolved': True, 'reason': 'next_work_item_has_terminal_event', 'next_run': str(next_run)}
+    return {'resolved': False, 'reason': 'next_input_prepared_but_not_started', 'next_run': str(next_run)}
+
+
+async def notify_stall(event_path, evidence, folder):
+    sys.path.insert(0, str(HOOK))
+    import completion_hook as hook
+    config = hook.load_config(HERE/'hook/config.json')
+    write(folder/'evidence.json', evidence)
+    event = hook.create_event(folder, 'failed',
+        '续跑链路超时：完成通知后未确认下一工作项启动；这是编排停滞，不是HFSS求解失败。',
+        ['evidence.json'], config=config, verified_success=False,
+        target_thread_id=read(event_path)['target_thread_id'],
+        purpose='User-authorized finish24 continuation guard; inspect receiver and continue existing scope')
+    def prompt(payload, path):
+        return (
+            '[Fig8 续跑链路停滞 / 一次性保护通知]\n'
+            f'保护事件：{Path(path).as_posix()}\n原完成事件：{Path(event_path).as_posix()}\n'
+            '用户已授权完成既有24配置。先核验保护事件及原事件证据、实际进程和最新用户意图；'
+            '这不是求解失败，不要重跑已完成仿真，不要重发任何事件或清锁。'
+            f'按{(HERE/"CONTINUATION.md").as_posix()}继续：完成核验/看图/receiver_ack，'
+            '然后启动已授权下一单项并验证进程；若确有阻塞则记录原事件目录下'
+            'continuation_resolution.json（event_sha256、disposition=blocked、reason）。'
+            '不能仅报告空闲后结束。若用户已要求暂停，尊重暂停，不启动。'
+        )
+    hook.prompt_for = prompt
+    receipt = await hook.deliver(event, config=config)
+    write(folder/'notification_receipt.json', receipt)
+    return receipt
+
+
+async def watch(event_path, grace=900, poll=30, here=HERE):
+    event_path = Path(event_path).resolve(); folder = event_path.parent/'continuation_guard'
+    folder.mkdir(exist_ok=True)
+    # Exclusive durable claim: at most one reminder even after duplicate arm calls.
+    try:
+        with (folder/'claim.json').open('x', encoding='utf-8') as f:
+            import json
+            json.dump({'pid': os.getpid(), 'started_at': now(), 'grace_seconds': grace}, f)
+    except FileExistsError:
+        return
+    deadline = time.monotonic() + grace
+    try:
+        while True:
+            result = inspect(event_path, here)
+            write(folder/'status.json', {'at': now(), **result})
+            if result['resolved']:
+                return
+            if time.monotonic() >= deadline:
+                break
+            await asyncio.sleep(min(poll, max(0, deadline-time.monotonic())))
+        evidence = {'at': now(), 'original_event': str(event_path),
+                    'original_event_sha256': sha(event_path), 'observation': result,
+                    'solver_failure_asserted': False, 'solver_dispatch_allowed': False}
+        await notify_stall(event_path, evidence, folder)
+        write(folder/'status.json', {'at': now(), 'resolved': False, 'reason': 'one_shot_alert_sent'})
+    except Exception:
+        write(folder/'error.json', {'at': now(), 'error': traceback.format_exc()})
+        raise
+
+
+def arm(event_path):
+    event_path = Path(event_path).resolve(); folder = event_path.parent/'continuation_guard'
+    if (folder/'claim.json').exists():
+        return
+    folder.mkdir(exist_ok=True)
+    flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+    with (folder/'process.log').open('ab') as log:
+        p = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), '--event', str(event_path)],
+                             cwd=str(HERE), stdin=subprocess.DEVNULL, stdout=log, stderr=log,
+                             creationflags=flags)
+    write(folder/'launch.json', {'pid': p.pid, 'at': now(), 'event_sha256': sha(event_path)})
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(); parser.add_argument('--event', type=Path, required=True)
+    args = parser.parse_args()
+    asyncio.run(watch(args.event))

@@ -1,0 +1,58 @@
+"""Pure bounded planning for actual-count-driven meshing. Does not call HFSS.
+
+PercentRefinement is a requested per-pass refinement, NOT a guaranteed element
+count. A solver worker must check history, geometry, actual count and resources
+after every stage. This module alone does not release any simulation queue.
+"""
+from dataclasses import dataclass
+import math
+
+@dataclass(frozen=True)
+class MeshBudget:
+    lower: int = 100000
+    upper: int = 110000
+    reviewed_exception_upper: int | None = None
+    maximum_stages: int = 12
+    maximum_passes: int = 36
+
+    def __post_init__(self):
+        if not 0 < self.lower < self.upper:raise ValueError('Invalid mesh target')
+        if self.reviewed_exception_upper is not None and self.reviewed_exception_upper < self.upper:
+            raise ValueError('Exception must not shrink normal interval')
+
+def decide(elements, passes, stages, budget=MeshBudget()):
+    """Return an explicit action; no high-count retry or automatic tolerance change."""
+    if any(isinstance(v,bool) or not isinstance(v,int) or v<0 for v in (elements,passes,stages)):
+        raise ValueError('Counts must be nonnegative integers')
+    if stages==0:
+        if elements or passes:raise ValueError('Fresh initial stage cannot have solved counts')
+        return {'action':'initial_adaptive','maximum_passes':16,'minimum_passes':16,
+                'percent_refinement':30,'sweep_enabled':False,'scope':'supervised only'}
+    if elements==0 or passes==0:raise ValueError('Completed stage requires real solved counts')
+    if budget.lower<=elements<=budget.upper:
+        return {'action':'sweep','mesh_target_met':True,'mesh_exception_used':False}
+    if elements>budget.upper:
+        if budget.reviewed_exception_upper is not None and elements<=budget.reviewed_exception_upper:
+            return {'action':'sweep','mesh_target_met':False,'mesh_exception_used':True,
+                    'required_note':'Explicitly reviewed slight overshoot; retain actual element count'}
+        return {'action':'review','reason':'mesh_overshoot','automatic_rerun':False}
+    if stages>=budget.maximum_stages or passes>=budget.maximum_passes:
+        return {'action':'review','reason':'bounded_stage_budget_exhausted','automatic_rerun':False}
+    # Slow down well before reaching the target; avoid relying on MaxTetIncrease,
+    # which did not cap the observed solved-element growth in the first trial.
+    percent=30 if elements<45000 else (10 if elements<80000 else 5)
+    return {'action':'continue_adaptive','maximum_passes':passes+1,'minimum_passes':passes+1,
+            'percent_refinement':percent,'sweep_enabled':False,'use_max_tet_increase':False,
+            'expected_history_prefix_unchanged':True,'maximum_new_passes':1,
+            'count_not_guaranteed':True}
+
+def design_verdict(metrics):
+    """Keep completion, mesh acceptance and final design acceptance separate."""
+    try:
+        peak=float(metrics['peak_difference_dB']);center=float(metrics['central_valley_GHz'])
+        valid=metrics['validity']
+        if not math.isfinite(peak) or not math.isfinite(center):return False
+        return bool(metrics['prominent_valley_count']==3 and peak<=.5 and abs(center-6.72)<=.03+1e-10
+                    and valid['S11_below_minus10_between_valleys'] and valid['S21_ge_minus2_between_valleys']
+                    and valid['band_not_truncated'] and valid['nonpositive_transmission'])
+    except (KeyError,TypeError,ValueError):return False

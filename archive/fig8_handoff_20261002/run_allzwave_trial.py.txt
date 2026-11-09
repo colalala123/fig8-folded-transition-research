@@ -1,0 +1,40 @@
+import asyncio,json,time,traceback,hashlib
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+ROOT=Path(r'F:\hfss_f8x_261002\R_B0_allzwave'); PROJ=ROOT/'R_B0_allzwave.aedt'; MF=ROOT/'allzwave_trial_manifest.json'; PORT=7393; NAME='R_B0_allzwave'
+def sha(p):
+ h=hashlib.sha256();
+ with open(p,'rb') as f:
+  for b in iter(lambda:f.read(1<<20),b''):h.update(b)
+ return h.hexdigest()
+def write(d):MF.write_text(json.dumps(d,indent=2,default=str),encoding='utf-8')
+def attach():return Hfss(project=str(PROJ),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+async def main():
+ if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])):raise RuntimeError('hf3d active')
+ before=sha(PROJ);d=json.loads(MF.read_text(encoding='utf-8'));d.update(status='starting',project_sha256_before=before,start_at_utc=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime()));write(d)
+ r=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'AllZwaveSetup','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120});d['mcp_start']=r
+ if not r.get('started'):raise RuntimeError(r)
+ d['status']='solving';write(d);deadline=time.time()+2*3600
+ while time.time()<deadline:
+  await asyncio.sleep(30);st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'AllZwaveSetup','port':PORT,'timeout':120});d['last_status']=st;write(d)
+  if not st.get('running'):break
+ else:raise TimeoutError('all zwave trial timeout')
+ app=attach()
+ try:
+  d['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+  for norm,name in ((False,'hfss_native.s2.s6p'),(True,'hfss_50ohm.s2.s6p')):
+   ok=app.export_touchstone(setup='AllZwaveSetup',sweep='SweepAllZwave',output_file=str(ROOT/name),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+   if not ok:raise RuntimeError('export failed '+name)
+  app.export_convergence('AllZwaveSetup',output_file=str(ROOT/'convergence.txt'))
+  d['project_sha256_after']=sha(PROJ);d['source_unchanged']=d['project_sha256_after']==before;d['finished_at_utc']=time.strftime('%Y-%m-%dT%H:%M:%SZ',time.gmtime());d['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in s for s in d['messages']);d['status']='exported_needs_review';write(d)
+ finally:app.release_desktop(close_projects=False,close_desktop=False)
+if __name__=='__main__':
+ try:asyncio.run(main())
+ except Exception:
+  d={}
+  if MF.exists():
+   try:d=json.loads(MF.read_text(encoding='utf-8'))
+   except Exception:pass
+  d.update(status='failed',error=traceback.format_exc());write(d);raise

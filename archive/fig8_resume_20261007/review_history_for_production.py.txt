@@ -1,0 +1,65 @@
+"""Bind historical recovery decisions to the final verified production protocol."""
+import argparse,json,sys
+from pathlib import Path
+HERE=Path(__file__).resolve().parent;ROOT=Path('J:/f8_261007')
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+from pilot_worker import sha,write_json,now
+from pilot_queue import accepted
+from pilot_supervisor import aux_compare,verify_boundaries
+from complete_reference_evidence import common_fields
+from response_metrics import analyze
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def main():
+    a=argparse.ArgumentParser();a.add_argument('--apply',action='store_true');args=a.parse_args()
+    pp=ROOT/'production_protocol.json'
+    if not pp.exists():
+        print(json.dumps({'ready':False,'reason':'Production protocol has not been frozen'}));return
+    p=read(pp);assert p['status']=='frozen_verified' and p['modes']==2
+    for name in ['reference_review','collector_review']:
+        e=p[name];assert sha(e['path'])==e['sha256'] and read(e['path'])['passed']
+    baseline=Path(p['baseline_run']);summary=[]
+    for case in read(HERE/'resume_queue_plan.json')['cases']:
+        if not case['existing_iterations']:continue
+        audit_dir=HERE/'historical_selected_review'/case['case'];audit=read(audit_dir/'review.json')
+        for file,digest in audit['evidence_hashes'].items():assert sha(file)==digest
+        run=Path(audit['selected_run']);manifest=read(run/'manifest.json')
+        output=ROOT/case['case'];output.mkdir(exist_ok=True)
+        dst=output/'historical_recovery_review.json'
+        if dst.exists():
+            existing=read(dst);assert existing['protocol_sha256']==sha(pp)
+            for file,digest in existing['evidence_hashes'].items():assert sha(file)==digest
+            summary.append({'case':case['case'],'decision':existing['decision'],'existing':True});continue
+        fields=common_fields(baseline,audit_dir) if manifest['status']=='completed' else {'passed':False,'reason':'Historical sweep unconverged'}
+        aux=aux_compare(baseline,audit_dir);boundaries=verify_boundaries(audit_dir)
+        physical=bool(audit['eligible_for_protocol_review'] and fields['passed'] and aux['passed'] and boundaries['passed'])
+        metrics=analyze(run/'sparams.csv',f0=6.85)
+        metrics['validity']['solver_convergence_verified']=physical
+        if not physical:metrics['formal_response_PR']=None
+        design_pass=accepted(metrics,p['central_valley_target_GHz'])
+        if physical and design_pass:
+            decision='reuse_verified';reason='Converged historical result; calibrated external normalization, complete matrix, preserved mode identity, geometry and current design target all verified. No repeat solve.'
+        elif physical and audit['original_design_status']=='failed':
+            decision='retain_verified_design_failure';reason='Numerical/port evidence recovered, but original bounded phase tuning still fails the frozen design target; retain the recorded failure without another solve.'
+        else:
+            decision='repair_required'
+            reasons=[]
+            if not audit['eligible_for_protocol_review']:reasons.append('historical numerical evidence requires recovery/repair; retain original warnings')
+            if not all(x['passed'] for x in [fields,aux,boundaries]):reasons.append('port evidence against the frozen baseline requires review')
+            center=metrics.get('central_valley_GHz')
+            if center is not None and abs(center-p['central_valley_target_GHz'])>.03+1e-10:reasons.append(f'central valley {center:g} GHz differs from target {p["central_valley_target_GHz"]:g} GHz by more than 0.03 GHz')
+            if not metrics['validity']['equal_ripple']:reasons.append('equal-ripple/shape constraints fail')
+            reason='; '.join(reasons)
+        record={'case':case['case'],'protocol_sha256':sha(pp),'selected_run':str(run),'decision':decision,'reason':reason,'physical_review_passed':physical,'design_passed':design_pass,'fields':fields,'auxiliary':aux,'boundaries':boundaries,'original_passivity_messages':audit['original_passivity_messages'],'normalization_note':'Original native curve retained. Full-matrix screening uses the calibrated traveling-wave transformation from explicit modal Zo; no clipping or matrix projection.','reviewed_at_utc':now(),'phase_solves_used':case['historical_solves'],'phase_solves_remaining':8-case['historical_solves']}
+        metrics_path=output/'recovered_existing_metrics.json';record['metrics_file']=str(metrics_path)
+        evidence=dict(audit['evidence_hashes'])
+        for file in [audit_dir/'review.json',baseline/'collector_case_review.json']:
+            evidence[str(file)]=sha(file)
+        if args.apply:
+            write_json(metrics_path,metrics);evidence[str(metrics_path)]=sha(metrics_path)
+            record['evidence_hashes']=evidence;write_json(dst,record)
+        summary.append({'case':case['case'],'decision':decision,'physical_review_passed':physical,'design_passed':design_pass,'reason':reason})
+    if args.apply:write_json(ROOT/'historical_recovery_summary.json',{'protocol_sha256':sha(pp),'cases':summary})
+    print(json.dumps({'applied':args.apply,'cases':summary},indent=2))
+
+if __name__=='__main__':main()

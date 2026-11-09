@@ -1,0 +1,19 @@
+"""Render mutable operational status only; no native calls or frozen-input edits."""
+import json
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+s=json.loads((ROOT/'CURRENT_STATUS.json').read_text(encoding='utf-8'))
+lines=['# 固定P/R达标调谐进度','',f'名义完整主窗通过 **{s["total_current_passed"]}/48项**（原{s["baseline_passed"]}项复用、新调谐{s["newly_passed"]}项）。',
+       f'本轮局部模型/搜索暂未解决{s["bounded_unresolved"]}项，尚待处理{s["awaiting_tuning"]}项。暂未解决不等于物理不可达；不能写成全部达标。','']
+if s.get('active'):
+    lines += [f'当前{s["current_case"]}：已核验真实14核1组串行启动；worker PID{s["worker_pid"]}，observer PID{s["observer_pid"]}，本聊天完成hook已挂。','']
+lines += ['## 新调谐通过项','']
+for item in s['selected']:
+    q=item['score']
+    lines.append(f'- {item["parent"]} / {item["selected_case"]}：最差S11={q["worst_S11_dB"]:.6f}dB，最小S21={q["min_S21_dB"]:.6f}dB，中心谷{q["central_valley_GHz"]:.2f}GHz，内峰差{q["peak_difference_dB"]:.6f}dB。')
+if s['unresolved']:
+    lines += ['','## 暂未解决','']+[f'- {item["parent"]}：{item["reason"]}。详见decisions及quality_notes；原始数据保留。' for item in s['unresolved']]
+lines += ['',f'状态时间（UTC）：{s["at"]}。截至该状态已用Analyze请求{s["budget"]["Analyze_used"]}/{s["budget"]["Analyze_cap"]}；正在运行项成本可能继续增加。',
+          '', '固定P/R/a/g，仅调Lm/Ls1；工程F盘、临时区D盘。原48首次盲测和模型预测保持不变，新调谐数据不是独立盲测。上述名义插值结果不等于直接频点或制造公差认证。正常求解静默，终态后独立审核、实际看图ACK再接续。','']
+(ROOT/'CURRENT_STATUS.md').write_text('\n'.join(lines),encoding='utf-8')
+print({'status_rendered':True,'passed':s['total_current_passed'],'unresolved':s['bounded_unresolved'],'awaiting':s['awaiting_tuning']})

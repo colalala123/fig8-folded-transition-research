@@ -1,0 +1,94 @@
+import csv, json, hashlib, sys, re
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+HERE=Path(__file__).resolve().parent
+OLD=Path('F:/hfss_f8x_261002')
+sys.path.insert(0,'${WORKSPACE}/output/folded_simulation_plan_20260920')
+from response_metrics import analyze
+
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def write(p,x): Path(p).write_text(json.dumps(x,indent=2,ensure_ascii=False),encoding='utf-8')
+def touchstone(p,n=6):
+    vals=[];fmt=None;unit=None
+    for line in Path(p).read_text().splitlines():
+        line=line.split('!')[0].strip()
+        if not line:continue
+        if line.startswith('#'):
+            ts=line.upper().split();unit={'GHZ':1,'MHZ':1e-3,'KHZ':1e-6,'HZ':1e-9}[ts[1]]
+            fmt=ts[3];continue
+        vals.extend(float(x.replace('D','E')) for x in line.split())
+    assert len(vals)%(1+2*n*n)==0 and fmt
+    a=np.asarray(vals).reshape(-1,1+2*n*n);v=a[:,1:].reshape(-1,n,n,2)
+    s=v[...,0]+1j*v[...,1] if fmt=='RI' else (v[...,0] if fmt=='MA' else 10**(v[...,0]/20))*np.exp(1j*np.deg2rad(v[...,1]))
+    if n==2:s=s.transpose(0,2,1)  # Touchstone 1.x two-port ordering is S11,S21,S12,S22.
+    return a[:,0]*unit,s
+def curve(p,f,s):
+    rows=[]
+    second=s.shape[1]//2
+    for i,ff in enumerate(f):
+        r={'Freq_GHz':ff}
+        for label,a,b in [('S11',0,0),('S21',second,0),('S12',0,second),('S22',second,second)]:
+            z=s[i,a,b];r.update({label+'_real':z.real,label+'_imag':z.imag,label+'_mag':abs(z),label+'_dB':20*np.log10(max(abs(z),1e-300))})
+        rows.append(r)
+    with Path(p).open('w',newline='',encoding='utf-8') as h:
+        w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    return rows
+def main():
+    r=OLD/'R_tri_diagC';out=HERE/'baseline';out.mkdir(exist_ok=True)
+    header=(r/'50ohm_split_low.s6p').read_text().splitlines()[:16]
+    assert '! Port[1] = 1:1' in header and '! Port[4] = 2:1' in header
+    audit={'mapping_evidence':header,'normalizations':{},'comparisons':{}}
+    fig,axes=plt.subplots(2,1,figsize=(10,8),sharex=True)
+    for ax,label in zip(axes,['50ohm','native']):
+        src=r/(label+'_segmented_repaired.s6p');f,s=touchstone(src)
+        assert len(f)==1500 and np.allclose(f,np.arange(1,1501)*.01)
+        rows=curve(out/(label+'_sparams.csv'),f,s);m=analyze(out/(label+'_sparams.csv'))
+        saved_audit=read(r/'final_tri_mode_repair_audit.json')
+        numerical=all(v['converged'] for v in saved_audit['sweeps'].values()) and 'Converged : Yes' in (r/'convergence_E.txt').read_text()
+        m['validity']['solver_convergence_verified']=numerical
+        m['solver_evidence']=str(r/'final_tri_mode_repair_audit.json')
+        if not numerical:m['formal_response_PR']=None
+        write(out/(label+'_metrics.json'),m)
+        entry={'source':str(src),'sha256':sha(src),'metrics':m,'passivity_interpretation':'50ohm matrix check' if label=='50ohm' else 'Not assessed with Euclidean SVD for native evanescent modes'}
+        if label=='50ohm':
+            sv=np.linalg.svd(s,compute_uv=False)[:,0];entry.update(max_sv=float(max(sv)),violations=int(sum(sv>1.001)))
+        overlap=[]
+        for left,right in [('split_low','band_direct'),('split_high','band_direct'),('split_high','endpoint_direct')]:
+            fl,sl=touchstone(r/f'{label}_{left}.s6p');fr,sr=touchstone(r/f'{label}_{right}.s6p')
+            for j,ff in enumerate(fr):
+                inds=np.flatnonzero(abs(fl-ff)<1e-8)
+                if len(inds):
+                    a,b=sl[inds[0]],sr[j]
+                    overlap.append({'frequency_GHz':float(ff),'left':left,'right':right,'max_complex_difference':float(abs(a-b).max()),'S11_magnitude_difference':float(abs(abs(a[0,0])-abs(b[0,0]))),'S21_magnitude_difference':float(abs(abs(a[3,0])-abs(b[3,0])))})
+        entry['overlaps']=overlap;audit['normalizations'][label]=entry
+        ax.plot(f,[x['S11_dB'] for x in rows],color='blue',label='S11 (1:1 to 1:1)')
+        ax.plot(f,[x['S21_dB'] for x in rows],color='red',label='S21 (1:1 to 2:1)')
+        ax.axhline(-2,color='grey',ls=':');ax.axhline(-10,color='grey',ls=':')
+        ax.set(xlim=(0,15),ylim=(-60,2),ylabel='dB',title=f'B0 repaired three-mode baseline — {label}')
+        ax.grid(alpha=.25);ax.legend(loc='lower right')
+        if label=='native':
+            for name in ['M_B0_2','M_B0_3w16']:
+                with (OLD/name/'sparams.csv').open(encoding='utf-8-sig') as h:prior=list(csv.DictReader(h))
+                idx=(f>=3.2)&(f<=10.2)
+                audit['comparisons'][name]={key:{'rmse':float(np.sqrt(np.mean((np.array([float(x[key+'_mag']) for x in prior])[idx]-np.array([x[key+'_mag'] for x in rows])[idx])**2)))} for key in ['S11','S21']}
+    axes[-1].set_xlabel('Frequency (GHz)');fig.tight_layout();fig.savefig(out/'S11_S21.png',dpi=160);plt.close(fig)
+    write(out/'audit.json',audit)
+    with (OLD/'pilot_24.csv').open(encoding='utf-8-sig') as h:matrix=list(csv.DictReader(h))
+    inventory=[]
+    for row in matrix:
+        folder=OLD/row['case']
+        if not folder.exists() and (Path('J:/hfss_f8x_261002_archive')/row['case']).exists():folder=Path('J:/hfss_f8x_261002_archive')/row['case']
+        result=read(folder/'design_result.json') if (folder/'design_result.json').exists() else {}
+        iterations=[]
+        for p in sorted(folder.glob('i*/manifest.json')):
+            m=read(p);cp=p.parent/'sparams.csv'
+            iterations.append({'run':str(p.parent),'status':m['status'],'source_hash_matches':sha(m['source'])==m['source_sha256'],'curve_hash_matches':cp.exists() and sha(cp)==m.get('curve_sha256'),'passivity_warnings':[x for x in m.get('messages',[]) if re.search(r'non.passive|passivity cannot',x,re.I)]})
+        inventory.append({'case':row['case'],'historical_status':result.get('status','not_completed'),'reason':result.get('reason'),'formal_status':'pending_protocol' if iterations else 'not_started','iterations':iterations})
+    write(HERE/'existing_inventory.json',inventory)
+    print(json.dumps({'comparisons':audit['comparisons'],'overlaps':audit['normalizations']['50ohm']['overlaps'],'metrics':{k:v['metrics']['passband_2dB'] for k,v in audit['normalizations'].items()},'configurations_with_iterations':sum(bool(x['iterations']) for x in inventory)},indent=2))
+if __name__=='__main__':main()

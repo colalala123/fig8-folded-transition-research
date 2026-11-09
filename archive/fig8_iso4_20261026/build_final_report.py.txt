@@ -1,0 +1,171 @@
+"""Package actual I4 reviewed results and width-tradeoff evidence. Never solve."""
+import math
+from pathlib import Path
+import shutil
+import zipfile
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import phase_control as pc
+
+FINAL=pc.HERE/'final_review'
+DEST=pc.HERE/'deliverables'
+
+def peak_mean(peaks):
+    return 20*math.log10(sum(10**(p/20) for p in peaks)/len(peaks))
+
+def stats(errors):
+    return dict(MAE_MHz=sum(abs(e) for e in errors)/len(errors),
+        RMSE_MHz=math.sqrt(sum(e*e for e in errors)/len(errors)),max_absolute_MHz=max(abs(e) for e in errors))
+
+def copy(source,target):
+    source,target=Path(source),Path(target);target.parent.mkdir(parents=True,exist_ok=True)
+    if target.exists():assert pc.sha(target)==pc.sha(source)
+    else:shutil.copy2(source,target)
+
+def main():
+    assert not (pc.HERE/'stage_I4_closure.json').exists()
+    assert not (DEST/'results.json').exists(), 'Preserve existing delivery; review before any revision'
+    ledger=pc.read(FINAL/'case_work_ledger.json');plan=pc.read(pc.HERE/'plan.json')
+    initial=pc.read(pc.HERE/'budget_ledger.json')
+    assert len(ledger['tasks'])==4 and all(t['status']=='reviewed' and t['scoped_accepted'] for t in ledger['tasks'])
+    assert ledger['analyze_launches_reserved']==sum(t['analyzes_used'] for t in ledger['tasks'])==64
+    assert initial['new_geometry_reserved']==4 and all(t['design_passed'] for t in initial['tasks'])
+    for f,h in pc.read(FINAL/'implementation_hashes.json').items():assert pc.sha(f)==h,f
+    DEST.mkdir(exist_ok=True);rows=[];table=[]
+    for r in plan['cases']:
+        c=r['case'];src=pc.BASE/c/'g01_initial';direct=pc.BASE/c/'direct_smallbatch'
+        a=pc.read(direct/'receiver_ack.json');v=pc.read(direct/'receiver_verification.json');d=pc.read(direct/'comparison.json')
+        assert a['scoped_accepted'] and a['visual_review_completed'] and a['event_sha256']==pc.sha(direct/'completion_event.json')
+        assert a['verification_sha256']==pc.sha(direct/'receiver_verification.json') and pc.sha(v['plot'])==v['plot_sha256']
+        for f,h in v['artifacts_verified'].items():assert pc.sha(f)==h,f
+        for f,h in pc.read(direct/'input.json')['input_parent_hashes'].items():assert pc.sha(f)==h,f
+        assert d==v['comparison'] and d['numerical_review_passed'] and d['sampled_design_supported']
+        m=pc.read(src/'response_metrics.json');s=pc.read(src/'state.json')
+        pred=r['predicted_BW_GHz'];g=r['geometry'];cc=pc.read(pc.HERE/'predictions_frozen.json')['model_coefficients']
+        assert abs(pred-(cc[0]+cc[1]*math.log(g['Wm']/1.2)+cc[2]*math.log(g['Ws']/.44)))<1e-12
+        row=dict(case=c,scoped_accepted=True,geometry_mm=g,a_mm=r['a_mm'],gap_mm=.55,
+            actual_elements=s['actual_elements'],geometry_attempts=1,predicted_BW_GHz=pred,
+            BW_GHz=m['passband_2dB']['BW_GHz'],joint_BW_GHz=m['passband_joint']['BW_GHz'],
+            peak_mean_dB=peak_mean([p['S11_dB'] for p in m['peaks']]),worse_peak_dB=max(p['S11_dB'] for p in m['peaks']),
+            central_valley_GHz=m['central_valley_GHz'],peak_difference_dB=m['peak_difference_dB'],
+            direct_peak_mean_dB=peak_mean([p['dB'] for p in d['direct_peaks']]),
+            direct_worse_peak_dB=max(p['dB'] for p in d['direct_peaks']),
+            direct_BW_GHz=d['direct_BW_GHz'],comparison=d,
+            prediction_error_MHz=1000*(m['passband_2dB']['BW_GHz']-pred),
+            direct_prediction_error_MHz=1000*(d['direct_BW_GHz']-pred),
+            source=str(src),direct=str(direct),source_curve_sha256=pc.sha(src/'sparams.csv'),
+            direct_curve_sha256=pc.sha(direct/'sparams.csv'),final_ACK_sha256=pc.sha(direct/'receiver_ack.json'))
+        rows.append(row)
+        for label,folder in [('initial',src),('direct',direct)]:
+            for f in folder.iterdir():
+                if f.is_file() and f.suffix.lower() in ('.json','.csv','.txt'):
+                    copy(f,DEST/'cases'/c/label/f.name)
+        for f in (direct/'chunks').rglob('*'):
+            if f.is_file() and f.suffix.lower() in ('.json','.csv','.txt'):
+                copy(f,DEST/'cases'/c/'direct/chunks'/f.relative_to(direct/'chunks'))
+        copy(v['plot'],DEST/'cases'/c/'direct_overlay.png')
+        copy(pc.HERE/'cases'/c/'g01_initial_response.png',DEST/'cases'/c/'initial_response.png')
+    assert sum(r['comparison']['points'] for r in rows)==250
+    old_path=Path(plan['source_validation_result']);assert pc.sha(old_path)==plan['source_validation_sha256']
+    old=pc.read(old_path);controls=[]
+    for r in old['cases']:
+        if r['case'] not in plan['comparator_cases']:continue
+        src=Path(r['source']);assert pc.sha(src/'sparams.csv')==r['source_curve_sha256']
+        assert r['scoped_accepted'] and r['comparison']['numerical_review_passed']
+        m=pc.read(src/'response_metrics.json');d=r['comparison']
+        controls.append(dict(case=r['case'],geometry_mm=r['geometry'],a_mm=r['a_mm'],
+            BW_GHz=r['BW_GHz'],joint_BW_GHz=m['passband_joint']['BW_GHz'],direct_BW_GHz=d['direct_BW_GHz'],
+            peak_mean_dB=peak_mean([p['S11_dB'] for p in m['peaks']]),
+            direct_peak_mean_dB=peak_mean([p['dB'] for p in d['direct_peaks']]),
+            direct_worse_peak_dB=max(p['dB'] for p in d['direct_peaks']),source=str(src),direct=r['direct'],
+            source_curve_sha256=r['source_curve_sha256'],direct_curve_sha256=r['direct_curve_sha256']))
+        copy(src/'sparams.csv',DEST/'controls'/r['case']/'sparams.csv')
+        copy(src/'response_metrics.json',DEST/'controls'/r['case']/'response_metrics.json')
+    trade=[]
+    for arm in [1.4,1.8]:
+        group=sorted([r for r in rows+controls if abs(r['a_mm']-arm)<1e-9],key=lambda r:r['geometry_mm']['Wm'])
+        assert len(group)==3
+        trade.append(dict(a_mm=arm,cases=[r['case'] for r in group],
+            interpolated_BW_spread_MHz=1000*(max(r['BW_GHz'] for r in group)-min(r['BW_GHz'] for r in group)),
+            direct_BW_spread_MHz=1000*(max(r['direct_BW_GHz'] for r in group)-min(r['direct_BW_GHz'] for r in group)),
+            direct_endpoint_peak_mean_change_dB=group[-1]['direct_peak_mean_dB']-group[0]['direct_peak_mean_dB'],
+            direct_matching_monotonic=all(b['direct_peak_mean_dB']<a['direct_peak_mean_dB'] and b['direct_worse_peak_dB']<a['direct_worse_peak_dB'] for a,b in zip(group,group[1:])),
+            interpolated_endpoint_joint_BW_change_MHz=1000*(group[-1]['joint_BW_GHz']-group[0]['joint_BW_GHz'])))
+    result=dict(at=pc.now(),stage='I4',accepted=4,total=4,refitted=False,new_width_pairs=2,cases=rows,controls=controls,
+        frozen_prediction_validation=stats([r['prediction_error_MHz'] for r in rows]),
+        frozen_prediction_on_direct_BW=stats([r['direct_prediction_error_MHz'] for r in rows]),
+        numerical_summary=dict(actual_points=250,Analyze_launches=64,
+            max_complex_error=max(r['comparison']['max_complex_error'] for r in rows),
+            max_nearband_S21_error_dB=max(r['comparison']['max_nearband_S21_error_dB'] for r in rows),
+            max_BW_shift_MHz=1000*max(r['comparison']['BW_shift_GHz'] for r in rows)),
+        width_tradeoff=trade,new_geometry=4,extra_tuning_geometry=0,
+        provenance=dict(plan_sha256=pc.sha(pc.HERE/'plan.json'),predictions_sha256=pc.sha(pc.HERE/'predictions_frozen.json'),
+            comparator_results_sha256=pc.sha(old_path),initial_ledger_sha256=pc.sha(pc.HERE/'budget_ledger.json'),
+            direct_ledger_sha256=pc.sha(FINAL/'case_work_ledger.json')),full_matrix_approved=False)
+    result['prospective_engineering_checks']=dict(
+        MAE_le_40MHz=result['frozen_prediction_validation']['MAE_MHz']<=40,
+        maximum_error_le_80MHz=result['frozen_prediction_validation']['max_absolute_MHz']<=80,
+        same_arm_direct_BW_spread_le_100MHz=all(t['direct_BW_spread_MHz']<=100 for t in trade),
+        matching_monotonic_both_arms=all(t['direct_matching_monotonic'] for t in trade))
+    pc.write(DEST/'results.json',result)
+    # The first plot is the actual four S11/S21 traces with finite native checks.
+    fig,axes=plt.subplots(2,2,figsize=(12,8),layout='constrained')
+    for ax,r in zip(axes.flat,rows):
+        a=np.genfromtxt(Path(r['source'])/'sparams.csv',delimiter=',',names=True)
+        b=np.genfromtxt(Path(r['direct'])/'sparams.csv',delimiter=',',names=True)
+        for key,color in [('S11','tab:blue'),('S21','tab:orange')]:
+            ax.plot(a['Freq_GHz'],a[key+'_dB'],label=key,color=color)
+            ax.scatter(b['Freq_GHz'],b[key+'_dB'],s=10,facecolors='none',edgecolors=color)
+        ax.set(xlim=(0,15),ylim=(-85,1),xlabel='GHz',ylabel='dB',title=f"{r['case']}: BW={r['BW_GHz']:.5f} GHz; {r['actual_elements']} elements")
+        ax.legend();ax.grid(alpha=.2)
+    fig.savefig(DEST/'curves4.png',dpi=160);plt.close(fig)
+    fig,axes=plt.subplots(1,3,figsize=(14,4.5),layout='constrained')
+    for arm,marker in [(1.4,'o'),(1.8,'s')]:
+        group=sorted([r for r in rows+controls if abs(r['a_mm']-arm)<1e-9],key=lambda r:r['geometry_mm']['Wm'])
+        x=[r['geometry_mm']['Wm'] for r in group]
+        for ax,key,scale in [(axes[0],'direct_BW_GHz',1),(axes[1],'direct_peak_mean_dB',1),(axes[2],'joint_BW_GHz',1)]:
+            ax.plot(x,[r[key]*scale for r in group],marker=marker,label=f'a={arm:g} mm')
+    axes[0].axhline(7.020839495401333,color='gray',ls='--',lw=1,label='Frozen prediction')
+    for ax,title,ylabel in zip(axes,['Direct edge-confirmed BW','Direct S11 inner-peak mean','Interpolated joint-threshold BW'],['GHz','dB','GHz']):
+        ax.set(xlabel='Wm (mm), with Ws adjusted',ylabel=ylabel,title=title);ax.grid(alpha=.2);ax.legend(fontsize=8)
+    fig.savefig(DEST/'width_tradeoff.png',dpi=160);plt.close(fig)
+    lines=['# Fig8 四点等带宽设计验证：最终结果','',
+        '四个几何配置全部完成并通过原设计审查；额外同网格关键频点复核也已全部通过。无追加几何调参，冻结公式未重新拟合。', '',
+        '采用可见HFSS2024R2、16核单任务串行，εr=3.55、tanδ=0.0027、h=0.813 mm、g=0.55 mm；目标中央谷6.72±0.03 GHz、两内峰差≤0.5 dB。', '',
+        '|配置|Wm/mm|Ws/mm|a/mm|网格|−2dB BW/GHz|预测误差/MHz|联合BW/GHz|直接复核BW差/MHz|',
+        '|---|---:|---:|---:|---:|---:|---:|---:|---:|']
+    for r in rows:
+        g=r['geometry_mm'];lines.append(f"|{r['case']}|{g['Wm']:.2f}|{g['Ws']:.6f}|{r['a_mm']:.1f}|{r['actual_elements']}|{r['BW_GHz']:.6f}|{r['prediction_error_MHz']:+.3f}|{r['joint_BW_GHz']:.6f}|{r['comparison']['BW_shift_GHz']*1000:.3f}|")
+    e=result['frozen_prediction_validation'];n=result['numerical_summary']
+    lines+=['',f"冻结预测MAE={e['MAE_MHz']:.3f} MHz，RMSE={e['RMSE_MHz']:.3f} MHz，最大绝对误差={e['max_absolute_MHz']:.3f} MHz。四点对应两个新宽度组合，不能按四个独立宽度样本理解。",'',
+        'BW公式：BW/GHz=6.804574332+0.798166452 ln(Wm/1.20mm)+0.866177522 ln(Ws/0.44mm)，ln为自然对数，BW按S21≥−2dB定义。', '',
+        f"同网格复核共{n['actual_points']}实际频点、{n['Analyze_launches']}次有限小批次Analyze；最大复数S11/S21误差{n['max_complex_error']:.6f}，近带S21最大差{n['max_nearband_S21_error_dB']:.6f} dB，BW最大变化{n['max_BW_shift_MHz']:.3f} MHz。这些是同网格插值核验，不是新增几何，也不是跨网格收敛证明。",'',
+        '与已完成的V02G02/G05组成同折臂三种宽度搭配：']
+    for t in trade:
+        lines.append(f"- a={t['a_mm']:.1f} mm：直接确认的−2dB带宽跨度{t['direct_BW_spread_MHz']:.3f} MHz；由窄微带/宽槽到宽微带/窄槽，直接S11内峰平均变化{t['direct_endpoint_peak_mean_change_dB']:.3f} dB，平均及较差峰均逐级改善={t['direct_matching_monotonic']}；插值联合带宽变化{t['interpolated_endpoint_joint_BW_change_MHz']:+.3f} MHz。")
+    lines+=['','本轮支持“在约相同−2dB带宽下，以宽微带、窄槽线改善带内内峰匹配”的局部选型方法；联合带宽并未同步扩大，不能混淆两个带宽定义。预先提出的40/80/100 MHz研究筛选判据及匹配趋势检查见results.json。', '',
+        '所有比较均为按既定中央谷/峰差条件确定长度后的设计族，不能单独证明折臂的辐射机制或物理P/R定律。g、材料和折臂范围以既有验证为限；未启动1.6 mm中间折臂、间隔新点或其他新批次。', '',
+        '图：curves4.png为四个实际S11/S21及直接点；width_tradeoff.png为同折臂三种宽度搭配的−2dB带宽、内峰匹配和联合带宽对照。', '',
+        '数据包包含四项原始S参数、native全模式/Zo/Gamma导出、每批网格历史、比较及接收审查证据、冻结输入与运行预算。大体积AEDT工程和网格缓存保留在J:/f8_I4_261026，未装入结果ZIP。','',
+        '总图实际检查、数据包校验、批次关闭及心跳退出证据另存于上级目录delivery_verification.json与completion_watch_shutdown.json；在实际检查和进程核验后生成。']
+    (DEST/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    for folder,label in [(pc.HERE,'initial_execution'),(FINAL,'direct_execution')]:
+        for name in ['plan.json','continuation_plan.json','policy.json','authorization.json','execution_plan.json',
+            'budget_ledger.json','case_work_ledger.json','predictions_frozen.json','implementation_provenance.json',
+            'implementation_hashes.json','CONTINUATION.md']:
+            if (folder/name).exists():copy(folder/name,DEST/'provenance'/label/name)
+    manifest={str(p.relative_to(DEST)).replace('\\','/'):pc.sha(p) for p in DEST.rglob('*') if p.is_file() and p.name!='artifact_manifest.json'}
+    pc.write(DEST/'artifact_manifest.json',dict(files=manifest,result_sha256=pc.sha(DEST/'results.json')))
+    archive=pc.HERE/'fig8-iso4-results-20261026.zip';assert not archive.exists()
+    with zipfile.ZipFile(archive,'w',zipfile.ZIP_DEFLATED) as z:
+        for p in DEST.rglob('*'):
+            if p.is_file():z.write(p,str(p.relative_to(DEST)))
+    with zipfile.ZipFile(archive) as z:assert z.testzip() is None
+    pc.write(pc.HERE/'delivery_build.json',dict(at=pc.now(),accepted=4,total=4,files=len(manifest),
+        result_sha256=pc.sha(DEST/'results.json'),archive=str(archive),archive_sha256=pc.sha(archive),
+        archive_bytes=archive.stat().st_size,overview_visual_review_pending=True,heartbeat_shutdown_pending=True))
+    print(dict(accepted=4,errors=e,numerical=n,tradeoff=trade,report=str(DEST/'REPORT.md'),archive=str(archive)))
+
+if __name__=='__main__':main()

@@ -1,0 +1,29 @@
+"""Read-only live desktop/MCP check and immutable addendum freeze. No Analyze."""
+import asyncio,ast,shutil
+import phase_control as pc
+from solver_runtime import dc
+from aedt_session_guard import verify
+
+async def main():
+    assert not (pc.HERE/'implementation_hashes.json').exists()
+    identity=verify();assert not dc.solvers()
+    assert shutil.disk_usage(pc.BASE).free>20*1024**3
+    for path in [pc.HERE/'worker.lock',pc.PARENT/'worker.lock',pc.PARENT/'final_review/worker.lock',pc.OLD/'protocol.lock',pc.OLD/'pilot_queue.lock']:
+        assert not path.exists(),str(path)
+    prior=pc.read(pc.PARENT/'final_review/implementation_hashes.json')
+    for file,digest in prior.items():assert pc.sha(file)==digest,file
+    from phase_direct_context import reviewed_source
+    for row in pc.read(pc.HERE/'continuation_plan.json')['cases']:
+        reviewed_source(row['source'],row['case'])
+        for f,h in row['evidence_hashes'].items():assert pc.sha(f)==h,f
+    async with dc.connected_client() as client:
+        cat=await client.list_tools();assert {'start_analysis','get_analysis_status'}<={x.name for x in cat.tools}
+        result=await dc.session_call(client,'check_aedt_connection',{'port':7990})
+    for path in pc.HERE.glob('*.py'):ast.parse(path.read_text(encoding='utf-8'))
+    frozen=dict(prior)
+    names=['authorization.json','continuation_plan.json','selected_sources.json','policy.json','reference_validation.json','mesh_policy_addendum_v2.json','CONTINUATION.md','hook/config.json','aedt_identity.json']
+    for path in list(pc.HERE.glob('*.py'))+[pc.HERE/x for x in names]:frozen[str(path)]=pc.sha(path)
+    pc.write(pc.HERE/'preflight.json',dict(at=pc.now(),identity=identity,connection=result,previous_protected_files_verified=len(prior),new_points=24,max_launches=6,no_solver_active=True))
+    pc.write(pc.HERE/'implementation_hashes.json',frozen)
+    print(dict(desktop_pid=identity['pid'],new_points=24,max_launches=6,frozen_files=len(frozen),Analyze_requested=False))
+if __name__=='__main__':asyncio.run(main())

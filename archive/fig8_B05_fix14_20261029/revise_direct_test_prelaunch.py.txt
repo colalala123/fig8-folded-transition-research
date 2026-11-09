@@ -1,0 +1,30 @@
+"""Prelaunch-only test harness adapter fix. Changes no production/science code."""
+from pathlib import Path
+import hashlib,json,shutil
+from datetime import datetime,timezone
+
+ROOT=Path(__file__).resolve().parent;R=ROOT/'direct_review'
+read=lambda p:json.loads(p.read_text(encoding='utf-8-sig'))
+sha=lambda p:hashlib.sha256(p.read_bytes()).hexdigest()
+
+def main():
+    assert not (R/'supervised_release.json').exists()
+    assert read(R/'case_work_ledger.json')['tasks']==[]
+    manifest=R/'implementation_hashes.json';hashes=read(manifest)
+    for f,h in hashes.items():assert sha(Path(f))==h,f
+    for n in ['implementation_hashes.json','implementation_provenance.json','test_phase_heartbeat.py']:
+        backup=R/(n+'.prelaunch_v1');assert not backup.exists();shutil.copyfile(R/n,backup)
+    test=R/'test_phase_heartbeat.py';s=test.read_text(encoding='utf-8')
+    assert s.count('import phase_geometry_publish as adapter')==1
+    s=s.replace('import phase_geometry_publish as adapter','import publish_smallbatch as adapter\n        import phase_control as pc')
+    s=s.replace('adapter.TARGET','pc.TARGET').replace('adapter.ORDER[0]','pc.ORDER[0]')
+    test.write_text(s,encoding='utf-8')
+    record=dict(at=datetime.now(timezone.utc).isoformat(),reason='Inherited geometry-stage test imported geometry publisher stub; test must exercise actual direct-stage publish_smallbatch adapter.',Analyze_started=False,production_files_changed=[],science_changed=False,test_before_sha256=sha(R/'test_phase_heartbeat.py.prelaunch_v1'),test_after_sha256=sha(test))
+    revision=R/'test_harness_revision1.json';revision.write_text(json.dumps(record,indent=2),encoding='utf-8')
+    hashes[str(test)]=sha(test);hashes[str(revision)]=sha(revision);hashes[str(Path(__file__))]=sha(Path(__file__))
+    provenance=read(R/'implementation_provenance.json');provenance['test_phase_heartbeat.py']['local_sha256']=sha(test)
+    provenance['test_phase_heartbeat.py']['prelaunch_revision']=str(revision)
+    (R/'implementation_provenance.json').write_text(json.dumps(provenance,indent=2),encoding='utf-8')
+    manifest.write_text(json.dumps(hashes,indent=2),encoding='utf-8');print(record)
+
+if __name__=='__main__':main()

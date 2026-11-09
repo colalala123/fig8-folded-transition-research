@@ -1,0 +1,28 @@
+import unittest
+from unittest.mock import patch
+from pathlib import Path
+import prepare_geometry as p
+
+class CycleGateTests(unittest.TestCase):
+    def fake(self,run,score):
+        return {},{'score':score},{}
+    def call(self,scores,passing=False):
+        with patch.object(p.pc,'read',return_value={'center':'synthetic_center'}), \
+             patch.object(p,'reviewed',side_effect=lambda run:self.fake(run,scores[Path(run).name])), \
+             patch.object(p,'error',side_effect=lambda m,f:m['score']), \
+             patch.object(p,'normalized_error',side_effect=lambda x:x), \
+             patch.object(p,'design_verdict',return_value=passing):
+            return p.second_center('D04G02')
+    def scores(self,best):
+        return {'synthetic_center':10,'g01_c01_probe_Ls1':11,'g02_c01_probe_Lm':12,'g03_c01_candidate':best}
+    def test_second_cycle_only_after_real_improvement(self):
+        run,parents,decision=self.call(self.scores(8))
+        self.assertEqual(run.name,'g03_c01_candidate');self.assertAlmostEqual(decision['improvement_fraction'],.2)
+    def test_no_gain_stops(self):
+        with self.assertRaises(AssertionError):self.call(self.scores(10))
+    def test_less_than10percent_stops(self):
+        with self.assertRaises(AssertionError):self.call(self.scores(9.5))
+    def test_already_passed_selects_direct_not_cycle(self):
+        with self.assertRaises(AssertionError):self.call(self.scores(8),passing=True)
+
+if __name__=='__main__':unittest.main()

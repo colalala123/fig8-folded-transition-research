@@ -1,0 +1,52 @@
+"""Explicit export recovery only. Never runs HFSS Analyze or edits old events."""
+import argparse
+import asyncio
+import json
+from pathlib import Path
+
+from completion_hook import write_json, digest, now, deliver, Outbox, HERE
+from run_wr90_smoke import export_and_verify, solvers
+
+
+async def main(args):
+    source = args.source.resolve()
+    old = json.loads((source/'state.json').read_text(encoding='utf-8'))
+    if solvers():
+        raise RuntimeError('Wait for existing solve; export recovery does not interrupt it')
+    folder = source/'export_recovery'
+    folder.mkdir(exist_ok=False)
+    metrics = export_and_verify(folder, old['project'], args.port)
+    commands = [' '.join(p['cmdline'] or []) for obs in old['observed_solvers'] for p in obs]
+    observed16 = any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    if not observed16:
+        raise RuntimeError('No actual 16-core/one-task command recorded')
+    state = {'status': 'completed', 'source_run': str(source), 'project': old['project'], 'recovery_at': now(),
+             'recovery_kind': 'Export only; no new solver run', 'source_state_sha256': digest(source/'state.json'),
+             'observed_16_cores_single_task': observed16}
+    write_json(folder/'state.json', state)
+    event = {'schema_version': 1, 'run_id': source.name + '_export_recovered', 'target_thread_id': old['target_thread_id'],
+             'created_at': now(), 'status': 'completed', 'verified_success': True,
+             'purpose': '独立WR90通知闭环测试；仅恢复已有求解的导出，没有重新仿真',
+             'summary': f"已有WR90结果导出修复并核验完成：81点，8–12GHz，最大S11={metrics['max_S11_dB']:.3f}dB，S21范围={metrics['S21_dB_range']}dB。16核单任务证据已核实。",
+             'artifacts': [{'path': str(p), 'sha256': digest(p)} for p in sorted(folder.iterdir()) if p.is_file()]}
+    path = folder/'completion_event.json'
+    write_json(path, event)
+    Outbox(HERE/'outbox.sqlite3').register(path, event)
+    print(json.dumps({'ready_event': str(path), 'metrics': metrics}, ensure_ascii=False), flush=True)
+    if args.deliver:
+        # Test-only delay gives the current conversational turn time to end,
+        # demonstrating wake-up of an idle conversation, not just active-turn injection.
+        await asyncio.sleep(args.delay_seconds)
+        print(json.dumps(await deliver(path), ensure_ascii=False), flush=True)
+
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser()
+    p.add_argument('--source', type=Path, required=True)
+    p.add_argument('--port', type=int, default=7990)
+    p.add_argument('--deliver', action='store_true')
+    p.add_argument('--delay-seconds', type=float, default=0)
+    args = p.parse_args()
+    if not 0 <= args.delay_seconds <= 120:
+        p.error('Test delay must be 0..120 seconds')
+    asyncio.run(main(args))

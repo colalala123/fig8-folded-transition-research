@@ -1,0 +1,114 @@
+"""Generate explicitly partial reports from protocol-bound accepted results."""
+import csv,json,math,shutil,sys
+from pathlib import Path
+from datetime import datetime,timezone
+from guarded_pilot_queue import HERE,ROOT,read,sha,verify_result
+from recovery_selection import resolve_attempt,validate_data
+OUT=HERE/'verified_snapshot'
+
+def csv_write(name,rows,fields=None):
+    fields=fields or list(dict.fromkeys(k for r in rows for k in r))
+    temporary=OUT/(name+'.tmp')
+    with temporary.open('w',newline='',encoding='utf-8-sig') as h:
+        w=csv.DictWriter(h,fieldnames=fields);w.writeheader();w.writerows(rows)
+    temporary.replace(OUT/name)
+
+def fixed_reference_coverage(accepted):
+    """Use the uniform feature formula; never fit a bandwidth-derived R."""
+    if not accepted:return
+    import matplotlib.pyplot as plt
+    fig,ax=plt.subplots(figsize=(8.5,5.5),constrained_layout=True)
+    ps=[r['P_response'] for r in accepted]
+    for shape,marker in [('development_G02','o'),('development_G05','^')]:
+        subset=[r for r in accepted if r['shape_id']==shape]
+        if not subset:continue
+        scatter=ax.scatter([r['R_side_poles_fixed_f0'] for r in subset],
+            [r['BW_2dB_GHz'] for r in subset],c=[r['P_response'] for r in subset],
+            vmin=min(ps),vmax=max(ps),cmap='viridis',marker=marker,s=85,
+            edgecolor='black',linewidth=.5,label='a = '+('1.40' if shape.endswith('G02') else '1.80')+' mm')
+        for row in subset:
+            ax.annotate(row['case'],(row['R_side_poles_fixed_f0'],row['BW_2dB_GHz']),
+                xytext=(6,8),textcoords='offset points',fontsize=9)
+    ax.margins(x=.2,y=.2);ax.grid(alpha=.2);ax.legend(loc='lower left')
+    ax.set_xlabel('R from S11 side valleys; fixed f0 = 6.85 GHz')
+    ax.set_ylabel('S21 -2 dB bandwidth (GHz)')
+    ax.set_title(f'Fig.8 response coverage: {len(accepted)}/24 accepted before corner review\nUniform feature formula; no bandwidth law fitted')
+    fig.colorbar(scatter,ax=ax,label='P from mean linear S11 peak magnitude')
+    fig.savefig(OUT/'pilot_fixed_f0_PR_BW_coverage.png',dpi=180);plt.close(fig)
+
+def extract(case,run,metrics,status,reason,verified=False):
+    manifest=read(run/'manifest.json');pr=metrics.get('formal_response_PR') if verified and status=='accepted' else None
+    pr=pr or {};valleys=metrics.get('valleys',[]);center=metrics.get('central_valley_GHz');rz=[]
+    if pr and len(valleys)==3 and center:
+        for v in [valleys[0],valleys[-1]]:
+            u=1/math.tan(math.pi*v['frequency_GHz']/(2*center));rz.append((pr['P_response']-1)/(pr['P_response']*u*u))
+    return {'case':case['case'],'width_family':case['width_family'],'shape_id':case['shape_id'],**manifest.get('geometry',{}),
+      'iteration':run.name,'design_status':status,'reason_code':reason,'solver_status':manifest['status'],
+      'BW_2dB_GHz':metrics.get('passband_2dB',{}).get('BW_GHz'),'BW_joint_GHz':metrics.get('passband_joint',{}).get('BW_GHz'),
+      'central_valley_GHz':center,'peak_difference_dB':metrics.get('peak_difference_dB'),
+      'P_response':pr.get('P_response'),'R_zero_left':rz[0] if rz else None,'R_zero_right':rz[1] if rz else None,
+      'R_zero_mean':sum(rz)/2 if rz else None,
+      'R_side_poles_fixed_f0':metrics.get('R_side_poles_diagnostic') if pr else None,
+      'R_side_poles_f0_GHz':6.85 if pr else None,
+      'R_BW':pr.get('R_BW'),'f0_reference_GHz':6.85,'R_zero_fphi_GHz':center,
+      'PR_use':'accepted_under_frozen_protocol_corner_checks_pending' if pr else 'not_released',
+      'curve_path':str(run/'sparams.csv'),'curve_sha256':sha(run/'sparams.csv') if (run/'sparams.csv').exists() else None,
+      'source_project':manifest['source'],'source_sha256':manifest['source_sha256'],
+      'adaptive_converged':manifest.get('convergence',{}).get('converged'),'final_delta_s':manifest.get('convergence',{}).get('final_delta_s'),
+      'sweep_converged':manifest.get('sweep_converged'),'phase_acceptance_verified':verified}
+
+def main():
+    OUT.mkdir(exist_ok=True);plan=read(HERE/'resume_queue_plan.json');p=read(ROOT/'production_protocol.json')
+    accepted=[];failed=[];status=[];iterations=[]
+    for case in plan['cases']:
+        result_path=ROOT/case['case']/'design_result.json';result=verify_result(read(result_path)) if result_path.exists() else None
+        chosen=Path(result['selected_run']) if result and result.get('selected_run') else None
+        runs=list(map(Path,case['existing_iterations']))+list((ROOT/case['case']).glob('i*'))
+        for attempt in runs:
+            is_new=attempt.parent==ROOT/case['case']
+            run=resolve_attempt(attempt,ROOT) if is_new else attempt
+            if not (run/'manifest.json').exists():continue
+            selected=bool(chosen and run.resolve()==chosen.resolve())
+            metrics=result['metrics'] if selected and result else read(run/'response_metrics.json') if (run/'response_metrics.json').exists() else {}
+            row=extract(case,run,metrics,result['status'] if selected else 'not_selected',result['reason'] if selected else '',selected)
+            numerical=selected
+            if is_new and read(run/'manifest.json')['status']=='completed':
+                validate_data(run);numerical=True
+            row.update(iteration=attempt.name,original_iteration_path=str(attempt),data_run=str(run),
+                       recovery_selected=run!=attempt,phase_acceptance_verified=numerical,
+                       configuration_selected=selected)
+            iterations.append(row)
+            if selected:(accepted if result['status']=='accepted' else failed).append(row)
+        state_path=sorted((ROOT/case['case']).glob('i*/state.json'))
+        latest=read(state_path[-1]) if state_path else {}
+        recovery=ROOT/case['case']/'historical_recovery_review.json'
+        status.append({'case':case['case'],'status':result['status'] if result else latest.get('status',read(recovery)['decision'] if recovery.exists() else 'not_started'),
+             'historical_phase_solves':case['historical_solves'],'new_attempt_records':len(state_path),'selected_run':str(chosen) if chosen else ''})
+    for name,rows in [('all_iterations.csv',iterations),('accepted_designs.csv',accepted),('failed_designs.csv',failed),('configuration_status_24.csv',status)]:csv_write(name,rows)
+    shutil.copy2('F:/hfss_f8x_261002/pilot_24.csv',OUT/'pilot_24.csv')
+    import plot_pilot
+    plot_pilot.ROOT=OUT;plot_pilot.main()
+    fixed_reference_coverage(accepted)
+    assert len(status)==24 and len({r['case'] for r in status})==24
+    assert len(accepted)+len(failed)==sum((ROOT/c['case']/'design_result.json').exists() for c in plan['cases'])
+    report={'updated_at_utc':datetime.now(timezone.utc).isoformat(),'planned':24,'accepted_before_corner_review':len(accepted),'verified_design_failures':len(failed),'pending':24-len(accepted)-len(failed),'numerically_verified_iteration_rows':sum(r['phase_acceptance_verified'] for r in iterations),'corner_review_complete':False,'protocol_sha256':sha(ROOT/'production_protocol.json'),'scope':'Partial snapshot. No claim that all 24 configurations or corner checks have completed. No independent bandwidth law fitted.'}
+    (OUT/'summary.json').write_text(json.dumps(report,indent=2),encoding='utf-8')
+    text=f'''# 当前交付快照（非24点最终报告）
+
+生成时间：{report['updated_at_utc']}。动态状态见[实时进度](../实时进度.md)。
+
+已按冻结协议核验的合格配置 {len(accepted)}/24；保留的数值已核验设计失败 {len(failed)}；其余 {report['pending']} 待处理。四个宽度角点模式检查尚未完成。
+
+原 Broadband 收集器已恢复；新配置正在按可见 AEDT/MCP、16核1任务串行监督运行。源工程及所有历史/失败结果保留。
+
+- `configuration_status_24.csv`：24行真实状态。
+- `all_iterations.csv`：已有可读取结果的历史和新迭代；原迭代与实际采用的恢复目录分别记录，数值通过和配置选定分开标记；未选定点不提供正式P/R值。
+- `accepted_designs.csv`、`failed_designs.csv`：绑定冻结协议与证据哈希的选定结果。
+- `pilot_width_coverage.png`、`pilot_PR_BW_coverage.png`、`pilot_representative_curves.png`：当前覆盖与响应。
+- `pilot_fixed_f0_PR_BW_coverage.png`：采用旧均匀特征法同定义 R 的覆盖图；角点检查未完成，无关系拟合。
+
+当前样本不足以判断一般带宽关系。P_response来自S11双峰线性幅度均值；R_side_poles_fixed_f0使用固定6.85GHz及两侧S11外谷的mean(abs(cot))，与旧均匀模型特征法公式一致。R_zero使用本点中央谷，先分别计算左右R再平均，属于另一种诊断口径。R_BW来自S21带宽，不能拿R_BW与原带宽的相关性充当独立新规律。前三者也属于响应提取参数，不等于仅凭几何进行独立预测。只有完整宽度组/折臂配对和角点检查完成后，才能作首批可研究性结论。
+'''
+    (OUT/'README.md').write_text(text,encoding='utf-8')
+    print(json.dumps(report,indent=2))
+if __name__=='__main__':main()

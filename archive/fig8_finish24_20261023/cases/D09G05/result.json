@@ -1,0 +1,241 @@
+{
+  "case": "D09G05",
+  "case_state": "bounded_design_failed",
+  "reason": "bounded_design_not_met_no_full_second_cycle_fits",
+  "operation_success": true,
+  "design_passed": false,
+  "numerical_review_passed": null,
+  "full_matrix_approved": false,
+  "selected_run": "J:\\f8_finish24_261023\\D09G05\\c01_candidate",
+  "geometry": {
+    "Wm": 1.6,
+    "Ws": 0.58,
+    "Lm": 6.511681830297532,
+    "Ls1": 11.680660000000001,
+    "Ls2": 1.71,
+    "Ls3": 2.38
+  },
+  "actual_elements": 102273,
+  "mesh_target_met": true,
+  "mesh_exception_used": false,
+  "metrics": {
+    "extraction_version": "response_pr_v1_20260920",
+    "curve_path": "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\sparams.csv",
+    "curve_sha256": "5dab931240e2cda26a83e8c2d245f2cabaa3a51d49b2b06d1ea68320a098cc84",
+    "points": 1500,
+    "frequency_range_GHz": [
+      0.01,
+      15.0
+    ],
+    "f0_reference_GHz": 6.85,
+    "peak_average": "linear magnitude mean, then 20log10",
+    "R_definition": "zm/zs",
+    "max_S21_dB": -0.37831320892119347,
+    "power_excess_S11_S21": -0.0006140140029263774,
+    "formal_response_PR": null,
+    "diagnostic_response_PR": {
+      "P_response": 1.941793323281336,
+      "R_BW": 0.8321870075094558,
+      "Zm_response_ohm": 63.559719455472276,
+      "Zs_response_ohm": 76.37672648325992,
+      "f0_reference_GHz": 6.85
+    },
+    "passband_2dB": {
+      "f_low_GHz": 2.922649319769382,
+      "f_high_GHz": 10.229731742771865,
+      "BW_GHz": 7.307082423002482,
+      "touches_sweep_edge": false
+    },
+    "passband_joint": {
+      "f_low_GHz": 3.130906614772722,
+      "f_high_GHz": 10.229731742771865,
+      "BW_GHz": 7.098825127999143,
+      "touches_sweep_edge": false
+    },
+    "prominent_valley_count": 3,
+    "valley_prominence_dB": 0.5,
+    "valleys": [
+      {
+        "frequency_GHz": 3.6,
+        "S11_dB": -30.278796009413117
+      },
+      {
+        "frequency_GHz": 6.55,
+        "S11_dB": -51.04236894548116
+      },
+      {
+        "frequency_GHz": 9.83,
+        "S11_dB": -39.1673963378168
+      }
+    ],
+    "peaks": [
+      {
+        "frequency_GHz": 4.6,
+        "S11_dB": -16.552295998600005,
+        "S21_dB": -0.4816084314433323
+      },
+      {
+        "frequency_GHz": 8.71,
+        "S11_dB": -13.646903662864702,
+        "S21_dB": -0.8667516511191019
+      }
+    ],
+    "signed_peak_difference_dB": -2.9053923357353035,
+    "peak_difference_dB": 2.9053923357353035,
+    "peak_level_dB": -14.978681840251838,
+    "central_valley_GHz": 6.55,
+    "band_center_GHz": 6.5761905312706235,
+    "worst_S11_between_valleys_dB": -13.646903662864702,
+    "min_S21_between_valleys_dB": -1.0711024697084168,
+    "validity": {
+      "peak_difference_le_0p5": false,
+      "S11_below_minus10_between_valleys": true,
+      "S21_ge_minus2_between_valleys": true,
+      "band_not_truncated": true,
+      "nonpositive_transmission": true,
+      "equal_ripple": false,
+      "solver_convergence_verified": false
+    },
+    "bandcenter_sensitivity_PR": {
+      "P_response": 1.941793323281336,
+      "R_BW": 0.7227920963369732,
+      "Zm_response_ohm": 59.23497418729189,
+      "Zs_response_ohm": 81.9529910294923,
+      "f0_reference_GHz": 6.5761905312706235
+    },
+    "R_side_poles_diagnostic": 0.6429878693071013,
+    "unused_shape_checks": {
+      "S11_magnitude_RMSE": 0.1081179511897933,
+      "S21_dB_RMSE": 0.6904351651314589,
+      "low_edge_error_GHz": 0.2738094687293766,
+      "high_edge_error_GHz": 0.2738094687293753,
+      "central_valley_error_GHz": 0.2999999999999998,
+      "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+    }
+  },
+  "finished_at": "2026-10-24T13:43:12.866962+00:00",
+  "evidence_hashes": {
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\completion_event.json": "ab586404dc723bea01af436730b9b4a9af1183dab2b63827b271dc85ac0b892d",
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\receiver_verification.json": "0ada08521e8435d38f9ec028de0fe619740e63fc9590c66baeb89422925a718e",
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\receiver_ack.json": "3e24575d0410f8528952439071b58950c07b3c4b1e4739e1a7bb7f723d3b8fe1",
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\input.json": "7a753f3b3bf5f9745a800d75bcff9c17b1e103da76ee6ea17e3034945c0dcdfd",
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\state.json": "56160887f8113bb798c2ae5cc9df307c9e3db57a782bdbc826f6f914a22e4387",
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\response_metrics.json": "c518012f6b316a2fd26ff6c60b5f5334099a56bd052e91aec00d3691d851c91e",
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\sparams.csv": "5dab931240e2cda26a83e8c2d245f2cabaa3a51d49b2b06d1ea68320a098cc84",
+    "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\convergence.txt": "41039e33f456592ae8e2f9a914faa57521960b003b77b438438261b52a8d2678",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\cases\\D09G05\\rebase_decision.json": "21a64086b58bd12dfff1cbc818f154e3cb8562b3cede5dc6d86992059abc9010",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\cases\\D09G05\\rebase_comparison.json": "a5ff62f91c62070d833650b225bc9667cabc90f1096c778f4c40d450b045f191"
+  },
+  "numerical_status": "direct_not_attempted_outside_near_threshold_entry",
+  "geometry_budget": {
+    "case": "D09G05",
+    "historical_count": 0,
+    "previous_batch_count": 3,
+    "prior_state_hashes": {
+      "J:\\f8_261007\\D09G05\\i00\\state.json": "622f49608b261b348ad0261f727aefb486c5820b0c22832f872521df46dbc115",
+      "J:\\f8_261007\\D09G05\\i01\\state.json": "46a20518eadf4c67c8f91cc5f2ff9d03b28d43c0159349d46b66c76b86ce8bad",
+      "J:\\f8_261007\\D09G05\\i02\\state.json": "9f49e32a51ff26d400d9b10ee848d4b43a50edc89ecfc5e23a235c1e75e45528"
+    },
+    "new_geometry_slots": {
+      "7": [
+        {
+          "path": "J:\\f8_finish24_261023\\D09G05\\c01_candidate\\input.json",
+          "sha256": "7a753f3b3bf5f9745a800d75bcff9c17b1e103da76ee6ea17e3034945c0dcdfd",
+          "geometry": {
+            "Wm": 1.6,
+            "Ws": 0.58,
+            "Lm": 6.511681830297532,
+            "Ls1": 11.680660000000001,
+            "Ls2": 1.71,
+            "Ls3": 2.38
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "6": [
+        {
+          "path": "J:\\f8_finish24_261023\\D09G05\\c01_probe_Lm\\input.json",
+          "sha256": "ffd3d44cf4ffec2146fc06a4e57500ec816479f351c0f099dbf6c869d11289a5",
+          "geometry": {
+            "Wm": 1.6,
+            "Ws": 0.58,
+            "Lm": 6.549465,
+            "Ls1": 11.38066,
+            "Ls2": 1.71,
+            "Ls3": 2.38
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "5": [
+        {
+          "path": "J:\\f8_finish24_261023\\D09G05\\c01_probe_Ls1\\input.json",
+          "sha256": "7ec0c39e2a32faa7f928242b6a835499239e565648fbda416422573fc673f062",
+          "geometry": {
+            "Wm": 1.6,
+            "Ws": 0.58,
+            "Lm": 6.499465,
+            "Ls1": 11.48066,
+            "Ls2": 1.71,
+            "Ls3": 2.38
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "4": [
+        {
+          "path": "J:\\f8_finish24_261023\\D09G05\\g00_rebase\\input.json",
+          "sha256": "9a63276fc2889e53eb5a593e0cc47aff21ea051d1a82eeb0f96de9c4e6f3a09e",
+          "geometry": {
+            "Wm": 1.6,
+            "Ws": 0.58,
+            "Lm": 6.499465,
+            "Ls1": 11.38066,
+            "Ls2": 1.71,
+            "Ls3": 2.38
+          },
+          "explicit_cache_continuation": false
+        }
+      ]
+    },
+    "attempts_used_or_reserved": 7,
+    "limit": 8,
+    "note": "Prepared inputs reserve a slot; explicit same-geometry cache recovery shares its original slot."
+  },
+  "reviewed_candidates": [
+    {
+      "run": "J:\\f8_261007\\D09G05\\i00",
+      "normalized_error": 11.390969094844642
+    },
+    {
+      "run": "J:\\f8_261007\\D09G05\\i01",
+      "normalized_error": 9.868756314840489
+    },
+    {
+      "run": "J:\\f8_261007\\D09G05\\i02",
+      "normalized_error": 13.202399663324453
+    },
+    {
+      "run": "J:\\f8_finish24_261023\\D09G05\\c01_candidate",
+      "normalized_error": 5.810784671470607
+    },
+    {
+      "run": "J:\\f8_finish24_261023\\D09G05\\c01_probe_Lm",
+      "normalized_error": 11.74483409096883
+    },
+    {
+      "run": "J:\\f8_finish24_261023\\D09G05\\c01_probe_Ls1",
+      "normalized_error": 8.379425463958235
+    },
+    {
+      "run": "J:\\f8_finish24_261023\\D09G05\\g00_rebase",
+      "normalized_error": 9.911581251112356
+    }
+  ],
+  "best_measured_normalized_error": 5.810784671470607,
+  "improvement_fraction": 0.41373787650497496,
+  "bounded_review_complete": true,
+  "disposition_at": "2026-10-24T13:44:37.906987+00:00",
+  "scope": "Best measured fundamental S11/S21 candidate preserved; not accepted for design-law fitting.",
+  "risk_note": "All3 legacy attempts retained. Candidate improved but remains outside original design criteria and direct-review entry. One remaining slot cannot fit an independently probed second cycle; the half-step trigger does not apply to an improved candidate. No extra-step/ninth solve. Not a global infeasibility claim."
+}

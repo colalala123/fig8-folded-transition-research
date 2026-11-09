@@ -1,0 +1,157 @@
+"""One supervised cached-mesh direct check for a reviewed near-threshold candidate.
+
+No geometry budget is consumed, no adaptive solve is allowed, no automatic
+acceptance is written. The receiver must inspect the comparison and curves.
+"""
+import argparse
+import asyncio
+import os
+from pathlib import Path
+import shutil
+import traceback
+import numpy as np
+from phase_direct_context import HERE, BASE, OLD, ORIGINAL, read, write, sha, now, status_report, validate_spec
+from phase_geometry_worker import dc, solve_stage, passes, snapshot, canonical_ports
+from prepare_geometry import reviewed
+from preserve_discrete_ranges import restore_properties
+from phase_geometry_publish import publish
+
+SWEEP='RemB_FinalDirect'
+
+
+def frequencies(metrics):
+    points={.1,3.,6.,10.19,12.,15.}
+    for p in metrics['peaks']:
+        points.update(round(p['frequency_GHz']+i*.01,2) for i in range(-5,6))
+    for v in metrics['valleys']:
+        points.update(round(v['frequency_GHz']+i*.01,2) for i in range(-3,4))
+    for k in ['f_low_GHz','f_high_GHz']:
+        points.update(round(metrics['passband_2dB'][k]+i*.01,2) for i in range(-3,4))
+    assert all(.01<=p<=15 for p in points) and len(points)<=70
+    return sorted(points)
+
+
+def compare(source,run):
+    a=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+    b=np.genfromtxt(run/'sparams.csv',delimiter=',',names=True)
+    met=read(source/'response_metrics.json');f=b['Freq_GHz']
+    idx=np.rint(f*100).astype(int)-1
+    assert np.allclose(a['Freq_GHz'][idx],f,atol=1e-9,rtol=0)
+    complex_error=max(float(np.max(abs((a[k+'_real'][idx]+1j*a[k+'_imag'][idx])-(b[k+'_real']+1j*b[k+'_imag'])))) for k in ['S11','S21'])
+    band=met['passband_2dB'];inside=(f>=band['f_low_GHz']-.03)&(f<=band['f_high_GHz']+.03)
+    s21_error=float(np.max(abs(a['S21_dB'][idx][inside]-b['S21_dB'][inside])))
+    peaks=[];height_errors=[]
+    for p in met['peaks']:
+        win=np.flatnonzero(abs(f-p['frequency_GHz'])<=.050001);j=win[np.argmax(b['S11_dB'][win])]
+        peaks.append({'GHz':float(f[j]),'dB':float(b['S11_dB'][j]),'interior':bool(j not in [win[0],win[-1]])})
+        height_errors.append(float(abs(b['S11_dB'][win].max()-a['S11_dB'][idx][win].max())))
+    win=np.flatnonzero(abs(f-met['central_valley_GHz'])<=.030001);j=win[np.argmin(b['S11_dB'][win])]
+    central={'GHz':float(f[j]),'interior':bool(j not in [win[0],win[-1]])}
+    edges={}
+    for key in ['f_low_GHz','f_high_GHz']:
+        win=abs(f-band[key])<.04;x=f[win];y=b['S21_dB'][win]+2;cross=[]
+        for i in range(len(x)-1):
+            if y[i]*y[i+1]<=0 and y[i]!=y[i+1]:cross.append(float(x[i]-y[i]*(x[i+1]-x[i])/(y[i+1]-y[i])))
+        edges[key]=min(cross,key=lambda v:abs(v-band[key])) if cross else None
+    shifts={k:abs(v-band[k]) if v is not None else None for k,v in edges.items()}
+    bw=edges['f_high_GHz']-edges['f_low_GHz'] if all(v is not None for v in edges.values()) else None
+    peak_difference=abs(peaks[0]['dB']-peaks[1]['dB'])
+    limits=read(HERE/'policy.json')['direct_criteria']
+    numerical=(complex_error<=limits['max_complex_error'] and s21_error<=limits['max_inband_S21_error_dB']
+       and max(height_errors)<=limits['max_peak_error_dB'] and bw is not None
+       and max(shifts.values())<=limits['max_edge_shift_GHz'] and abs(bw-band['BW_GHz'])<=limits['max_BW_shift_GHz'])
+    shape=met['prominent_valley_count']==3 and all(met['validity'][k] for k in
+       ['S11_below_minus10_between_valleys','S21_ge_minus2_between_valleys','band_not_truncated','nonpositive_transmission'])
+    supported=shape and all(p['interior'] for p in peaks) and central['interior'] and peak_difference<=.5 and abs(central['GHz']-6.72)<=.03+1e-10
+    return {'points':len(f),'max_complex_error':complex_error,'max_nearband_S21_error_dB':s21_error,
+       'peak_height_errors_dB':height_errors,'direct_peaks':peaks,'direct_peak_difference_dB':peak_difference,
+       'direct_central_valley':central,'direct_edges_GHz':edges,'edge_shifts_GHz':shifts,'direct_BW_GHz':bw,
+       'BW_shift_GHz':abs(bw-band['BW_GHz']) if bw is not None else None,
+       'numerical_review_passed':bool(numerical),'sampled_design_supported':bool(supported),
+       'full_matrix_approved':False,'limits':limits,
+       'scope':'Finite direct samples on unchanged mesh; not full-curve independent convergence or continuous-extrema proof. Requires receiver review; no automatic acceptance.'}
+
+
+
+async def execute(spec_path):
+    p=validate_spec(spec_path);run=Path(p['run_dir']);src=Path(p['source']);project=run/(p['project_name']+'.aedt')
+    assert not (run/'state.json').exists() and not project.exists()
+    rel=read(HERE/'supervised_release.json');assert rel['input_sha256']==sha(spec_path) and not rel['bulk_dispatch_released']
+    assert rel['input_path']==str(spec_path.resolve())
+    for name,digest in p['parent_evidence_hashes'].items():assert sha(name)==digest
+    source=Path(p['project_source']);cache=source.with_suffix('.aedtresults')
+    files=[f for f in cache.rglob('*') if f.is_file() and not f.name.endswith(('.semaphore','.lock'))]
+    assert shutil.disk_usage(BASE).free>sum(f.stat().st_size for f in files)+15*1024**3
+    shutil.copy2(source,project)
+    for f in files:
+        dest=project.with_suffix('.aedtresults')/f.relative_to(cache);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(f,dest)
+    state={'case':p['case'],'input_sha256':sha(spec_path),'status':'copied','project':str(project),'segments':[],'actual_elements':read(src/'state.json')['actual_elements']}
+    write(run/'state.json',state)
+    app=dc.app_for(project)
+    try:
+        assert Path(app.project_file).resolve()==project.resolve() and not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        app.export_convergence('Setup19',output_file=str(run/'convergence_before.txt'))
+        assert passes(run/'convergence_before.txt')==passes(src/'convergence.txt')
+        f,data,_,_=dc.get_data(app,'Sweep1');original=np.genfromtxt(src/'sparams.csv',delimiter=',',names=True)
+        assert len(f)==1500 and np.allclose(f,original['Freq_GHz'])
+        for key,expr in [('S11','S(1:1,1:1)'),('S21','S(2:1,1:1)')]:
+            assert max(abs(data[expr]-(original[key+'_real']+1j*original[key+'_imag'])))<1e-10
+        state['copied_original_curves_verified']=True
+        state['ports_before']=canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        assert len(state['ports_before'])==2 and state['ports_before']==p['expected_ports']
+        for sw in setup.sweeps:
+            assert sw.name=='Sweep1';sw.props['IsEnabled']=False;assert sw.update()
+        sw=setup.add_sweep(SWEEP,sweep_type='Discrete');sw.auto_update=False
+        restore_properties(sw,p['frequencies_GHz']);sw.props.update({'IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    segment=await solve_stage(project,run,state,'cached_direct_sweep',False)
+    app=dc.app_for(project)
+    try:
+        messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));state['messages']=messages
+        assert any('Discrete frequency sweep complete.' in m for m in messages)
+        assert not any('[error]' in m.lower() for m in messages)
+        dc.SWEEP=SWEEP;dc.export(app,run,p['frequencies_GHz'])
+        app.export_convergence('Setup19',output_file=str(run/'convergence_after.txt'))
+        assert passes(run/'convergence_before.txt')==passes(run/'convergence_after.txt')
+        assert state['ports_before']==canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert not segment['observed_adaptive_process']
+    for name,digest in p['parent_evidence_hashes'].items():assert sha(name)==digest
+    state.update(status='completed',same_mesh_verified=True,source_unchanged=True,finished_at=now())
+    write(run/'state.json',state);result=compare(src,run);write(run/'comparison.json',result)
+    return result
+
+
+async def main(spec_path):
+    p=validate_spec(spec_path);run=Path(p['run_dir']);case=p['case'];locks=[HERE/'worker.lock',HERE.parent/'fig8_remediation_A_20261025/worker.lock',ORIGINAL/'worker.lock',OLD/'protocol.lock']
+    assert not dc.solvers() and not (OLD/'pilot_queue.lock').exists() and all(not l.exists() for l in locks)
+    acquired=[]
+    try:
+        for lock in locks:
+            with lock.open('x') as h:h.write(str(os.getpid()))
+            acquired.append(lock)
+    except BaseException:
+        for l in acquired:l.unlink()
+        raise
+    status='failed'
+    try:
+        write(HERE/'active.json',{'case':case,'stage':'candidate_cached_direct','pid':os.getpid(),'run_dir':str(run),'started_at':now()});status_report()
+        result=await execute(spec_path);status='completed'
+        summary=f"{case}同网格直接频点复核完成；直接峰差{result['direct_peak_difference_dB']:.6f}dB；数值核验={result['numerical_review_passed']}，采样设计判据={result['sampled_design_supported']}。未自动计为通过。"
+        artifacts=['input.json','state.json','comparison.json','manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence_before.txt','convergence_after.txt']
+    except BaseException:
+        write(run/'worker_error.json',{'at':now(),'error':traceback.format_exc(),'live_solvers':dc.solvers()})
+        summary=f'{case}同网格复核工作项异常，检查worker_error.json；不自动重算。';artifacts=['worker_error.json']
+    finally:
+        for l in acquired:
+            if l.exists() and l.read_text()==str(os.getpid()):l.unlink()
+        write(HERE/'active.json',{'case':case,'stage':'awaiting_candidate_direct_review','run_dir':str(run),'operation_status':status,'finished_at':now()});status_report()
+    write(run/'notification_receipt.json',await publish(run,case,status,summary,artifacts))
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--spec',type=Path,required=True)
+    asyncio.run(main(parser.parse_args().spec.resolve()))

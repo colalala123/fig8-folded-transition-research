@@ -1,0 +1,51 @@
+"""Publication-style summary of frozen predictions and the six real ACKs."""
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import recovery_control as pc
+
+def draw():
+    ledger=pc.read(pc.ledger_path());assert len(ledger['tasks'])==6 and all(t['status']=='reviewed' and t['scoped_accepted'] for t in ledger['tasks'])
+    plan=pc.read(pc.PARENT/'plan.json');rows=[]
+    for case in pc.ORDER:
+        task=next(t for t in ledger['tasks'] if t['case']==case)
+        run=Path(task.get('effective_run',str(pc.BASE/case/'direct_smallbatch')))
+        spec=pc.read(run/'input.json');ack=pc.read(run/'receiver_ack.json');m=pc.read(Path(spec['source'])/'response_metrics.json');comp=pc.read(run/'comparison.json')
+        assert ack['event_sha256']==pc.sha(run/'completion_event.json') and ack['scoped_accepted']
+        source=next(x for x in plan['cases'] if x['case']==case)
+        rows.append(dict(case=case,predicted=source['predicted_BW_GHz'],measured=m['passband_2dB']['BW_GHz'],
+            direct=comp['direct_BW_GHz'],a=source['a_mm'],geometry=source['geometry']))
+    errors=np.array([(r['measured']-r['predicted'])*1000 for r in rows])
+    fig,axes=plt.subplots(1,3,figsize=(14,4.8),gridspec_kw={'width_ratios':[1,1.15,1.15]})
+    colors=['tab:blue','tab:orange']*3
+    for i,r in enumerate(rows):
+        axes[0].scatter(r['predicted'],r['measured'],marker='o' if i%2==0 else '^',color=colors[i],s=38,
+            label=f"a={r['a']:.1f} mm" if i<2 else None)
+        axes[0].annotate(r['case'],(r['predicted'],r['measured']),xytext=(4,-12 if i%2==0 else 7),textcoords='offset points',fontsize=7)
+    low=min(r['predicted'] for r in rows)-.12;high=max(r['predicted'] for r in rows)+.12
+    axes[0].plot([low,high],[low,high],ls='--',color='gray',lw=1)
+    axes[0].set(xlim=(low,high),ylim=(low,high),xlabel='Frozen prediction (GHz)',ylabel='Measured bandwidth (GHz)',title='Six held-out configurations')
+    axes[0].legend(fontsize=8,loc='upper left')
+    bars=axes[1].bar(np.arange(6),errors,color=colors,width=.65)
+    axes[1].axhline(0,color='black',lw=.8)
+    axes[1].set_xticks(np.arange(6),[r['case'] for r in rows],rotation=40,ha='right',fontsize=8)
+    axes[1].set(ylabel='Measured minus predicted (MHz)',title=f"MAE {np.mean(abs(errors)):.2f} MHz; max {max(abs(errors)):.2f} MHz",ylim=(min(errors)-7,max(errors)+7))
+    for bar,val in zip(bars,errors):axes[1].text(bar.get_x()+bar.get_width()/2,val+(1 if val>=0 else -1),f'{val:+.2f}',ha='center',va='bottom' if val>=0 else 'top',fontsize=8)
+    interp=np.array([(b['measured']-a['measured'])*1000 for a,b in zip(rows[::2],rows[1::2])])
+    direct=np.array([(b['direct']-a['direct'])*1000 for a,b in zip(rows[::2],rows[1::2])])
+    x=np.arange(3)
+    for shift,data,color,label in [(-.18,interp,'tab:blue','Interpolated edges'),(.18,direct,'tab:orange','Direct-checked edges')]:
+        bars=axes[2].bar(x+shift,data,width=.34,color=color,label=label)
+        for bar,val in zip(bars,data):axes[2].text(bar.get_x()+bar.get_width()/2,val+.35,f'{val:.2f}',ha='center',va='bottom',fontsize=8)
+    axes[2].set_xticks(x,[f"{r['geometry']['Wm']:.2f}/{r['geometry']['Ws']:.2f}" for r in rows[::2]],fontsize=8)
+    axes[2].set(ylabel='Long-arm minus short-arm BW (MHz)',xlabel='Wm / Ws (mm)',title='Arm 1.4 to 1.8 mm after length setting',ylim=(0,max(interp.max(),direct.max())+5))
+    axes[2].legend(fontsize=7,loc='upper left')
+    for ax in axes:ax.grid(alpha=.2,axis='y');ax.set_axisbelow(True)
+    fig.suptitle('Fig8 bandwidth validation: no refitting and no extra geometry tuning',fontsize=12)
+    fig.tight_layout(rect=(0,0,1,.94))
+    out=pc.PARENT/'deliverables';out.mkdir(exist_ok=True);fig.savefig(out/'validation_summary.png',dpi=180);plt.close(fig)
+    print(dict(plot=str(out/'validation_summary.png'),MAE_MHz=float(np.mean(abs(errors))),arm_changes_direct_MHz=direct.tolist()))
+
+if __name__=='__main__':draw()

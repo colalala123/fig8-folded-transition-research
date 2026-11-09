@@ -1,0 +1,24 @@
+import copy,json,unittest
+from pathlib import Path
+import numpy as np
+from prepare_reserved_review import acquire
+R=Path(__file__).resolve().parent
+def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
+class Tests(unittest.TestCase):
+ def examples(self):
+  for case in ['B01','B02','B03','B04']:
+   run=Path('J:/f8_B6_261027')/case/'direct_smallbatch'
+   yield read(R/'final_review/cases'/case/'frequency_plan.json'),read(run/'comparison.json'),np.genfromtxt(run/'sparams.csv',delimiter=',',names=True)
+ def test_no_repeated_native_points(self):
+  for p,c,a in self.examples():
+   q,missing=acquire(p,c,a);self.assertTrue(set(missing).isdisjoint(a['Freq_GHz']))
+ def test_hard_budget(self):
+  for p,c,a in self.examples():
+   q,missing=acquire(p,c,a);self.assertLessEqual(len(missing),8);self.assertLessEqual(len(q['chunks']),2);self.assertLessEqual(len(q['requested_frequencies_GHz']),32)
+ def test_original_plan_unchanged(self):
+  for p,c,a in self.examples():
+   old=copy.deepcopy(p);acquire(p,c,a);self.assertEqual(p,old)
+ def test_all_prior_frequencies_retained(self):
+  for p,c,a in self.examples():
+   q,missing=acquire(p,c,a);self.assertEqual(set(q['requested_frequencies_GHz']),set(p['requested_frequencies_GHz'])|set(missing))
+if __name__=='__main__':unittest.main()

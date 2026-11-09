@@ -1,0 +1,66 @@
+"""Review exported results without confusing solver completion with acceptance.
+
+This helper never solves, edits geometry, or changes numerical thresholds.
+It is a staged implementation until a recorded protocol migration enables it.
+"""
+import shutil
+from pathlib import Path
+from broadband_recovery import read, sha, write_json, audit_matrix
+from complete_reference_evidence import common_fields
+from pilot_supervisor import aux_compare, verify_boundaries
+from response_metrics import analyze
+
+
+def collect(run, baseline):
+    run, baseline = Path(run), Path(baseline)
+    m = read(run / 'manifest.json')
+    assert m['status'] == 'exported_review_required'
+    assert m['source_unchanged'] and sha(m['source']) == m['source_sha256']
+    assert m['convergence']['converged'] and m['sweep_converged']
+    assert any('Normal completion' in x for x in m['messages'])
+    assert sha(run / 'sparams.csv') == m['curve_sha256']
+    snapshot = run / 'manifest_before_review.json'
+    if snapshot.exists():
+        assert sha(snapshot) == sha(run / 'manifest.json'), 'Review input changed'
+    else:
+        shutil.copy2(run / 'manifest.json', snapshot)
+    matrix = audit_matrix(run)
+    matrix['evidence_hashes'][str(snapshot)] = matrix['evidence_hashes'].pop(str(run / 'manifest.json'))
+    write_json(run / 'normalization_recovery_review.json', matrix)
+
+    adapter = run / 'mode_evidence_input'
+    adapter.mkdir(exist_ok=True)
+    for name in ['sparams.csv', 'mode_impedance_gamma.csv']:
+        shutil.copy2(run / name, adapter / name)
+    write_json(adapter / 'manifest.json', {
+        **m, 'status': 'completed',
+        'scope': 'Solver completion only for port archival; this is not production acceptance.',
+        'original_manifest': str(snapshot), 'original_manifest_sha256': sha(snapshot),
+    })
+    ports = {
+        'fields': common_fields(baseline, adapter),
+        'auxiliary': aux_compare(baseline, adapter),
+        'boundaries': verify_boundaries(adapter),
+    }
+    ports['passed'] = all(x['passed'] for x in ports.values())
+    ports['evidence_hashes'] = {
+        str(p): sha(p) for p in adapter.rglob('*') if p.is_file()
+    }
+    write_json(run / 'port_review.json', ports)
+    accepted = bool(matrix['passed'] and ports['passed'])
+    metrics = analyze(run / 'sparams.csv', f0=6.85)
+    metrics['validity']['solver_convergence_verified'] = accepted
+    if not accepted:
+        metrics['formal_response_PR'] = None
+    write_json(run / 'response_metrics.json', metrics)
+    m.update(
+        status='completed' if accepted else 'numerical_or_port_review_required',
+        normalization_recovery_review_sha256=sha(run / 'normalization_recovery_review.json'),
+        port_review_sha256=sha(run / 'port_review.json'),
+    )
+    write_json(run / 'manifest.json', m)
+    # Validate provenance after the final manifest write, not before it.
+    for review in [matrix, ports]:
+        for file, digest in review['evidence_hashes'].items():
+            assert sha(file) == digest, 'Finalization invalidated evidence'
+    return {'accepted': accepted, 'matrix': matrix, 'ports': ports}

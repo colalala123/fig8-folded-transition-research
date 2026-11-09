@@ -1,0 +1,91 @@
+"""Prospective pilot worker. Default dry-run; requires reviewed protocol/collector.
+
+Uses the segmented solver backend only after its production acceptance record
+exists. This file alone never bypasses reference or first-case supervision.
+"""
+import argparse,asyncio,hashlib,json,sys,csv
+from pathlib import Path
+HERE=Path(__file__).resolve().parent
+ROOT=Path('J:/f8_261007')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def validate(spec):
+    p=read(ROOT/'production_protocol.json')
+    assert p['status']=='frozen_verified' and p['protocol_id']==spec['protocol_id']
+    assert sha(ROOT/'production_protocol.json')==spec['protocol_sha256']
+    assert p['modes'] in [2,3]
+    assert p['adaptive_method']=='Broadband0p1to15' and p['sweep_method']=='original_fullband_scalar_audited_v1'
+    assert p['implementation_hashes']
+    for file,digest in p['implementation_hashes'].items():assert sha(file)==digest,'Frozen production implementation changed'
+    for name in ['reference_review','collector_review']:
+        evidence=p[name];assert sha(evidence['path'])==evidence['sha256']
+        assert read(evidence['path'])['passed']
+    plan=read(HERE/'resume_queue_plan.json');case=next(x for x in plan['cases'] if x['case']==spec['case'])
+    history=case['historical_solves'];newroot=ROOT/spec['case']
+    existing=list(newroot.glob('i*/state.json'))
+    assert history+len(existing)<8,'Phase-solve budget exhausted'
+    assert sha(spec['source'])==spec['source_sha256']
+    assert p['source_B0_sha256']==spec['source_sha256']
+    assert Path(spec['source']).resolve()==Path('F:/hfss_f8_261002/B0/B0.aedt').resolve()
+    assert spec['geometry'] and spec['cores']==16 and spec['tasks']==1
+    sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+    import pilot_queue as q
+    assert q.geometry_gate(spec['geometry'],case['initial_geometry'])['passed']
+    return p,history+len(existing)
+async def solve(path):
+    spec=read(path);p,ordinal=validate(spec)
+    from run_broadband_case import solve as broadband_solve
+    await broadband_solve(path,p,ordinal)
+    return
+    import run_protocol_tf3 as backend
+    backend.RUN=Path(path).parent
+    assert backend.RUN.parent==ROOT/spec['case'] and backend.RUN.name==f'i{ordinal:02d}'
+    backend.PROJECT=backend.RUN/f'{spec["case"]}_{ordinal:02d}.aedt'
+    backend.STATE=backend.RUN/'state.json';backend.SOURCE=Path(spec['source'])
+    backend.SEED=ROOT/'no_mesh_seed.aedt';backend.MODE_COUNT=p['modes'];backend.REBUILD_GEOMETRY=spec['geometry']
+    backend.RUN_SCOPE=f'Authorized pilot {spec["case"]}, phase solve {ordinal+1}/8 including history'
+    await backend.main()
+    from assemble_segments import assemble
+    review=assemble(backend.RUN,p['modes'])
+    if not review['passed']:raise RuntimeError('Numerical review failed; preserve exports for review')
+    from export_segment_auxiliary import export
+    state=read(backend.STATE)
+    segment_map={name:state.get('sweep_names',{}).get(name,name) for name in ['Low','Bridge','High','Endpoint']}
+    export(backend.PROJECT,backend.SETUP,segment_map,backend.RUN/'auxiliary',backend.PORT,p['modes'])
+    samples={}
+    for name in ['Low','High','Bridge','Endpoint']:
+        with (backend.RUN/'auxiliary'/f'{name}_auxiliary.csv').open(encoding='utf-8') as h:
+            for row in csv.DictReader(h):samples[round(float(row['Freq_GHz']),2)]=row
+    assert len(samples)==1500
+    rows=[samples[round(i*.01,2)] for i in range(1,1501)]
+    with (backend.RUN/'mode_impedance_gamma.csv').open('w',newline='',encoding='utf-8') as h:
+        w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    mode_map={'mode_count_per_port':p['modes'],'fundamental_report_mapping':{'S11':'S(1:1,1:1)','S21':'S(2:1,1:1)'},'evidence':'Validated original HFSS Port[] headers in each segment; unchanged original Mode1 integration lines recorded in state.json','normalization':'native modal values for historical response comparison; separate 50ohm full-matrix validation'}
+    (backend.RUN/'mode_map.json').write_text(json.dumps(mode_map,indent=2),encoding='utf-8')
+    state=read(backend.STATE)
+    manifest={**spec,'project':str(backend.PROJECT),'status':'completed' if review['passed'] else 'numerical_review_required','source_unchanged':state.get('source_unchanged'),'curve_sha256':sha(backend.RUN/'sparams.csv'),'numerical_review':str(backend.RUN/'numerical_review.json'),'port_settings':state['port_settings'],'convergence':state['segments']['Low']['convergence'],'sweep_converged':all(x['status']=='exported' for x in state['segments'].values()),'geometry_check':state.get('cad_verification'),'execution_transport':'visible AEDT MCP','phase_solve_ordinal_including_history':ordinal+1}
+    (backend.RUN/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+    # These fields are readable after the numerical solve, but the queue cannot
+    # accept this worker until the preserved port identity is checked as well.
+    try:
+        from pilot_supervisor import aux_compare,verify_boundaries
+        from complete_reference_evidence import common_fields
+        baseline=Path(p['baseline_run'])
+        port_review={'fields':common_fields(baseline,backend.RUN),'auxiliary':aux_compare(baseline,backend.RUN),'boundaries':verify_boundaries(backend.RUN)}
+        port_review['passed']=all(x['passed'] for x in port_review.values())
+        (backend.RUN/'port_review.json').write_text(json.dumps(port_review,indent=2),encoding='utf-8')
+        assert port_review['passed'],'Port identity or continuity requires review'
+        manifest['port_review_sha256']=sha(backend.RUN/'port_review.json')
+    except Exception:
+        manifest['status']='port_review_required'
+        metrics=read(backend.RUN/'response_metrics.json');metrics['validity']['solver_convergence_verified']=False;metrics['formal_response_PR']=None
+        (backend.RUN/'response_metrics.json').write_text(json.dumps(metrics,indent=2),encoding='utf-8')
+        raise
+    finally:(backend.RUN/'manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
+    if not review['passed']:raise RuntimeError('Numerical review failed; do not dispatch another pilot')
+def main():
+    a=argparse.ArgumentParser();a.add_argument('spec');a.add_argument('--solve',action='store_true');args=a.parse_args()
+    if not args.solve:
+        print(json.dumps({'dry_run':True,'spec':read(args.spec),'required_protocol':str(ROOT/'production_protocol.json')},indent=2));return
+    asyncio.run(solve(Path(args.spec)))
+if __name__=='__main__':main()

@@ -1,0 +1,63 @@
+"""Independent evidence review for a completed mesh-budget geometry run."""
+import argparse
+import csv
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from geometry_worker import HERE, read, write, sha, now, passes, analyze, design_verdict
+from mesh_budget import MeshBudget, decide
+from publish_event import hook
+from pathlib import Path
+
+def review(run):
+    event=read(run/'completion_event.json');assert event['status']=='completed' and event['verified_success']
+    verified={}
+    for a in event['artifacts']:
+        p=(run/a['path']).resolve();assert p.is_relative_to(run.resolve()) and sha(p)==a['sha256']
+        verified[str(p)]=a['sha256']
+    spec=read(run/'input.json');s=read(run/'state.json');r=read(run/'finish24_result.json')
+    assert sha(spec['source'])==spec['source_sha256']
+    assert sha(HERE/'policy.json')==spec['policy_sha256']
+    assert sha(HERE/'mesh_policy_addendum_v2.json')==spec['mesh_addendum_sha256']
+    for p,digest in spec.get('parent_evidence_hashes',{}).items():assert sha(p)==digest
+    for p,digest in r['evidence_hashes'].items():assert sha(p)==digest
+    assert s['status']=='completed' and s['sweep_converged'] and s['source_unchanged']
+    previous=[];budget=MeshBudget(reviewed_exception_upper=112000)
+    for i,stage in enumerate(s['mesh_stages']):
+        expected=decide(previous[-1][1] if previous else 0,previous[-1][0] if previous else 0,i,budget)
+        assert stage['requested']==expected
+        actual=passes(run/f'convergence_stage_{i:02d}.txt')
+        assert actual[:len(previous)]==previous and actual[-1][:2]==[stage['actual_passes'],stage['actual_elements']]
+        if previous:assert len(actual)==len(previous)+1
+        previous=actual
+    assert passes(run/'convergence.txt')==previous
+    assert 100000<=previous[-1][1]<=112000 and previous[-1][1]==s['actual_elements']
+    assert s['cad_verification']['passed'] and s['cad_after']['passed']
+    assert all(seg['observed_16core_process'] and seg['observed_adaptive_process'] for seg in s['segments'] if seg['adaptive_requested'])
+    assert not s['segments'][-1]['observed_adaptive_process']
+    for name in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        with (run/name).open(encoding='utf-8-sig',newline='') as h:
+            reader=csv.reader(h);header=next(reader);values=np.array([[float(x) for x in row] for row in reader])
+        assert values.shape==(1500,len(header)) and np.isfinite(values).all()
+        assert np.allclose(values[:,0],np.arange(1,1501)/100)
+    metrics=analyze(run/'sparams.csv',f0=6.85)
+    for key in ['peak_difference_dB','central_valley_GHz']:
+        assert abs(metrics[key]-r['metrics'][key])<1e-12
+    assert abs(metrics['passband_2dB']['BW_GHz']-r['metrics']['passband_2dB']['BW_GHz'])<1e-12
+    assert design_verdict(metrics)==r['design_passed']
+    data=np.genfromtxt(run/'sparams.csv',delimiter=',',names=True)
+    fig,ax=plt.subplots(figsize=(9,4.5))
+    for col in ['S11_dB','S21_dB']:ax.plot(data['Freq_GHz'],data[col],label=col.replace('_dB',''))
+    ax.axhline(-2,color='gray',ls=':',lw=.8);ax.axhline(-10,color='gray',ls='--',lw=.8)
+    ax.set(xlim=(0,15),ylim=(-65,2),xlabel='Frequency (GHz)',ylabel='dB',title=f"{spec['case']} {run.name}: {s['actual_elements']} elements; design {'passed, needs direct review' if r['design_passed'] else 'not passed'}")
+    ax.grid(alpha=.25);ax.legend();fig.tight_layout()
+    image=HERE/'cases'/spec['case']/f'{run.name}_response.png';fig.savefig(image,dpi=150);plt.close(fig)
+    out={'event_id':hook.event_id(event),'case':spec['case'],'run':str(run),'verified_at':now(),'event_sha256':sha(run/'completion_event.json'),
+         'verified_hashes':verified,'actual_elements':s['actual_elements'],'mesh_history_verified':True,'design_passed':r['design_passed'],
+         'metrics':metrics,'plot':str(image),'plot_sha256':sha(image),'full_matrix_approved':False,'visual_review_pending':True}
+    write(run/'receiver_verification.json',out)
+    print({k:out[k] for k in ['event_id','actual_elements','design_passed','plot']})
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);review(p.parse_args().run.resolve())

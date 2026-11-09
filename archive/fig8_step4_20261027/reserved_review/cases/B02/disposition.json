@@ -1,0 +1,146 @@
+{
+  "case": "B02",
+  "state": "numerical_or_sampled_design_unresolved",
+  "source": "J:\\f8_B6_261027\\B02\\g01_initial",
+  "direct_run": "J:\\f8_B6_261027\\B02\\direct_reserved",
+  "comparison": {
+    "points": 29,
+    "max_complex_error": 0.002217535031646331,
+    "max_nearband_S21_error_dB": 0.0015130680460495594,
+    "peak_reviews": [
+      {
+        "reference_GHz": 5.35,
+        "actual_sampled_peak_GHz": 5.37,
+        "actual_sampled_peak_dB": -22.062395647750716,
+        "interior": true,
+        "source_sampled_peak_dB": -22.060332714378653,
+        "height_error_dB": 0.0020629333720627585,
+        "points": [
+          5.34,
+          5.35,
+          5.36,
+          5.37,
+          5.38,
+          5.39,
+          5.4
+        ]
+      },
+      {
+        "reference_GHz": 8.07,
+        "actual_sampled_peak_GHz": 8.06,
+        "actual_sampled_peak_dB": -21.520524501035872,
+        "interior": true,
+        "source_sampled_peak_dB": -21.513501664635882,
+        "height_error_dB": 0.00702283639999024,
+        "points": [
+          8.02,
+          8.03,
+          8.04,
+          8.05,
+          8.06,
+          8.07,
+          8.08
+        ]
+      }
+    ],
+    "edge_reviews": [
+      {
+        "kind": "S21",
+        "reference_GHz": 3.101378806156877,
+        "points": [
+          3.08,
+          3.12
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.101923728111303,
+        "shift_GHz": 0.0005449219544257922
+      },
+      {
+        "kind": "S21",
+        "reference_GHz": 9.92142753693834,
+        "points": [
+          9.9,
+          9.94
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.920238325348608,
+        "shift_GHz": 0.0011892115897325084
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 3.7807153486602747,
+        "points": [
+          3.761,
+          3.776,
+          3.786,
+          3.801
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.778395829046752,
+        "shift_GHz": 0.0023195196135228358,
+        "fine_bracket_width_GHz": 0.010000000000000231,
+        "coarse_fine_shift_GHz": 0.0003367013355339843,
+        "other_condition_verified": true
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 9.414027319545548,
+        "points": [
+          9.394,
+          9.409,
+          9.419,
+          9.434
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.414070065111337,
+        "shift_GHz": 4.2745565789203965e-05,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.00032948491588236095,
+        "other_condition_verified": true
+      }
+    ],
+    "direct_bandwidths": {
+      "S21": {
+        "f_low_GHz": 3.101923728111303,
+        "f_high_GHz": 9.920238325348608,
+        "BW_GHz": 6.818314597237305,
+        "width_shift_GHz": 0.0017341335441587447
+      },
+      "S11": {
+        "f_low_GHz": 3.778395829046752,
+        "f_high_GHz": 9.414070065111337,
+        "BW_GHz": 5.6356742360645855,
+        "width_shift_GHz": 0.0023622651793120397
+      }
+    },
+    "direct_peak_difference_dB": 0.5418711467148434,
+    "requested_band_direct_worst_S11": {
+      "GHz": 8.06,
+      "dB": -21.520524501035872
+    },
+    "requested_band_direct_min_S21": {
+      "GHz": 9.22,
+      "dB": -0.7906742689497535
+    },
+    "direct_target_violations": [],
+    "dense_target_covered": true,
+    "target_finite_direct_failure_confirmed": false,
+    "numerical_review_passed": true,
+    "sampled_design_supported": false,
+    "needs_reserved_points": false,
+    "needs_peak_expansion": false,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+    "baseline_tuning_passed": false
+  },
+  "actual_elements": 102718,
+  "event_sha256": "a6ec8025de3412f7e6787dacdca25d03f1ee3ffc85f315b0c2cbfe77291c3f08",
+  "ack_sha256": "24f21da0451ff23a08e4321699c9b4700c6ee103ae67f9ab2e6e8a45197531a8"
+}

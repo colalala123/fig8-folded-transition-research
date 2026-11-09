@@ -1,0 +1,35 @@
+import unittest
+from mesh_budget import MeshBudget, decide, design_verdict
+
+class TestMeshBudget(unittest.TestCase):
+    def test_initial(self):
+        d=decide(0,0,0);self.assertEqual(d['maximum_passes'],16);self.assertFalse(d['sweep_enabled'])
+    def test_target_edges(self):
+        for n in (100000,105000,110000):self.assertTrue(decide(n,24,8)['mesh_target_met'])
+    def test_trial_overshoot_never_silently_accepted(self):
+        d=decide(111552,23,2);self.assertEqual(d['action'],'review');self.assertFalse(d['automatic_rerun'])
+    def test_explicit_exception(self):
+        d=decide(111552,23,2,MeshBudget(reviewed_exception_upper=112000))
+        self.assertEqual(d['action'],'sweep');self.assertTrue(d['mesh_exception_used']);self.assertFalse(d['mesh_target_met'])
+    def test_above_exception(self):
+        self.assertEqual(decide(112001,23,2,MeshBudget(reviewed_exception_upper=112000))['action'],'review')
+    def test_small_steps(self):
+        for n,pct in [(30000,30),(60000,10),(90000,5),(99999,5)]:
+            d=decide(n,20,2);self.assertEqual(d['maximum_passes'],21);self.assertEqual(d['percent_refinement'],pct)
+            self.assertFalse(d['sweep_enabled']);self.assertFalse(d['use_max_tet_increase'])
+    def test_bounded(self):
+        self.assertEqual(decide(90000,36,4)['action'],'review')
+        self.assertEqual(decide(90000,23,12)['action'],'review')
+    def test_bad_input(self):
+        for args in [(-1,1,1),(True,1,1),(2.5,1,1),(1,1,0),(0,1,1)]:
+            with self.assertRaises(ValueError):decide(*args)
+    def test_design_separate_from_delta_s(self):
+        m={'peak_difference_dB':.49,'central_valley_GHz':6.69,'prominent_valley_count':3,
+           'validity':dict(S11_below_minus10_between_valleys=True,S21_ge_minus2_between_valleys=True,
+                           band_not_truncated=True,nonpositive_transmission=True,solver_convergence_verified=False)}
+        self.assertTrue(design_verdict(m))
+        m['peak_difference_dB']=.51;self.assertFalse(design_verdict(m))
+        m['peak_difference_dB']=float('nan');self.assertFalse(design_verdict(m))
+    def test_missing_metrics(self):self.assertFalse(design_verdict({}))
+
+if __name__=='__main__':unittest.main()

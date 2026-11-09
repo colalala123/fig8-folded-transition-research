@@ -1,0 +1,58 @@
+{
+  "runs": [
+    [
+      "N112_D05G02",
+      "D05G02",
+      23,
+      111552
+    ],
+    [
+      "N090_D05G02",
+      "D05G02",
+      22,
+      90937
+    ],
+    [
+      "N090_D08G05",
+      "D08G05",
+      18,
+      89965
+    ]
+  ],
+  "reuse": "J:\\f8_speed_261021\\M_D08G05",
+  "references": {
+    "D05G02": "J:\\f8_speed_261021\\F_D05G02",
+    "D08G05": "J:\\f8_speed_261021\\I_D08G05"
+  },
+  "interp_tolerance_percent": 1.0,
+  "enforce_passivity": false,
+  "MaxDeltaS": 0.005,
+  "PercentRefinement": 30,
+  "cores": 16,
+  "concurrent_tasks": 1,
+  "mode_count": 2,
+  "error_budgets": {
+    "tuning": {
+      "bw": 0.05,
+      "edge": 0.03,
+      "center": 0.03,
+      "peak": 0.15,
+      "s21": 0.1,
+      "complex": 0.02
+    },
+    "strict_response": {
+      "bw": 0.02,
+      "edge": 0.02,
+      "center": 0.01,
+      "peak": 0.1,
+      "s21": 0.05,
+      "complex": 0.005
+    }
+  },
+  "purpose": "Bracket 100000 with matched ~90000 and ~112000 cell counts. Do not equate cell count with guaranteed accuracy or mark adaptive nonconvergence as an automatic failure.",
+  "protocol_sha256": "c2c6ff583825ec510f4cbccae884f04f7a20129ff89ae20a323d17714cffec40",
+  "source_sha256": {
+    "D05G02": "443cfb10219c031c9b5c31d21f058145d80f4d5b812ddda0c525ef815e156834",
+    "D08G05": "e711e7bf9f2071728dc0069c9d79b77f502b0851000cc859f66ae055c7684d37"
+  }
+}

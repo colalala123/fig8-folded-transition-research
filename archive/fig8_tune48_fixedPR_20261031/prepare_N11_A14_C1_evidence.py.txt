@@ -1,0 +1,26 @@
+"""Bind actually reviewed probes into the not-yet-frozen candidate context."""
+import hashlib,json
+from pathlib import Path
+
+ROOT=Path(__file__).resolve().parent
+CTX=ROOT.parent/'fig8_tune48_N11_A14_c1_20261031'
+assert not (CTX/'initial_inputs.json').exists()
+assert not (ROOT/'releases/N11_A14_C1.json').exists()
+def read(p):return json.loads(p.read_text(encoding='utf-8'))
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+evidence=read(CTX/'parent_evidence.json')
+for case in ['N11_A14_S','N11_A14_M']:
+    run=ROOT/'data/N11_A14/probes'/case/'g01_initial'
+    ack=read(run/'receiver_ack.json')
+    assert ack['visual_review_completed'] and ack['artifacts_verified'] and ack['operation_success']
+    event=read(run/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success']
+    files=[run/n for n in ['input.json','state.json','completion_event.json','receiver_ack.json','receiver_verification.json','response_metrics.json','supervised_start.json']]
+    files += [run/a['path'] for a in event['artifacts']]
+    files += [Path(read(run/'receiver_verification.json')['plot'])]
+    for p in files:evidence['hashes'][str(p)]=sha(p)
+(CTX/'parent_evidence.json').write_text(json.dumps(evidence,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+p=CTX/'CONTINUATION.md'
+with p.open('a',encoding='utf-8') as f:
+    f.write('\n## Startup entrypoint\nUse '+str(ROOT/'run_context_v4.py')+' --context CONTEXT --case CASE; read STARTUP_ADAPTER_V4.md. Do not directly retry legacy launch_one. Candidate prediction is not HFSS success; normal nominal_buffer_satisfied does not certify 0.4dB margin.\n')
+print({'candidate':'N11_A14_C1','probe_evidence_bound':True,'Analyze_requested':False})

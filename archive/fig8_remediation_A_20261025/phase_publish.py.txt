@@ -1,0 +1,34 @@
+"""Current-chat completion delivery with its own event-driven heartbeat."""
+import sys
+from pathlib import Path
+from phase_control import HERE, HOOK, TARGET, read, write, now
+sys.path.insert(0, str(HOOK))
+import completion_hook as hook
+
+def prompt(event, path):
+    return (f'[Fig8 新一轮A阶段 / 自动完成事件]\n事件ID：{hook.event_id(event)}\n'
+        f"状态：{event['status']}\n摘要：{event['summary']}\n事件：{Path(path).resolve().as_posix()}\n"
+        f'用户授权16核串行及完成后通知本聊天继续。先核验事件产物SHA及实际曲线，写receiver_ack.json。'
+        f'然后读取{HERE / "CONTINUATION.md"}及{HERE / "authorization.json"}继续A阶段。'
+        '只限D11G05/D09G02，A阶段最多新增3个几何+4个缓存任务；历史计数保留，B/C未释放。'
+        'D11G05当前5点诊断不是完整验收，不修改几何或旧失败记录。'
+        '先恢复已有结果，不盲目Analyze/清锁。成功、设计、数值结论分开；旧first24已收尾，不得覆盖其结果。'
+        '正常仿真不发周期消息，仅完成通知后5分钟没有新仿真才检查AI状态并按去重规则继续。'
+        '本轮结束前需核实下一项真实启动，或写绑定当前event_sha256的continuation_resolution.json，'
+        'disposition为blocked/paused/batch_complete且reason有证据。paused仅限用户明确要求。'
+        'A阶段明确终态后汇总并停止派发，B/C需另行决定。')
+
+async def publish(run, status, summary, artifacts):
+    cfg=hook.load_config(HERE/'hook/config.json')
+    assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET]
+    path=Path(run)/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run, status, summary, artifacts, config=cfg,
+            verified_success=status=='completed', purpose='User-authorized Fig8 remediation stage A only; inspect and continue current chat')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path, config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try: arm(path)
+        except Exception as exc: write(Path(run)/'heartbeat_start_error.json', dict(at=now(),error=repr(exc)))
+    return receipt

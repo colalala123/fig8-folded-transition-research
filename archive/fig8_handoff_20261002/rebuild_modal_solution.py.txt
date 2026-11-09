@@ -1,0 +1,58 @@
+"""Recompute modal solution metadata from the proven broadband mesh in a fresh setup.
+
+The 0.1--15 GHz converged source mesh is imported, then additionally adapted at
+15 GHz with the SAME .005/6/40/2/30% criteria. This is a diagnostic repair trial,
+not a protocol waiver. Source matrices are not imported into the new sweep.
+"""
+import asyncio,json,shutil,traceback
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+from pilot_worker import write_json,now,sha,plain
+ROOT=Path('F:/hfss_f8x_261002');SRC=ROOT/'M_B0_3w16';RUN=ROOT/'R_B0_rebuild';PORT=12704;NAME=RUN.name
+def attach():
+    return Hfss(project=str(RUN/(NAME+'.aedt')),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+async def main():
+    if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])):raise RuntimeError('Solver active')
+    if RUN.exists():raise RuntimeError('Existing trial requires review')
+    RUN.mkdir();shutil.copy2(SRC/'M_B0_3w16.aedt',RUN/(NAME+'.aedt'))
+    m={'status':'preparing','started_at_utc':now(),'source_project':str(SRC/'M_B0_3w16.aedt'),'source_sha256':sha(SRC/'M_B0_3w16.aedt'),'diagnostic_only':True,'cores':16,'tasks':1,'inherited_broadband_convergence':json.loads((SRC/'manifest.json').read_text(encoding='utf-8'))['convergence'],'rationale':__doc__}
+    write_json(RUN/'repair_manifest.json',m)
+    app=attach()
+    try:
+        assert Path(app.project_path).resolve()==RUN.resolve()
+        setup=app.create_setup(name='ModalRepair',setup_type='HFSSDriven')
+        assert setup
+        setup.auto_update=False
+        setup.props.update({'SolveType':'Single','Frequency':'15GHz','MaxDeltaS':.005,'MaximumPasses':40,'MinimumPasses':6,'MinimumConvergedPasses':2,'PercentRefinement':30,'PortAccuracy':2,'BasisOrder':1,'DrivenSolverType':'Direct Solver','SaveAnyFields':True})
+        assert setup.update();setup.auto_update=True
+        assert setup.add_mesh_link(design=app.design_name,solution='Setup19 : LastAdaptive',project=str(SRC/'M_B0_3w16.aedt'),force_source_to_solve=False,preserve_partner_solution=True,adapt_port=True)
+        sw=setup.add_sweep('SweepRepair','Interpolating')
+        sw.props.update({'RangeType':'LinearStep','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz','InterpTolerance':.1,'InterpMaxSolns':250,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':True,'InterpUsePropConst':True,'UseFullBasis':True,'EnforcePassivity':True,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SaveFields':True,'SaveRadFields':False})
+        assert sw.update()
+        m['setup']=plain(setup.props);m['sweep']=plain(sw.props);m['ports']={b.name:plain(b.props) for b in app.boundaries if b.type=='Wave Port'}
+        app.save_project();m['messages_before']=list(app.odesktop.GetMessages(NAME,app.design_name,0))
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    m['status']='prepared';write_json(RUN/'repair_manifest.json',m)
+    m['mcp_start']=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120})
+    assert m['mcp_start'].get('started');m['status']='solving';write_json(RUN/'repair_manifest.json',m)
+    while True:
+        await asyncio.sleep(30)
+        st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','port':PORT,'timeout':120})
+        if not st.get('running'):break
+    app=attach()
+    try:
+        m['messages']=list(app.odesktop.GetMessages(NAME,app.design_name,0))
+        app.export_convergence('ModalRepair',output_file=str(RUN/'convergence.txt'))
+        for norm in (False,True):
+            assert app.export_touchstone(setup='ModalRepair',sweep='SweepRepair',output_file=str(RUN/('hfss_50ohm.s6p' if norm else 'hfss_native.s6p')),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+        m['nonpassive_warning']=any('non passive' in s.lower() or 'passivity cannot' in s.lower() for s in m['messages'])
+        m['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in s for s in m['messages'])
+        m['status']='exported_needs_review';m['source_unchanged']=sha(SRC/'M_B0_3w16.aedt')==m['source_sha256'];m['finished_at_utc']=now();app.save_project();write_json(RUN/'repair_manifest.json',m)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+if __name__=='__main__':
+    try:asyncio.run(main())
+    except Exception:
+        if RUN.exists():(RUN/'error.txt').write_text(traceback.format_exc(),encoding='utf-8')
+        raise

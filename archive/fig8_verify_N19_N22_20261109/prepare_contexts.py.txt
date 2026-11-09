@@ -1,0 +1,30 @@
+import sys,json,shutil,ast
+from pathlib import Path
+R=Path(__file__).resolve().parent;sys.path.insert(0,str(R))
+import build_runtime as br
+from tuning_budget import validate_campaign
+plan=br.read(R/'PLAN.json')
+for row in plan['cases']:
+ ctx=br.make(row['parent'],'c1',[row['geometry']],Path(row['source']))
+ shutil.copyfile(R/'aedt_identity.json',ctx/'aedt_identity.json')
+ doc=f'''# Only two diagnostic candidates, not old campaign resume
+Authorization and controller root: {R}
+Current case: {row['case']}. Read PLAN.json and EXECUTION_PLAN.md at root.
+After terminal hook: review_phase_geometry.py --run RUN, view actual plot, acknowledge_review.py --run RUN --visual-reviewed --note honest result.
+Never call old continue_tuning or run_context_v6. The old campaign PAUSE remains in force.
+If first N19 completed and actually reviewed, use {R/'launch_verified.py'} --parent N22_A18. If technical failure, stop and inspect; no retry or new candidate. If second N22 completed, compare actual vs frozen prediction and stop both phase heartbeats; write closure only for these two points. Do not start N15 or other48.
+Only14cores serial; each<=13Analyze, total<=26, old269+new<=2236; no fake ACK or lock clearing. Normal solving silent; terminalhook only.
+'''
+ (ctx/'CONTINUATION.md').write_text(doc,encoding='utf8')
+ publish=(ctx/'phase_geometry_publish.py').read_text(encoding='utf8')
+ start=publish.index('def prompt(');end=publish.index('async def publish(',start)
+ prompt="def prompt(event,path):\n    return f'[N19/N22 limited diagnostic terminal] {path}\\n{event[\"summary\"]}\\nRead {HERE/\"CONTINUATION.md\"}. Only N19_A14_D1 and N22_A18_D1 authorized. Old campaign stays paused. Real visual review/ACK then launch_verified.py for N22 only; after N22 stop. Technical failure: inspect, no retries. No old continue_tuning.'\n"
+ publish=publish[:start]+prompt+publish[end:];(ctx/'phase_geometry_publish.py').write_text(publish,encoding='utf8')
+ auth=br.read(ctx/'authorization.json');auth['launch_user_instruction']='Only verify N19_A14 and N22_A18; one controlled desktop recovery authorized';br.write(ctx/'authorization.json',auth)
+ ev=br.read(ctx/'parent_evidence.json')
+ for p in [R/'PLAN.json',R/'HISTORICAL_BUDGET_SNAPSHOT.json',R/'recovery_attempt.json',R/'aedt_identity.json']:
+  ev['hashes'][str(p)]=br.sha(p)
+ br.write(ctx/'parent_evidence.json',ev)
+ for p in ctx.glob('*.py'):ast.parse(p.read_text(encoding='utf-8-sig'))
+ print('CONTEXT_READY',ctx)
+print(validate_campaign(storage=True))

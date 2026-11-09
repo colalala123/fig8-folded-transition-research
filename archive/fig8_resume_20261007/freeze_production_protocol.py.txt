@@ -1,0 +1,64 @@
+"""Freeze only completed, reviewed reference and collector evidence. No solves."""
+import argparse,json,hashlib,os,sys
+from datetime import datetime,timezone
+from pathlib import Path
+HERE=Path(__file__).resolve().parent;ROOT=Path('J:/f8_261007')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def verify_hashes(x):
+    assert x['evidence_hashes']
+    for file,digest in x['evidence_hashes'].items():assert sha(file)==digest,('Changed evidence',file)
+
+def candidate():
+    # Collector closeness is not transitive: the actual production candidate
+    # must independently satisfy the stable two/three-mode comparison.
+    direct=read(ROOT/'B0M2/production_vs_three_mode.json')
+    assert direct['passed'],'Rejected Single15 candidate: direct two/three-mode comparison failed; no production freeze'
+    rp=ROOT/'reference_review.json';cp=ROOT/'collector_review.json'
+    ref=read(rp);col=read(cp)
+    assert ref['passed'] and col['passed'] and ref['recommended_modes']==2
+    verify_hashes(ref);verify_hashes(col)
+    for name in ['B0M2','B0R2']:
+        run=ROOT/name;s=read(run/'state.json');review=read(run/'collector_case_review.json')
+        assert review['passed'];verify_hashes(review)
+        assert s['status']=='segments_exported_review_required' and s['source_unchanged']
+        assert s['cores']==16 and s['tasks']==1 and s['modes_per_port']==2
+        assert sha(s['source'])==s['source_sha256']
+        setup=s['setup_props']
+        for k,v in {'SolveType':'Single','Frequency':'15GHz','MaxDeltaS':.005,'MaximumPasses':40,'MinimumPasses':6,'MinimumConvergedPasses':2,'PercentRefinement':30,'PortAccuracy':2}.items():assert setup[k]==v,(name,k)
+        assert not setup['MeshLink']['ImportMesh']
+        for k in ['Low','Bridge','High','Endpoint']:
+            segment=s['segments'][k];assert segment['status']=='exported'
+            assert segment['convergence']['converged'] and segment['convergence']['final_delta_s']<=.005
+            expected='Discrete' if k in ['Bridge','Endpoint'] else 'Interpolating'
+            assert segment['settings_evidence']['actual_type']==expected
+            if expected=='Interpolating':assert float(segment['settings_evidence']['saved_properties']['InterpTolerance'])==.5
+            assert segment['mcp_response']['resource_plan']['cores_per_task']==16 and segment['mcp_response']['resource_plan']['concurrent_tasks']==1
+        if name=='B0R2':assert s['cad_verification']['passed']
+    baseline=ROOT/'B0M2';metrics=read(baseline/'response_metrics.json')
+    sources={k:Path(f'F:/hfss_f8_261002/{k}/{k}.aedt') for k in ['B0','T_F3']}
+    assert sha(sources['T_F3'])==read(ROOT/'TF3M3/state.json')['source_sha256']
+    assert sha(sources['B0'])==read(ROOT/'B0M2/state.json')['source_sha256']
+    files=[HERE/name for name in ['run_protocol_tf3.py','run_guarded_case.py','guarded_pilot_queue.py','assemble_segments.py','export_segment_auxiliary.py','complete_reference_evidence.py','audit_existing.py']]
+    old=HERE.parent/'fig8_handoff_20261002'
+    files+=[old/name for name in ['pilot_worker.py','pilot_queue.py','pilot_supervisor.py','port_evidence.py','mcp_call.py']]
+    files+=[HERE.parent/'folded_simulation_plan_20260920/response_metrics.py']
+    workspace=HERE.parent.parent
+    files+=[HERE.parent/'folded_fig8_run_20261002/run_batch.py',HERE.parent/'folded_geometry_scope_20261002/prepare_geometry_scope.py',workspace/'tmp/folded_plan_review/automation/folded_transition.py',workspace.parent/'mcp/mcp_server.py',workspace.parent/'mcp/pyaedt_worker.py']
+    return {'status':'frozen_verified','protocol_id':'fig8_mode2_single15_segmented_v1_20261007','modes':2,'adaptive_method':'Single15GHz','sweep_method':'segmented_verified_v1','baseline_run':str(baseline),'central_valley_target_GHz':metrics['central_valley_GHz'],'f0_reference_GHz':6.85,'material':{'er':3.55,'tand':.0027,'h_mm':.813},'cores':16,'tasks':1,'port':7990,'normalization':'Native modal Zpi for S11/S21 and P/R; independent real-50ohm full-matrix audit. Never mix normalization conventions.','source_B0_sha256':sha(sources['B0']),'source_T_F3_sha256':sha(sources['T_F3']),'reference_review':{'path':str(rp),'sha256':sha(rp)},'collector_review':{'path':str(cp),'sha256':sha(cp)},'implementation_hashes':{str(p):sha(p) for p in files},'pilot_matrix_sha256':sha(Path('F:/hfss_f8x_261002/pilot_24.csv')),'scope':'24 pilot configurations only; history included in maximum eight phase solves per configuration; first supervised checks required before remaining queue; required corner reviews still pending','production_limits':'S11/S21 fundamental channels only do not identify radiation loss separately; mode sufficiency is checked again at four width corners.'}
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--freeze',action='store_true');a=p.parse_args()
+    missing=[str(ROOT/x) for x in ['reference_review.json','collector_review.json'] if not (ROOT/x).exists()]
+    if missing:
+        print(json.dumps({'ready':False,'missing':missing},indent=2));return
+    result=candidate()
+    if a.freeze:
+        dest=ROOT/'production_protocol.json'
+        if dest.exists():
+            old=read(dest);old.pop('frozen_at_utc',None);assert old==result,'Existing protocol differs; explicit evidence review required'
+        else:
+            result['frozen_at_utc']=datetime.now(timezone.utc).isoformat()
+            tmp=dest.with_suffix('.tmp');tmp.write_text(json.dumps(result,indent=2),encoding='utf-8');os.replace(tmp,dest)
+    print(json.dumps({'ready':True,'written':a.freeze,'protocol':result},indent=2))
+if __name__=='__main__':main()

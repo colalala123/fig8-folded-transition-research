@@ -1,0 +1,15 @@
+from pathlib import Path
+from ansys.aedt.core import Hfss
+P=Path(r'F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt');app=Hfss(project=str(P),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ for oid in [12391,19891,12113,12395,12152,19895]:
+  for meth in ['GetObjectNameByID','GetObjectName']:
+   try: print(oid,meth,getattr(app.oeditor,meth)(oid)); break
+   except Exception as e: pass
+ print('objects',len(app.modeler.object_names));
+ for n in app.modeler.object_names:
+  try:
+   bb=app.modeler[n].bounding_box
+   if any(abs(v)>20 for v in bb): print(n,bb)
+  except: pass
+finally: app.release_desktop(close_projects=False,close_desktop=False)

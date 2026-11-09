@@ -1,0 +1,187 @@
+{
+  "requested_frequencies_GHz": [
+    3.04,
+    3.08,
+    3.667,
+    3.682,
+    3.692,
+    3.707,
+    3.92,
+    5.22,
+    5.23,
+    5.24,
+    6.73,
+    8.15,
+    8.16,
+    8.17,
+    8.18,
+    8.19,
+    8.2,
+    8.21,
+    9.507,
+    9.52,
+    9.522,
+    9.532,
+    9.547,
+    9.97,
+    10.01
+  ],
+  "chunks": [
+    [
+      8.15,
+      8.16,
+      8.17,
+      8.18
+    ]
+  ],
+  "target": {
+    "f_low_GHz": 3.92,
+    "f_high_GHz": 9.52,
+    "BW_GHz": 5.6,
+    "S11_max_dB": -20,
+    "S21_min_dB": -2
+  },
+  "peak_neighborhoods": [
+    {
+      "reference_GHz": 5.23,
+      "points": [
+        5.22,
+        5.23,
+        5.24
+      ]
+    },
+    {
+      "reference_GHz": 8.2,
+      "points": [
+        8.15,
+        8.16,
+        8.17,
+        8.18,
+        8.19,
+        8.2,
+        8.21
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "kind": "S21",
+      "reference_GHz": 3.0595302609588133,
+      "points": [
+        3.04,
+        3.08
+      ],
+      "role": "f_low_GHz"
+    },
+    {
+      "kind": "S21",
+      "reference_GHz": 9.991783026393184,
+      "points": [
+        9.97,
+        10.01
+      ],
+      "role": "f_high_GHz"
+    },
+    {
+      "kind": "S11",
+      "reference_GHz": 3.6867808151204637,
+      "points": [
+        3.667,
+        3.682,
+        3.692,
+        3.707
+      ],
+      "role": "f_low_GHz"
+    },
+    {
+      "kind": "S11",
+      "reference_GHz": 9.527292424558178,
+      "points": [
+        9.507,
+        9.522,
+        9.532,
+        9.547
+      ],
+      "role": "f_high_GHz"
+    }
+  ],
+  "reasons": {
+    "5.22": [
+      "inner_S11_peak"
+    ],
+    "5.23": [
+      "inner_S11_peak"
+    ],
+    "5.24": [
+      "inner_S11_peak"
+    ],
+    "8.19": [
+      "inner_S11_peak"
+    ],
+    "8.2": [
+      "inner_S11_peak"
+    ],
+    "8.21": [
+      "inner_S11_peak"
+    ],
+    "6.73": [
+      "central_reference_sample"
+    ],
+    "3.04": [
+      "S21_minus2_edge"
+    ],
+    "3.08": [
+      "S21_minus2_edge"
+    ],
+    "9.97": [
+      "S21_minus2_edge"
+    ],
+    "10.01": [
+      "S21_minus2_edge"
+    ],
+    "3.667": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "3.682": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "3.692": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "3.707": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.507": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.522": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.532": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.547": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.52": [
+      "worst_reflection_in_requested_band",
+      "worst_transmission_in_requested_band"
+    ]
+  },
+  "reserve_points": 8,
+  "reserve_launches": 2,
+  "scope": "Target endpoints, target inner peaks/extrema, S21 edges and center joint20 edges only. No remote disconnected-band certification.",
+  "reserved_acquisition_notes": [
+    {
+      "kind": "peak_expansion",
+      "reference": 8.2,
+      "points": [
+        8.15,
+        8.16,
+        8.17,
+        8.18
+      ],
+      "reason": "Actual first-wave maximum was a window boundary"
+    }
+  ]
+}

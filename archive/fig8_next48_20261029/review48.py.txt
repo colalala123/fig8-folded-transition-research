@@ -1,0 +1,27 @@
+"""Receiver-derived scientific labels. Independent review + actual image ACK required."""
+import argparse,subprocess,sys,json,hashlib
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent;OUT=ROOT.parent
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def main(case):
+ frozen=read(ROOT/'campaign_frozen.json');row=next(r for r in frozen['cases'] if r['case']==case)
+ ctx=Path(row['context']);run=Path(row['run_dir'])
+ assert not (run/'receiver_ack.json').exists(),'Already reviewed: do not overwrite verification/ACK'
+ subprocess.run([sys.executable,str(ctx/'review_phase_geometry.py'),'--run',str(run)],check=True)
+ sys.path.insert(0,str(OUT/'fig8_theory_ml_20261028'))
+ sys.path.insert(0,str(OUT/'fig8_B05_fix14_20261029'))
+ from b05_corrector import load_curve,assess
+ curve=load_curve(run/'sparams.csv');primary=assess(*curve,row['target']);secondary=assess(*curve,row['secondary_target'])
+ metrics=read(run/'response_metrics.json');bw=metrics['passband_2dB']['BW_GHz']
+ pred=next(p for p in read(ROOT/'predictions_frozen.json')['rows'] if p['case']==case)
+ label=dict(case=case,family_id=row['family_id'],role=row['role'],source=str(run),source_curve_sha256=sha(run/'sparams.csv'),
+    primary=primary,secondary=secondary,S21_minus2_BW_GHz=bw,joint20=read(run/'target20_metrics.json'),
+    forward_BW_error_GHz=bw-pred['forward_S21_minus2_BW_GHz'],
+    numerical_scope='Mesh-controlled interpolated acquisition; not final native direct certification',
+    optimized_inverse_length_label=False,visual_ACK_pending=True)
+ dest=ROOT/'labels'/f'{case}.json';assert not dest.exists();dest.parent.mkdir(exist_ok=True)
+ dest.write_text(json.dumps(label,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+ print(json.dumps(dict(case=case,primary=primary,secondary=secondary,plot=str(ctx/'cases'/case/'g01_initial_response.png'),next='Actually view PNG then acknowledge_review.py --visual-reviewed; no automatic visual ACK.'),ensure_ascii=False,indent=2))
+if __name__=='__main__':
+ p=argparse.ArgumentParser();p.add_argument('--case',required=True);main(p.parse_args().case)

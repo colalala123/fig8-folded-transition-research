@@ -1,0 +1,433 @@
+{
+  "case": "D03G02",
+  "case_state": "scoped_accepted",
+  "reason": "same_mesh_direct_checked_and_design_passed",
+  "numerical_review_passed": true,
+  "design_passed": true,
+  "full_matrix_approved": false,
+  "selected_run": "J:\\f8_261007\\D03G02\\i03",
+  "direct_run": "J:\\f8_finish24_261023\\D03G02",
+  "geometry": {
+    "Wm": 0.9,
+    "Ws": 0.58,
+    "Lm": 6.549465,
+    "Ls1": 12.08066,
+    "Ls2": 1.71,
+    "Ls3": 1.98
+  },
+  "metrics": {
+    "extraction_version": "response_pr_v1_20260920",
+    "curve_path": "J:\\f8_261007\\D03G02\\i03\\sparams.csv",
+    "curve_sha256": "6ab2186b04094fe2641725eb9389d03ddcbd6ee65e829091035158eaab983373",
+    "points": 1500,
+    "frequency_range_GHz": [
+      0.01,
+      15.0
+    ],
+    "f0_reference_GHz": 6.85,
+    "peak_average": "linear magnitude mean, then 20log10",
+    "R_definition": "zm/zs",
+    "max_S21_dB": -0.40575141061533515,
+    "power_excess_S11_S21": -0.0005942968088082923,
+    "formal_response_PR": null,
+    "diagnostic_response_PR": {
+      "P_response": 2.5892513871941456,
+      "R_BW": 1.114354693715816,
+      "Zm_response_ohm": 84.93150823648993,
+      "Zs_response_ohm": 76.21586620081064,
+      "f0_reference_GHz": 6.85
+    },
+    "passband_2dB": {
+      "f_low_GHz": 3.1736869618482406,
+      "f_high_GHz": 9.940594403630705,
+      "BW_GHz": 6.766907441782465,
+      "touches_sweep_edge": false
+    },
+    "passband_joint": {
+      "f_low_GHz": 3.316656505451615,
+      "f_high_GHz": 9.940594403630705,
+      "BW_GHz": 6.62393789817909,
+      "touches_sweep_edge": false
+    },
+    "prominent_valley_count": 3,
+    "valley_prominence_dB": 0.5,
+    "valleys": [
+      {
+        "frequency_GHz": 3.63,
+        "S11_dB": -26.75833532349824
+      },
+      {
+        "frequency_GHz": 6.69,
+        "S11_dB": -72.30728336862501
+      },
+      {
+        "frequency_GHz": 9.72,
+        "S11_dB": -23.129297482386985
+      }
+    ],
+    "peaks": [
+      {
+        "frequency_GHz": 4.68,
+        "S11_dB": -11.026714862087314,
+        "S21_dB": -0.8057032345572296
+      },
+      {
+        "frequency_GHz": 8.69,
+        "S11_dB": -10.755064882529883,
+        "S21_dB": -1.1671705154224028
+      }
+    ],
+    "signed_peak_difference_dB": -0.27164997955743075,
+    "peak_difference_dB": 0.27164997955743075,
+    "peak_level_dB": -10.889827938712681,
+    "central_valley_GHz": 6.69,
+    "band_center_GHz": 6.5571406827394725,
+    "worst_S11_between_valleys_dB": -10.755064882529883,
+    "min_S21_between_valleys_dB": -1.4376232299152092,
+    "validity": {
+      "peak_difference_le_0p5": true,
+      "S11_below_minus10_between_valleys": true,
+      "S21_ge_minus2_between_valleys": true,
+      "band_not_truncated": true,
+      "nonpositive_transmission": true,
+      "equal_ripple": true,
+      "solver_convergence_verified": false
+    },
+    "bandcenter_sensitivity_PR": {
+      "P_response": 2.5892513871941456,
+      "R_BW": 0.9700778157775208,
+      "Zm_response_ohm": 79.24290709880937,
+      "Zs_response_ohm": 81.6871655139293,
+      "f0_reference_GHz": 6.5571406827394725
+    },
+    "R_side_poles_diagnostic": 0.866523719236921,
+    "unused_shape_checks": {
+      "S11_magnitude_RMSE": 0.12867855412442764,
+      "S21_dB_RMSE": 0.8275282829123922,
+      "low_edge_error_GHz": 0.2928593172605267,
+      "high_edge_error_GHz": 0.29285931726052716,
+      "central_valley_error_GHz": 0.15999999999999925,
+      "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+    }
+  },
+  "comparison": {
+    "case": "D03G02",
+    "original": "J:\\f8_261007\\D03G02\\i03",
+    "direct": "J:\\f8_finish24_261023\\D03G02",
+    "points": 27,
+    "max_fundamental_complex_error": 0.0005294010340259487,
+    "max_complex_error_GHz": 8.67,
+    "max_S21_error_dB_near_band": 0.0017381043458031264,
+    "peak_height_errors_dB": [
+      0.0008116400885942454,
+      0.00793640160938125
+    ],
+    "direct_bracket_edges_GHz": {
+      "f_low_GHz": 3.1737548549350105,
+      "f_high_GHz": 9.941008858068011
+    },
+    "edge_shifts_GHz": {
+      "f_low_GHz": 6.789308676991013e-05,
+      "f_high_GHz": 0.0004144544373065884
+    },
+    "original_BW_GHz": 6.766907441782465,
+    "direct_bracket_BW_GHz": 6.767254003133001,
+    "BW_shift_GHz": 0.00034656135053623416,
+    "full_matrix_reciprocity_before_at_samples": 1.4283618423086746e-07,
+    "full_matrix_reciprocity_direct": 1.4283618423086746e-07,
+    "full_matrix_max_sv_direct": 0.9999292500288604,
+    "samples": [
+      {
+        "GHz": 0.01,
+        "S11_complex_error": 0.0,
+        "S21_complex_error": 0.0,
+        "S21_dB_error": 0.0,
+        "full_50ohm_max_sv_before": 0.9999292500288604,
+        "full_50ohm_max_sv_direct": 0.9999292500288604,
+        "full_50ohm_reciprocity_before": 1.4283618423086746e-07,
+        "full_50ohm_reciprocity_direct": 1.4283618423086746e-07
+      },
+      {
+        "GHz": 0.1,
+        "S11_complex_error": 0.0,
+        "S21_complex_error": 0.0,
+        "S21_dB_error": 0.0,
+        "full_50ohm_max_sv_before": 0.9993845914185074,
+        "full_50ohm_max_sv_direct": 0.9993845914185074,
+        "full_50ohm_reciprocity_before": 1.5547973532859576e-09,
+        "full_50ohm_reciprocity_direct": 1.5547973532859576e-09
+      },
+      {
+        "GHz": 3.0,
+        "S11_complex_error": 7.734750897993073e-05,
+        "S21_complex_error": 8.49132674802172e-06,
+        "S21_dB_error": 3.7577032366176155e-05,
+        "full_50ohm_max_sv_before": 0.9784118379434878,
+        "full_50ohm_max_sv_direct": 0.978343242803472,
+        "full_50ohm_reciprocity_before": 1.69956383532828e-12,
+        "full_50ohm_reciprocity_direct": 5.048173758345854e-13
+      },
+      {
+        "GHz": 3.15,
+        "S11_complex_error": 8.403682202885237e-05,
+        "S21_complex_error": 9.550515348562319e-06,
+        "S21_dB_error": 7.314239453792837e-05,
+        "full_50ohm_max_sv_before": 0.9770574097700685,
+        "full_50ohm_max_sv_direct": 0.9770130571797361,
+        "full_50ohm_reciprocity_before": 1.754120885008527e-12,
+        "full_50ohm_reciprocity_direct": 1.1368435694680511e-13
+      },
+      {
+        "GHz": 3.17,
+        "S11_complex_error": 8.18958097586711e-05,
+        "S21_complex_error": 9.340351934835302e-06,
+        "S21_dB_error": 7.438472253529227e-05,
+        "full_50ohm_max_sv_before": 0.976884306883822,
+        "full_50ohm_max_sv_direct": 0.9768463362438077,
+        "full_50ohm_reciprocity_before": 1.7113938734914213e-12,
+        "full_50ohm_reciprocity_direct": 5.488379444280825e-14
+      },
+      {
+        "GHz": 3.19,
+        "S11_complex_error": 7.914498922835015e-05,
+        "S21_complex_error": 9.05650159863457e-06,
+        "S21_dB_error": 7.463328669565783e-05,
+        "full_50ohm_max_sv_before": 0.97671391160471,
+        "full_50ohm_max_sv_direct": 0.9766824851049524,
+        "full_50ohm_reciprocity_before": 1.6590321488977851e-12,
+        "full_50ohm_reciprocity_direct": 3.5606202647016814e-13
+      },
+      {
+        "GHz": 3.62,
+        "S11_complex_error": 2.5025858014023573e-07,
+        "S21_complex_error": 2.8932602361820907e-08,
+        "S21_dB_error": 2.42632719360536e-07,
+        "full_50ohm_max_sv_before": 0.9739945506160611,
+        "full_50ohm_max_sv_direct": 0.9739947468250297,
+        "full_50ohm_reciprocity_before": 1.4821035379069628e-13,
+        "full_50ohm_reciprocity_direct": 9.313365517195294e-14
+      },
+      {
+        "GHz": 3.63,
+        "S11_complex_error": 2.3263468763605151e-07,
+        "S21_complex_error": 2.6864741326476243e-08,
+        "S21_dB_error": 2.2253797937743514e-07,
+        "full_50ohm_max_sv_before": 0.973952831318416,
+        "full_50ohm_max_sv_direct": 0.9739526461307336,
+        "full_50ohm_reciprocity_before": 1.315542225765071e-13,
+        "full_50ohm_reciprocity_direct": 1.0753469145342758e-13
+      },
+      {
+        "GHz": 3.64,
+        "S11_complex_error": 6.466634349005695e-07,
+        "S21_complex_error": 7.458717315715418e-08,
+        "S21_dB_error": 6.099514484603219e-07,
+        "full_50ohm_max_sv_before": 0.9739119766762591,
+        "full_50ohm_max_sv_direct": 0.9739114546047417,
+        "full_50ohm_reciprocity_before": 1.1600224009353117e-13,
+        "full_50ohm_reciprocity_direct": 5.707002621355517e-14
+      },
+      {
+        "GHz": 4.66,
+        "S11_complex_error": 2.645866638782692e-05,
+        "S21_complex_error": 2.1149236322931615e-06,
+        "S21_dB_error": 1.545864268992503e-05,
+        "full_50ohm_max_sv_before": 0.9718596391026193,
+        "full_50ohm_max_sv_direct": 0.9718648355567184,
+        "full_50ohm_reciprocity_before": 1.311494654799001e-13,
+        "full_50ohm_reciprocity_direct": 3.9792110155758597e-14
+      },
+      {
+        "GHz": 4.68,
+        "S11_complex_error": 3.0971137552029695e-05,
+        "S21_complex_error": 2.4523568608354013e-06,
+        "S21_dB_error": 1.8396728434066922e-05,
+        "full_50ohm_max_sv_before": 0.9717958969831851,
+        "full_50ohm_max_sv_direct": 0.9718011439271649,
+        "full_50ohm_reciprocity_before": 1.480349610463006e-13,
+        "full_50ohm_reciprocity_direct": 5.6282525067606295e-14
+      },
+      {
+        "GHz": 4.7,
+        "S11_complex_error": 3.5681969972134255e-05,
+        "S21_complex_error": 2.7990154928981163e-06,
+        "S21_dB_error": 2.1510999941298792e-05,
+        "full_50ohm_max_sv_before": 0.971729001107177,
+        "full_50ohm_max_sv_direct": 0.9717340755930387,
+        "full_50ohm_reciprocity_before": 1.6459643049364578e-13,
+        "full_50ohm_reciprocity_direct": 1.2685089475514242e-14
+      },
+      {
+        "GHz": 6.0,
+        "S11_complex_error": 0.00021556185782661247,
+        "S21_complex_error": 1.4717442644172714e-05,
+        "S21_dB_error": 4.834938381959031e-05,
+        "full_50ohm_max_sv_before": 0.9607328364853163,
+        "full_50ohm_max_sv_direct": 0.9609280654269211,
+        "full_50ohm_reciprocity_before": 3.740231368970337e-13,
+        "full_50ohm_reciprocity_direct": 1.9359164867881567e-14
+      },
+      {
+        "GHz": 6.68,
+        "S11_complex_error": 0.0003538081153976034,
+        "S21_complex_error": 2.8577888551442996e-05,
+        "S21_dB_error": 0.00012272044749234157,
+        "full_50ohm_max_sv_before": 0.958110982693294,
+        "full_50ohm_max_sv_direct": 0.9579046405184153,
+        "full_50ohm_reciprocity_before": 6.53264733720755e-13,
+        "full_50ohm_reciprocity_direct": 5.351639144075963e-15
+      },
+      {
+        "GHz": 6.69,
+        "S11_complex_error": 0.00035491356143261404,
+        "S21_complex_error": 2.874068173134414e-05,
+        "S21_dB_error": 0.00012623770578346072,
+        "full_50ohm_max_sv_before": 0.9581005749598844,
+        "full_50ohm_max_sv_direct": 0.957896186738272,
+        "full_50ohm_reciprocity_before": 6.559360440347203e-13,
+        "full_50ohm_reciprocity_direct": 1.3909767045762493e-14
+      },
+      {
+        "GHz": 6.7,
+        "S11_complex_error": 0.00035555856365083186,
+        "S21_complex_error": 2.8866613547672454e-05,
+        "S21_dB_error": 0.00012960110422655102,
+        "full_50ohm_max_sv_before": 0.9580905768360086,
+        "full_50ohm_max_sv_direct": 0.957888439403159,
+        "full_50ohm_reciprocity_before": 6.580135002876321e-13,
+        "full_50ohm_reciprocity_direct": 5.007747378399413e-15
+      },
+      {
+        "GHz": 8.67,
+        "S11_complex_error": 0.0005294010340259487,
+        "S21_complex_error": 5.851204084995514e-05,
+        "S21_dB_error": 0.00023161714024078073,
+        "full_50ohm_max_sv_before": 0.9542828255939704,
+        "full_50ohm_max_sv_direct": 0.9547308696829149,
+        "full_50ohm_reciprocity_before": 2.149854701165457e-12,
+        "full_50ohm_reciprocity_direct": 3.189974882449957e-15
+      },
+      {
+        "GHz": 8.69,
+        "S11_complex_error": 0.0004889201505307011,
+        "S21_complex_error": 5.4757971881811667e-05,
+        "S21_dB_error": 0.00020308807241709026,
+        "full_50ohm_max_sv_before": 0.9542919914598442,
+        "full_50ohm_max_sv_direct": 0.9547013983563444,
+        "full_50ohm_reciprocity_before": 2.031169977315385e-12,
+        "full_50ohm_reciprocity_direct": 1.9191663771440705e-15
+      },
+      {
+        "GHz": 8.71,
+        "S11_complex_error": 0.00044502012840109105,
+        "S21_complex_error": 5.0560521206119426e-05,
+        "S21_dB_error": 0.00017431348131391466,
+        "full_50ohm_max_sv_before": 0.9543064048866987,
+        "full_50ohm_max_sv_direct": 0.9546739901474375,
+        "full_50ohm_reciprocity_before": 1.893056849673571e-12,
+        "full_50ohm_reciprocity_direct": 6.823460206073354e-15
+      },
+      {
+        "GHz": 9.71,
+        "S11_complex_error": 7.192790110626758e-05,
+        "S21_complex_error": 6.473274056156088e-05,
+        "S21_dB_error": 0.00041315520416662643,
+        "full_50ohm_max_sv_before": 0.9547731019569929,
+        "full_50ohm_max_sv_direct": 0.9547101092277016,
+        "full_50ohm_reciprocity_before": 1.3313226759877984e-12,
+        "full_50ohm_reciprocity_direct": 1.4882557734250292e-14
+      },
+      {
+        "GHz": 9.72,
+        "S11_complex_error": 5.397406208422209e-05,
+        "S21_complex_error": 4.8481362124095994e-05,
+        "S21_dB_error": 0.00033732816433951207,
+        "full_50ohm_max_sv_before": 0.9547540104917696,
+        "full_50ohm_max_sv_direct": 0.9547063101181706,
+        "full_50ohm_reciprocity_before": 9.73612155150246e-13,
+        "full_50ohm_reciprocity_direct": 1.1949274075486987e-14
+      },
+      {
+        "GHz": 9.73,
+        "S11_complex_error": 3.590545685511938e-05,
+        "S21_complex_error": 3.2187552184943713e-05,
+        "S21_dB_error": 0.00024088589468607147,
+        "full_50ohm_max_sv_before": 0.9547339035216493,
+        "full_50ohm_max_sv_direct": 0.9547020619792558,
+        "full_50ohm_reciprocity_before": 6.313771227509243e-13,
+        "full_50ohm_reciprocity_direct": 9.906028441369449e-15
+      },
+      {
+        "GHz": 9.92,
+        "S11_complex_error": 0.00019825154537683187,
+        "S21_complex_error": 0.00016898380163815304,
+        "S21_dB_error": 0.0017381043458031264,
+        "full_50ohm_max_sv_before": 0.9544788115804816,
+        "full_50ohm_max_sv_direct": 0.9545266879563177,
+        "full_50ohm_reciprocity_before": 2.364314016503371e-12,
+        "full_50ohm_reciprocity_direct": 1.1111333812146215e-14
+      },
+      {
+        "GHz": 9.94,
+        "S11_complex_error": 0.00020286944500387145,
+        "S21_complex_error": 0.00017182885879898148,
+        "S21_dB_error": 0.0017192612775278615,
+        "full_50ohm_max_sv_before": 0.9544714443259947,
+        "full_50ohm_max_sv_direct": 0.9544968781164578,
+        "full_50ohm_reciprocity_before": 2.3365850662295064e-12,
+        "full_50ohm_reciprocity_direct": 5.906934925108716e-15
+      },
+      {
+        "GHz": 9.96,
+        "S11_complex_error": 0.00020322348743030672,
+        "S21_complex_error": 0.00017102790388735803,
+        "S21_dB_error": 0.001650546410878917,
+        "full_50ohm_max_sv_before": 0.9544635637545233,
+        "full_50ohm_max_sv_direct": 0.954464772613349,
+        "full_50ohm_reciprocity_before": 2.262941682273857e-12,
+        "full_50ohm_reciprocity_direct": 1.0622521945092111e-14
+      },
+      {
+        "GHz": 12.0,
+        "S11_complex_error": 7.03769407952195e-05,
+        "S21_complex_error": 4.896525466104451e-05,
+        "S21_dB_error": 0.01680049582193277,
+        "full_50ohm_max_sv_before": 0.9473953358470142,
+        "full_50ohm_max_sv_direct": 0.9472846573682807,
+        "full_50ohm_reciprocity_before": 1.1539898031881767e-13,
+        "full_50ohm_reciprocity_direct": 1.5974533408876416e-15
+      },
+      {
+        "GHz": 15.0,
+        "S11_complex_error": 5.23691153334427e-16,
+        "S21_complex_error": 1.9456762441208355e-16,
+        "S21_dB_error": 7.105427357601002e-15,
+        "full_50ohm_max_sv_before": 0.9509277782637361,
+        "full_50ohm_max_sv_direct": 0.9509277782637359,
+        "full_50ohm_reciprocity_before": 5.143083941039282e-16,
+        "full_50ohm_reciprocity_direct": 5.288987126834162e-16
+      }
+    ],
+    "evidence_hashes": {
+      "J:\\f8_261007\\D03G02\\i03\\all_modes_sparams.csv": "cc73d230b6a28242c3f008b1061cb6e29ab173af079dcf487954c3a0a5e7f2c2",
+      "J:\\f8_261007\\D03G02\\i03\\mode_impedance_gamma.csv": "1bcdf497130997ad9fdb686a688808a930ad52c9165286fca69cec3e678559a6",
+      "J:\\f8_261007\\D03G02\\i03\\manifest.json": "41885ae79a01e6b50d3055ead15adf0e0ab7eb86f849e40b2a39f48fbb1e3743",
+      "J:\\f8_finish24_261023\\D03G02\\all_modes_sparams.csv": "c426a3c0c7896976b3ecf23bf930abf4015136a7e94394d5e38394bcb2a75b10",
+      "J:\\f8_finish24_261023\\D03G02\\mode_impedance_gamma.csv": "f10db8870c285efb44196856ce1b20feeadca01a6167575a8e3a371e72d4ad9a",
+      "J:\\f8_finish24_261023\\D03G02\\manifest.json": "540a4dc95d364ed294336cbd55a9dc01c313a5b546e54801f0632d51773305f4"
+    },
+    "limits": "Finite point interpolation audit on the existing mesh; not a new mesh-convergence or width-corner mode-sufficiency proof.",
+    "sample_response_passed": true,
+    "band_edges_passed": true
+  },
+  "policy_sha256": "5e41a4814c6ab4bf90f2c4905587a252ab146767287b96ac1466a8f21c7144a0",
+  "finished_at": "2026-10-22T16:31:54.771245+00:00",
+  "evidence_hashes": {
+    "J:\\f8_261007\\D03G02\\i03\\manifest.json": "41885ae79a01e6b50d3055ead15adf0e0ab7eb86f849e40b2a39f48fbb1e3743",
+    "J:\\f8_261007\\D03G02\\i03\\sparams.csv": "6ab2186b04094fe2641725eb9389d03ddcbd6ee65e829091035158eaab983373",
+    "J:\\f8_finish24_261023\\D03G02\\state.json": "8db900a8c6720a8bc58495766f1a931b15038f658d22f0ed8331d46649eaf92a",
+    "J:\\f8_finish24_261023\\D03G02\\sparams.csv": "bc23f3bf42bef220afeb9e50599608bdfb12c5ee2a890ba1a0af4537c8ed57dd",
+    "J:\\f8_finish24_261023\\D03G02\\convergence_before.txt": "7be0f6175d07eea9dedadc7ea95c75e329cd1941a51b8f5119051177dd076a2c",
+    "J:\\f8_finish24_261023\\D03G02\\convergence_after.txt": "7be0f6175d07eea9dedadc7ea95c75e329cd1941a51b8f5119051177dd076a2c"
+  }
+}

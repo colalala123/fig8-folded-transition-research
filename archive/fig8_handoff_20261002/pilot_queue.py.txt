@@ -1,0 +1,323 @@
+"""Serial Fig8 protocol checks and bounded 24-configuration phase study.
+
+Stages are explicit: protocol -> reviewed port_protocol.json -> collector -> pilot.
+No expansion or holdout data are ever launched here.
+"""
+import argparse, csv, json, math, os, shutil, subprocess, sys, time, traceback
+from pathlib import Path
+import numpy as np
+from pilot_worker import WORK, now, sha, write_json
+from prepare_geometry_scope import derive
+
+ROOT=Path('F:/hfss_f8x_261002')
+OLD=Path('F:/hfss_f8_261002')
+HERE=Path(__file__).resolve().parent
+SOURCE=OLD/'B0/B0.aedt'
+KEYS=('Wm','Ws','Lm','Ls1','Ls2','Ls3')
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding='utf-8'))
+
+def status(**values):
+    path=ROOT/'batch_status.json'
+    s=read(path) if path.exists() else {}
+    s.update(values,updated_at_utc=now(),queue_pid=os.getpid())
+    write_json(path,s)
+
+def matrix():
+    if sha(ROOT/'pilot_24.csv')!='ec1f55c9d18edd4bff5c9965af5c69f72667a67bc51dcd3ba2d424665df6c001':
+        raise RuntimeError('Frozen pilot matrix changed')
+    with (ROOT/'pilot_24.csv').open(encoding='utf-8-sig',newline='') as f:
+        rows=list(csv.DictReader(f))
+    if len(rows)!=24 or any(r['phase']!='pilot' or r['split']!='development' for r in rows):
+        raise RuntimeError('Unexpected matrix scope')
+    return rows
+
+def freeze(run, source, geometry, modes, rebuild, stage, prediction=None, **extra):
+    run.mkdir(parents=True,exist_ok=True)
+    path=run/'prediction_frozen.json'
+    if path.exists():
+        s=read(path)
+        if s['geometry']!=geometry or s['modes']!=modes or s['source']!=str(source):
+            raise RuntimeError(f'Existing frozen spec mismatch: {run}')
+        return
+    write_json(path,{'case':run.parent.name if stage=='pilot' else run.name,'stage':stage,
+        'source':str(source),'source_sha256':sha(source),'geometry':geometry,'modes':modes,
+        'rebuild':rebuild,'frozen_at_utc':now(),'cores':4,'tasks':1,'prediction':prediction,
+        'worker_sha256':sha(HERE/'pilot_worker.py'), **extra})
+
+def solve(run):
+    if shutil.disk_usage(ROOT).free < 15*1024**3:
+        raise RuntimeError('Less than 15 GiB free; preserving remaining disk space')
+    path=run/'manifest.json'
+    if path.exists():
+        m=read(path)
+        if not m.get('source_unchanged',True):
+            raise RuntimeError(f'Source changed: {run}')
+        if m['status']=='completed':
+            return read(run/'response_metrics.json')
+        if m['status']=='export_failed' and m.get('analyze_result'):
+            recovery=True
+        else:
+            raise RuntimeError(f'Existing incomplete/unconverged solve requires review: {run}, {m["status"]}')
+    else:
+        recovery=False
+    status(active_run=str(run),active_stage=read(run/'prediction_frozen.json')['stage'],status='running')
+    cmd=[sys.executable,str(HERE/'pilot_worker.py'),str(run/'prediction_frozen.json')]
+    if recovery:cmd.append('--recover-export')
+    with (run/'worker.log').open('a',encoding='utf-8') as out:
+        p=subprocess.Popen(cmd,cwd=str(WORK),stdout=out,stderr=subprocess.STDOUT,
+                           creationflags=getattr(subprocess,'CREATE_NO_WINDOW',0))
+        status(active_worker_pid=p.pid)
+        rc=p.wait()
+    m=read(path)
+    if rc or m['status']!='completed' or not m['source_unchanged']:
+        raise RuntimeError(f'Worker requires review: {run}, code={rc}, status={m["status"]}')
+    return read(run/'response_metrics.json')
+
+def compare(a,b,kind):
+    with (a/'sparams.csv').open(encoding='utf-8-sig') as f:ra=list(csv.DictReader(f))
+    with (b/'sparams.csv').open(encoding='utf-8-sig') as f:rb=list(csv.DictReader(f))
+    fa=np.array([float(r['Freq_GHz']) for r in ra]);fb=np.array([float(r['Freq_GHz']) for r in rb])
+    if len(fa)!=1500 or not np.allclose(fa,fb,atol=1e-9):raise RuntimeError('Curve grids differ')
+    index=(fa>=3.2)&(fa<=10.2)
+    thresholds={'stable':(.005,.02,.02,.01),'single':(.01,None,.05,.02),'collector':(.005,None,.02,.01)}[kind]
+    rmse,maxdiff,edge,center=thresholds
+    out={'reference':str(a),'candidate':str(b),'comparison':kind,'thresholds':dict(rmse=rmse,maxdiff=maxdiff,edge_GHz=edge,center_GHz=center)}
+    checks=[]
+    for key in ('S11','S21'):
+        d=np.array([float(y[key+'_mag'])-float(x[key+'_mag']) for x,y in zip(ra,rb)])[index]
+        r=float(np.sqrt(np.mean(d*d)));mx=float(np.max(abs(d)))
+        out[key]={'magnitude_RMSE':r,'maximum_magnitude_difference':mx}
+        checks.append(r<=rmse and (maxdiff is None or mx<=maxdiff))
+    ma=read(a/'response_metrics.json');mb=read(b/'response_metrics.json')
+    if not ma.get('passband_2dB') or not mb.get('passband_2dB') or 'central_valley_GHz' not in ma or 'central_valley_GHz' not in mb:
+        out['passed']=False;out['reason']='shape_not_identifiable';return out
+    for k in ('f_low_GHz','f_high_GHz'):
+        d=mb['passband_2dB'][k]-ma['passband_2dB'][k];out[k+'_shift']=d;checks.append(abs(d)<=edge+1e-10)
+    d=mb['central_valley_GHz']-ma['central_valley_GHz'];out['central_valley_shift_GHz']=d;checks.append(abs(d)<=center+1e-10)
+    out['passed']=all(checks)
+    return out
+
+def protocol_stage(adopt_pid=None):
+    if adopt_pid:
+        # An already-launched worker is adopted without starting a duplicate AEDT job.
+        import psutil
+        while psutil.pid_exists(adopt_pid):time.sleep(15)
+    results=[]
+    for case in ('B0','T_F3'):
+        for n in (2,3):solve(ROOT/f'M_{case}_{n}')
+        results.extend([compare(ROOT/f'M_{case}_2',ROOT/f'M_{case}_3','stable'),
+                        compare(OLD/case,ROOT/f'M_{case}_2','single')])
+    write_json(ROOT/'port_numeric_comparisons.json',results)
+    status(status='port_identity_review_required',protocol_numeric_checks_passed=all(r['passed'] for r in results),active_run=None)
+
+def protocol():
+    p=read(ROOT/'port_protocol.json')
+    if p.get('status')!='frozen_verified':raise RuntimeError('Port protocol not verified/frozen')
+    return p
+
+def collector_stage():
+    p=protocol();g=read(OLD/'B0/manifest.json')['geometry']
+    for label,rebuild in (('V_copy',False),('V_rebuild',True)):
+        run=ROOT/label
+        freeze(run,SOURCE,g,p['modes'],rebuild,'collector',port_protocol_id=p['id'])
+        solve(run)
+    reference=Path(p['baseline_run'])
+    results=[compare(reference,ROOT/'V_copy','collector'),compare(reference,ROOT/'V_rebuild','collector'),
+             compare(ROOT/'V_copy',ROOT/'V_rebuild','collector')]
+    write_json(ROOT/'collector_checks.json',{'comparisons':results,'passed':all(r['passed'] for r in results)})
+    if not all(r['passed'] for r in results):raise RuntimeError('Collector baseline mismatch; review before pilot')
+    status(status='collector_verified')
+
+def geometry_gate(g,initial):
+    d=derive(g)
+    extra={'Lm_window':5.5-1e-10<=g['Lm']<=7.5+1e-10,
+           'Ls1_delta':abs(g['Ls1']-initial['Ls1'])<=1.5+1e-10,
+           'Lm_delta':abs(g['Lm']-initial['Lm'])<=.8+1e-10,
+           'width_shape_preserved':all(abs(g[k]-initial[k])<1e-10 for k in ('Wm','Ws','Ls2','Ls3'))}
+    return {'passed':d['inside_research_window'] and all(extra.values()),'geometry':d,**extra}
+
+def error(metrics,target):
+    if metrics.get('prominent_valley_count')!=3 or 'signed_peak_difference_dB' not in metrics:return None
+    return np.array([metrics['signed_peak_difference_dB'],metrics['central_valley_GHz']-target])
+
+def accepted(metrics,target):
+    e=error(metrics,target)
+    return e is not None and metrics['validity']['equal_ripple'] and abs(e[1])<=.03+1e-10 and metrics['validity']['solver_convergence_verified']
+
+def normalized_error(e):return float(max(abs(e[0])/.5,abs(e[1])/.03))
+
+def correction(e,probes,steps):
+    jac=np.column_stack([(ep-e)/h for ep,h in zip(probes,steps)])
+    normalized=np.diag([1/.5,1/.03])@jac@np.diag([.10,.05])
+    cond=float(np.linalg.cond(normalized))
+    if np.linalg.matrix_rank(normalized)<2 or not np.isfinite(cond) or cond>100:
+        return None,{'jacobian':jac.tolist(),'normalized_condition':cond,'reason':'local_sensitivity_unreliable'}
+    delta=np.linalg.solve(jac,-e)
+    scale=min(1.,.30/max(abs(delta[0]),1e-30),.10/max(abs(delta[1]),1e-30))
+    return delta*scale,{'jacobian':jac.tolist(),'normalized_condition':cond,'unclipped_step_mm':delta.tolist(),'trust_scale':scale}
+
+def tune(row,p):
+    case=row['case'];folder=ROOT/case;folder.mkdir(exist_ok=True)
+    if (folder/'design_result.json').exists():return read(folder/'design_result.json')
+    initial={k:float(row[k]) for k in KEYS};target=p['central_valley_target_GHz'];history=[]
+    def evaluate(g,role,parent=None,prediction=None):
+        if len(history)>=8:raise RuntimeError('Internal tuning budget overrun')
+        gate=geometry_gate(g,initial)
+        if not gate['passed']:raise RuntimeError(f'Invalid candidate: {gate}')
+        run=folder/f'i{len(history):02d}'
+        freeze(run,SOURCE,g,p['modes'],True,'pilot',prediction,iteration=run.name,role=role,
+            metadata=row,geometry_check=gate,port_protocol_id=p['id'],central_valley_target_GHz=target,
+            parent_curve=str(parent/'sparams.csv') if parent else None,
+            parent_curve_sha256=sha(parent/'sparams.csv') if parent else None)
+        m=solve(run);history.append(run)
+        write_json(folder/'iteration_status.json',{'case':case,'runs':[str(x) for x in history],'latest':str(run),'updated_at_utc':now()})
+        return run,m
+    def finish(reason,selected,metrics):
+        result={'case':case,'width_family':row['width_family'],'shape_id':row['shape_id'],
+                'status':'accepted' if reason=='none' else 'failed','reason':reason,
+                'selected_run':str(selected),'iterations':[str(x) for x in history],'solve_count':len(history),
+                'geometry':read(selected/'prediction_frozen.json')['geometry'],
+                'metrics':metrics,'finished_at_utc':now()}
+        write_json(folder/'design_result.json',result);return result
+    center,cm=evaluate(initial,'initial');g=dict(initial)
+    while True:
+        if accepted(cm,target):return finish('none',center,cm)
+        e=error(cm,target)
+        if e is None:return finish('shape_not_identifiable',center,cm)
+        if len(history)+3>8:return finish('tuning_budget_exhausted',center,cm)
+        probes=[];steps=[]
+        for key,step in (('Ls1',.10),('Lm',.05)):
+            gp={**g,key:g[key]+step}
+            if not geometry_gate(gp,initial)['passed']:
+                step=-step;gp={**g,key:g[key]+step}
+            if not geometry_gate(gp,initial)['passed']:return finish('step_outside_window',center,cm)
+            pr,pm=evaluate(gp,'probe_'+key,center)
+            if accepted(pm,target):return finish('none',pr,pm)
+            ep=error(pm,target)
+            if ep is None:return finish('shape_not_identifiable_in_probe',center,cm)
+            probes.append(ep);steps.append(step)
+        delta,info=correction(e,probes,steps)
+        if delta is None:return finish('local_sensitivity_unreliable',center,cm)
+        valid=False
+        for half in range(5):
+            candidate={**g,'Ls1':g['Ls1']+delta[0],'Lm':g['Lm']+delta[1]}
+            if geometry_gate(candidate,initial)['passed']:valid=True;break
+            delta*=.5
+        if not valid:return finish('step_outside_window',center,cm)
+        pred={**info,'current_error':e.tolist(),'probe_runs':[str(x) for x in history[-2:]],
+              'delta_mm':delta.tolist(),'predicted_error':(e+np.array(info['jacobian'])@delta).tolist()}
+        trial,tm=evaluate(candidate,'newton',center,pred)
+        if accepted(tm,target):return finish('none',trial,tm)
+        te=error(tm,target)
+        if te is not None and normalized_error(te)<=.9*normalized_error(e):
+            center,cm,g=trial,tm,candidate;continue
+        if len(history)>=8:return finish('tuning_budget_exhausted',center,cm)
+        delta*=.5
+        candidate={**g,'Ls1':g['Ls1']+delta[0],'Lm':g['Lm']+delta[1]}
+        pred={**info,'current_error':e.tolist(),'delta_mm':delta.tolist(),
+              'predicted_error':(e+np.array(info['jacobian'])@delta).tolist(),'retry':'half_step_from_original_center'}
+        trial,tm=evaluate(candidate,'half_step',center,pred)
+        if accepted(tm,target):return finish('none',trial,tm)
+        te=error(tm,target)
+        if te is not None and normalized_error(te)<=.9*normalized_error(e):
+            center,cm,g=trial,tm,candidate;continue
+        return finish('no_error_reduction',center,cm)
+
+def csv_write(path,rows,fields):
+    with path.open('w',newline='',encoding='utf-8-sig') as f:
+        w=csv.DictWriter(f,fieldnames=fields,extrasaction='ignore');w.writeheader();w.writerows(rows)
+
+def summarize():
+    p=read(ROOT/'port_protocol.json') if (ROOT/'port_protocol.json').exists() else {}
+    allrows=[];good=[];bad=[];designs=[]
+    schema=read(ROOT/'result_schema.json')['all_iterations_required_columns']
+    for meta in matrix():
+        folder=ROOT/meta['case'];res=read(folder/'design_result.json') if (folder/'design_result.json').exists() else None
+        if res:designs.append(res)
+        for run in sorted(folder.glob('i[0-9][0-9]')):
+            if not (run/'manifest.json').exists():continue
+            m=read(run/'manifest.json');v=read(run/'response_metrics.json') if (run/'response_metrics.json').exists() else {}
+            pb=v.get('passband_2dB') or {};joint=v.get('passband_joint') or {};pr=v.get('diagnostic_response_PR') or {}
+            selection=bool(res and str(run)==res['selected_run']);conv=m.get('convergence',{})
+            rz=[]
+            if v.get('valleys') and pr:
+                for val in (v['valleys'][0],v['valleys'][-1]):
+                    u=1/math.tan(math.pi*val['frequency_GHz']/(2*v['central_valley_GHz']))
+                    rz.append((pr['P_response']-1)/(pr['P_response']*u*u))
+            row={**meta,**m['geometry'],'iteration':run.name,'source_project':m['source'],
+                'source_sha256_before':m['source_sha256'],'source_sha256_after':m.get('source_sha256_after'),
+                'project_path':m['project'],'port_protocol_id':m.get('port_protocol_id'),
+                'mode_map_path':str(run/'mode_map.json'),'material_er':3.55,'material_tand':.0027,'substrate_h_mm':.813,
+                'solver_status':{'completed':'converged','export_failed':'failed','opening':'preparing'}.get(m['status'],m['status']),
+                'design_status':('accepted' if res['status']=='accepted' else
+                    'shape_not_identifiable' if res['reason'].startswith('shape_not_identifiable') else 'phase_failed')
+                    if res and selection else 'not_evaluated',
+                'reason_code':('not_three_valleys' if res['reason'].startswith('shape_not_identifiable') else res['reason'])
+                    if res and selection else None,'geometry_valid':m.get('geometry_check',{}).get('passed'),
+                'adaptive_converged':conv.get('converged'),'sweep_converged':m.get('sweep_converged'),
+                'passes':conv.get('passes'),'final_delta_s':conv.get('final_delta_s'),'frequency_points':v.get('points'),
+                'central_valley_target_GHz':p.get('central_valley_target_GHz'),'central_valley_GHz':v.get('central_valley_GHz'),
+                'signed_peak_difference_dB':v.get('signed_peak_difference_dB'),'valley_count':v.get('prominent_valley_count'),
+                'valleys_json':json.dumps(v.get('valleys')),'peaks_json':json.dumps(v.get('peaks')),
+                'peak_level_dB':v.get('peak_level_dB'),'f_low_GHz':pb.get('f_low_GHz'),'f_high_GHz':pb.get('f_high_GHz'),
+                'BW_2dB_GHz':pb.get('BW_GHz'),'BW_joint_GHz':joint.get('BW_GHz'),'P_response':pr.get('P_response'),
+                'R_zero_left':rz[0] if rz else None,'R_zero_right':rz[1] if rz else None,'R_zero_mean':sum(rz)/2 if rz else None,
+                'R_BW':pr.get('R_BW'),'f0_reference_GHz':6.85,'extraction_version':v.get('extraction_version'),
+                'reciprocity_error':None,'maximum_S_singular_value':None,'started_at_utc':m.get('started_at_utc'),
+                'finished_at_utc':m.get('finished_at_utc'),'solve_seconds':m.get('solve_seconds'),
+                'curve_path':str(run/'sparams.csv'),'curve_sha256':m.get('curve_sha256'),
+                'prediction_path':str(run/'prediction_frozen.json'),'prediction_sha256':sha(run/'prediction_frozen.json'),
+                'selected_as_final':selection,'R_zero_fphi_GHz':v.get('central_valley_GHz'),
+                'PR_use':'formal' if res and selection and res['status']=='accepted' else 'diagnostic_only'}
+            allrows.append(row)
+            if selection:(good if res['status']=='accepted' else bad).append(row)
+    fields=schema+['R_zero_fphi_GHz','PR_use']
+    for name,rows in (('all_iterations',allrows),('accepted_designs',good),('failed_designs',bad)):
+        csv_write(ROOT/(name+'.csv'),rows,fields)
+    counts={}
+    for d in designs:counts[d['reason']]=counts.get(d['reason'],0)+1
+    out={'target':24,'finished_configurations':len(designs),'accepted':len(good),'failed':len(bad),
+         'attempted_configurations':len({r['case'] for r in allrows}),'iterations':len(allrows),
+         'accepted_width_families':len({r['width_family'] for r in good}),'reason_counts':counts}
+    for key in ('BW_2dB_GHz','P_response','R_zero_mean'):
+        vals=[r[key] for r in good if r[key] is not None]
+        out[key+'_range']=[min(vals),max(vals)] if vals else None
+    write_json(ROOT/'pilot_summary.json',out)
+    status(pilot=out)
+    return out
+
+def pilot_stage():
+    p=protocol()
+    if not read(ROOT/'collector_checks.json')['passed']:raise RuntimeError('Collector not validated')
+    for row in matrix():
+        tune(row,p);summarize()
+    status(status='pilot_solved_corner_checks_pending',active_run=None)
+
+def corner_stage():
+    p=protocol();reports=[]
+    for case in ('D01G05','D03G05','D10G05','D12G05'):
+        result=read(ROOT/case/'design_result.json');ref=Path(result['selected_run'])
+        run=ROOT/f'C_{case}'
+        overrides={k:v for k,v in p.get('additional_mode_impedance_overrides',{}).items() if int(k)<=p['modes']+1}
+        freeze(run,ref/'project.aedt',result['geometry'],p['modes']+1,False,'corner',port_protocol_id=p['id'],mode_impedance_overrides=overrides)
+        solve(run)
+        reports.append(compare(ref,run,'single' if p['modes']==1 else 'stable'))
+    write_json(ROOT/'corner_mode_checks.json',{'passed':all(r['passed'] for r in reports),'comparisons':reports,
+          'identity_review':'requires comparison of exported mode impedance/propagation against pilot'})
+    summarize();status(status='pilot_solved_final_review_required',active_run=None)
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('stage',choices=['protocol','collector','pilot','corners','after-protocol','summary']);ap.add_argument('--adopt-pid',type=int)
+    args=ap.parse_args()
+    try:
+        if args.stage=='protocol':protocol_stage(args.adopt_pid)
+        elif args.stage=='collector':collector_stage()
+        elif args.stage=='pilot':pilot_stage()
+        elif args.stage=='corners':corner_stage()
+        elif args.stage=='after-protocol':collector_stage();pilot_stage();corner_stage()
+        else:summarize()
+    except Exception:
+        status(status='review_required',error=traceback.format_exc())
+        print(traceback.format_exc(),flush=True);sys.exit(1)

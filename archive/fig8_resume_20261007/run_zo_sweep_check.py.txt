@@ -1,0 +1,58 @@
+"""Test the diagnosed Zo interpolation defect on the existing solved mesh.
+
+Only add the port-impedance convergence condition at the original 0.5%
+tolerance. Preserve the original sweeps, phase geometry and adaptive mesh.
+This diagnostic never freezes production or dispatches another pilot.
+"""
+import asyncio,json
+from pathlib import Path
+from broadband_recovery import ROOT,read,sha,write_json,now
+from local_direct_check import idle,connect,persisted_sweeps
+from pilot_worker import convergence
+import run_protocol_tf3 as backend
+
+RUN=ROOT/'local_repair/D04G05/zo_fullband'
+PROJECT=ROOT/'local_repair/D04G05/D04G05_repair.aedt'
+SOURCE=ROOT/'D04G05/i00/D04G05_00.aedt'
+NAME='RecoveryZoV1'
+
+def prepare():
+    idle();RUN.mkdir(exist_ok=True)
+    assert not (RUN/'state.json').exists(),'Inspect an existing diagnostic rather than repeat it'
+    direct=read(PROJECT.parent/'direct_comparison.json');assert direct['direct_matrix_checks_passed'] and direct['normalization_calibration_passed']
+    original=read(SOURCE.parent/'manifest.json');app=connect(PROJECT,7990)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        before=persisted_sweeps(PROJECT);assert NAME not in before
+        for sweep in setup.sweeps:
+            if before[sweep.name]['IsEnabled']=='true':
+                sweep.props['Type']=before[sweep.name]['Type'];sweep.props['IsEnabled']=False;assert sweep.update()
+        sweep=setup.add_sweep(NAME,sweep_type='Interpolating')
+        sweep.auto_update=False;sweep.props.update(original['settings']['sweep'])
+        sweep.props['IsEnabled']=False;sweep.props['InterpUsePortImped']=True
+        assert sweep.update();sweep.auto_update=True
+        expected={**original['settings']['sweep'],'IsEnabled':False,'InterpUsePortImped':True}
+        assert dict(sweep.props)==expected,'Unexpected diagnostic sweep changes'
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence_before.txt'))
+        conv=convergence(RUN/'convergence_before.txt');assert conv==original['convergence'] and conv['converged']
+        app.save_project();assert setup.is_solved
+        write_json(RUN/'state.json',{'status':'prepared','source':str(SOURCE),'source_sha256':sha(SOURCE),'project':str(PROJECT),
+          'cores':16,'tasks':1,'port':7990,'setup':'Setup19','modes_per_port':2,'segments':{},'sweep_names':{'Zo':NAME},
+          'setup_props':json.loads(json.dumps(setup.props,default=str)),'original_sweep':original['settings']['sweep'],
+          'diagnostic_sweep':expected,'adaptive_convergence_before':conv,'prepared_at_utc':now(),
+          'scope':'Existing-mesh diagnostic of the observed mode-2 Zo sign flip. Adds Zo convergence at unchanged 0.5% tolerance; no geometry phase iteration or production approval.',
+          'port_settings':original['port_settings'],'geometry':original['geometry']})
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+
+async def main():
+    if not (RUN/'state.json').exists():prepare()
+    backend.RUN=RUN;backend.PROJECT=PROJECT;backend.SOURCE=SOURCE;backend.STATE=RUN/'state.json';backend.SETUP='Setup19';backend.MODE_COUNT=2
+    backend.SEGMENTS=[('Zo','Interpolating',.01,15.)]
+    backend.persisted_sweeps=lambda:persisted_sweeps(PROJECT)
+    await backend.main()
+    s=read(RUN/'state.json')
+    assert s['segments']['Zo']['convergence']==s['adaptive_convergence_before'],'Unexpected adaptive rerun'
+    s['mesh_reuse_verified']=True;write_json(RUN/'state.json',s)
+
+if __name__=='__main__':asyncio.run(main())

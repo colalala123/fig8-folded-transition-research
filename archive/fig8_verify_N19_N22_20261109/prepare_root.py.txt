@@ -1,0 +1,37 @@
+from pathlib import Path
+import json,hashlib,shutil,sys,ast
+R=Path('${WORKSPACE}/output/fig8_verify_N19_N22_20261109');OLD=R.parent/'fig8_tune48_fixedPR_20261031'
+def rd(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def new(p,d):
+ with Path(p).open('x',encoding='utf8') as f:json.dump(d,f,ensure_ascii=False,indent=2)
+plan=rd(R/'PLAN.json');snap={};counts={};declared={};contexts=[]
+for fn in ['runtime_registry.json','technical_recovery_registry_v1.json','technical_recovery_registry_v2.json']:
+ p=OLD/fn
+ if p.exists():snap[str(p)]=sha(p);contexts+=rd(p)['contexts']
+for entry in contexts:
+ p=Path(entry['context'])/'plan.json';snap[str(p)]=sha(p)
+ for row in rd(p)['cases']:
+  state=Path(row['run_dir'])/'state.json'
+  if state.exists():snap[str(state)]=sha(state);counts[row['case']]=len(rd(state).get('segments',[]))
+  declared[row['parent_case']]=declared.get(row['parent_case'],0)+1
+for n in ['PAUSE.json','CURRENT_STATUS.json','campaign.json']:snap[str(OLD/n)]=sha(OLD/n)
+assert sum(counts.values())==269,(sum(counts.values()),counts)
+assert declared['N19_A14']==2 and declared['N22_A18']==2
+new(R/'HISTORICAL_BUDGET_SNAPSHOT.json',dict(Analyze_used=269,counts=counts,declared=declared,hashes=snap,global_cap=2236,old_pause_preserved=True))
+c=rd(OLD/'campaign.json');c.update(tuning_order=['N19_A14','N22_A18'],pilot_parent='N19_A14',human_instruction='Only verify N19_A14 and N22_A18; one authorized desktop recovery; old campaign paused')
+new(R/'campaign.json',c);new(R/'runtime_registry.json',dict(contexts=[]))
+(R/'EXECUTION_PLAN.md').write_text('''# N19/N22有限诊断验证
+用户授权：验证N19和N22，并允许一次受控恢复，仅验证这两点。
+只运行N19_A14_D1、N22_A18_D1，各一个原保存联合目标候选（预测未过仍允许诊断），固定P/R/a/g，仅长度变化。14核串行，网格10-11万/轻微超限<=11.2万；既定3.92-9.52GHz S11<=-20dB、S21>=-2dB、三谷、中心6.72+-0.03GHz、峰差<=0.5dB。
+每项最多12自适应请求+1扫频，总26Analyze，计入旧269后的总2236，仍在每原项4几何内。不自动技术重试/反向探针/调参，不恢复旧整批或N15。F新工程/D临时。运行中静默，终态hook当前聊天，真实图审ACK再启动唯一第二项；第二项完成后停止本分支。
+不改旧PAUSE、旧失败、旧ACK、旧预算。独立目录是仅两项范围授权的覆盖，不解除旧整批暂停。
+''',encoding='utf8')
+for n in ['common.py','b05_corrector.py','observer_retry_v2.py','finish_start_and_monitor_v2.py']:
+ shutil.copyfile(OLD/n,R/n)
+s=(OLD/'build_runtime.py').read_text(encoding='utf8')
+s=s.replace("ctx=OUT/f'fig8_tune48_{parent}_{kind}_20261031'","ctx=OUT/f'fig8_diag_{parent}_{kind}_20261109'")
+s=s.replace("else [kind.upper()]","else ['D1']")
+s=s.replace("D:/hfss_fig8_tune48_20261031/solver_temp","D:/hfss_fig8_diag2_20261109/solver_temp")
+(R/'build_runtime.py').write_text(s,encoding='utf8')
+print('Prepared isolated root; old Analyze=',sum(counts.values()))

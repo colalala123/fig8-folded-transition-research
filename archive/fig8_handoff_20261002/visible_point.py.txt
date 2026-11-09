@@ -1,0 +1,57 @@
+"""Prepare/collect an explicitly targeted visible session; never starts a solve."""
+import argparse,json,shutil,time,traceback
+from pathlib import Path
+from pilot_worker import now,sha,write_json,set_modes,check_settings,export_data,convergence
+
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('action',choices=['prepare','collect']);ap.add_argument('run');ap.add_argument('--port',type=int,required=True)
+    args=ap.parse_args();run=Path(args.run);spec=json.loads((run/'prediction_frozen.json').read_text(encoding='utf-8'))
+    source=Path(spec['source']);project=run/'project.aedt';path=run/'manifest.json'
+    from ansys.aedt.core import Hfss
+    from response_metrics import analyze
+    if args.action=='prepare':
+        if project.exists() or path.exists():raise RuntimeError('Existing run must be recovered, not overwritten')
+        if sha(source)!=spec['source_sha256']:raise RuntimeError('Source changed')
+        shutil.copy2(source,project)
+        m={**spec,'project':str(project),'status':'opening','started_at_utc':now()}
+    else:m=json.loads(path.read_text(encoding='utf-8'))
+    app=None
+    try:
+        app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=args.port,
+                 non_graphical=False,new_desktop=False,close_on_exit=False)
+        if Path(app.project_path).resolve()!=run.resolve():raise RuntimeError('Wrong project directory')
+        m['desktop_pid']=app.desktop_class.aedt_process_id
+        if args.action=='prepare':
+            m['port_settings']=set_modes(app,3)
+            m['settings']=check_settings(app)
+            mat=app.materials['rogers ro4003 (tm)']
+            m['material']={'er':float(mat.permittivity.value),'tand':float(mat.dielectric_loss_tangent.value),'h_mm':.813}
+            if m['material']!={'er':3.55,'tand':.0027,'h_mm':.813}:raise RuntimeError('Material mismatch')
+            m['status']='prepared'
+        else:
+            if app.are_there_simulations_running:raise RuntimeError('Cannot collect while solving')
+            m['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+            app.save_project()
+            m['export']=export_data(app,run,3)
+            app.export_convergence('Setup19',output_file=str(run/'convergence.txt'))
+            app.export_mesh_stats('Setup19',output_file=str(run/'mesh_stats.txt'))
+            m['convergence']=convergence(run/'convergence.txt')
+            m['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in s for s in m['messages'])
+            metrics=analyze(run/'sparams.csv',f0=6.85)
+            metrics['convergence']=m['convergence']
+            metrics['validity']['solver_convergence_verified']=m['convergence']['converged'] and m['sweep_converged']
+            if not metrics['validity']['solver_convergence_verified']:metrics['formal_response_PR']=None
+            write_json(run/'response_metrics.json',metrics)
+            m['curve_sha256']=sha(run/'sparams.csv')
+            m['status']='completed' if metrics['validity']['solver_convergence_verified'] else 'unconverged'
+            m['finished_at_utc']=now()
+        app.save_project()
+    except Exception:
+        m['status']='export_failed' if args.action=='collect' else 'prepare_failed'
+        m['error']=traceback.format_exc();raise
+    finally:
+        m['source_sha256_after']=sha(source);m['source_unchanged']=m['source_sha256_after']==spec['source_sha256']
+        write_json(path,m)
+        if app:app.release_desktop(close_projects=False,close_desktop=False)
+
+if __name__=='__main__':main()

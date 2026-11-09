@@ -1,0 +1,75 @@
+"""One final small local correction using measured probes; no extra cycle.
+Prediction and previous model residual are diagnostics, not error guarantees.
+"""
+import numpy as np
+from pathlib import Path
+from control import HERE,BASE,OLD,read,write,sha,now
+from prepare_tuning import reviewed,attempt_ledger
+from geometry_worker import dc,geometry_gate
+
+
+def proposal(ga,gb,ma,mb,jacobian,initial,used):
+    def stop(reason): return {'action':'stop','reason':reason}
+    if used!=7:return stop('requires_exactly_one_geometry_slot')
+    if any(ga[k]!=gb[k] for k in ['Wm','Ws','Ls2','Ls3']):return stop('fixed_geometry_changed')
+    e0=np.array([ma['signed_peak_difference_dB'],ma['central_valley_GHz']-6.72])
+    e=np.array([mb['signed_peak_difference_dB'],mb['central_valley_GHz']-6.72])
+    J=np.asarray(jacobian,dtype=float);scale=np.array([.5,.03])
+    step=np.array([gb[k]-ga[k] for k in ['Ls1','Lm']])
+    if J.shape!=(2,2) or not np.isfinite(J).all() or not np.isfinite([*e0,*e,*step]).all():return stop('nonfinite_or_invalid_model')
+    if np.any(abs(step)>np.array([.3,.1])+1e-10):return stop('previous_step_not_local')
+    if np.max(abs(e)/scale)>.5*np.max(abs(e0)/scale):return stop('insufficient_actual_improvement')
+    condition=float(np.linalg.cond(J/scale[:,None]))
+    if condition>20:return stop('ill_conditioned_model')
+    residual=e-(e0+J@step)
+    if np.any(abs(residual)>np.array([.25,.02])):return stop('model_residual_too_large')
+    delta=np.linalg.solve(J,-e)
+    if np.any(abs(delta)>np.array([.15,.05])):return stop('last_step_too_large')
+    g={**gb,'Ls1':gb['Ls1']+float(delta[0]),'Lm':gb['Lm']+float(delta[1])}
+    if not geometry_gate(g,initial)['passed']:return stop('geometry_gate')
+    pred=e+J@delta
+    # Merely a conservative screening score, NOT a guaranteed future bound.
+    score=float(np.max((abs(pred)+abs(residual))/scale))
+    if score>.8:return stop('insufficient_prediction_margin')
+    return {'action':'candidate','method':'last_slot_small_local_correction','geometry':g,'delta_mm':delta.tolist(),
+      'jacobian':J.tolist(),'normalized_condition':condition,'previous_model_residual':residual.tolist(),
+      'predicted_signed_peak_dB':float(pred[0]),'predicted_central_GHz':float(6.72+pred[1]),
+      'residual_screen_score':score,'prediction_not_validation':True,'residual_not_error_bound':True,
+      'rule':'Ordinal8 only; no new probes, no c03, no further geometry after this solve.'}
+
+
+def prepare():
+    case='D12G02';center=BASE/case/'c01_candidate';trial=BASE/case/'c02_candidate';run=BASE/case/'final_local'
+    assert not dc.solvers() and not any(p.exists() for p in [HERE/'worker.lock',OLD/'protocol.lock',OLD/'pilot_queue.lock'])
+    assert not run.exists()
+    sa,ma,ha=reviewed(center,case);sb,mb,hb=reviewed(trial,case);parents={**ha,**hb}
+    probes=[]
+    for name in ['c02_probe_Ls1','c02_probe_Lm']:
+        ps,pm,ph=reviewed(BASE/case/name,case);parents.update(ph);probes.append((ps,pm))
+    J=np.zeros((2,2))
+    for i,key in enumerate(['Ls1','Lm']):
+        ps,pm=probes[i];h=ps['geometry'][key]-sa['geometry'][key]
+        assert abs(h-[.1,.05][i])<1e-9
+        assert all(ps['geometry'][k]==sa['geometry'][k] for k in sa['geometry'] if k!=key)
+        assert ps['tuning_center']==str(center.resolve())
+        J[:,i]=[(pm['signed_peak_difference_dB']-ma['signed_peak_difference_dB'])/h,(pm['central_valley_GHz']-ma['central_valley_GHz'])/h]
+    prior=read(trial/'proposal.json');assert np.allclose(J,prior['model']['jacobian'],atol=1e-9,rtol=0)
+    parents[str(trial/'proposal.json')]=sha(trial/'proposal.json')
+    ledger=attempt_ledger(case);initial=next(c['initial_geometry'] for c in read(HERE/'plan.json')['cases'] if c['case']==case)
+    p=proposal(sa['geometry'],sb['geometry'],ma,mb,J,initial,ledger['attempts_used_or_reserved'])
+    assert p['action']=='candidate',p
+    prev=read(HERE/'supervised_release.json');assert prev['input_sha256']==sha(trial/'input.json')
+    archive=HERE/'supervised_releases'/f'{case}_c02_candidate.json';assert not archive.exists()
+    write(run/'budget_before.json',ledger);write(run/'proposal.json',p)
+    for path in [run/'budget_before.json',run/'proposal.json',Path(__file__).resolve()]:parents[str(path)]=sha(path)
+    spec={'case':case,'role':'candidate','geometry':p['geometry'],'source':sb['source'],'source_sha256':sb['source_sha256'],
+      'run_dir':str(run),'project_name':case+'_final_local','phase_solve_ordinal_including_history':8,
+      'policy_sha256':sha(HERE/'policy.json'),'mesh_addendum_sha256':sha(HERE/'mesh_policy_addendum_v2.json'),
+      'worker_sha256':sha(HERE/'geometry_worker.py'),'controller_sha256':sha(HERE/'mesh_budget.py'),
+      'parent_evidence_hashes':parents,'created_at':now(),'tuning_cycle':'final_local','last_geometry_attempt':True,'method':p['method']}
+    write(run/'input.json',spec);write(archive,prev)
+    write(HERE/'supervised_release.json',{'case':case,'input_path':str((run/'input.json').resolve()),'input_sha256':sha(run/'input.json'),
+      'bulk_dispatch_released':False,'at':now(),'reason':'Final ordinal8 small local correction backed by independent probes and observed candidate improvement; no new cycle.'})
+    print(run/'input.json');print(p)
+
+if __name__=='__main__':prepare()

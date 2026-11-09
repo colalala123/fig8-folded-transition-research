@@ -1,0 +1,149 @@
+{
+  "case": "P06G02",
+  "state": "scoped_accepted",
+  "source": "J:\\f8_PR18_261027\\P06G02\\g01_initial",
+  "direct_run": "J:\\f8_PR18_261027\\P06G02\\direct_smallbatch",
+  "comparison": {
+    "points": 23,
+    "max_complex_error": 0.00046956296635553355,
+    "max_nearband_S21_error_dB": 0.002252762152535448,
+    "peak_height_errors_dB": [
+      0.013040369477444358,
+      0.002604484312087152
+    ],
+    "direct_peaks": [
+      {
+        "GHz": 5.16,
+        "dB": -19.84042189032629,
+        "interior": false,
+        "sampled_points": [
+          5.16,
+          5.17,
+          5.18
+        ]
+      },
+      {
+        "GHz": 8.2,
+        "dB": -19.724399211095005,
+        "interior": true,
+        "sampled_points": [
+          8.19,
+          8.2,
+          8.21
+        ]
+      }
+    ],
+    "direct_peak_difference_dB": 0.11602267923128551,
+    "direct_central_valley": {
+      "GHz": 6.71,
+      "S11_dB": -51.1767491077468,
+      "local_extremum_independently_located": false
+    },
+    "direct_edges_GHz": {
+      "f_low_GHz": 3.0513060673018257,
+      "f_high_GHz": 9.934590427777858
+    },
+    "edge_shifts_GHz": {
+      "f_low_GHz": 0.00045859643717660603,
+      "f_high_GHz": 0.0007971690819772448
+    },
+    "direct_BW_GHz": 6.883284360476032,
+    "BW_shift_GHz": 0.0012557655191534067,
+    "joint20_band_reviews": [
+      {
+        "edges": [
+          {
+            "reference_GHz": 3.653465746579447,
+            "direct_GHz": 3.6530080283485873,
+            "shift_GHz": 0.00045771823085960506,
+            "points": [
+              3.63,
+              3.67
+            ],
+            "other_condition_verified": true
+          },
+          {
+            "reference_GHz": 4.953246026238948,
+            "direct_GHz": 4.943850698592365,
+            "shift_GHz": 0.00939532764658324,
+            "points": [
+              4.93,
+              4.97
+            ],
+            "other_condition_verified": true
+          }
+        ],
+        "direct_width_GHz": 1.2908426702437774,
+        "width_shift_GHz": 0.008937609415723635
+      },
+      {
+        "edges": [
+          {
+            "reference_GHz": 5.379593482820794,
+            "direct_GHz": 5.3783479965141705,
+            "shift_GHz": 0.0012454863066233557,
+            "points": [
+              5.36,
+              5.4
+            ],
+            "other_condition_verified": true
+          },
+          {
+            "reference_GHz": 7.954269300104641,
+            "direct_GHz": 7.955450202810289,
+            "shift_GHz": 0.0011809027056486343,
+            "points": [
+              7.93,
+              7.97
+            ],
+            "other_condition_verified": true
+          }
+        ],
+        "direct_width_GHz": 2.577102206296119,
+        "width_shift_GHz": 0.00242638901227199
+      },
+      {
+        "edges": [
+          {
+            "reference_GHz": 8.436221058757804,
+            "direct_GHz": 8.435343284788752,
+            "shift_GHz": 0.0008777739690515318,
+            "points": [
+              8.42,
+              8.46
+            ],
+            "other_condition_verified": true
+          },
+          {
+            "reference_GHz": 9.506589823646332,
+            "direct_GHz": 9.506752883412439,
+            "shift_GHz": 0.00016305976610730966,
+            "points": [
+              9.49,
+              9.53
+            ],
+            "other_condition_verified": true
+          }
+        ],
+        "direct_width_GHz": 1.0714095986236867,
+        "width_shift_GHz": 0.0010408337351588415
+      }
+    ],
+    "joint20_edges_passed": true,
+    "both_sampled_inner_peaks_le_minus20": false,
+    "numerical_review_passed": true,
+    "sampled_design_supported": true,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite direct consistency on unchanged mesh at frozen points. Central valley location inherited, not independently searched; no full-curve extrema or mesh-convergence proof. -20dB scientific classification is separate from baseline tuning acceptance."
+  },
+  "actual_elements": 101137,
+  "event_sha256": "aaf8480efb3431daff01d580f2c731cd708d5904ce243beaf8b57c349c182dc2",
+  "ack_sha256": "01b82fc32380706958ffa5516cf89a9c6e744a51b904145debb6ceb5faab06fa"
+}

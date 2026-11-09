@@ -1,0 +1,151 @@
+"""Bounded Fig8 inverse-design prototype. No AEDT, network, or hook calls.
+
+The forward response is convex piecewise-linear interpolation in (ln P, ln R)
+of magnitudes, not an inverse ANN and not a new electromagnetic theory.
+Only the two observed fold arms and the fixed material/gap are supported.
+"""
+import argparse
+import json
+import sys
+from pathlib import Path
+import numpy as np
+from scipy.spatial import Delaunay
+from scipy.optimize import brentq
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE.parent/'fig8_PR_current_material_20261026'))
+from line_models import microstrip, slotline
+sys.path.insert(0, str(HERE.parent/'fig8_design_method_20261026'))
+from build_design_package import propose
+
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def write(p,x): Path(p).write_text(json.dumps(x,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+
+def pr(wm,ws):
+    zm=microstrip(3.55,wm)['Z_ohm']; zs=slotline(3.55,ws)['Z_ohm']
+    return zm*zs/2500,zm/zs
+
+def widths(p,r):
+    if not (np.isfinite(p) and np.isfinite(r) and p>0 and r>0): raise ValueError('Positive finite P,R required')
+    zm=50*np.sqrt(p*r);zs=50*np.sqrt(p/r)
+    try:
+        wm=brentq(lambda w:microstrip(3.55,w)['Z_ohm']-zm,.9,2.)
+        ws=brentq(lambda w:slotline(3.55,w)['Z_ohm']-zs,.30,.58)
+    except ValueError: raise ValueError('P/R outside supported width domain')
+    return float(wm),float(ws)
+
+def intervals(f,s11,s21,reflection=-20,transmission=-2):
+    """Exact intersection of both piecewise-linear dB constraints per segment.
+
+    Important: do not interpolate min(margin11,margin21) across a segment;
+    that loses a valid interior when opposite endpoints fail different tests.
+    """
+    ans=[]
+    for i in range(len(f)-1):
+        lo,hi=0.,1.
+        for v0,v1 in [(reflection-s11[i],reflection-s11[i+1]),(s21[i]-transmission,s21[i+1]-transmission)]:
+            if v0<0 and v1<0: hi=-1;break
+            if v0<0:lo=max(lo,-v0/(v1-v0))
+            if v1<0:hi=min(hi,-v0/(v1-v0))
+        if hi<=lo:continue
+        a=float(f[i]+lo*(f[i+1]-f[i]));b=float(f[i]+hi*(f[i+1]-f[i]))
+        if ans and abs(a-ans[-1][1])<1e-9: ans[-1][1]=b
+        else:ans.append([a,b])
+    return ans
+
+def center_band(bands,center=6.72):
+    return next(([a,b,b-a] for a,b in bands if a<=center<=b),[None,None,0.])
+
+def band_score(f,s11,s21,lo,hi):
+    if not f[0]<=lo<hi<=f[-1]:raise ValueError('Requested band outside sampled frequencies')
+    ff=np.r_[lo,f[(f>lo)&(f<hi)],hi]
+    return dict(worst_S11_dB=float(np.max(np.interp(ff,f,s11))),min_S21_dB=float(np.min(np.interp(ff,f,s21))))
+
+def feature_formula(rows):
+    return np.array([[1,np.log(r['P']),np.log(r['R']),r['a']-1.6] for r in rows])
+
+class Forward:
+    def __init__(self,rows):
+        self.rows=rows;self.arms={}
+        for arm in (1.4,1.8):
+            rr=[r for r in rows if abs(r['a']-arm)<1e-8]
+            if len(rr)<3:continue
+            xy=np.log([[r['P'],r['R']] for r in rr]);self.arms[arm]=(Delaunay(xy),rr)
+    def predict(self,wm,ws,arm):
+        if arm not in self.arms:raise ValueError('Only a=1.4 or1.8mm is validated; no arm extrapolation')
+        p,r=pr(wm,ws);tri,rr=self.arms[arm];x=np.log([p,r]);i=int(tri.find_simplex(x,tol=1e-10))
+        if i<0:raise ValueError('Outside data convex hull; no extrapolation')
+        b=tri.transform[i,:2]@(x-tri.transform[i,2]);weights=np.r_[b,1-b.sum()]
+        weights=np.maximum(weights,0);weights/=weights.sum();vs=tri.simplices[i]
+        f=np.asarray(rr[0]['frequency_GHz'])
+        aa=[]
+        for key in ['S11_dB','S21_dB']:
+            mag=sum(w*10**(np.asarray(rr[v][key])/20) for w,v in zip(weights,vs))
+            aa.append(20*np.log10(np.maximum(mag,1e-15)))
+        return dict(f=f,s11=aa[0],s21=aa[1],P=p,R=r,
+                    parents=[dict(case=rr[v]['case'],weight=float(w)) for w,v in zip(weights,vs)])
+
+def inverse(lo,hi,reflection=-20,transmission=-2,top=5,margin_db=None,grid=41):
+    data=read(HERE/'dataset.json'); model=Forward(data['rows'])
+    validation=read(HERE/'validation.json')
+    margin=float(validation['screening_margin_S11_dB']) if margin_db is None else margin_db
+    if not all(np.isfinite(x) for x in [lo,hi,reflection,transmission,margin]) or margin<0:raise ValueError('Invalid specification')
+    candidates=[]; feasible_count=0;exploratory=[]
+    for arm in [1.4,1.8]:
+        for wm in np.linspace(.9,2,grid):
+            for ws in np.linspace(.3,.58,grid):
+                try:q=model.predict(float(wm),float(ws),arm)
+                except ValueError:continue
+                score=band_score(q['f'],q['s11'],q['s21'],lo,hi)
+                if score['worst_S11_dB']>reflection or score['min_S21_dB']<transmission:continue
+                screened=score['worst_S11_dB']<=reflection-margin and score['min_S21_dB']>=transmission+.05
+                feasible_count+=int(screened)
+                geo=propose(float(wm),float(ws),arm)
+                entry=dict(geometry_mm=geo['geometry_mm'],a_mm=arm,g_mm=.55,
+                    P=q['P'],R=q['R'],predicted=score,length_parents=geo['length_parents'],response_parents=q['parents'],
+                    dimension_screen=geo['dimension_screen'],HFSS_verified=False,
+                    uncertainty_screen_passed=screened,
+                    status='surrogate_candidate_not_guaranteed',rank_score=score['worst_S11_dB'])
+                exploratory.append(entry)
+                if screened:candidates.append(entry)
+    candidates.sort(key=lambda c:c['rank_score'])
+    chosen=[]
+    for c in candidates:
+        g=c['geometry_mm']
+        if any(abs(g['Wm']-d['geometry_mm']['Wm'])<.06 and abs(g['Ws']-d['geometry_mm']['Ws'])<.02 and c['a_mm']==d['a_mm'] for d in chosen):continue
+        chosen.append(c)
+        if len(chosen)>=top:break
+    known=[]
+    for r in data['rows']:
+        score=band_score(np.array(r['frequency_GHz']),np.array(r['S11_dB']),np.array(r['S21_dB']),lo,hi)
+        if score['worst_S11_dB']<=reflection and score['min_S21_dB']>=transmission:
+            known.append(dict(case=r['case'],geometry_mm=r['geometry_mm'],measured_curve_score=score,
+                status='existing_HFSS_curve_supported_new_minus20_edges_not_directly_reviewed',mesh=r['mesh']))
+    exploratory.sort(key=lambda c:c['rank_score'])
+    raw=[]
+    for c in exploratory:
+        if any(abs(c['geometry_mm']['Wm']-d['geometry_mm']['Wm'])<.06 and abs(c['geometry_mm']['Ws']-d['geometry_mm']['Ws'])<.02 and c['a_mm']==d['a_mm'] for d in raw):continue
+        raw.append(c)
+        if len(raw)>=top:break
+    return dict(target=dict(f_low_GHz=lo,f_high_GHz=hi,reflection_limit_dB=reflection,transmission_min_dB=transmission),
+                estimated_S11_screening_margin_dB=margin,grid_points_per_axis=grid,
+                feasible_grid_count=feasible_count,candidates=chosen,exploratory_candidates=raw,existing_curve_matches=known,
+                status='candidates_require_HFSS' if chosen else 'no_uncertainty_screened_candidate; see existing matches and exploratory candidates',
+                limitations=['Retrospective interpolation error margin is not a certified bound.',
+                             'Fixed er3.55/h.813/g.55 and tuned center6.72GHz; no center scaling.',
+                             '17 widths do not support a general multidimensional neural network.'])
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser(description=__doc__)
+    ap.add_argument('--f-low',type=float);ap.add_argument('--f-high',type=float)
+    ap.add_argument('--bandwidth',type=float,help='Symmetric band about6.72GHz; not S21-only BW')
+    ap.add_argument('--s11',type=float,default=-20);ap.add_argument('--s21',type=float,default=-2)
+    ap.add_argument('--out',type=Path);a=ap.parse_args()
+    if a.bandwidth is not None:
+        if a.f_low is not None or a.f_high is not None or a.bandwidth<=0:ap.error('Use bandwidth OR explicit edges')
+        a.f_low,a.f_high=6.72-a.bandwidth/2,6.72+a.bandwidth/2
+    if a.f_low is None or a.f_high is None:ap.error('Specify band edges or bandwidth')
+    try:result=inverse(a.f_low,a.f_high,a.s11,a.s21)
+    except ValueError as e:ap.error(str(e))
+    if a.out:write(a.out,result)
+    print(json.dumps(result,ensure_ascii=False,indent=2))

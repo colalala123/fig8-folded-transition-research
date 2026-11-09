@@ -1,0 +1,59 @@
+"""Frozen actual-solver supervisor reused without geometry dispatch."""
+import asyncio,json,time,sys
+from phase_control import ORIGINAL,HERE,read,write,sha,now
+sys.path.insert(0,str(ORIGINAL))
+from direct_worker import dc
+sys.path.insert(0,str(ORIGINAL.parent/'fig8_speed_study_20261021'))
+from run_study import canonical_ports
+from analyze_study import passes
+
+def snapshot(value):return json.loads(json.dumps(value,default=str))
+
+async def solve_stage(project, run, state, label, adaptive):
+    """Run only the named setup, with a bounded wall clock; never kill/retry on timeout."""
+    assert not dc.solvers(),'Another HFSS solver active'
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990,
+          'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+    item={'label':label,'adaptive_requested':adaptive,'started_at':now(),'mcp_request':args,'observations':[]}
+    state['segments'].append(item);write(run/'state.json',state)
+    start=time.monotonic()
+    async with dc.connected_client() as client:
+        item['mcp_response']=await dc.session_call(client,'start_analysis',args)
+        assert item['mcp_response'].get('started')
+        state['status']='solving';write(run/'state.json',state)
+        while True:
+            await asyncio.sleep(5);live=dc.solvers()
+            if live and (not item['observations'] or item['observations'][-1]!=live):item['observations'].append(live)
+            if not adaptive and any('-solve_broadband_adapt' in ' '.join(p['cmdline'] or []) or '-solve_adapt ' in ' '.join(p['cmdline'] or []) for p in live):
+                app=dc.app_for(project)
+                try:app.stop_simulations(clean_stop=True)
+                finally:app.release_desktop(close_projects=False,close_desktop=False)
+                raise RuntimeError('Unexpected new adaptive solve during final sweep; clean stop requested')
+            if live:
+                # Do not flood the AEDT broker while hf3d is visibly working.
+                item['last_status']={'running':True,'source':'observed_hf3d_process'}
+            else:
+                try:
+                    item['last_status']=await dc.session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+                except Exception as exc:
+                    # A read-only status failure is NOT evidence that Analyze failed.
+                    # Never re-send start_analysis. One direct read fallback per stage.
+                    if item.get('direct_status_fallback'):raise
+                    item['direct_status_fallback']={'at':now(),'broker_error':str(exc)}
+                    write(run/'state.json',state)
+                    app=dc.app_for(project)
+                    try:
+                        running=bool(app.are_there_simulations_running)
+                        item['last_status']={'running':running,'source':'direct_aedt_after_broker_timeout'}
+                        item['direct_status_fallback']['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+                    finally:app.release_desktop(close_projects=False,close_desktop=False)
+            item['elapsed_seconds']=time.monotonic()-start;write(run/'state.json',state)
+            if not live and not item['last_status'].get('running'):break
+            if time.monotonic()-start>3600:raise TimeoutError('Stage supervision limit; preserve live solver and inspect, no automatic retry')
+    item['finished_at']=now()
+    commands=[' '.join(p['cmdline'] or []) for obs in item['observations'] for p in obs]
+    item['observed_16core_process']=any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    item['observed_adaptive_process']=any('-solve_broadband_adapt' in c or '-solve_adapt ' in c for c in commands)
+    if adaptive:assert item['observed_16core_process'] and item['observed_adaptive_process']
+    write(run/'state.json',state)
+    return item

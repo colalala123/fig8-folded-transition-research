@@ -1,0 +1,157 @@
+param(
+    [double]$Er = 3.38,
+    [double]$TanD = 0.0027,
+    [double]$FrequencyGHz = 6.85,
+    [double]$LengthUm = 14600,
+    [double]$GapUm = 310,
+    [double]$HeightUm = 813
+)
+
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public static class TxSlUser32 {
+    [DllImport("user32.dll", CharSet=CharSet.Auto)] public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, string lParam);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+}
+"@
+
+function Get-WindowByTitle([string]$title) {
+    $root = [System.Windows.Automation.AutomationElement]::RootElement
+    $children = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+    for ($i = 0; $i -lt $children.Count; $i++) {
+        $candidate = $children.Item($i)
+        if ($candidate.Current.Name -eq $title) {
+            return $candidate
+        }
+    }
+    return $null
+}
+
+function Find-DescByClassAndName($root, [string]$className, [string]$name) {
+    $items = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        $item = $items.Item($i)
+        if ($item.Current.ClassName -eq $className -and $item.Current.Name -eq $name) {
+            return $item
+        }
+    }
+    return $null
+}
+
+function Get-ChildrenByClass($root, [string]$className) {
+    $items = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+    $result = @()
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        $item = $items.Item($i)
+        if ($item.Current.ClassName -eq $className) {
+            $result += $item
+        }
+    }
+    return $result | Sort-Object @{ Expression = { $_.Current.BoundingRectangle.Top } }, @{ Expression = { $_.Current.BoundingRectangle.Left } }
+}
+
+function Get-AllDescByClass($root, [string]$className) {
+    $items = $root.FindAll([System.Windows.Automation.TreeScope]::Descendants, [System.Windows.Automation.Condition]::TrueCondition)
+    $result = @()
+    for ($i = 0; $i -lt $items.Count; $i++) {
+        $item = $items.Item($i)
+        if ($item.Current.ClassName -eq $className) {
+            $result += $item
+        }
+    }
+    return $result | Sort-Object @{ Expression = { $_.Current.BoundingRectangle.Top } }, @{ Expression = { $_.Current.BoundingRectangle.Left } }
+}
+
+function Set-Text($element, [string]$value) {
+    $handle = [IntPtr]$element.Current.NativeWindowHandle
+    if ($handle -eq [IntPtr]::Zero) { throw "Element has no native handle." }
+    [void][TxSlUser32]::SendMessage($handle, 0x000C, [IntPtr]::Zero, $value)
+    [void][TxSlUser32]::PostMessage($handle, 0x0100, [IntPtr]13, [IntPtr]::Zero)
+    [void][TxSlUser32]::PostMessage($handle, 0x0101, [IntPtr]13, [IntPtr]::Zero)
+    Start-Sleep -Milliseconds 100
+}
+
+function Click-Native($element) {
+    $handle = [IntPtr]$element.Current.NativeWindowHandle
+    if ($handle -eq [IntPtr]::Zero) { throw "Element has no native handle." }
+    [void][TxSlUser32]::SendMessage($handle, 0x00F5, [IntPtr]::Zero, [IntPtr]::Zero)
+    Start-Sleep -Milliseconds 500
+}
+
+function Text($element) {
+    if ($null -eq $element) { return $null }
+    return $element.Current.Name
+}
+
+function F([double]$x) {
+    return [string]::Format([Globalization.CultureInfo]::InvariantCulture, "{0}", $x)
+}
+
+$window = Get-WindowByTitle "TXLINE 2003 - Slotline"
+if ($null -eq $window) { throw "TXLINE 2003 - Slotline window was not found." }
+
+[void][TxSlUser32]::SetForegroundWindow([IntPtr]$window.Current.NativeWindowHandle)
+Start-Sleep -Milliseconds 200
+
+$material = Find-DescByClassAndName $window "TGroupBox" "Material Parameters"
+$electrical = Find-DescByClassAndName $window "TGroupBox" "Electrical Characteristics"
+$physical = Find-DescByClassAndName $window "TGroupBox" "Physical Characteristic"
+if ($null -eq $material -or $null -eq $electrical -or $null -eq $physical) { throw "Expected TXLINE group boxes were not found." }
+
+$matEdits = @(Get-ChildrenByClass $material "TEdit")
+$elecEdits = @(Get-ChildrenByClass $electrical "TEdit")
+$physEdits = @(Get-ChildrenByClass $physical "TEdit")
+$buttons = @(Get-AllDescByClass $window "TBitBtn")
+
+if ($matEdits.Count -ne 3 -or $elecEdits.Count -ne 6 -or $physEdits.Count -ne 3 -or $buttons.Count -ne 3) { throw "Unexpected TXLINE control layout" }
+$pu = @(Get-ChildrenByClass $physical "TComboBox")
+$eu = @(Get-ChildrenByClass $electrical "TComboBox")
+if (@($pu | Where-Object { $_.Current.Name -ne 'um' }).Count -ne 0 -or $eu[0].Current.Name -ne 'Ohms' -or $eu[1].Current.Name -ne 'GHz') { throw "Unexpected TXLINE units" }
+
+# Slotline page edit order by screen position:
+# Material: Conductivity, Er, TanD. Physical: L, G, H. Electrical: Z0, F, ELen, Beta, Eeff, Loss.
+Set-Text $matEdits[1] (F $Er)
+Set-Text $matEdits[2] (F $TanD)
+Set-Text $elecEdits[1] (F $FrequencyGHz)
+Set-Text $physEdits[0] (F $LengthUm)
+Set-Text $physEdits[1] (F $GapUm)
+Set-Text $physEdits[2] (F $HeightUm)
+
+# Upper arrow converts physical dimensions into electrical characteristics.
+Click-Native $buttons[1]
+
+$elecEdits = @(Get-ChildrenByClass $electrical "TEdit")
+$physEdits = @(Get-ChildrenByClass $physical "TEdit")
+
+[ordered]@{
+    input = [ordered]@{
+        er = $Er
+        tanD = $TanD
+        frequency_ghz = $FrequencyGHz
+        length_um = $LengthUm
+        gap_um = $GapUm
+        height_um = $HeightUm
+    }
+    readback_material = [ordered]@{
+        conductivity = Text $matEdits[0]
+        er = Text $matEdits[1]
+        tanD = Text $matEdits[2]
+    }
+    output = [ordered]@{
+        impedance_ohm = Text $elecEdits[0]
+        frequency_ghz = Text $elecEdits[1]
+        electrical_length_deg = Text $elecEdits[2]
+        phase_constant_deg_per_m = Text $elecEdits[3]
+        effective_er = Text $elecEdits[4]
+        loss_db_per_m = Text $elecEdits[5]
+        length_um = Text $physEdits[0]
+        gap_um = Text $physEdits[1]
+        height_um = Text $physEdits[2]
+    }
+} | ConvertTo-Json -Depth 5

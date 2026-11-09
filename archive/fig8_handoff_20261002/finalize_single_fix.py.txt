@@ -1,0 +1,19 @@
+import json,hashlib
+from pathlib import Path
+R=Path(r'F:\hfss_f8x_261002\R_B0_single_fix')
+def sha(p):
+ h=hashlib.sha256();
+ with open(p,'rb') as f:
+  while True:
+   b=f.read(1<<20)
+   if not b: break
+   h.update(b)
+ return h.hexdigest()
+m=json.loads((R/'single_fix_manifest.json').read_text(encoding='utf-8'))
+post=json.loads((R/'postcheck.json').read_text(encoding='utf-8')); met=json.loads((R/'single_fix_metrics.json').read_text(encoding='utf-8'))
+m.update({'status':'completed_diagnostic_only','finished_at_utc':'2026-10-04T16:46:06Z','project_sha256_after':sha(R/'R_B0_single_fix.aedt'),'source_unchanged':True,'mcp_analysis_start':json.loads((R/'mcp_start_analysis.json').read_text(encoding='utf-8')),'postcheck':'postcheck.json','metrics':'single_fix_metrics.json','convergence_file':'convergence.txt','exports':['hfss_native.s2p','hfss_50ohm.s2p'],'solver_converged':True,'interpolating_sweep_converged':True,'passivity_check':{'basis':'50-ohm exported S2P','max_singular_value':met['max_singular_value'],'violation_count':met['passivity_violation_count']},'three_mode_production_approved':False,'scope_note':'One propagating mode per wave port is a diagnostic isolation of the HFSS multi-mode interpolator failure; it cannot replace the required three-mode result.'})
+(R/'single_fix_manifest.json').write_text(json.dumps(m,indent=2),encoding='utf-8')
+lines=['# Fig.8 单模诊断修复报告','',f'完成时间：2026-10-04（AEDT 2024 R2，可见 HFSS，MCP gRPC 12704）','', '## 结论','', '单模诊断扫频已真正收敛，但三模生产结果仍未修复。该运行每个波端口只保留 Mode 1，因此只用于隔离故障来源，不能替代三模数据。', '', '## 单模运行设置','', '- 每端口 1 个传播模；保留原 Mode 1 积分线与参考面。', '- 0.01–15 GHz，步长 0.01 GHz，共 1500 点；Interpolating sweep。', '- 自适应：15 GHz，MaxDeltaS=0.005，最少 6、最多 40 轮，连续 2 轮达标，PortAccuracy=2，16 核/1 任务。', '- 插值：InterpUseS=true，InterpUsePortImped=false，InterpUsePropConst=true，Manual S-matrix，Above=15 GHz，InterpTolerance=0.5%，MaxSolns=500；启用无源性约束，容差 1e-4。', '', '## 证据','', '- 自适应 21 轮，最终 Max Mag Delta S=0.0034591，连续达标 2 轮。', '- HFSS 消息明确为 “Interpolating frequency sweep complete. Converged.”，随后正常结束。', '- 导出 1500 点完整 2-port S2P；50 Ω 归一化后的最大奇异值 0.9999318，违规点 0。', '- 单模曲线在 IL≤2 dB 下为 3.25–9.99 GHz，带宽 6.74 GHz。', '', '## 对三模修复的判断','', '之前三模测试（原始 Zpi/Zwave、全 Zwave、Manual、关闭端口阻抗、关闭/改变 S-matrix only、因果材料、增大基点数等）仍出现未收敛或矩阵秩退化；6.25–6.50 GHz 的 26 点离散三模扫频则证明三模离散求解本身正常。因此当前根因仍是 HFSS 2024 R2 多模插值器的模态阻抗/基点传递，而不是几何或自适应网格。', '', '完整文件见当前目录：`R_B0_single_fix.aedt`、`hfss_native.s2p`、`hfss_50ohm.s2p`、`convergence.txt`、`postcheck.json`、`single_fix_metrics.json`。']
+(R/'single_fix_final_report_20261004.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+print('updated')
+

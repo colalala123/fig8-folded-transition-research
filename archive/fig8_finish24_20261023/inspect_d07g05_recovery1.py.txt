@@ -1,0 +1,38 @@
+"""Open a visible AEDT desktop and inspect the isolated recovery cache, without Analyze."""
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Desktop
+from geometry_worker import dc, snapshot, passes, inspect_rebuilt_geometry, canonical_ports
+from control import HERE, BASE, read, write, sha, now
+
+r = BASE / 'D07G05/g00_recovery1'
+old = BASE / 'D07G05/g00_rebase'
+assert not dc.solvers()
+if not any((p.info['name'] or '').lower() == 'ansysedt.exe' for p in psutil.process_iter(['name'])):
+    d = Desktop(version='2024.2', non_graphical=False, new_desktop=True, close_on_exit=False, port=7990)
+    d.release_desktop(close_projects=False, close_on_exit=False)
+project = r / 'D07G05_g00_recovery1.aedt'
+app = dc.app_for(project)
+try:
+    assert not app.are_there_simulations_running
+    s = read(old / 'state.json')
+    output = r / 'resume_convergence.txt'
+    app.export_convergence('Setup19', output_file=str(output))
+    history = passes(output)
+    previous = passes(old / 'convergence_stage_00.txt')
+    assert history[:len(previous)] == previous
+    assert 16 <= history[-1][0] <= 17
+    cad = inspect_rebuilt_geometry(app, s['geometry'])
+    assert cad['passed']
+    ports = snapshot({b.name:b.props for b in app.boundaries if b.type == 'Wave Port'})
+    assert canonical_ports(ports) == canonical_ports(s['port_settings']['after'])
+    assert Path(app.temp_directory).resolve() == (BASE/'solver_temp').resolve()
+    messages = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+    app.save_project()
+    write(r/'recovery_inspection.json', dict(at=now(), running=False, project=str(project),
+        project_sha256=sha(project), history=history, prior_history_unchanged=True,
+        cad=cad, ports=ports, messages=messages, temp_directory=app.temp_directory,
+        setup=snapshot(app.get_setup('Setup19').props), original_event_sha256=sha(old/'completion_event.json')))
+    print('INSPECTED', history[-1], 'visible port7990; no Analyze requested', flush=True)
+finally:
+    app.release_desktop(close_projects=False, close_desktop=False)

@@ -1,0 +1,33 @@
+"""Read-only result recovery; never invokes analyze or saves source projects."""
+import sys,traceback,json,re
+from pathlib import Path
+import numpy as np
+from audit_existing import HERE,OLD,read,write,sha,touchstone
+from ansys.aedt.core import Hfss
+def main(names):
+    for name in names:
+        run=OLD/name
+        if not run.exists():run=Path('J:/hfss_f8x_261002_archive')/name
+        m=read(run/'manifest.json');project=Path(m['project'])
+        if not project.exists():project=run/project.name
+        out=HERE/'recovered_exports'/name.replace('/','_');out.mkdir(parents=True,exist_ok=True)
+        rec={'run':str(run),'project':str(project),'source_hash_before':sha(project),'no_solve':True};app=None
+        try:
+            port=12704
+            lock=Path(str(project)+'.lock')
+            if lock.exists():
+                match=re.search(r'GRPCPort=(\d+)',lock.read_text(errors='replace'))
+                if match:port=int(match[1])
+            app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=port,non_graphical=False,new_desktop=False,close_on_exit=False)
+            n=2*m['modes'];dest=out/f'50ohm.s{n}p'
+            ok=app.export_touchstone(setup='Setup19',sweep='Sweep1',output_file=str(dest),renormalization=True,impedance=50,gamma_impedance_comments=True)
+            if not ok or not dest.exists():raise RuntimeError('Stored sweep export unavailable; no automatic solve')
+            f,s=touchstone(dest,n);sv=np.linalg.svd(s,compute_uv=False)[:,0]
+            rec.update(status='exported',points=len(f),max_sv=float(max(sv)),violation_count=int(sum(sv>1.001)),worst_frequency_GHz=float(f[sv.argmax()]),reciprocity=float(abs(s-s.transpose(0,2,1)).max()),curve_sha256=sha(dest),source_hash_after=sha(project))
+            rec['source_unchanged']=rec['source_hash_before']==rec['source_hash_after']
+        except Exception:rec.update(status='export_failed',error=traceback.format_exc())
+        finally:
+            write(out/'recovery.json',rec)
+            if app:app.release_desktop(close_projects=False,close_desktop=False)
+        print(json.dumps(rec),flush=True)
+if __name__=='__main__':main(sys.argv[1:])

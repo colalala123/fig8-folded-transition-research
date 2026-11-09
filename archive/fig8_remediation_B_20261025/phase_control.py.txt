@@ -1,0 +1,29 @@
+"""Isolated stage-B state; never updates the completed first24 batch."""
+import hashlib
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+ORIGINAL = HERE.parent/'fig8_finish24_20261023'
+PLAN = HERE.parent/'fig8_remediation_plan_20261025'
+BASE = Path('J:/f8_remB_261025')
+HOOK = HERE.parent/'completion-hook-portable-1.0.0'
+TARGET = 'REDACTED-ID'
+
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now(): return datetime.now(timezone.utc).isoformat()
+def write(p, data):
+    p=Path(p); p.parent.mkdir(parents=True, exist_ok=True)
+    tmp=p.with_suffix(p.suffix+'.tmp')
+    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False, default=str), encoding='utf-8')
+    os.replace(tmp, p)
+
+def status():
+    active=read(HERE/'active.json') if (HERE/'active.json').exists() else {}
+    write(HERE/'status.json',dict(updated_at=now(),active=active,stage='B',
+        scope='D04G02 and D09G05 bounded tuning only',geometry_cap=6,cached_task_cap=2,stage_C_released=False))
+    (HERE/'STATUS.md').write_text('# Fig8 B阶段\n\n16核串行，仅D04G02/D09G05。C未启动。\n\n'+
+        json.dumps(active,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')

@@ -1,0 +1,142 @@
+"""Prepare exactly one authorized C3 geometry from reviewed comparable evidence."""
+import argparse
+from pathlib import Path
+import sys
+import phase_control as pc
+from phase_geometry_context import HISTORY,ORDER,REBASE,CAPS,STEPS,entry,job_name
+sys.path.insert(0,str(pc.ORIGINAL))
+from geometry_worker import dc,geometry_gate,passes
+from tuning_proposal import propose_probes,propose_candidate
+from mesh_budget import design_verdict
+from pilot_queue import error,normalized_error
+from phase_publish import hook
+from case_reference import verify_reference
+
+def run_for(case,cycle,role):
+    ns=[n for n in range(1,CAPS[case]+1) if entry(case,n)==(cycle,role)]
+    assert len(ns)==1
+    return pc.BASE/case/job_name(case,ns[0])
+
+def reviewed(run):
+    run=Path(run);p=pc.read(run/'input.json');s=pc.read(run/'state.json');m=pc.read(run/'response_metrics.json')
+    a=pc.read(run/'receiver_ack.json');e=hook.load_event(run/'completion_event.json')
+    assert e['status']=='completed' and e['target_thread_id']==pc.TARGET
+    assert a['event_sha256']==pc.sha(run/'completion_event.json') and a['artifacts_verified'] and a['visual_review_completed'] and a['operation_success']
+    assert a['verification_sha256']==pc.sha(run/'receiver_verification.json')
+    for x in e['artifacts']:assert pc.sha(run/x['path'])==x['sha256']
+    for f,h in p['parent_evidence_hashes'].items():assert pc.sha(f)==h,f
+    assert pc.sha(p['source'])==p['source_sha256'] and s['status']=='completed' and s['geometry']==p['geometry']
+    assert p['policy_sha256']==pc.sha(pc.HERE/'policy.json') and p['mesh_addendum_sha256']==pc.sha(pc.HERE/'mesh_policy_addendum_v2.json')
+    assert 100000<=s['actual_elements']<=112000 and passes(run/'convergence.txt')[-1][1]==s['actual_elements']
+    assert s['final_sweep']['InterpTolerance']==1 and not s['final_sweep']['EnforcePassivity']
+    assert m['curve_sha256']==pc.sha(run/'sparams.csv') and m['prominent_valley_count']==3
+    files=['input.json','state.json','response_metrics.json','sparams.csv','convergence.txt','receiver_verification.json','receiver_ack.json','completion_event.json']
+    if run.resolve().is_relative_to(pc.BASE.resolve()):
+        assert verify_reference(run)==s['reference_treatment'];files+=['reference_review.json']
+    else:
+        assert run.resolve()==Path(pc.read(pc.HERE/'source_review.json')['cases']['D04G02']['run']).resolve()
+    return p,m,{str(run/f):pc.sha(run/f) for f in files}
+
+def second_center(case):
+    record=pc.read(pc.HERE/'cases'/case/'cycle01.json');base=Path(record['center'])
+    p,m,parents=reviewed(base);initial_score=normalized_error(error(m,6.72))
+    assert initial_score>0
+    measured=[(initial_score,base,p,m)]
+    for role in STEPS:
+        r=run_for(case,1,role);pp,mm,hh=reviewed(r);parents.update(hh)
+        err=error(mm,6.72);assert err is not None
+        measured.append((normalized_error(err),r,pp,mm))
+    best=min(measured,key=lambda x:x[0])
+    assert not design_verdict(best[3]),'A measured design passes: direct review, no second cycle'
+    improvement=1-best[0]/initial_score
+    assert improvement>=.10,'Second cycle not released: less than10% actual normalized improvement'
+    return best[1],parents,dict(baseline_score=initial_score,best_score=best[0],improvement_fraction=improvement,
+        measurements=[dict(run=str(x[1]),normalized_error=x[0]) for x in measured],reason='Measured best point improves>=10%; independently remeasure both sensitivities')
+
+def prepare(case):
+    assert not (pc.HERE/'stage_C3_closure.json').exists() and not (pc.HERE/'cases'/case/'disposition.json').exists()
+    auth=pc.read(pc.HERE/'authorization.json');ledger=pc.read(pc.HERE/'budget_ledger.json')
+    assert auth['execution_authorized'] and auth['stage']=='C3' and auth['cases']==ORDER and case in HISTORY
+    assert not dc.solvers()
+    locks=[pc.HERE/'worker.lock',pc.HERE.parent/'fig8_remediation_A_20261025/worker.lock',pc.HERE.parent/'fig8_remediation_B_20261025/worker.lock',pc.ORIGINAL/'worker.lock',Path('J:/f8_261007/protocol.lock'),Path('J:/f8_261007/pilot_queue.lock')]
+    assert not any(p.exists() for p in locks)
+    assert ledger['case_cumulative_geometry']==HISTORY and all(t['status']=='reviewed' for t in ledger['tasks'])
+    assert ledger['new_geometry_reserved']<20 and ledger['new_cached_tasks_reserved']<=3
+    assert not any(t['case']==case and t['role']=='cached_phase_direct' for t in ledger['tasks']),'Do not use geometry after the unique direct task'
+    for earlier in ORDER[:ORDER.index(case)]:
+        d=pc.read(pc.HERE/'cases'/earlier/'disposition.json');assert d['reason'] and d['state'] in ['scoped_accepted','bounded_design_failed','numerical_unresolved']
+        for f,h in d['evidence_hashes'].items():assert pc.sha(f)==h
+    own=[t for t in ledger['tasks'] if t['case']==case and t.get('new_phase_geometry_ordinal')]
+    n=len(own)+1;cycle,role=entry(case,n)
+    review=pc.read(pc.HERE/'source_review.json')['cases'][case]
+    parents=dict(review['evidence_hashes']);seed=review['seed'];seed_sha=review['seed_sha256']
+    previous=None
+    if (pc.HERE/'supervised_release.json').exists():
+        previous=pc.read(pc.HERE/'supervised_release.json');prev=Path(pc.read(previous['input_path'])['run_dir'])
+        a=pc.read(prev/'receiver_ack.json');assert a['event_sha256']==pc.sha(prev/'completion_event.json') and a['artifacts_verified'] and a['visual_review_completed'] and a['operation_success']
+        parents.update({str(prev/f):pc.sha(prev/f) for f in ['receiver_ack.json','completion_event.json']})
+    cycle_record=None
+    if role=='rebase_center':
+        assert n==1 and case in REBASE
+        geometry=review['geometry'];proposal=dict(action='same_geometry_policy_center',geometry=geometry,
+            legacy_run=review['run'],physical_parameter_change=False,reason='Old mesh/interpolation/passivity policy is incompatible with new finite differences; do not compare old center to new probes',
+            reference_change=False)
+        center_path=Path(review['run'])
+    else:
+        cycle_path=pc.HERE/'cases'/case/f'cycle{cycle:02d}.json'
+        if role=='probe_Ls1':
+            assert not cycle_path.exists()
+            if cycle==1:
+                center_path=run_for(case,0,'rebase_center') if case in REBASE else Path(review['run'])
+                decision=dict(reason='Reviewed same-policy starting center')
+            else:
+                center_path,extra,decision=second_center(case);parents.update(extra)
+            center,metrics,hashes=reviewed(center_path);parents.update(hashes)
+            prop=propose_probes(center['geometry'],review['initial_geometry'],metrics,0)
+            assert prop['action']=='probe','Center already passes or cannot support a full local cycle'
+            cycle_record=dict(at=pc.now(),case=case,cycle=cycle,center=str(center_path),center_hashes=hashes,
+                historical_geometry_attempts=HISTORY[case],phase_geometry_used_before=n-1,probe_proposal=prop,decision=decision,
+                counter_note='Pure proposal counter0 is local to this3point cycle; immutable real history and phase cap enforced separately')
+        else:
+            cycle_record=pc.read(cycle_path);center_path=Path(cycle_record['center'])
+            for f,h in cycle_record['center_hashes'].items():assert pc.sha(f)==h
+            center,metrics,hashes=reviewed(center_path);parents.update(hashes);prop=cycle_record['probe_proposal']
+        index=STEPS.index(role);pm=[]
+        for i in range(index):
+            rr=run_for(case,cycle,STEPS[i]);pp,mm,hh=reviewed(rr)
+            assert pp['geometry']==prop['probes'][i]['geometry'] and not design_verdict(mm),'Passing probe: direct review early stop'
+            parents.update(hh);pm.append(mm)
+        if role=='candidate':
+            proposal=propose_candidate(center['geometry'],review['initial_geometry'],metrics,pm,[p['step_mm'] for p in prop['probes']],2)
+            assert proposal['action']=='candidate','Condition/geometry/shape gate failed; no extra blind trial'
+        else:proposal=prop['probes'][index]
+        geometry=proposal['geometry']
+    assert geometry_gate(geometry,review['initial_geometry'])['passed']
+    assert all(geometry[k]==review['geometry'][k] for k in ['Wm','Ws','Ls2','Ls3'])
+    run=pc.BASE/case/job_name(case,n);assert not run.exists()
+    if role=='probe_Ls1':pc.write(cycle_path,cycle_record)
+    if cycle>0:parents[str(cycle_path)]=pc.sha(cycle_path)
+    for f in [pc.HERE/'authorization.json',pc.HERE/'PLAN.md',pc.HERE/'source_review.json',pc.HERE/'reference_validation.json',
+              pc.HERE/'geometry_implementation_provenance.json',pc.HERE/'case_reference.py',pc.HERE/'phase_geometry_context.py',
+              pc.HERE/'phase_geometry_publish.py',pc.HERE/'phase_heartbeat.py',pc.HERE/'phase_control.py',pc.HERE/'hook/config.json',
+              pc.HERE/'policy.json',pc.HERE/'mesh_policy_addendum_v2.json',pc.HERE.parent/'fig8_remediation_B_20261025/stage_B_closure.json',Path(__file__).resolve()]:
+        parents[str(f)]=pc.sha(f)
+    pc.write(run/'budget_before.json',ledger);parents[str(run/'budget_before.json')]=pc.sha(run/'budget_before.json')
+    pc.write(run/'proposal.json',proposal);parents[str(run/'proposal.json')]=pc.sha(run/'proposal.json')
+    spec=dict(case=case,role=role,cycle=cycle,geometry=geometry,center_run=str(center_path),source=seed,source_sha256=seed_sha,
+        run_dir=str(run),input_path=str((run/'input.json').resolve()),project_name=f'{case}_RemC3_g{n:02d}',
+        policy_sha256=pc.sha(pc.HERE/'policy.json'),mesh_addendum_sha256=pc.sha(pc.HERE/'mesh_policy_addendum_v2.json'),
+        new_phase_geometry_ordinal=n,historical_geometry_attempts=HISTORY[case],phase_solve_ordinal_including_history=HISTORY[case]+n,
+        worker_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),controller_sha256=pc.sha(pc.ORIGINAL/'mesh_budget.py'),
+        parent_evidence_hashes=parents,created_at=pc.now(),scope='C3 remaining3 only; one supervised release, max2 cycles and no reference/criteria change')
+    pc.write(run/'input.json',spec)
+    if previous:pc.write(pc.HERE/'supervised_releases'/f'{prev.parent.name}_{prev.name}.json',previous)
+    pc.write(pc.HERE/'supervised_release.json',dict(case=case,input_path=spec['input_path'],input_sha256=pc.sha(run/'input.json'),bulk_dispatch_released=False,at=pc.now()))
+    ledger['new_geometry_reserved']+=1
+    ledger['tasks'].append(dict(case=case,role=role,cycle=cycle,new_phase_geometry_ordinal=n,lifetime_geometry_ordinal=HISTORY[case]+n,
+        path=spec['input_path'],input_sha256=pc.sha(run/'input.json'),status='reserved'))
+    pc.write(pc.HERE/'budget_ledger.json',ledger)
+    print(dict(input=str(run/'input.json'),role=role,cycle=cycle,historical=HISTORY[case],new_geometry_ordinal=n,lifetime=HISTORY[case]+n))
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--case',choices=ORDER,required=True);prepare(ap.parse_args().case)

@@ -1,0 +1,37 @@
+import tempfile
+import unittest
+from pathlib import Path
+import numpy as np
+from diagnose_d11 import compare, FREQUENCIES
+
+class DiagnosticTests(unittest.TestCase):
+    def setUp(self):
+        self.t=tempfile.TemporaryDirectory();self.addCleanup(self.t.cleanup)
+        self.root=Path(self.t.name)
+        for folder in ['src','direct','new']:(self.root/folder).mkdir()
+        self.f=np.arange(1,1501)/100
+        self.write('src',self.f,0)
+        self.write('direct',np.array([12.]),.009)
+        self.write('new',np.array(FREQUENCIES),.009)
+
+    def write(self,folder,f,offset):
+        x=np.c_[f,np.full(len(f),.2),np.zeros(len(f)),np.full(len(f),.1+offset),np.zeros(len(f))]
+        np.savetxt(self.root/folder/'sparams.csv',x,delimiter=',',header='Freq_GHz,S11_real,S11_imag,S21_real,S21_imag',comments='')
+
+    def test_stable_repeat_is_diagnostic_not_acceptance(self):
+        c=compare(self.root/'src',self.root/'direct',self.root/'new')
+        self.assertTrue(c['repeat_direct_stable_at_overlap'])
+        self.assertIsNone(c['numerical_review_passed'])
+        self.assertAlmostEqual(c['details'][2]['S21_interpolation_complex_error'],.009)
+
+    def test_unstable_repeat_is_flagged(self):
+        self.write('new',np.array(FREQUENCIES),.03)
+        self.assertFalse(compare(self.root/'src',self.root/'direct',self.root/'new')['repeat_direct_stable_at_overlap'])
+
+    def test_missing_point_rejected(self):
+        self.write('new',np.array(FREQUENCIES[:-1]),.009)
+        with self.assertRaises(AssertionError):compare(self.root/'src',self.root/'direct',self.root/'new')
+
+    def test_nonfinite_rejected(self):
+        self.write('new',np.array(FREQUENCIES),float('nan'))
+        with self.assertRaises(AssertionError):compare(self.root/'src',self.root/'direct',self.root/'new')

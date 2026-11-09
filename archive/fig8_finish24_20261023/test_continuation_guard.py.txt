@@ -1,0 +1,105 @@
+import tempfile
+import unittest
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+import continuation_guard as guard
+from control import read, write, sha
+
+
+class GuardTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.here = Path(self.tmp.name)
+        self.run = self.here/'first'; self.event = self.run/'completion_event.json'
+        write(self.event, {'status': 'completed', 'target_thread_id': 'test-only'})
+        self.next_run = self.here/'next'; self.spec = self.next_run/'input.json'
+
+    def ack(self):
+        write(self.run/'receiver_ack.json', {'event_sha256': sha(self.event),
+              'artifacts_verified': True, 'visual_review_completed': True})
+
+    def release(self, next_run=None):
+        spec = (next_run or self.next_run)/'input.json'
+        write(spec, {'run_dir': str(next_run or self.next_run)})
+        write(self.here/'supervised_release.json', {'input_path': str(spec), 'input_sha256': sha(spec)})
+
+    def check(self):
+        return guard.inspect(self.event, self.here)
+
+    def test_delivery_receipt_is_not_receiver_ack(self):
+        write(self.run/'notification_receipt.json', {'state': 'accepted'})
+        self.assertEqual(self.check()['reason'], 'receiver_ack_missing_or_incomplete')
+
+    def test_ack_alone_does_not_close_chain(self):
+        self.ack(); self.release(self.run)
+        self.assertEqual(self.check()['reason'], 'acknowledged_but_no_next_work_item')
+
+    def test_prepared_input_is_not_started(self):
+        self.ack(); self.release()
+        self.assertEqual(self.check()['reason'], 'next_input_prepared_but_not_started')
+
+    def test_live_next_worker_resolves(self):
+        self.ack(); self.release()
+        write(self.here/'active.json', {'run_dir': str(self.next_run), 'pid': 123})
+        with patch.object(guard, 'worker_alive', return_value=True):
+            self.assertEqual(self.check()['reason'], 'next_worker_running')
+        with patch.object(guard, 'worker_alive', return_value=False):
+            self.assertFalse(self.check()['resolved'])
+
+    def test_changed_input_not_accepted(self):
+        self.ack(); self.release(); write(self.spec, {'run_dir': str(self.next_run), 'changed': True})
+        self.assertEqual(self.check()['reason'], 'next_release_missing_or_invalid')
+
+    def test_terminal_next_event(self):
+        self.ack(); self.release(); write(self.next_run/'completion_event.json', {'status': 'failed'})
+        self.assertEqual(self.check()['reason'], 'next_work_item_has_terminal_event')
+
+    def test_only_hash_bound_documented_disposition(self):
+        resolution = {'event_sha256': 'stale', 'disposition': 'blocked', 'reason': 'Evidence requires review'}
+        write(self.run/'continuation_resolution.json', resolution)
+        self.assertFalse(self.check()['resolved'])
+        resolution['event_sha256'] = sha(self.event)
+        write(self.run/'continuation_resolution.json', resolution)
+        self.assertTrue(self.check()['resolved'])
+
+    async def test_stall_alert_once_no_completion_modification(self):
+        original = self.event.read_bytes()
+        deliver = AsyncMock(return_value={'state': 'accepted'})
+        with patch.object(guard, 'notify_stall', deliver):
+            await guard.watch(self.event, grace=0, here=self.here)
+            await guard.watch(self.event, grace=0, here=self.here)
+        self.assertEqual(deliver.await_count, 1)
+        self.assertFalse(deliver.call_args.args[1]['solver_failure_asserted'])
+        self.assertEqual(self.event.read_bytes(), original)
+
+    async def test_progress_does_not_alert(self):
+        self.ack(); self.release(); write(self.next_run/'completion_event.json', {'status': 'completed'})
+        with patch.object(guard, 'notify_stall', AsyncMock()) as deliver:
+            await guard.watch(self.event, grace=0, here=self.here)
+        deliver.assert_not_awaited()
+
+    async def test_delivery_error_is_saved_not_retried(self):
+        deliver = AsyncMock(side_effect=RuntimeError('test unknown delivery outcome'))
+        with patch.object(guard, 'notify_stall', deliver):
+            with self.assertRaises(RuntimeError):
+                await guard.watch(self.event, grace=0, here=self.here)
+            await guard.watch(self.event, grace=0, here=self.here)
+        self.assertEqual(deliver.await_count, 1)
+        self.assertTrue((self.run/'continuation_guard/error.json').is_file())
+
+    async def test_guard_start_failure_does_not_swallow_completion(self):
+        import publish_event as adapter
+        import heartbeat
+        deliver = AsyncMock(return_value={'state': 'accepted'})
+        with patch.object(heartbeat, 'arm', side_effect=RuntimeError('cannot spawn')), \
+             patch.object(adapter.hook, 'load_config', return_value={}), \
+             patch.object(adapter.hook, 'deliver', deliver):
+            result = await adapter.publish(self.run, 'test', 'completed', 'test', [])
+        self.assertEqual(result['state'], 'accepted')
+        deliver.assert_awaited_once()
+        self.assertTrue((self.run/'heartbeat_start_error.json').exists())
+
+
+if __name__ == '__main__':
+    unittest.main()

@@ -1,0 +1,43 @@
+"""Study-local hook adapter; release ZIP stays unchanged."""
+import sys
+from pathlib import Path
+from control import HERE,HOOK,read,now,write
+sys.path.insert(0,str(HOOK))
+import completion_hook as hook
+
+
+def continuation_prompt(event,path):
+    return (
+        '[Fig8 24配置收尾 / 自动事件]\n'
+        f"事件ID：{hook.event_id(event)}\n状态：{event['status']}\n摘要：{event['summary']}\n"
+        f"事件清单：{Path(path).resolve().as_posix()}\n"
+        '当前用户已明确授权使用hook完成既有24个弯折配置，均匀数据独立，六极和扩展批不运行。'
+        '请先读取清单核验产物哈希并检查实际曲线；写receiver_ack.json。'
+        f"之后按 {(HERE/'CONTINUATION.md').as_posix()} 和 {(HERE/'STATUS.md').as_posix()} 中已冻结的范围继续下一工作项。"
+        '成功、失败、设计达标/不达标分别报告。当前仅首批监督阶段，不跳过监督直接批量启动。'
+        '若失败，先恢复已有结果，不盲目重复求解或清空锁；同一阻塞不得无限重试。'
+        '不要重发当前事件，不改旧验收文件。24配置都有明确终态及汇总后停止派发。'
+        '接收确认不等于续跑完成：本轮结束前必须核实下一工作项已启动，或写continuation_resolution.json，'
+        '包含当前event_sha256、disposition(blocked/paused/batch_complete)及有证据的reason。'
+        '不得只回复状态而把已授权的工作留在无后续触发的空闲状态。paused仅限用户明确要求。'
+    )
+
+
+async def publish(folder,case,status,summary,artifacts):
+    config=hook.load_config(HERE/'hook/config.json')
+    path=Path(folder)/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(folder,status,summary,artifacts,config=config,
+            verified_success=status=='completed',purpose='Authorized Fig8 existing 24-case closeout; inspect and continue within frozen scope')
+    # Status-aware 5-minute heartbeat replaces the old one-shot 15-minute guard.
+    # Arm only after a completion notification is accepted. No global periodic
+    # chat wakeup, and a transport error is not proof that AI was notified.
+    from heartbeat import arm
+    hook.prompt_for=continuation_prompt
+    receipt = await hook.deliver(path,config=config)
+    if receipt.get('state') == 'accepted':
+        try:
+            arm(path)
+        except Exception as exc:
+            write(Path(folder)/'heartbeat_start_error.json', {'at':now(),'error':repr(exc)})
+    return receipt

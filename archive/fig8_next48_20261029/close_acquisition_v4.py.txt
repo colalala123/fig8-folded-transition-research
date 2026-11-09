@@ -1,0 +1,226 @@
+"""Audit and close the authorized48 acquisition, WITHOUT fitting models or invoking AEDT."""
+import csv,hashlib,json,math,statistics,subprocess,sys,time
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+import continuation_export_v4 as v4
+ROOT=Path(__file__).resolve().parent
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,d):Path(p).write_text(json.dumps(d,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+def new(p,d):
+    with Path(p).open('x',encoding='utf-8') as f:json.dump(d,f,ensure_ascii=False,indent=2,allow_nan=False);f.write('\n')
+def now():return datetime.now(timezone.utc).isoformat()
+CACHE={}
+def verify(p,h):
+    p=Path(p);st=p.stat();k=(str(p),st.st_size,st.st_mtime_ns)
+    if k not in CACHE:CACHE[k]=sha(p)
+    assert CACHE[k]==h,str(p)
+def table(p):
+    with Path(p).open(encoding='utf-8-sig',newline='') as f:
+        data=list(csv.DictReader(f))
+    assert len(data)==1500
+    for i,row in enumerate(data):
+        values={k:float(v) for k,v in row.items()};assert all(math.isfinite(x) for x in values.values())
+        assert abs(values['Freq_GHz']-(i+1)/100)<1e-9
+    return data
+def role_summary(rows):
+    bw=[r['prediction_errors']['S21_BW_MHz'] for r in rows]
+    peak=[r['prediction_errors']['worse_inner_peak_dB'] for r in rows]
+    rel=[abs(x['prediction_errors']['S21_BW_MHz'])/1000/x['scientific_label']['S21_minus2_BW_GHz']*100 for x in rows]
+    return dict(geometries=len(rows),families=len({r['family_id'] for r in rows}),
+        primary_passed=sum(r['scientific_label']['primary']['passed'] for r in rows),
+        secondary_passed=sum(r['scientific_label']['secondary']['passed'] for r in rows),
+        primary_pass_cases=[r['case'] for r in rows if r['scientific_label']['primary']['passed']],
+        secondary_pass_cases=[r['case'] for r in rows if r['scientific_label']['secondary']['passed']],
+        frozen_forward_S21_BW_MAE_MHz=statistics.mean(map(abs,bw)),
+        frozen_forward_S21_BW_RMSE_MHz=math.sqrt(statistics.mean(x*x for x in bw)),
+        frozen_forward_S21_BW_max_abs_MHz=max(map(abs,bw)),
+        frozen_forward_S21_BW_mean_relative_error_percent=statistics.mean(rel),
+        frozen_forward_worse_inner_peak_MAE_dB=statistics.mean(map(abs,peak)),
+        frozen_forward_worse_inner_peak_RMSE_dB=math.sqrt(statistics.mean(x*x for x in peak)),
+        prediction_source='Unchanged deployment52 Ridge, frozen before any new48HFSS; NOT a model refit on these rows')
+def main():
+    assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'ACQUISITION_CLOSURE_V4.json').exists()
+    cost=v4.validate();campaign=read(ROOT/'campaign_frozen.json');pred={p['case']:p for p in read(ROOT/'predictions_frozen.json')['rows']}
+    assert len(campaign['cases'])==48
+    rows=[];contexts=set();original_contexts=set();audit=[]
+    for fc in campaign['cases']:
+        row=v4.effective(fc);case=row['case'];run=Path(row['run_dir']);ctx=Path(row['context']);contexts.add(ctx);original_contexts.add(Path(fc['context']))
+        spec=read(run/'input.json');s=read(run/'state.json');event=read(run/'completion_event.json');ack=read(run/'receiver_ack.json');rv=read(run/'receiver_verification.json')
+        label=read(ROOT/'labels'/f'{case}.json')
+        assert spec['geometry']==s['geometry']==fc['geometry'] and spec['case']==s['case']==case
+        assert label['family_id']==fc['family_id'] and label['role']==fc['role'] and Path(label['source']).resolve()==run.resolve()
+        assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']=='REDACTED-ID'
+        for a in event['artifacts']:verify(run/a['path'],a['sha256'])
+        assert ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+        verify(run/'completion_event.json',ack['event_sha256']);verify(run/'receiver_verification.json',ack['verification_sha256'])
+        verify(rv['plot'],ack['plot_sha256']);assert rv['plot_sha256']==ack['plot_sha256']
+        for p,h in rv['verified_hashes'].items():verify(p,h)
+        for p,h in spec['parent_evidence_hashes'].items():verify(p,h)
+        verify(spec['source'],spec['source_sha256']);verify(run/'sparams.csv',label['source_curve_sha256'])
+        start=read(run/'supervised_start.json');assert start['actual_14core_single_group_observed'] and start['input_sha256']==sha(run/'input.json')
+        assert s['status']=='completed' and s['sweep_converged'] and s['source_unchanged'] and 100000<=s['actual_elements']<=112000
+        assert all(x['mcp_request']['cores_per_task']==14 and x['mcp_request']['concurrent_tasks']==1 for x in s['segments'])
+        native=table(run/'all_modes_sparams.csv');curve=table(run/'sparams.csv');table(run/'mode_impedance_gamma.csv')
+        pairs={'S11':'S(1:1,1:1)','S21':'S(2:1,1:1)','S12':'S(1:1,2:1)','S22':'S(2:1,2:1)'}
+        diff=max(abs(float(a[k+'_'+part])-float(b[e+'_'+part])) for a,b in zip(curve,native) for k,e in pairs.items() for part in ('real','imag'))
+        assert diff<1e-10
+        # Find actual fixed-window worst point, not merely the two inner peaks.
+        window=[(float(r['S11_dB']),float(r['Freq_GHz'])) for r in curve if 3.92-1e-9<=float(r['Freq_GHz'])<=9.52+1e-9]
+        worst=max(window)
+        actual_peak=label['joint20']['worse_inner_peak_dB'];assert actual_peak is not None
+        pe=dict(S21_BW_MHz=(label['S21_minus2_BW_GHz']-pred[case]['forward_S21_minus2_BW_GHz'])*1000,
+                worse_inner_peak_dB=actual_peak-pred[case]['forward_worse_inner_peak_dB'])
+        files={n:dict(path=str(run/n),sha256=sha(run/n)) for n in ['input.json','state.json','manifest.json','completion_event.json','receiver_verification.json','receiver_ack.json','supervised_start.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt']}
+        receipt=run/'notification_receipt.json'
+        # Earlier publishers may store transport evidence in hook/state rather than in each run.
+        receipt_record=dict(path=str(receipt),sha256=sha(receipt),state=read(receipt).get('state')) if receipt.exists() else dict(context_config=str(ctx/'hook/config.json'),event_id=ack['event_id'],receipt_location='Context hook/state transport ledger; ACK independently proves processing')
+        item=dict(case=case,family_id=fc['family_id'],role=fc['role'],batch=fc['batch'],context=str(ctx),effective_run=str(run),
+          original_run=fc['run_dir'],P_nominal=fc['P_nominal'],R_nominal=fc['R_nominal'],a_mm=fc['a_mm'],g_mm=fc['g_mm'],geometry_mm=fc['geometry'],
+          actual_elements=s['actual_elements'],actual_passes=s['actual_passes'],actual_14core_single_group=True,
+          scientific_label=label,actual_visual_ACK_completed=True,optimized_inverse_length_label=False,
+          frozen_prediction=pred[case],prediction_errors=pe,primary_worst_location_GHz=worst[1],
+          fundamental_native_matrix_max_complex_component_difference=diff,source_files=files,hook_receipt=receipt_record,
+          label_sha256=sha(ROOT/'labels'/f'{case}.json'))
+        rows.append(item);audit.append(dict(case=case,verified=True,visual_ACK_sha256=sha(run/'receiver_ack.json'),source_files=len(files)))
+    train=[r for r in rows if r['role']=='training_acquisition_family'];test=[r for r in rows if r['role']=='prospective_test_family']
+    assert len(train)==38 and len(test)==10 and not ({r['family_id'] for r in train}&{r['family_id'] for r in test})
+    ts=role_summary(train);vs=role_summary(test)
+    original_training=read(ROOT/'TRAINING38_ACQUISITION_SUMMARY.json')
+    assert abs(ts['frozen_forward_S21_BW_MAE_MHz']-original_training['frozen_deployment52_BW_MAE_MHz'])<1e-10
+    family_pairs=[]
+    for family in sorted({r['family_id'] for r in rows}):
+        pair=sorted([r for r in rows if r['family_id']==family],key=lambda r:r['a_mm']);assert len(pair)==2
+        a,b=pair;assert a['a_mm']==1.4 and b['a_mm']==1.8 and a['P_nominal']==b['P_nominal'] and a['R_nominal']==b['R_nominal']
+        ja=a['scientific_label']['joint20']['joint20_center_band_GHz'];jb=b['scientific_label']['joint20']['joint20_center_band_GHz']
+        family_pairs.append(dict(family=family,role=a['role'],P=a['P_nominal'],R=a['R_nominal'],a14=a['case'],a18=b['case'],
+            delta_S21_BW_MHz=(b['scientific_label']['S21_minus2_BW_GHz']-a['scientific_label']['S21_minus2_BW_GHz'])*1000,
+            delta_center_joint20_BW_MHz=(jb[2]-ja[2])*1000 if ja and jb else None,
+            causal_fold_only_claim=False,note='Compensated Lm/Ls1 and mesh also differ; descriptive pair, not a pure causal fold experiment'))
+    at=now();mesh=[r['actual_elements'] for r in rows]
+    totals=dict(reviewed=48,training=ts,prospective_test=vs,overall_bookkeeping_only=dict(primary_passed=ts['primary_passed']+vs['primary_passed'],secondary_passed=ts['secondary_passed']+vs['secondary_passed']),
+       mesh_min=min(mesh),mesh_max=max(mesh),technical_unresolved=0,late_sweep_trigger_origin_uncertain=True,**cost)
+    new(ROOT/'DATASET48_EFFECTIVE_INDEX_V4.json',dict(at=at,source_campaign_sha256=sha(ROOT/'campaign_frozen.json'),predictions_sha256=sha(ROOT/'predictions_frozen.json'),
+       numerical_scope='Mesh-controlled interpolated native fundamental; not final native direct-frequency certification',
+       training_test_families_disjoint=True,new_model_fitted=False,optimized_inverse_labels=False,rows=rows))
+    new(ROOT/'PROSPECTIVE_TEST10_FINAL_V4.json',dict(at=at,summary=vs,test_rows=[r['case'] for r in test],
+        predictions_unchanged=True,training38_summary_unchanged=True,new_model_fitted=False,source_index_sha256=sha(ROOT/'DATASET48_EFFECTIVE_INDEX_V4.json')))
+    new(ROOT/'PAIRED24_DESCRIPTIVE_V4.json',dict(at=at,pairs=family_pairs,no_causal_or_universal_monotonicity_claim=True))
+    new(ROOT/'N23_PAIR_PROSPECTIVE_TEST_SUMMARY.json',dict(at=at,pair=next(p for p in family_pairs if p['family']=='N23'),
+        cases=[{k:r[k] for k in ['case','actual_elements','prediction_errors','primary_worst_location_GHz','scientific_label']} for r in test if r['family_id']=='N23']))
+    b8=[r for r in rows if r['batch']==8]
+    new(ROOT/'BATCH08_ACQUISITION_SUMMARY.json',dict(at=at,cases=[r['case'] for r in b8],reviewed=6,role='prospective_test_family',
+         primary_passed=sum(r['scientific_label']['primary']['passed'] for r in b8),secondary_passed=sum(r['scientific_label']['secondary']['passed'] for r in b8),
+         known_recorded_requests=41,conservative_request_upper_bound=42,N23_export_added_Analyze=0,N23_recovery=str(ROOT/'session_export_recovery_v4.json')))
+    pairs_d=[p['delta_S21_BW_MHz'] for p in family_pairs]
+    new(ROOT/'FINAL48_AUDIT_V4.json',dict(at=at,passed=True,totals=totals,source_hashes_verified=len(CACHE),checks=audit,
+       paired_a18_minus_a14_S21_BW_MHz=dict(min=min(pairs_d),max=max(pairs_d),negative=sum(x<0 for x in pairs_d),positive=sum(x>0 for x in pairs_d))))
+    # Keep the immutable event intact; clarify one inherited purpose-string wording error by a sidecar.
+    recovery=Path(read(ROOT/'session_export_recovery_v4.json')['effective_run'])
+    new(recovery/'metadata_clarification.json',dict(at=at,event_sha256=sha(recovery/'completion_event.json'),
+        field='purpose',legacy_text_says_no_restart=True,correct_fact='One human-approved desktop restart occurred; zero new agent Analyze. Full evidence is desktop_epoch3_N23_20261030.json and native_cache_reopen_proof.json.',
+        immutable_event_not_edited=True,desktop_epoch3_sha256=sha(ROOT/'desktop_epoch3_N23_20261030.json')))
+    # Report final route supersession, leaving the failed original run untouched.
+    oldctx=ROOT.parent/'fig8_next48_b08_20261029';ledger=read(oldctx/'budget_ledger.json');before=json.loads(json.dumps(ledger))
+    task=next(t for t in ledger['tasks'] if t['case']=='N23_A18');assert task['status']=='reserved'
+    task.update(status='superseded_technical_failure_reviewed_via_effective_route',effective_input=str(recovery/'input.json'),effective_input_sha256=sha(recovery/'input.json'),
+          effective_ACK=str(recovery/'receiver_ack.json'),effective_ACK_sha256=sha(recovery/'receiver_ack.json'))
+    new(ROOT/'N23_A18_adoption_export_v4.json',dict(at=at,before=before,after=ledger,original_failure_preserved=True))
+    write(oldctx/'budget_ledger.json',ledger)
+    primary_total=totals['overall_bookkeeping_only']['primary_passed'];secondary_total=totals['overall_bookkeeping_only']['secondary_passed']
+    report=['# Fig8新48点采集收尾报告（V4）','',f'完成时间（UTC）：{at}。**48项均有有效原生曲线、独立数值审查和实际看图ACK；技术未解决0项。**','',
+       '## 1. 这次恢复做了什么','',
+       '- N23_A18最初的最终扫频提交120秒超时，失败input/state/event/worker_error原件保留，没有改写成成功。',
+       '- 重启前发现同一桌面已经出现14核扫频，保护检查阻止了重复启动。晚到执行来自原排队请求还是人工操作，证据不足以确定。',
+       '- 先成功只读导出原生矩阵；随后保存时再次无响应，按人类批准备份全部实质缓存并重启可见HFSS一次。',
+       '- 新桌面打开缓存副本后，CAD/端口/材料和21轮、102,038网格历史一致；1500点S矩阵与重启前逐值一致。**本次恢复未新增Analyze，也未重算自适应。**',
+       '- 完成hook已被本聊天接受，已实际看图ACK。原恢复事件purpose中沿用的“no restart”字样不准确，已加独立metadata_clarification.json；原事件未篡改。','',
+       '## 2. 固定窗口结果（不能混成逆设计成功率）','',
+       '|分组|几何/独立家族|主窗3.92–9.52 GHz|次窗4.22–9.22 GHz|',
+       '|---|---:|---:|---:|',f'|训练采集|38 / 19|{ts["primary_passed"]}/38|{ts["secondary_passed"]}/38|',
+       f'|前瞻测试|10 / 5|{vs["primary_passed"]}/10|{vs["secondary_passed"]}/10|',
+       f'|合计（仅记账）|48 / 24|{primary_total}/48|{secondary_total}/48|','',
+       '两窗均要求S11≤−20 dB、S21≥−2 dB，另核验三谷/中心/峰差。未达标的初始几何照实保留，不调参、不换目标。',
+       '前瞻主窗通过：'+', '.join(vs['primary_pass_cases'])+'。次窗通过：'+', '.join(vs['secondary_pass_cases'])+'。','',
+       'N23_A18：主窗最差S11=−18.723797 dB，联合−20 dB上沿9.484557 GHz，距9.52 GHz差35.443 MHz；次窗通过。'
+       'S21−2 dB带宽6.895180 GHz；中心连续联合−20 dB区间3.718606–9.484557 GHz，宽5.765951 GHz。总宽超过5.6 GHz不等于覆盖指定5.6 GHz窗口。',
+       '旧图题/ACK的design_passed仅旧中心/峰差判据，不等价于上述主窗通过；科学标签primary/secondary才是窗口结论。','',
+       '## 3. 原冻结前向模型的评测（没有重训）','',
+       '|分组|S21带宽MAE/MHz|RMSE/MHz|最大绝对误差/MHz|较差内峰MAE/dB|','|---|---:|---:|---:|---:|',
+       f'|训练采集38|{ts["frozen_forward_S21_BW_MAE_MHz"]:.6f}|{ts["frozen_forward_S21_BW_RMSE_MHz"]:.6f}|{ts["frozen_forward_S21_BW_max_abs_MHz"]:.6f}|{ts["frozen_forward_worse_inner_peak_MAE_dB"]:.6f}|',
+       f'|前瞻测试10|{vs["frozen_forward_S21_BW_MAE_MHz"]:.6f}|{vs["frozen_forward_S21_BW_RMSE_MHz"]:.6f}|{vs["frozen_forward_S21_BW_max_abs_MHz"]:.6f}|{vs["frozen_forward_worse_inner_peak_MAE_dB"]:.6f}|','',
+       '模型是新48点HFSS之前冻结的旧52条部署Ridge；38点是未来训练采集组，而不是本次新拟合后的训练误差。'
+       '测试10点来自5个独立宽度家族，并非10个完全独立家族。测试标签没有用于重训、选模型或修改预测。',
+       'S21带宽预测较准，不等于已经能预测连续联合−20 dB带宽，更不等于已完成“目标−20 dB及带宽→几何参数”的合格逆设计。','',
+       '## 4. 可以支持什么规律，不能推出什么','',
+       f'同一名义P/R家族中，a从1.4增至1.8 mm，24组成对S21带宽变化范围{min(pairs_d):.6f}至{max(pairs_d):.6f} MHz；'
+       f'{sum(x<0 for x in pairs_d)}组变窄、{sum(x>0 for x in pairs_d)}组变宽。不能声称所有配置都单调变窄。',
+       '成对设计的补偿Lm/Ls1与网格也不同，因此是匹配家族的描述性对照，不是仅改变折臂的纯因果试验。'
+       'S21带宽小幅变化时，联合−20 dB连续区间仍可能因内峰跨阈值而显著断开/合并；两种带宽必须分开建模。',
+       '本批完成的是采集和冻结模型评测，不是与均匀模型1000点同规模的理论验证。P/R物理解释、可行域/联合带宽前向模型、带约束逆求及独立HFSS回代验证仍需单独版本化推进。','',
+       '## 5. 成本、数值范围与交付','',
+       f'- 48个冻结几何、14核1组串行；网格范围{min(mesh):,}–{max(mesh):,}。',
+       '- 365次有记录的Analyze请求（保留N07原失败扫频及其1次补扫频）；N23本次恢复新增请求0。最后晚到原生扫频来源未定，保守额外留1次，总请求上界366≤624、本项上界8，不宣称已确证366次。',
+       '- 数据为受网格控制的插值采集；不是48项最终原生直接频点认证、制造容差/稳健性认证。没有自动新增第49几何、第9段或调谐。',
+       f'- [完整48项有效数据索引]({ROOT/"DATASET48_EFFECTIVE_INDEX_V4.json"})：名义P/R、几何、分组、预测、标签、原生矩阵/收敛/图审/hook路径和哈希。',
+       f'- [最终核验]({ROOT/"FINAL48_AUDIT_V4.json"})；[测试10项评测]({ROOT/"PROSPECTIVE_TEST10_FINAL_V4.json"})；[24组成对描述]({ROOT/"PAIRED24_DESCRIPTIVE_V4.json"})。',
+       '- 原工程/缓存和所有设计负例保留，均匀数据未操作。完成后停止本48点各上下文心跳/监护，保留可见HFSS，不再自动求解。','']
+    (ROOT/'REPORT_FINAL_V4.md').write_text('\n'.join(report),encoding='utf-8')
+    # Bind the recovery terminal to a COMPLETE resolution, not to another dispatch.
+    new(recovery/'continuation_resolution.json',dict(at=at,event_sha256=sha(recovery/'completion_event.json'),disposition='batch_complete',
+        reason='Batch08 and all48 effective native curves independently verified and actually visually ACKed; final report/index delivered; no successor or batch9.',
+        report=str(ROOT/'REPORT_FINAL_V4.md'),report_sha256=sha(ROOT/'REPORT_FINAL_V4.md'),audit_sha256=sha(ROOT/'FINAL48_AUDIT_V4.json')))
+    stopped=[]
+    for ctx in sorted(contexts|original_contexts,key=str):
+        monitor=ctx/'hook/heartbeat/monitor.json'
+        if not monitor.exists():continue
+        before=read(monitor)
+        if before.get('enabled'):
+            result=subprocess.run([sys.executable,str(ctx/'phase_heartbeat.py'),'stop'],capture_output=True,text=True)
+            assert result.returncode==0,result.stderr
+        assert read(monitor).get('enabled') is False
+        stopped.append(dict(context=str(ctx),monitor_sha256=sha(monitor),disabled=True))
+    # Audit observer/daemon identities, allowing disabled daemons a normal exit without killing them.
+    for attempt in range(20):
+        live_observers=[]
+        allowed={str(c.resolve()).lower() for c in contexts|original_contexts}
+        for p in psutil.process_iter(['pid','name','cmdline','create_time']):
+            cmd=p.info['cmdline'] or []
+            if len(cmd)<2:continue
+            path=Path(cmd[1])
+            if str(path.parent.resolve()).lower() in allowed and path.name in ('phase_heartbeat.py','lifecycle_watch.py') and 'watch' in cmd:
+                live_observers.append(p.info)
+        if not live_observers:break
+        time.sleep(.5)
+    assert not live_observers,live_observers
+    native=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+    identity=read(ROOT/'desktop_epoch3_N23_20261030.json');assert len(native)==1 and native[0]['pid']==identity['pid'] and abs(native[0]['create_time']-identity['created'])<.01
+    state=read(ROOT/'CURRENT_STATUS.json');state.update(at=now(),stage='all48_acquisition_complete',completed_geometries=48,active_geometries=0,
+       not_started_geometries=0,technical_unresolved_geometries=0,case=None,run=None,worker_pid=None,observer_pid=None,
+       worker_identity_verified=False,observer_identity_verified=False,active_recovery_mode=None,normal_solve_periodic_wakeups=False,
+       effective_continuation=str(ROOT/'continuation_export_v4.py'),final_report=str(ROOT/'REPORT_FINAL_V4.md'),final_data_index=str(ROOT/'DATASET48_EFFECTIVE_INDEX_V4.json'),
+       desktop_current=identity,next_action='Acquisition closed. No automatic successor, Analyze, retuning, refit or new batch. Separate human-authorized model development/validation needed for inverse design.')
+    state['budget'].update(Analyze_used=365,known_recorded_Analyze_requests=365,conservative_request_upper_bound=366,unattributed_late_sweep_reserve=1,N23_recovery_added_Analyze=0)
+    state['performance_by_role']=dict(training_acquisition=ts,prospective_test=vs)
+    state['fixed_window_pass_counts']=dict(reviewed=48,families=24,primary_passed=primary_total,secondary_passed=secondary_total,overall_for_bookkeeping_only=True)
+    state['latest_reviewed_result']=dict(case='N23_A18',effective_run=str(recovery),primary_passed=False,secondary_passed=True,actual_elements=102038,actual_passes=21,
+       label_sha256=sha(ROOT/'labels/N23_A18.json'),ACK_sha256=sha(recovery/'receiver_ack.json'))
+    write(ROOT/'CURRENT_STATUS.json',state)
+    (ROOT/'CURRENT_STATUS.md').write_text('# Fig8新48点采集已完成\n\n48项原生数据、独立审核及实际看图ACK齐全；0在算、0待启动、0技术未解决。\n\n'
+       f'训练采集主窗{ts["primary_passed"]}/38、次窗{ts["secondary_passed"]}/38；前瞻测试主窗{vs["primary_passed"]}/10、次窗{vs["secondary_passed"]}/10。不冒充逆设计成功率。\n\n'
+       'N23恢复重启一次，新增Analyze0，21轮/102038网格及原生矩阵一致。记录请求365次，保守上界366/624。\n\n'
+       f'[完整收尾报告]({ROOT/"REPORT_FINAL_V4.md"})\n\n本批心跳/监护已停止，保留可见HFSS和全部工程，不启动新批次。\n',encoding='utf-8')
+    progress=read(ROOT/'PROSPECTIVE_TEST_PROGRESS.json');progress.update(at=at,status='complete_frozen_evaluation',reviewed=10,active_case=None,not_started=0,
+        technical_unresolved=0,technical_unresolved_case=None,primary_passed=vs['primary_passed'],secondary_passed=vs['secondary_passed'],
+        final_summary=str(ROOT/'PROSPECTIVE_TEST10_FINAL_V4.json'),records=[r['scientific_label'] for r in test])
+    write(ROOT/'PROSPECTIVE_TEST_PROGRESS.json',progress)
+    (ROOT/'PROSPECTIVE_TEST_PROGRESS.md').write_text('# 前瞻测试10项已完成\n\n5个独立家族、10个几何全部审核并实际看图ACK。主窗1/10，次窗3/10。\n\n'
+        f'S21带宽MAE={vs["frozen_forward_S21_BW_MAE_MHz"]:.6f}MHz；较差内峰MAE={vs["frozen_forward_worse_inner_peak_MAE_dB"]:.6f}dB。旧模型/预测未改动，未用测试集重训。\n\n'
+        f'[完整报告]({ROOT/"REPORT_FINAL_V4.md"})\n',encoding='utf-8')
+    new(ROOT/'ACQUISITION_CLOSURE_V4.json',dict(at=now(),complete=True,scope='Only authorized new48 mesh-controlled acquisition',
+        reviewed_geometries=48,technical_unresolved=0,active=0,no_successor=True,new_model_fitted=False,inverse_design_goal_complete=False,
+        totals=totals,disabled_heartbeats=stopped,live_observers=[],visible_desktop=native[0],
+        evidence_hashes={str(ROOT/n):sha(ROOT/n) for n in ['DATASET48_EFFECTIVE_INDEX_V4.json','FINAL48_AUDIT_V4.json','PROSPECTIVE_TEST10_FINAL_V4.json','REPORT_FINAL_V4.md','session_export_recovery_v4.json']}))
+    print(json.dumps(dict(closed=True,reviewed=48,training=ts,prospective_test=vs,mesh_range=[min(mesh),max(mesh)],known_requests=365,conservative_upper=366,heartbeats_disabled=len(stopped),report=str(ROOT/'REPORT_FINAL_V4.md')),ensure_ascii=False,indent=2))
+if __name__=='__main__':main()

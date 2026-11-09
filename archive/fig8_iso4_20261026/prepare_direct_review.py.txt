@@ -1,0 +1,69 @@
+"""Prepare the bounded four-case cached direct-review implementation; no HFSS calls."""
+import ast
+from pathlib import Path
+import phase_control as pc
+
+def main():
+    root=pc.HERE/'final_review'
+    assert not (root/'phase_control.py').exists(), 'Existing direct implementation must be inspected, not replaced'
+    root.mkdir(exist_ok=True)
+    old=pc.HERE.parent/'fig8_validation6_20261026/final_review'
+    recovery=old/'recovery_20261026'
+    provenance={}
+    def copy(source,name,transform=None):
+        text=source.read_text(encoding='utf-8')
+        if transform:text=transform(text)
+        (root/name).write_text(text,encoding='utf-8')
+        provenance[name]=dict(source=str(source),source_sha256=pc.sha(source),local_sha256=pc.sha(root/name))
+    def context(text):
+        text=text.replace('V6','I4').replace('六配置','四配置')
+        start=text.index('ORDER=');end=text.index('\n',start)
+        return text[:start]+'ORDER='+repr(pc.ORDER)+text[end:]
+    copy(old/'phase_control.py','phase_control.py',context)
+    for name in ['case_reference.py','reference_validation.json','policy.json','mesh_policy_addendum_v2.json',
+                 'phase_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py','aedt_session_guard.py',
+                 'aedt_identity.json']:
+        transform=None
+        if name=='phase_heartbeat.py':
+            transform=lambda t:t.replace('先完成4个初始几何，再在有界累计预算内按实际结果调谐/最终直接复核；',
+                '仅按已冻结频点做四项缓存同网格直接复核，不新自适应、不调几何；')
+        copy(pc.HERE/name,name,transform)
+    copy(old/'phase_direct_context.py','phase_direct_context.py',
+         lambda t:t.replace('V6D','I4D').replace("auth['cached_task_cap']==6","auth['cached_task_cap']==4").replace('ordinal<=7','ordinal<=4'))
+    copy(old/'preserve_discrete_ranges.py','preserve_discrete_ranges.py')
+    # Only the proven comparison/frequency functions are imported from this file;
+    # the actual entry point is smallbatch_worker.py with <=4 points per Analyze.
+    copy(old/'phase_final_direct.py','phase_final_direct.py',lambda t:t.replace('V6_FinalDirect','I4_FinalDirect'))
+    copy(pc.HERE/'phase_geometry_publish.py','phase_geometry_publish.py')
+    worker=(pc.HERE/'phase_geometry_worker.py').read_text(encoding='utf-8')
+    tree=ast.parse(worker)
+    functions={n.name:ast.get_source_segment(worker,n) for n in tree.body
+        if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name in ['snapshot','solve_stage']}
+    header='''"""Same native16-core MCP supervisor, with desktop identity guard; no geometry dispatch."""
+import asyncio,json,time,sys
+from phase_control import ORIGINAL,HERE,read,write,sha,now
+sys.path.insert(0,str(ORIGINAL))
+from direct_worker import dc
+from aedt_session_guard import install
+install(dc)
+sys.path.insert(0,str(ORIGINAL.parent/'fig8_speed_study_20261021'))
+from run_study import canonical_ports
+from analyze_study import passes
+'''
+    (root/'solver_runtime.py').write_text(header+'\n'+functions['snapshot']+'\n\n'+functions['solve_stage']+'\n',encoding='utf-8')
+    provenance['solver_runtime.py']=dict(source=str(pc.HERE/'phase_geometry_worker.py'),source_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),local_sha256=pc.sha(root/'solver_runtime.py'),extracted=['snapshot','solve_stage'])
+    for name in ['merge_native.py','supervise_smallbatch.py','acknowledge_smallbatch.py']:
+        copy(recovery/name,name)
+    def worker_transform(text):
+        start=text.index("    if case=='V01G02':")
+        end=text.index('    for index,frequencies in enumerate',start)
+        text=text[:start]+"    assert not p['existing_frequencies_GHz'], 'Fresh I4 direct stage; no prior failed-run reuse'\n"+text[end:]
+        return text.replace('V6','I4').replace('original_failed_attempt_preserved','all_chunk_provenance_preserved').replace('original_failures_preserved','all_chunk_provenance_preserved')
+    copy(recovery/'smallbatch_worker.py','smallbatch_worker.py',worker_transform)
+    copy(recovery/'receive_verified.py','receive_verified.py',lambda t:t.replace('original_failed_attempt_preserved','all_chunk_provenance_preserved'))
+    copy(recovery/'dispatch_smallbatch.py','dispatch_smallbatch.py',lambda t:t.replace("ledger['new_cached_tasks_reserved']<6","ledger['new_cached_tasks_reserved']<4").replace('_V6SmallBatch','_I4SmallBatch'))
+    pc.write(root/'implementation_provenance.json',provenance)
+    for path in root.glob('*.py'):ast.parse(path.read_text(encoding='utf-8'),filename=str(path))
+    print(dict(prepared=str(root),direct_tasks_reserved=0,direct_solves_started=0))
+
+if __name__=='__main__':main()

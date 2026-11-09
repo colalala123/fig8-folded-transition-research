@@ -1,0 +1,91 @@
+"""Re-extract34 existing curves and freeze prototype validation. Offline only."""
+import hashlib
+from pathlib import Path
+import numpy as np
+from model import HERE,read,write,pr,intervals,center_band,Forward,feature_formula,band_score
+
+TRACK={}
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def tracked(p):TRACK[str(p)]=sha(p);return read(p)
+
+def summarize(f,s11,s21,peaks):
+    joint=intervals(f,s11,s21);center=center_band(joint)
+    s21band=center_band(intervals(f,np.full(len(f),-100.),s21))
+    reflection=intervals(f,s11,np.zeros(len(f)))
+    return dict(joint20_intervals_GHz=joint,joint20_center_band_GHz=center,
+                reflection20_intervals_GHz=reflection,joint20_largest_BW_GHz=max((b-a for a,b in joint),default=0),
+                transmission2_center_band_GHz=s21band,worse_inner_peak_dB=max(peaks),
+                both_inner_peaks_le_minus20=bool(max(peaks)<=-20),
+                fixed_4to9=band_score(f,s11,s21,4,9))
+
+def main():
+    oldroot=HERE.parent/'fig8_remediation_C3_20261025/deliverables'
+    orig=tracked(oldroot/'effective_all24_results.json')['rows']
+    bundle=tracked(oldroot/'effective_selected_curves.json')['curves']
+    curves={c['case']:c for c in bundle};rows=[]
+    for r in orig:
+        c=curves[r['case']];assert c['source_sha256']==r['selected_curve_sha256']
+        rows.append(dict(case=r['case'],group=r['case'][:3],geometry_mm=r['geometry_mm'],
+            frequency_GHz=c['frequency_GHz'],S11_dB=c['S11_dB'],S21_dB=c['S21_dB'],
+            mesh=r['actual_elements'],acceptance_tier=r['acceptance_tier'],
+            original_role='original24',peaks=[p['S11_dB'] for p in r['selected_curve_metrics']['peaks']],
+            source_curve_sha256=c['source_sha256'],source_curve=c['source']))
+    for phase,name in [('fig8_validation6_20261026','validation6_results.json'),('fig8_iso4_20261026','results.json')]:
+        result=tracked(HERE.parent/phase/'deliverables'/name)
+        for r in result['cases']:
+            source=Path(r['source']);p=source/'sparams.csv';assert sha(p)==r['source_curve_sha256'];TRACK[str(p)]=sha(p)
+            c=np.genfromtxt(p,delimiter=',',names=True);m=tracked(source/'response_metrics.json')
+            rows.append(dict(case=r['case'],group=r['case'][:3],geometry_mm=r.get('geometry',r.get('geometry_mm')),
+                frequency_GHz=c['Freq_GHz'].tolist(),S11_dB=c['S11_dB'].tolist(),S21_dB=c['S21_dB'].tolist(),
+                mesh=r['actual_elements'],acceptance_tier='fundamental_same_mesh_direct',original_role='previous_validation10',
+                peaks=[p['S11_dB'] for p in m['peaks']],source_curve_sha256=r['source_curve_sha256'],source_curve=str(p)))
+    for r in rows:
+        g=r['geometry_mm'];r.update(a=round(g['Ls3']-g['Ws'],8),P=pr(g['Wm'],g['Ws'])[0],R=pr(g['Wm'],g['Ws'])[1])
+        assert abs(g['Ls2']-2*g['Ws']-.55)<1e-9
+        assert len(r['frequency_GHz'])==1500 and len(r['peaks'])==2
+        r['metrics20']=summarize(np.array(r['frequency_GHz']),np.array(r['S11_dB']),np.array(r['S21_dB']),r['peaks'])
+    assert len(rows)==34 and len({r['group'] for r in rows})==17
+    write(HERE/'dataset.json',dict(rows=rows,source_hashes=TRACK,uniform_data_used=False,
+        impedance_source='independent current-material analytical model validated against17 actualTXLINE samples; not response-derived',
+        specification='continuous S11<=-20 AND S21>=-2 interval; keep every interval and center-connected interval separately'))
+    # Prototype benchmark: previous10 were already known; this is retrospective, not blind validation.
+    errors=[];model=Forward(rows[:24])
+    for r in rows[24:]:
+        g=r['geometry_mm'];q=model.predict(g['Wm'],g['Ws'],r['a'])
+        actual=np.asarray(r['S11_dB']);a21=np.asarray(r['S21_dB']);near=(q['f']>=3.5)&(q['f']<=10)
+        pb=center_band(intervals(q['f'],q['s11'],q['s21']))
+        errors.append(dict(case=r['case'],joint20_BW_error_GHz=pb[2]-r['metrics20']['joint20_center_band_GHz'][2],
+            max_S11_error_4to9_dB=float(max(abs(q['s11'][(q['f']>=4)&(q['f']<=9)]-actual[(q['f']>=4)&(q['f']<=9)]))),
+            max_S11_optimism_near_threshold_dB=float(max(np.r_[0,(actual-q['s11'])[near&(actual>=-25)&(actual<=-15)]])),
+            max_S21_error_nearband_dB=float(max(abs(q['s21'][near]-a21[near])))))
+    # Grouped cross-validation excluding both arms of each width pair; never interpolate outside hull.
+    grouped=[]
+    for group in sorted({r['group'] for r in rows}):
+        mod=Forward([r for r in rows if r['group']!=group])
+        for r in [r for r in rows if r['group']==group]:
+            g=r['geometry_mm']
+            try:q=mod.predict(g['Wm'],g['Ws'],r['a'])
+            except ValueError:grouped.append(dict(case=r['case'],predictable=False,reason='heldout point outside training hull'));continue
+            actual=np.array(r['S11_dB']);mask=(q['f']>=3.5)&(q['f']<=10)&(actual>=-25)&(actual<=-15)
+            grouped.append(dict(case=r['case'],predictable=True,
+                max_S11_optimism_near_threshold_dB=float(max(np.r_[0,(actual-q['s11'])[mask]])),
+                joint20_BW_error_GHz=center_band(intervals(q['f'],q['s11'],q['s21']))[2]-r['metrics20']['joint20_center_band_GHz'][2]))
+    optimism=[r['max_S11_optimism_near_threshold_dB'] for r in errors+grouped if r.get('predictable',True)]
+    margin=max(.5,max(optimism)+.1)
+    X=feature_formula(rows[:24]);formulas={}
+    for name,y in [('worse_inner_peak_dB',[r['metrics20']['worse_inner_peak_dB'] for r in rows]),
+                   ('transmission2_BW_GHz',[r['metrics20']['transmission2_center_band_GHz'][2] for r in rows])]:
+        b=np.linalg.lstsq(X,y[:24],rcond=None)[0];pred=feature_formula(rows[24:])@b
+        formulas[name]=dict(terms=['1','lnP','lnR','a-1.6'],coefficients=b.tolist(),
+            retrospective_previous10_MAE=float(np.mean(abs(pred-y[24:]))),max_error=float(max(abs(pred-y[24:]))))
+    write(HERE/'validation.json',dict(retrospective=True,independent_blind_test_completed=False,previous10=errors,
+        leave_width_pair_out=grouped,screening_margin_S11_dB=margin,margin_is_guarantee=False,
+        descriptive_formulas=formulas,deployment_uses_all34=True,old_frozen_width_formula_unchanged=True))
+    summary=[dict(case=r['case'],**r['geometry_mm'],a=r['a'],P=r['P'],R=r['R'],mesh=r['mesh'],**r['metrics20']) for r in rows]
+    write(HERE/'metrics34.json',dict(cases=summary,peaks_pass_count=sum(r['metrics20']['both_inner_peaks_le_minus20'] for r in rows),
+        fixed_4to9_pass_count=sum(r['metrics20']['fixed_4to9']['worst_S11_dB']<=-20 and r['metrics20']['fixed_4to9']['min_S21_dB']>=-2 for r in rows),
+        center_joint20_BW_range=[min(r['metrics20']['joint20_center_band_GHz'][2] for r in rows),max(r['metrics20']['joint20_center_band_GHz'][2] for r in rows)]))
+    print('Rows34; peaks20pass',sum(r['metrics20']['both_inner_peaks_le_minus20'] for r in rows),'margin',margin)
+    print('Top joint20:',[(r['case'],r['metrics20']['joint20_center_band_GHz'][2]) for r in sorted(rows,key=lambda r:r['metrics20']['joint20_center_band_GHz'][2],reverse=True)[:6]])
+
+if __name__=='__main__':main()

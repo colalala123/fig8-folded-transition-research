@@ -1,0 +1,61 @@
+"""Prepare the V6 same-mesh review subphase. No input reservation or solve.
+
+Actual initialization waits for all six initial receiver reviews; direct inputs
+are frozen individually from measured, reviewed candidates only.
+"""
+import ast
+from pathlib import Path
+import phase_control as pc
+
+def build():
+    root=pc.HERE/'final_review';root.mkdir(exist_ok=True)
+    assert not (root/'authorization.json').exists(),'Do not change an initialized subphase'
+    source=pc.HERE.parent/'fig8_remediation_C3_20261025'
+    provenance={}
+    def copy(origin,name,transform=None):
+        text=origin.read_text(encoding='utf-8')
+        if transform:text=transform(text)
+        (root/name).write_text(text,encoding='utf-8')
+        provenance[name]=dict(source=str(origin),source_sha256=pc.sha(origin),local_sha256=pc.sha(root/name))
+    for name in ['case_reference.py','reference_validation.json','policy.json','mesh_policy_addendum_v2.json',
+                 'phase_publish.py','phase_heartbeat_transport.py','test_phase_heartbeat.py','supervise_start.py']:
+        copy(pc.HERE/name,name)
+    copy(pc.HERE/'phase_heartbeat.py','phase_heartbeat.py',lambda s:s.replace(
+        "f'先读{HERE / \"CONTINUATION.md\"}及execution_plan.json。保持16核串行及10–11万目标网格，先完成6个初始几何，再在有界累计预算内按实际结果调谐/最终直接复核；'",
+        "f'先读{HERE / \"CONTINUATION.md\"}。本子阶段仅六项同网格直接复核，每项一次；保持16核串行，不重新自适应；'"))
+    copy(pc.HERE.parent/'fig8_resume_20261007/preserve_discrete_ranges.py','preserve_discrete_ranges.py')
+    def adapt_worker(s):
+        s=s.replace('from phase_geometry_worker import dc, solve_stage, passes, snapshot, canonical_ports',
+                    'from solver_runtime import dc, solve_stage, passes, snapshot, canonical_ports')
+        s=s.replace('from prepare_geometry import reviewed\n','')
+        s=s.replace("SWEEP='RemC3_FinalDirect'","SWEEP='V6_FinalDirect'")
+        start=s.index("locks=[HERE/'worker.lock'")
+        end=s.index('\n',start)
+        s=s[:start]+"locks=[HERE/'worker.lock',HERE.parent/'worker.lock',ORIGINAL/'worker.lock',OLD/'protocol.lock']"+s[end:]
+        return s
+    copy(source/'phase_final_direct.py','phase_final_direct.py',adapt_worker)
+    copy(source/'review_phase_direct.py','review_phase_direct.py')
+    # Extract the already running supervisor verbatim to avoid rebinding its
+    # geometry-worker context to the new subphase. This helper cannot build CAD.
+    worker=(pc.HERE/'phase_geometry_worker.py').read_text(encoding='utf-8')
+    tree=ast.parse(worker)
+    segments={n.name:ast.get_source_segment(worker,n) for n in tree.body
+              if isinstance(n,(ast.FunctionDef,ast.AsyncFunctionDef)) and n.name in ['snapshot','solve_stage']}
+    assert set(segments)=={'snapshot','solve_stage'}
+    header='''"""Frozen actual-solver supervisor reused without geometry dispatch."""
+import asyncio,json,time,sys
+from phase_control import ORIGINAL,HERE,read,write,sha,now
+sys.path.insert(0,str(ORIGINAL))
+from direct_worker import dc
+sys.path.insert(0,str(ORIGINAL.parent/'fig8_speed_study_20261021'))
+from run_study import canonical_ports
+from analyze_study import passes
+'''
+    (root/'solver_runtime.py').write_text(header+'\n'+segments['snapshot']+'\n\n'+segments['solve_stage']+'\n',encoding='utf-8')
+    provenance['solver_runtime.py']=dict(source=str(pc.HERE/'phase_geometry_worker.py'),source_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),
+        local_sha256=pc.sha(root/'solver_runtime.py'),extracted_functions=['snapshot','solve_stage'])
+    pc.write(root/'implementation_provenance.json',provenance)
+    for f in root.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    print({'prepared_subphase':str(root),'initialized':False,'reserved_direct_tasks':0,'started':False})
+
+if __name__=='__main__':build()

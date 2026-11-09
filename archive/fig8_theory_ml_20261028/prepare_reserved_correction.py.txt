@@ -1,0 +1,109 @@
+"""Evidence-driven reserved B6 points, only within the approved32/8 caps."""
+import ast,copy,sys,shutil
+from pathlib import Path
+import numpy as np
+sys.path.insert(0,str(Path(__file__).resolve().parent/'final_review'))
+import phase_control as pc
+P=Path(__file__).resolve().parent;S=P/'final_review';R=P/'reserved_review'
+
+def acquire(plan,comparison,actual):
+    """Freeze new points from first-wave evidence, never manufacture a root."""
+    q=copy.deepcopy(plan);old=set(map(float,actual['Freq_GHz']));new=set();notes=[]
+    for peak,result in zip(q['peak_neighborhoods'],comparison['peak_reviews']):
+        if result['interior']:continue
+        rr=peak['points'];left=result['actual_sampled_peak_GHz']<=min(rr)+1e-8
+        anchor=min(rr) if left else max(rr);sgn=-1 if left else 1
+        proposed={round(anchor+sgn*d,5) for d in [.01,.02,.03,.04]}-old-new
+        if len(new|proposed)<=8:
+            new.update(proposed);peak['points']=sorted(set(rr)|proposed);notes.append(dict(kind='peak_expansion',reference=peak['reference_GHz'],points=sorted(proposed),reason='Actual first-wave maximum was a window boundary'))
+    for edge,result in zip(q['edges'],comparison['edge_reviews']):
+        finebad=edge['kind']=='S11' and (result.get('fine_bracket_width_GHz') is None or result['fine_bracket_width_GHz']>.01000001 or result.get('coarse_fine_shift_GHz') is None or result['coarse_fine_shift_GHz']>.02)
+        if result['direct_GHz'] is not None and not finebad:continue
+        rr=np.array(edge['points']);col='S11_dB' if edge['kind']=='S11' else 'S21_dB';threshold=-20 if edge['kind']=='S11' else -2
+        yy=np.array([float(actual[col][np.argmin(abs(actual['Freq_GHz']-x))])-threshold for x in rr])
+        estimate=result['direct_GHz']
+        if estimate is None:
+            ids=np.argsort(abs(yy))[:2];i,j=sorted(ids)
+            if abs(yy[j]-yy[i])<1e-9:continue
+            estimate=float(rr[i]-yy[i]*(rr[j]-rr[i])/(yy[j]-yy[i]))
+            if abs(estimate-edge['reference_GHz'])>.15:continue
+        center=round(float(estimate),4)
+        offsets=[-.02,-.0025,.0025,.02] if result['direct_GHz'] is None else [-.0025,.0025]
+        proposed={round(center+x,5) for x in offsets}-old-new
+        if len(new|proposed)<=8:
+            new.update(proposed);edge['points']=sorted(set(edge['points'])|proposed)
+            notes.append(dict(kind='edge_bracket_extension',reference=edge['reference_GHz'],selection_estimate_GHz=center,points=sorted(proposed),estimate_is_not_accepted_direct_edge=True))
+    assert len(new)<=8 and new.isdisjoint(old)
+    q['requested_frequencies_GHz']=sorted(old|new);q['chunks']=[sorted(new)[i:i+4] for i in range(0,len(new),4)]
+    q['reserved_acquisition_notes']=notes
+    return q,sorted(new)
+
+def main():
+    assert not R.exists(),'Existing reserve context: never overwrite'
+    ledger=pc.read(S/'case_work_ledger.json');assert len(ledger['tasks'])==len(pc.ORDER) and all(t['status']=='reviewed' for t in ledger['tasks'])
+    selected=[];decisions=[]
+    for row in pc.read(S/'continuation_plan.json')['cases']:
+        case=row['case'];prior=pc.BASE/case/'direct_smallbatch';c=pc.read(prior/'comparison.json')
+        if not c['needs_reserved_points'] or c['target_finite_direct_failure_confirmed']:
+            decisions.append(dict(case=case,reserve_required=False,reason='Direct failure conclusive or first-wave checks complete'));continue
+        fp=pc.read(S/'cases'/case/'frequency_plan.json');actual=np.genfromtxt(prior/'sparams.csv',delimiter=',',names=True);q,missing=acquire(fp,c,actual)
+        if not missing:
+            decisions.append(dict(case=case,reserve_required=False,numerically_unresolved=True,reason='No missing bracket or boundary peak; remaining original interpolation inconsistency cannot be repaired by repeating actual frequencies'))
+            pc.write(P/'cases'/case/'reserve_disposition.json',decisions[-1]);continue
+        initial_launches=len(pc.read(prior/'state.json')['segments']);assert initial_launches+len(q['chunks'])<=8 and len(q['requested_frequencies_GHz'])<=32
+        newrow=copy.deepcopy(row);newrow.update(requested_frequencies_GHz=q['requested_frequencies_GHz'],missing_frequencies_GHz=missing,
+           existing_frequencies_GHz=sorted(map(float,actual['Freq_GHz'])),chunks=q['chunks'],prior_direct_run=str(prior),prior_analyze_launches=initial_launches)
+        for file in ['input.json','state.json','manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','reference_review.json','convergence_before.txt','convergence_after.txt','merge_sources.json','completion_event.json','receiver_ack.json','receiver_verification.json']:
+            f=prior/file;newrow['evidence_hashes'][str(f)]=pc.sha(f)
+        selected.append((newrow,q));decisions.append(dict(case=case,reserve_required=True,new_points=missing,new_launches=len(q['chunks']),total_points=len(q['requested_frequencies_GHz']),total_direct_launches=initial_launches+len(q['chunks'])))
+    pc.write(P/'reserved_decisions.json',dict(cases=decisions))
+    if not selected:print(dict(reserved_cases=0,Analyze_started=False));return
+    R.mkdir();order=[x['case'] for x,q in selected]
+    for file in S.glob('*.py'):
+        if file.name=='prepare_direct_stage.py':continue
+        (R/file.name).write_text(file.read_text(encoding='utf-8'),encoding='utf-8')
+    def edit(name,fn):
+        f=R/name;f.write_text(fn(f.read_text(encoding='utf-8')),encoding='utf-8')
+    def order_edit(s):
+        i=s.index('ORDER=');j=s.index('\n',i);return s[:i]+'ORDER='+repr(order)+s[j:]
+    edit('phase_control.py',order_edit)
+    edit('recovery_control.py',lambda s:s.replace('[HERE,PARENT]',"[HERE,PARENT,PARENT/'final_review']"))
+    def worker(s):
+        s=s.replace("/'direct_smallbatch'","/'direct_reserved'").replace('len(requested)<=24','len(requested)<=32').replace('len(chunks)<=6','len(chunks)<=2').replace("name=f'B6Direct{index+1:02d}'","name=f'B6Reserve{index+1:02d}'")
+        s=s.replace('    all_rows={};sources=[]', '''    prior=Path(p['prior_direct_run']);all_rows=exported_rows(prior)
+    assert sorted(all_rows)==p['existing_frequencies_GHz']
+    assert len(read_prior:=pc.read(prior/'state.json')['segments'])==p['prior_analyze_launches']
+    assert len(read_prior)+len(p['chunks'])<=8
+    prefix_names=['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','reference_review.json','convergence_before.txt','convergence_after.txt','receiver_ack.json','receiver_verification.json','completion_event.json','merge_sources.json']
+    sources=[dict(kind='preserved_first_wave_native',frequencies=sorted(all_rows),hashes={str(prior/f):pc.sha(prior/f) for f in prefix_names})]''')
+        s=s.replace("    assert not p['existing_frequencies_GHz'], 'Fresh PR18 direct stage; no prior failed-run reuse'","    assert set(p['existing_frequencies_GHz'])==set(all_rows), 'Only verified actual first-wave native rows may be reused'")
+        return s
+    edit('smallbatch_worker.py',worker)
+    edit('dispatch_smallbatch.py',lambda s:s.replace("/'direct_smallbatch'","/'direct_reserved'").replace("'_B6Direct'","'_B6Reserve'")
+       .replace("    pc.write(path,p);pc.release(case,path)","    p['prior_direct_run']=row['prior_direct_run'];p['prior_analyze_launches']=row['prior_analyze_launches']\n    assert p['prior_analyze_launches']+len(p['chunks'])<=8 and sum(map(len,p['chunks']))<=8\n    pc.write(path,p);pc.release(case,path)"))
+    edit('acknowledge_smallbatch.py',lambda s:s.replace("/'direct_smallbatch'","/'direct_reserved'"))
+    edit('receive_verified.py',lambda s:s.replace("len(plan['requested_frequencies_GHz'])<=24 and len(plan['chunks'])<=6","len(plan['requested_frequencies_GHz'])<=32 and len(plan['chunks'])<=2"))
+    edit('publish_smallbatch.py',lambda s:s.replace('first-wave same-mesh direct target review','reserved same-mesh native review; combined<=32points/8launches').replace('B6直接复核完成','B6预留点核验完成').replace('按ORDER继续未复核项；所有首轮后只在已授权预留8点/2次每项内处理确需的峰或边界。','按本目录ORDER继续尚未做完的预留项；全部预留项结束后运行父目录summarize_correction_D.py，实际看汇总图，停止全部本轮hook。不得启动更多频点。'))
+    for name in ['aedt_identity.json','policy.json','reference_validation.json','mesh_policy_addendum_v2.json']:
+        shutil.copyfile(S/name,R/name)
+    for row,q in selected:pc.write(R/'cases'/row['case']/'frequency_plan.json',q)
+    pc.write(R/'selected_sources.json',dict(cases=[row for row,q in selected]))
+    pc.write(R/'continuation_plan.json',dict(cases=[row for row,q in selected],maximum_new_analyze_launches=sum(len(q['chunks']) for row,q in selected),prior_evidence_hashes={str(P/'selected_correction_sources.json'):pc.sha(P/'selected_correction_sources.json')},new_geometry=0,adaptive=False,first_wave_native_rows_reused=True))
+    pc.write(R/'case_work_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,analyze_launches_reserved=0,tasks=[]))
+    pc.write(R/'authorization.json',dict(execution_authorized=True,cases=order,new_points_per_case=8,new_launches_per_case=2,total_points_per_case=32,total_launches_per_case=8,adaptive=False,geometry=False,human_instruction='你按照这个方案跑完他'))
+    cfg=pc.read(S/'hook/config.json');cfg['state_dir']=str(R/'hook/state');pc.write(R/'hook/config.json',cfg)
+    pc.write(R/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_first_completion'))
+    pc.write(R/'active.json',dict(stage='prepared_reserved_not_started'))
+    (R/'CONTINUATION.md').write_text('''# B6预留频点：已授权首轮预算内部，不是新批次
+Only the frozen ORDER here. First-wave21 native points are retained and independently verified; solve only missing_frequencies, <=8newpoints/2newAnalyze each, total<=32points/8Analyze per case. No geometry or adaptive. Do not repeat old frequencies or change first-wave artifacts.
+dispatch_smallbatch.py --case CASE --solve then supervise_smallbatch.py --run D:/hfss_fig8_20261028/direct/CASE/direct_reserved --seconds600. On event receive_verified.py --run RUN, actually view overlay, acknowledge_smallbatch.py --run RUN --visual-reviewed --note NOTE. Numerical unresolved remains unresolved when budget/frozen acquisition ends; do not invent new launches. Both original and corrected comparison retained.
+When all reviewed run ../summarize_correction_D.py, inspect both actual summary figures, verify all3 original requests and correction provenance. Stop phase_heartbeat.py in this, parent and previous final_review contexts. No more than the9 authorized development geometries. Original datasets/uniform untouched.
+''',encoding='utf-8')
+    frozen=pc.read(S/'implementation_hashes.json')
+    for f in R.rglob('*'):
+        if f.is_file() and (f.suffix=='.py' or f.name in ['frequency_plan.json','authorization.json','continuation_plan.json','selected_sources.json','policy.json','reference_validation.json','mesh_policy_addendum_v2.json','aedt_identity.json','config.json','CONTINUATION.md']):frozen[str(f)]=pc.sha(f)
+    for f,h in frozen.items():assert pc.sha(f)==h,f
+    for f in R.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'))
+    pc.write(R/'implementation_hashes.json',frozen)
+    print(dict(reserved_context=str(R),order=order,new_points=sum(len(row['missing_frequencies_GHz']) for row,q in selected),new_launches=sum(len(q['chunks']) for row,q in selected),Analyze_started=False))
+if __name__=='__main__':main()

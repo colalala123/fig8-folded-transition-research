@@ -1,0 +1,11 @@
+import unittest
+from tuning_budget_recovery_v2 import check_zero_startup
+class ZeroStartup(unittest.TestCase):
+    def test_empty_allowed(self):self.assertTrue(check_zero_startup(dict(segments=[],mesh_stages=[])))
+    def test_any_request_rejected(self):
+        with self.assertRaises(AssertionError):check_zero_startup(dict(segments=[{}],mesh_stages=[]))
+    def test_mesh_rejected(self):
+        with self.assertRaises(AssertionError):check_zero_startup(dict(segments=[],mesh_stages=[{}]))
+    def test_actual_elements_rejected(self):
+        with self.assertRaises(AssertionError):check_zero_startup(dict(segments=[],mesh_stages=[],actual_elements=100000))
+if __name__=='__main__':unittest.main()

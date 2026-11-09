@@ -1,0 +1,177 @@
+"""Versioned export-only recovery of an already observed native sweep. NO Analyze or restart."""
+import asyncio,copy,json,hashlib,os,shutil,sys,time,traceback
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+ROOT=Path(__file__).resolve().parent
+OLDCTX=ROOT.parent/'fig8_next48_b08_20261029'
+OLD=Path('D:/hfss_fig8_next48_20261029/b08/N23_A18/g01_initial')
+CTX=ROOT.parent/'fig8_next48_n23export_20261030'
+BASE=Path('D:/hfss_fig8_next48_20261029/n23_export_recovery1')
+RUN=BASE/'N23_A18/g01_initial'
+OBS=ROOT/'N23_existing_sweep_observation1.json'
+CASE='N23_A18'
+def now():return datetime.now(timezone.utc).isoformat()
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,d):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    p.write_text(json.dumps(d,ensure_ascii=False,indent=2,default=str)+'\n',encoding='utf-8')
+def new(p,d):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    with p.open('x',encoding='utf-8') as f:json.dump(d,f,ensure_ascii=False,indent=2,default=str);f.write('\n')
+def gate():
+    assert not (ROOT/'PAUSE.json').exists()
+    native=[p.info for p in psutil.process_iter(['pid','name','create_time','cmdline']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+    assert len(native)==1 and native[0]['pid']==50712 and abs(native[0]['create_time']-1793286319.113606)<.01
+    assert native[0]['cmdline']==read(OLDCTX/'aedt_identity.json')['command']
+    return native
+def build_context():
+    CTX.mkdir(exist_ok=False);RUN.mkdir(parents=True,exist_ok=False)
+    for n in ['policy.json','mesh_policy_addendum_v2.json','reference_validation.json','desktop_start.json','aedt_identity.json',
+              'case_reference.py','target_metrics.py','review_phase_geometry.py','acknowledge_review.py',
+              'phase_publish.py','phase_geometry_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py']:
+        shutil.copyfile(OLDCTX/n,CTX/n)
+    pc=(OLDCTX/'phase_control.py').read_text(encoding='utf-8')
+    pc='\n'.join('BASE=Path('+repr(str(BASE))+')' if l.startswith('BASE=') else 'ORDER='+repr([CASE]) if l.startswith('ORDER=') else l for l in pc.splitlines())+'\n'
+    (CTX/'phase_control.py').write_text(pc,encoding='utf-8')
+    # Receiver compatibility only: this context deliberately contains NO executable solver worker.
+    (CTX/'phase_geometry_worker.py').write_text(
+      "from phase_control import HERE,read,write,sha,now,ORIGINAL\nimport sys\nsys.path.insert(0,str(ORIGINAL))\nfrom mesh_budget import design_verdict\n"
+      "sys.path.insert(0,str(HERE.parent/'fig8_speed_study_20261021'))\nfrom run_study import analyze\nfrom analyze_study import passes\n"
+      "if __name__=='__main__': raise RuntimeError('Export-only recovery context: Analyze forbidden')\n",encoding='utf-8')
+    p=CTX/'phase_geometry_publish.py';s=p.read_text(encoding='utf-8')
+    start=s.index('def prompt(');end=s.index('\nasync def publish',start)
+    s=s[:start]+'''def prompt(event,path):
+    return (f'[Fig8 N23_A18零新增Analyze导出恢复终态] {path}\\n{event["summary"]}\\n'
+      f'先读{HERE/"CONTINUATION.md"}。原失败事件保留不改；本路径只恢复导出，未重启、未新增Analyze。'
+      '仅运行${WORKSPACE}/output/fig8_next48_20261029/continuation_export_v4.py review；实际view_image后用本上下文acknowledge_review.py。'
+      '核验训练38与测试10分别统计、原预测/模型哈希未变、真实成本和晚到扫频来源不确定性。'
+      '这是第48项，无后继，不创建第9段，不调参、不重训、不重复Analyze。失败只诊断，唯一恢复已经使用。')
+''' + s[end:]
+    p.write_text(s,encoding='utf-8')
+    (CTX/'CONTINUATION.md').write_text('# N23_A18唯一导出恢复V4\n\n'
+      '人类已批准唯一有限恢复；重启前检查发现原桌面已有14核扫频，因此实际没有重启或新增Analyze。'
+      '晚到扫频的触发来源尚不能确定，不能伪造原MCP成功回执。已提交请求365次，本项7次；另保留1次潜在外部请求的保守额度，本项上界8、全批上界366≤624。不得据此再补第二次扫频。\n\n'
+      '原失败input/state/event/worker_error保持不变，本独立路径仅承接已存在Sweep1的导出和审核。'
+      '完成后用主目录continuation_export_v4.py review，实际查看PNG后用本目录acknowledge_review.py记录真实ACK。'
+      '随后核验所有48项的有效路径、训练38/测试10分别统计、冻结预测误差、成本、hook回执并闭账；无后继/第9段/新增几何/调谐/重训。'
+      '若失败保留证据并停止，不再次恢复。用户暂停优先。旧均匀和闭账24/B05/C9数据不操作。\n',encoding='utf-8')
+    cfg=read(OLDCTX/'hook/config.json');cfg['state_dir']=str(CTX/'hook/state');write(CTX/'hook/config.json',cfg)
+    write(CTX/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_terminal'))
+    write(CTX/'authorization.json',dict(execution_authorized=True,export_only=True,Analyze_authorized=False,cases=[CASE],human_reply='允许上述唯一有限恢复'))
+    (CTX/'cases'/CASE).mkdir(parents=True)
+
+async def main():
+    marker=ROOT/'N23_export_recovery_attempt1.json';assert not marker.exists()
+    assert not (ROOT/'N23_restart_attempt1.json').exists(),'Different recovery already released'
+    old=read(OLD/'state.json');assert len(old['segments'])==7 and old['actual_passes']==21 and old['actual_elements']==102038
+    assert not old['segments'][-1]['adaptive_requested'] and 'mcp_response' not in old['segments'][-1]
+    evidence={str(OLD/n):sha(OLD/n) for n in ['input.json','state.json','worker_error.json','completion_event.json']}
+    assert read(OLD/'completion_event.json')['status']=='failed' and not (OLD/'receiver_ack.json').exists()
+    new(ROOT/'N23_A18_replacement_authorization_v4.json',dict(at=now(),approved=True,human_reply='允许上述唯一有限恢复',
+       new_sweep_requests_max=1,new_adaptive_requests_max=0,case_requests_cap=8,campaign_requests_cap=624,
+       actual_selected_action='Observe existing sweep and export, no agent restart/Analyze',
+       original_failed_hashes=evidence,late_native_sweep_origin_uncertain=True,do_not_use_remaining_allowance_for_another_sweep=True))
+    new(marker,dict(at=now(),pid=os.getpid(),created=psutil.Process().create_time(),action='export_existing_sweep_only',Analyze_added=0))
+    start=time.monotonic()
+    while time.monotonic()-start<650:
+        assert not (ROOT/'PAUSE.json').exists()
+        try:d=read(OBS)
+        except json.JSONDecodeError:time.sleep(.5);continue
+        if d.get('status')=='cache_updated_and_native_quiet_candidate':break
+        assert d.get('status')!='bounded_wait_expired_no_new_action','Native observation expired; no retry'
+        time.sleep(1)
+    else:raise TimeoutError('Existing sweep wait expired; no Analyze/restart')
+    gate();assert d['observations'],'Need real native14core evidence'
+    sys.path.insert(0,str(ROOT));from effective_budget_v3 import validate_campaign
+    budget=validate_campaign();assert budget['Analyze_used']==365 and budget['per_case_Analyze'][CASE]==7
+    build_context()
+    sys.path.insert(0,str(OLDCTX));import phase_geometry_worker as w
+    project=Path(old['project']);app=w.dc.app_for(project)
+    try:
+        assert Path(app.project_file).resolve()==project.resolve() and not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');sw=next(s for s in setup.sweeps if s.name=='Sweep1')
+        assert setup.is_solved and sw.is_solved,'No valid cachedSweep; no further solve automatically'
+        assert w.snapshot(setup.props)==old['final_setup'] and w.snapshot(sw.props)==old['final_sweep']
+        messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        write(RUN/'native_inspection.json',dict(at=now(),project=str(project),running=False,setup_solved=True,sweep_solved=True,
+              messages=messages,native=gate(),Analyze_added=0,restart_performed=False))
+        assert any('Interpolating frequency sweep complete. Converged.' in x for x in messages)
+        assert not any('[error]' in x.lower() for x in messages)
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence.txt'))
+        assert w.passes(RUN/'convergence.txt')==w.passes(OLD/'convergence_stage_05.txt')
+        cad=w.inspect_rebuilt_geometry(app,old['geometry']);assert cad['passed']
+        assert w.canonical_ports({b.name:w.snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})==w.canonical_ports(old['port_settings']['after'])
+        material=app.materials['rogers ro4003 (tm)'];assert abs(float(material.permittivity.value)-3.55)<1e-9 and abs(float(material.dielectric_loss_tangent.value)-.0027)<1e-9
+        w.dc.SWEEP='Sweep1';w.dc.export(app,RUN,w.np.arange(1,1501)/100)
+        reference=w.apply_reference(RUN,CASE)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    # Snapshot the now-completed native project/cache, without cloning runtime locks or changing originals.
+    snap=BASE/'source_snapshot';snap.mkdir(exist_ok=False);cache=project.with_suffix('.aedtresults')
+    hashes={}
+    for p in [project]+[p for p in cache.rglob('*') if p.is_file() and not p.name.endswith(('.lock','.lck','.semaphore'))]:
+        rel=p.relative_to(OLD);dst=snap/rel;dst.parent.mkdir(parents=True,exist_ok=True)
+        before=sha(p);shutil.copy2(p,dst);assert sha(dst)==sha(p)==before;hashes[str(rel)]=before
+    write(CTX/'snapshot_manifest.json',dict(at=now(),source=str(OLD),snapshot=str(snap),hashes=hashes,original_locks_not_deleted=True))
+    for i in range(6):shutil.copyfile(OLD/f'convergence_stage_{i:02d}.txt',RUN/f'convergence_stage_{i:02d}.txt')
+    observation=copy.deepcopy(read(OBS));new(CTX/'late_native_sweep_observation.json',observation)
+    assert all(sha(p)==h for p,h in evidence.items())
+    spec=copy.deepcopy(read(OLD/'input.json'));spec.update(run_dir=str(RUN),input_path=str(RUN/'input.json'),
+      technical_recovery_attempt=1,export_only_recovery=True,agent_Analyze_added=0,original_input=str(OLD/'input.json'),
+      original_input_sha256=sha(OLD/'input.json'),worker_sha256=sha(CTX/'phase_geometry_worker.py'),
+      policy_sha256=sha(CTX/'policy.json'),mesh_addendum_sha256=sha(CTX/'mesh_policy_addendum_v2.json'))
+    parents=dict(spec['parent_evidence_hashes']);parents.update(evidence)
+    for p in list(CTX.glob('*.py'))+[CTX/'CONTINUATION.md',CTX/'snapshot_manifest.json',CTX/'late_native_sweep_observation.json',ROOT/'N23_A18_replacement_authorization_v4.json',ROOT/'campaign_frozen.json',ROOT/'predictions_frozen.json',ROOT/'TRAINING38_ACQUISITION_SUMMARY.json']:
+        parents[str(p)]=sha(p)
+    spec['parent_evidence_hashes']=parents;new(RUN/'input.json',spec)
+    state=copy.deepcopy(old);state.update(status='completed',sweep_converged=True,source_unchanged=sha(spec['source'])==spec['source_sha256'],
+      reference_treatment=reference,convergence=w.dc.convergence(RUN/'convergence.txt'),cad_after=cad,
+      resource_recovery_attempt=1,export_only_recovery=True,original_failed_run=str(OLD),agent_Analyze_added=0,
+      late_sweep_origin_uncertain=True,finished_at=now())
+    state['segments'][-1].update(observations=[[o['process']] for o in observation['observations']],
+      observed_14core_process=True,observed_adaptive_process=False,finished_at=now(),
+      recovered_after_worker_timeout=True,native_completion_verified=True,request_origin='original missing MCP response retained; late native execution origin uncertain')
+    # Deliberately no fabricated mcp_response and no extra segment/request.
+    assert 'mcp_response' not in state['segments'][-1]
+    metrics=w.analyze(RUN/'sparams.csv',f0=6.85);state['design_passed']=w.design_verdict(metrics)
+    write(RUN/'response_metrics.json',metrics);write(RUN/'target20_metrics.json',w.compute20(RUN/'sparams.csv',metrics));write(RUN/'state.json',state)
+    write(RUN/'manifest.json',{**state,'modes':2,'curve_sha256':sha(RUN/'sparams.csv'),'mesh_addendum_sha256':spec['mesh_addendum_sha256']})
+    result=dict(case=CASE,case_state='needs_review',operation_success=True,design_passed=state['design_passed'],
+       numerical_review_passed=None,full_matrix_approved=False,selected_run=str(RUN),geometry=state['geometry'],
+       actual_elements=102038,mesh_target_met=True,mesh_exception_used=False,metrics=metrics,finished_at=now(),
+       evidence_hashes={str(RUN/n):sha(RUN/n) for n in ['state.json','manifest.json','sparams.csv','convergence.txt']})
+    write(RUN/'finish24_result.json',result);write(CTX/'cases'/CASE/'result.json',result)
+    rawstart=read(OLD/'supervised_start.json')
+    write(RUN/'supervised_start.json',dict(input_sha256=sha(RUN/'input.json'),actual_14core_single_group_observed=True,
+      export_only_recovery=True,new_HFSS_launched=False,new_Analyze_issued=False,
+      actual_sweep_observation_sha256=sha(CTX/'late_native_sweep_observation.json'),
+      original_supervised_start_sha256=sha(OLD/'supervised_start.json'),original_worker_pid=rawstart['worker_pid'],
+      export_worker_pid=os.getpid(),export_worker_created=psutil.Process().create_time(),
+      missing_original_final_sweep_MCP_success_not_fabricated=True))
+    write(CTX/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[dict(case=CASE,path=str(RUN/'input.json'),input_sha256=sha(RUN/'input.json'),status='reserved',role='export_only_recovery')]))
+    write(CTX/'supervised_release.json',dict(case=CASE,input_path=str(RUN/'input.json'),input_sha256=sha(RUN/'input.json'),bulk_dispatch_released=False))
+    write(ROOT/'session_export_recovery_v4.json',dict(version=4,case=CASE,context=str(CTX),original_run=str(OLD),effective_run=str(RUN),
+      original_failed_hashes=evidence,known_submitted_Analyze=365,known_case_requests=7,agent_new_Analyze=0,
+      conservative_unattributed_native_sweep_request_reserve=1,campaign_request_upper_bound=366,case_request_upper_bound=8,
+      technical_recovery_attempt=1,original_predictions_unchanged=True,completed_export=True))
+    # Publish through the same authorized, deduplicating hook; this is a distinct recovery terminal event.
+    from phase_publish import hook
+    cfg=hook.load_config(CTX/'hook/config.json')
+    def prompt(event,path):return f'[Fig8 N23_A18零新增Analyze恢复完成] {path}。先读{CTX/"CONTINUATION.md"}；运行{ROOT/"continuation_export_v4.py"} review，实际看图再ACK。最后一项，无后继/第9段；整理48有效路径及训练38/测试10分别交付。原失败保留，晚到扫频来源不明，已知365次请求+保守1次额度；不得再次补扫频。'
+    hook.prompt_for=prompt
+    event=hook.create_event(RUN,'completed','N23_A18已有扫频有效；零新增Analyze恢复原生1500点矩阵，21轮/102038网格完全相同；需独立审核与实际看图。',
+      ['state.json','manifest.json','finish24_result.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt','supervised_start.json'],
+      config=cfg,verified_success=True,purpose='Same frozen N23_A18 export recovery; no new Analyze/restart; no retuning')
+    receipt=await hook.deliver(event,config=cfg);write(RUN/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        # Use an isolated interpreter so the heartbeat binds the RECOVERY context, not the old imported modules.
+        import subprocess
+        subprocess.run([sys.executable,str(CTX/'phase_heartbeat.py'),'arm','--event',str(event)],check=True)
+    print(json.dumps(dict(exported=True,run=str(RUN),mesh=102038,Analyze_added=0,restart=False,hook_state=receipt.get('state'))),flush=True)
+
+if __name__=='__main__':
+    try:asyncio.run(main())
+    except BaseException:
+        write(ROOT/'N23_export_recovery_error1.json',dict(at=now(),error=traceback.format_exc(),Analyze_added=0,no_automatic_retry=True))
+        raise

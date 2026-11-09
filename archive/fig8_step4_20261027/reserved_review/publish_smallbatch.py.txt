@@ -1,0 +1,16 @@
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(pc.HERE/'hook/config.json');path=run/'completion_event.json'
+    assert pc.read(pc.HERE/'authorization.json')['execution_authorized'] and case in pc.ORDER
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B6 frozen reserved same-mesh native review; combined<=32points/8launches; no new geometry or adaptive')
+    def prompt(e,p):
+        return (f'[Fig8 B6预留点核验完成] {p}\n{summary}\n先读'+str(pc.HERE/'CONTINUATION.md')+'。运行receive_verified.py核验，实际看图后acknowledge_smallbatch.py --run RUN --visual-reviewed --note实际说明。'
+          '保留明确的目标失败与数值未解决，不把baseline或插值通过当联合-20达标。按本目录ORDER继续尚未做完的预留项；全部预留项结束后运行父目录finalize_blind.py，实际看汇总图，停止全部本轮hook。不得启动更多频点。'
+          '六项均E类，不重训不调参。全部终态后报告首测命中、失败、未解决，关闭hook；不得重开旧队列。')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(error=traceback.format_exc(),at=pc.now()))

@@ -1,0 +1,161 @@
+"""D04G02-only policy-aligned center and bounded local tuning.
+
+Preserve the converged legacy cache. Its higher mesh count is NOT a failure.
+One center is explicitly budgeted to avoid mixing sweep/meshing policies in
+finite differences; this is not a full-matrix repair or a precision retry.
+"""
+import argparse
+from pathlib import Path
+import numpy as np
+import prepare_tuning as core
+from control import HERE, BASE, OLD, read, write, sha, now
+from geometry_worker import dc, geometry_gate, analyze, passes
+
+CASE = 'D04G02'
+LEGACY = BASE / 'D04G02_sweep_recovery'
+RUN = BASE / CASE / 'g00_rebase'
+DECISION = HERE / 'cases' / CASE / 'rebase_decision.json'
+
+
+def check_decision(d, row, ledger):
+    assert d['case'] == row['case'] == CASE
+    assert d['action'] == 'one_same_policy_center'
+    assert d['old_results_preserved'] and d['count_as_additional_geometry_attempt']
+    assert not d['reuse_old_sensitivities'] and not d['mesh_count_is_failure']
+    assert d['geometry'] == row['initial_geometry'] == row['current_geometry']
+    assert d['legacy_sweep']['InterpTolerance'] == 1.0 and d['legacy_sweep']['EnforcePassivity'] is False
+    assert d['recovered_sweep_already_available'] and not d['repeat_sweep_repair']
+    assert not d['same_controller_center_available'] and not d['design_already_passed']
+    assert ledger['historical_count'] == 1 and ledger['previous_batch_count'] == 1
+    assert ledger['attempts_used_or_reserved'] == 2 and not ledger['new_geometry_slots']
+    assert ledger['attempts_used_or_reserved'] + 1 + 3 == 6 <= 8
+
+
+def audit():
+    from geometry_worker import canonical_ports
+    row = next(x for x in read(HERE/'plan.json')['cases'] if x['case'] == CASE)
+    selected = OLD/CASE/'i01'
+    assert Path(row['selected_source']).resolve() == selected.resolve()
+    assert row['historical_phase_solves'] == row['existing_new_attempts'] == 1
+    historical = Path('F:/hfss_f8x_261002/D04G02/i00')
+    prior_path = HERE.parent/'fig8_resume_20261007/resume_queue_plan.json'
+    prior = next(x for x in read(prior_path)['cases'] if x['case'] == CASE)
+    assert prior['historical_solves'] == 1
+    assert [Path(x).resolve() for x in prior['existing_iterations']] == [historical.resolve()]
+    hm = read(historical/'manifest.json'); old = read(selected/'state.json')
+    s = read(LEGACY/'state.json'); m = read(LEGACY/'response_metrics.json')
+    result = read(LEGACY/'finish24_result.json'); frozen = read(LEGACY/'plan.json')
+    expected = dict(Wm=1.2, Ws=.3, Lm=6.499465, Ls1=12.64066, Ls2=1.15, Ls3=1.7)
+    assert hm['geometry'] == old['geometry'] == s['geometry'] == expected == row['initial_geometry']
+    assert hm['sweep_converged'] is False and old['sweep_converged'] is False
+    assert s['status'] == 'completed' and s['sweep_converged'] and s['same_mesh_verified']
+    assert s['source_unchanged'] and s['recovered_without_resolve']
+    assert s['cad_verification']['passed'] and old['cad_verification']['passed']
+    assert old['modes_per_port'] == 2
+    assert sha(old['source']) == old['source_sha256'] == hm['source_sha256']
+    assert sha(frozen['project_source']) == frozen['source_sha256']
+    assert sha(selected/'manifest.json') == frozen['source_manifest_sha256']
+    assert old['settings']['setup']['MaxDeltaS'] == .005
+    assert old['settings']['setup']['PercentRefinement'] == 30
+    assert s['sweep_after']['InterpTolerance'] == 1.0 and not s['sweep_after']['EnforcePassivity']
+    assert canonical_ports(s['ports']) == canonical_ports(read(selected/'manifest.json')['port_settings']['after'])
+    assert passes(LEGACY/'convergence_before.txt') == passes(LEGACY/'convergence_after.txt') == passes(selected/'convergence.txt')
+    assert passes(LEGACY/'convergence_after.txt')[-1][1] == 153288
+    for path, digest in result['evidence_hashes'].items():
+        assert sha(path) == digest
+    event = read(LEGACY/'completion_event.json')
+    assert event['status'] == 'failed'
+    for item in event['artifacts']:
+        assert sha(LEGACY/item['path']) == item['sha256']
+    ack = read(LEGACY/'receiver_ack.json')
+    assert ack['event_sha256'] == sha(LEGACY/'completion_event.json') and ack['recovered_without_resolve']
+    assert s['observed_16core_process'] is False  # Never invent old resource evidence.
+    actual = analyze(LEGACY/'sparams.csv', f0=6.85)
+    for key in ['signed_peak_difference_dB','central_valley_GHz']:
+        assert abs(actual[key]-m[key]) < 1e-12
+    assert abs(actual['passband_2dB']['BW_GHz']-m['passband_2dB']['BW_GHz']) < 1e-12
+    for fn in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        data = np.genfromtxt(LEGACY/fn, delimiter=',', skip_header=1)
+        assert len(data) == 1500 and np.isfinite(data).all()
+        assert np.allclose(data[:,0], np.arange(1,1501)/100)
+    assert not (BASE/CASE).exists()
+    assert list(BASE.glob('*D04G02*')) == [LEGACY]
+    for root in [Path('J:/f8_speed_261021'),Path('J:/f8_mesh100k_261022')]:
+        assert not list(root.glob('*D04G02*'))
+    parents = {}
+    for folder,names in [(historical,['manifest.json','response_metrics.json','convergence.txt']),
+                         (selected,['state.json','manifest.json','convergence.txt']),
+                         (LEGACY,['state.json','state_before_export_recovery.json','plan.json','manifest.json',
+                                  'response_metrics.json','sparams.csv','all_modes_sparams.csv',
+                                  'mode_impedance_gamma.csv','convergence_before.txt','convergence_after.txt',
+                                  'finish24_result.json','receiver_ack.json','completion_event.json','worker_error.json'])]:
+        for name in names:
+            parents[str(folder/name)] = sha(folder/name)
+    for path in [prior_path,HERE/'policy.json',HERE/'mesh_policy_addendum_v2.json',Path(__file__).resolve()]:
+        parents[str(path)] = sha(path)
+    ledger = core.attempt_ledger(CASE)
+    d = dict(case=CASE,created_at=now(),action='one_same_policy_center',geometry=expected,
+        old_results_preserved=True,count_as_additional_geometry_attempt=True,
+        reuse_old_sensitivities=False,mesh_count_is_failure=False,
+        legacy_sweep=s['sweep_after'],recovered_sweep_already_available=True,repeat_sweep_repair=False,
+        same_controller_center_available=False,design_already_passed=False,
+        legacy=dict(run=str(LEGACY),elements=153288,signed_peak_difference_dB=m['signed_peak_difference_dB'],
+                    central_valley_GHz=m['central_valley_GHz'],BW_GHz=m['passband_2dB']['BW_GHz']),
+        old_resource_observed=False,budget_before=ledger,evidence_hashes=parents,
+        reason='The existing cached sweep repair is complete at1%/passivity-off; do not repeat it. Its legacyDeltaS/30% refinement produced153288 elements, while new geometry probes use the staged actual-count controller. No compatible count-controller center or measured mesh-controller offset exists. Establish exactly one identical-geometry center to avoid mixing this offset into finite differences, not to reduce mesh count for its own sake.',
+        alternatives='Keep the validated153288-element cached curve. Using it directly with count-mesh probes would mix numerical controllers; rerunning the same sweep would not resolve that. Higher mesh is not failure. No full-matrix repair or automatic precision escalation.',
+        limitations='Sweep settings already match; compare the new same-geometry center against the recovered legacy mesh. Difference is a controller/mesh sensitivity diagnostic, not proof of strict-mesh equivalence. Original failed sweep events and absent old16core observation remain preserved.',
+        budget_plan='Historical1+previousbatch1=2, cached sweep recovery adds0. One new center=3; independent Ls1/Lm/candidate reach4/5/6. Two slots remain but cannot fit a second full three-solve cycle. Only existing once-only half-step rule if an unimproved trial warrants it; no extra final step or ninth solve.')
+    check_decision(d,row,ledger)
+    return d,old
+
+
+def prepare_rebase():
+    assert not dc.solvers() and not any(p.exists() for p in [HERE/'worker.lock', OLD/'protocol.lock', OLD/'pilot_queue.lock'])
+    assert not RUN.exists() and not DECISION.exists()
+    d, s = audit()
+    assert geometry_gate(d['geometry'], d['geometry'])['passed']
+    addon = read(HERE/'mesh_policy_addendum_v2.json')
+    assert addon['user_authorized'] and addon['reviewed_exception_upper'] == 112000
+    prev = read(HERE/'supervised_release.json'); ps = read(prev['input_path']); pr = Path(ps['run_dir'])
+    assert sha(prev['input_path']) == prev['input_sha256']
+    ack = read(pr/'receiver_ack.json')
+    assert ack['event_sha256'] == sha(pr/'completion_event.json')
+    assert ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+    archive = HERE/'supervised_releases'/f"{prev['case']}_{pr.name}.json"
+    assert not archive.exists()
+    write(DECISION, d)
+    spec = dict(case=CASE, role='initial_geometry', geometry=d['geometry'], source=s['source'],
+        source_sha256=s['source_sha256'], run_dir=str(RUN), project_name=CASE+'_g00_rebase',
+        policy_sha256=sha(HERE/'policy.json'), mesh_addendum_sha256=sha(HERE/'mesh_policy_addendum_v2.json'),
+        phase_solve_ordinal_including_history=3, created_at=now(), worker_sha256=sha(HERE/'geometry_worker.py'),
+        controller_sha256=sha(HERE/'mesh_budget.py'), parent_evidence_hashes={**d['evidence_hashes'], str(DECISION):sha(DECISION)},
+        rebase_decision=str(DECISION), scope='One explicitly budgeted policy-aligned center; original cache preserved.')
+    path = RUN/'input.json'; write(path, spec); write(archive, prev)
+    write(HERE/'supervised_release.json', dict(case=CASE, input_path=str(path.resolve()), input_sha256=sha(path),
+        bulk_dispatch_released=False, at=now(), reason=d['reason']))
+    print(path)
+
+
+def prepare_tuning(center, cycle, step):
+    assert cycle == 'c01', 'Only one full local cycle fits the remaining budget'
+    d = read(DECISION)
+    for p,h in d['evidence_hashes'].items(): assert sha(p) == h
+    assert d['case'] == CASE and d['old_results_preserved'] and not d['reuse_old_sensitivities']
+    spec, _, _ = core.reviewed(RUN, CASE)
+    assert spec['parent_evidence_hashes'][str(DECISION)] == sha(DECISION)
+    expected = RUN if cycle == 'c01' else BASE/CASE/'c01_candidate'
+    assert Path(center).resolve() == expected.resolve()
+    core.ALLOWED = {CASE}  # process-local; never edit the frozen generic source
+    core.prepare(CASE, center, cycle, step)
+
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(); subs = p.add_subparsers(dest='command', required=True)
+    subs.add_parser('rebase'); t = subs.add_parser('tune')
+    t.add_argument('--center', type=Path, required=True)
+    t.add_argument('--cycle', choices=['c01'], required=True)
+    t.add_argument('--step', choices=['probe_Ls1','probe_Lm','candidate'], required=True)
+    a = p.parse_args()
+    if a.command == 'rebase': prepare_rebase()
+    else: prepare_tuning(a.center, a.cycle, a.step)

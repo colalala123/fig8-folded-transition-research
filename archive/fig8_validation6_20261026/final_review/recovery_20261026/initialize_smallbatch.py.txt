@@ -1,0 +1,44 @@
+"""One finite continuation plan after an actual hang and a successful fresh point."""
+import ast,sys
+from pathlib import Path
+import recovery_control as pc
+from merge_native import partial_rows,exported_rows,add_disjoint
+
+def initialize():
+    assert not (pc.HERE/'continuation_plan.json').exists(),'Do not reset recovery'
+    assert pc.read(pc.FINAL/'authorization.json')['execution_authorized']
+    diag=pc.BASE/'V01G02/recovery_single_982';result=pc.read(diag/'diagnostic_result.json')
+    assert result['single_point_numerical_pass'] and result['same_mesh_verified'] and result['observed_16core_process']
+    failed=pc.BASE/'V01G02/final_direct';partial=pc.read(failed/'diagnosis_partial_arrays.json')
+    assert partial['mesh_identical'];baseline=partial_rows(partial);assert len(baseline)==6
+    add_disjoint(baseline,exported_rows(diag));assert len(baseline)==7
+    source_plan=pc.read(pc.FINAL/'plan.json');rows=[]
+    from phase_final_direct import frequencies
+    from phase_direct_context import reviewed_source
+    for item in source_plan['cases']:
+        source=Path(item['source']);spec,state,metrics=reviewed_source(source,item['case'])
+        requested=frequencies(metrics);existing=sorted(baseline) if item['case']=='V01G02' else []
+        assert set(existing)<=set(requested)
+        missing=[f for f in requested if f not in existing]
+        chunks=[missing[i:i+4] for i in range(0,len(missing),4)]
+        rows.append(dict(**item,requested_frequencies_GHz=requested,existing_frequencies_GHz=existing,
+            missing_frequencies_GHz=missing,chunks=chunks,maximum_new_analyzes=len(chunks)))
+    assert len(rows)==6 and len(rows[0]['missing_frequencies_GHz'])==56
+    for case in pc.ORDER:(pc.HERE/'cases'/case).mkdir(parents=True,exist_ok=True)
+    for f in pc.HERE.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    plan=dict(stage='V6R',at=pc.now(),authority=pc.read(pc.FINAL/'authorization.json')['launch_user_instruction'],
+        reason='Real63-point solver hang;9.82GHz succeeded freshly at same mesh. Split missing/remaining direct checks into4-point solves, no new geometry or higher precision.',
+        case_order=pc.ORDER,cases=rows,new_geometry_cap=0,new_aggregate_workitem_cap=6,
+        original_failed_cached_workitems=1,single_point_diagnostic_workitems=1,
+        maximum_new_analyze_launches=sum(r['maximum_new_analyzes'] for r in rows),
+        frequency_budget='Only original requested direct frequencies; reuse6 valid points plus the successful9.82 diagnostic. No missing-point fabrication and no automatic retry of any failed chunk.',
+        prior_evidence_hashes={str(failed/f):pc.sha(failed/f) for f in ['completion_event.json','worker_error.json','input.json','state.json','diagnosis_partial_arrays.json','diagnosis_convergence.txt']})
+    for name in ['input.json','state.json','diagnostic_result.json','completion_event.json','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence_before.txt','convergence_after.txt']:
+        plan['prior_evidence_hashes'][str(diag/name)]=pc.sha(diag/name)
+    pc.write(pc.HERE/'continuation_plan.json',plan)
+    pc.write(pc.ledger_path(),dict(stage='V6R',new_geometry_reserved=0,new_cached_tasks_reserved=0,analyze_launches_reserved=0,tasks=[]))
+    files=list(pc.HERE.glob('*.py'))+[pc.HERE/'CONTINUATION.md',pc.HERE/'continuation_plan.json',pc.FINAL/'policy.json',pc.FINAL/'implementation_manifest.json']
+    pc.write(pc.HERE/'implementation_hashes.json',{str(f):pc.sha(f) for f in files})
+    print(dict(stage='V6R',cases=6,max_new_Analyze=plan['maximum_new_analyze_launches'],new_geometry=0,case1_missing=56,started=False))
+
+if __name__=='__main__':initialize()

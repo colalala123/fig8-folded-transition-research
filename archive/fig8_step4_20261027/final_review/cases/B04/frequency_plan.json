@@ -1,0 +1,193 @@
+{
+  "requested_frequencies_GHz": [
+    3.07,
+    3.11,
+    3.758,
+    3.773,
+    3.783,
+    3.798,
+    4.07,
+    5.31,
+    5.32,
+    5.33,
+    6.7,
+    8.08,
+    8.09,
+    8.1,
+    9.37,
+    9.408,
+    9.423,
+    9.433,
+    9.448,
+    9.91,
+    9.95
+  ],
+  "chunks": [
+    [
+      3.07,
+      3.11,
+      3.758,
+      3.773
+    ],
+    [
+      3.783,
+      3.798,
+      4.07,
+      5.31
+    ],
+    [
+      5.32,
+      5.33,
+      6.7,
+      8.08
+    ],
+    [
+      8.09,
+      8.1,
+      9.37,
+      9.408
+    ],
+    [
+      9.423,
+      9.433,
+      9.448,
+      9.91
+    ],
+    [
+      9.95
+    ]
+  ],
+  "target": {
+    "f_low_GHz": 4.07,
+    "f_high_GHz": 9.37,
+    "BW_GHz": 5.3,
+    "S11_max_dB": -20,
+    "S21_min_dB": -2
+  },
+  "peak_neighborhoods": [
+    {
+      "reference_GHz": 5.32,
+      "points": [
+        5.31,
+        5.32,
+        5.33
+      ]
+    },
+    {
+      "reference_GHz": 8.09,
+      "points": [
+        8.08,
+        8.09,
+        8.1
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "kind": "S21",
+      "reference_GHz": 3.0873608801190975,
+      "points": [
+        3.07,
+        3.11
+      ],
+      "role": "f_low_GHz"
+    },
+    {
+      "kind": "S21",
+      "reference_GHz": 9.930491594845861,
+      "points": [
+        9.91,
+        9.95
+      ],
+      "role": "f_high_GHz"
+    },
+    {
+      "kind": "S11",
+      "reference_GHz": 3.777802898617304,
+      "points": [
+        3.758,
+        3.773,
+        3.783,
+        3.798
+      ],
+      "role": "f_low_GHz"
+    },
+    {
+      "kind": "S11",
+      "reference_GHz": 9.427765393852189,
+      "points": [
+        9.408,
+        9.423,
+        9.433,
+        9.448
+      ],
+      "role": "f_high_GHz"
+    }
+  ],
+  "reasons": {
+    "5.31": [
+      "inner_S11_peak"
+    ],
+    "5.32": [
+      "inner_S11_peak"
+    ],
+    "5.33": [
+      "inner_S11_peak"
+    ],
+    "8.08": [
+      "inner_S11_peak"
+    ],
+    "8.09": [
+      "inner_S11_peak",
+      "worst_reflection_in_requested_band"
+    ],
+    "8.1": [
+      "inner_S11_peak"
+    ],
+    "6.7": [
+      "central_reference_sample"
+    ],
+    "3.07": [
+      "S21_minus2_edge"
+    ],
+    "3.11": [
+      "S21_minus2_edge"
+    ],
+    "9.91": [
+      "S21_minus2_edge"
+    ],
+    "9.95": [
+      "S21_minus2_edge"
+    ],
+    "3.758": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "3.773": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "3.783": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "3.798": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.408": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.423": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.433": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.448": [
+      "center_joint20_edge_nested_bracket"
+    ],
+    "9.37": [
+      "worst_transmission_in_requested_band"
+    ]
+  },
+  "reserve_points": 8,
+  "reserve_launches": 2,
+  "scope": "Target endpoints, target inner peaks/extrema, S21 edges and center joint20 edges only. No remote disconnected-band certification."
+}

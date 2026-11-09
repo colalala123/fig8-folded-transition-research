@@ -1,0 +1,9 @@
+# Fig8 N48B07有界长度校正
+
+{
+  "case": "N03_A18",
+  "stage": "awaiting_geometry_hook_review",
+  "operation_status": "completed",
+  "run_dir": "D:\\hfss_fig8_next48_20261029\\b07\\N03_A18\\g01_initial",
+  "finished_at": "2026-10-30T06:16:14.740937+00:00"
+}

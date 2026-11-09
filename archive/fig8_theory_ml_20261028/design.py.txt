@@ -1,0 +1,78 @@
+"""Target band -> nominal P/R and learned length corrections; offline only.
+
+The response proxy is a tuned-length manifold, not length-resolved EM. It cannot
+certify newly predicted lengths; every new output needs bounded HFSS validation.
+"""
+from common import *
+import argparse
+import numpy as np
+import joblib
+from model import Forward
+
+def load_verified_model():
+    folder=ROOT/'benchmark_v1';manifest=read(folder/'manifest.json')
+    path=folder/'length_residual_deployment52.joblib'
+    assert sha(path)==manifest[str(path)],'Untrusted or changed serialized model'
+    # This artifact was created locally from frozen code/data above, never remote pickle.
+    return joblib.load(path)
+
+def candidate_geometry(p,r,arm,length_model):
+    wm,ws=widths(p,r);wm=round(wm,6);ws=round(ws,6);p,r=pr(wm,ws)
+    base=nominal_lengths(wm,ws,arm)
+    row=dict(P=p,R=r,a=arm,geometry_mm=dict(Wm=wm,Ws=ws,**{k:base[k] for k in ['Lm','Ls1','Ls2','Ls3']}))
+    residual=length_model.predict(np.array([features(row)]))[0]
+    g={**row['geometry_mm'],'Lm':float(base['Lm']+residual[0]),'Ls1':float(base['Ls1']+residual[1])}
+    coords=fold_coordinates(g)
+    if not(5.5<=g['Lm']<=7.5 and g['Ls1']-2*g['Ls3']>=.35 and coords['rho_nominal']<.5 and coords['g_mm']>=.35):
+        raise ValueError('Predicted geometry outside nominal dimension constraints')
+    return p,r,g,coords
+
+def search(lo,hi,arm=-1,s11=-20,s21=-2,grid=31,top=3):
+    if not(.01<=lo<hi<=15 and np.isfinite([lo,hi,s11,s21]).all() and 3<=grid<=61 and 1<=top<=12):raise ValueError('Invalid target/search size')
+    if arm not in [-1,1.4,1.8]:raise ValueError('Only measured arms1.4/1.8; no interpolation in a yet')
+    data=read(SOURCE52);assert sha(SOURCE52)==read(ROOT/'benchmark_v1/configuration_frozen.json')['source_hashes'][str(SOURCE52)]
+    rows=[r for r in data['rows'] if r['full_curve_proxy_eligible']]
+    proxy=Forward(rows);length_model=load_verified_model()
+    margin=read(OUT/'fig8_PR18_delivery_20261027/model_validation.json')['screening_margin_S11_dB']
+    found=[]
+    for a in ([1.4,1.8] if arm==-1 else [arm]):
+        for pp in np.linspace(2.04,2.28,grid):
+            for rr in np.linspace(.430,.475,grid):
+                try:
+                    p,r,g,c=candidate_geometry(pp,rr,a,length_model)
+                    response=proxy.predict(g['Wm'],g['Ws'],a)
+                except ValueError:continue
+                score=band_score(response['f'],response['s11'],response['s21'],lo,hi)
+                if score['worst_S11_dB']>s11 or score['min_S21_dB']<s21:continue
+                found.append(dict(P=p,R=r,a_mm=a,g_mm=.55,geometry_mm=g,nominal_fold_coordinates=c,
+                    manifold_response_estimate=score,category='E_new_length_not_HFSS_verified',
+                    old_manifold_margin_screen_passed=bool(score['worst_S11_dB']<=s11-margin and score['min_S21_dB']>=s21+.05),
+                    reliable_R_recommendation=False,model_strategy='independent_line_widths_plus_quadratic_length_residual52',
+                    source_response_parents=response['parents'],HFSS_verified=False))
+    found.sort(key=lambda x:(x['manifold_response_estimate']['worst_S11_dB'],x['P'],x['R']))
+    selected=[]
+    for x in found:
+        if any(x['a_mm']==y['a_mm'] and np.linalg.norm([(x['P']-y['P'])/.24,(x['R']-y['R'])/.045])<.10 for y in selected):continue
+        selected.append(x)
+        if len(selected)==top:break
+    return dict(target=dict(f_low_GHz=lo,f_high_GHz=hi,S11_max_dB=s11,S21_min_dB=s21),
+       nominal_candidates=len(found),candidates=selected,conservative_old_margin_dB=margin,
+       status='exploratory_requires_HFSS_and_bounded_correction' if selected else 'no_supported_candidate_do_not_relax_target',
+       limits=['Fixed material/center/gap and two arms only; no P/R hull extrapolation.',
+               'Response proxy is not length-resolved: learned lengths change the geometry, so its nominal score is not a guarantee.',
+               'R category is disabled for new learned-length outputs until independent HFSS validation.',
+               'This command is offline and never launches a solver.'])
+
+def main():
+    p=argparse.ArgumentParser(description=__doc__);p.add_argument('--bandwidth',type=float,required=True)
+    p.add_argument('--arm',type=float,default=-1);p.add_argument('--s11',type=float,default=-20);p.add_argument('--s21',type=float,default=-2)
+    p.add_argument('--grid',type=int,default=31);p.add_argument('--top',type=int,default=3);p.add_argument('--out',type=Path)
+    a=p.parse_args()
+    if not np.isfinite(a.bandwidth) or a.bandwidth<=0:p.error('Positive finite bandwidth required')
+    try:result=search(6.72-a.bandwidth/2,6.72+a.bandwidth/2,a.arm,a.s11,a.s21,a.grid,a.top)
+    except ValueError as e:p.error(str(e))
+    if a.out:
+        if a.out.exists():p.error('Do not overwrite an existing proposal')
+        write(a.out,result)
+    print(json.dumps(result,ensure_ascii=False,indent=2))
+if __name__=='__main__':main()

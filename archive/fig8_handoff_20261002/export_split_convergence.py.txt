@@ -1,0 +1,14 @@
+import json
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+R = Path(r"F:\hfss_f8x_261002\R_tri_diagC")
+app = Hfss(project=str(R / "R_tri_diagC.aedt"), design="Wideband vertical transition", version="2024.2", machine="localhost", port=7990, non_graphical=False, new_desktop=False, close_on_exit=False)
+out = {}
+try:
+    for sweep, name in [("SweepSplitLowNoPass", "convergence_split_low.txt"), ("SweepSplitHighNoFields", "convergence_split_high.txt")]:
+        out[sweep] = app.export_convergence("TriDiagE", output_file=str(R / name))
+finally:
+    app.release_desktop(close_projects=False, close_desktop=False)
+(R / "split_convergence_export.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+print(json.dumps(out, indent=2))

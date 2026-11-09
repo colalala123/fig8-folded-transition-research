@@ -1,0 +1,25 @@
+"""Validate only frozen selected sources, no geometry dispatch."""
+from pathlib import Path
+from phase_control import HERE,PARENT,BASE,OLD,ORIGINAL,ORDER,TARGET,read,write,sha,now,status_report
+def reviewed_source(source,case):
+    source=Path(source).resolve();assert source.parent==(BASE/case).resolve()
+    row=next(r for r in read(HERE/'selected_sources.json')['cases'] if r['case']==case)
+    assert source==Path(row['source']).resolve()
+    for f,h in row['evidence_hashes'].items():assert sha(f)==h,f
+    p=read(source/'input.json');s=read(source/'state.json');a=read(source/'receiver_ack.json');v=read(source/'receiver_verification.json');event=read(source/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']==TARGET
+    assert p['case']==case and s['case']==case and p['geometry']==s['geometry']
+    assert a['event_sha256']==sha(source/'completion_event.json') and a['verification_sha256']==sha(source/'receiver_verification.json')
+    assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed'] and a['design_passed']
+    assert s['status']=='completed' and s['design_passed'] and 100000<=s['actual_elements']<=112000
+    assert v['design_passed'] and v['actual_elements']==s['actual_elements']
+    assert 1<=s['cumulative_geometry_ordinal']<=4
+    for f,h in p['parent_evidence_hashes'].items():assert sha(f)==h,f
+    for item in event['artifacts']:assert sha(source/item['path'])==item['sha256']
+    from case_reference import verify_reference
+    assert verify_reference(source)==s['reference_treatment']
+    initial=next(r['initial_geometry'] for r in read(PARENT/'plan.json')['cases'] if r['case']==case)
+    assert all(p['geometry'][k]==initial[k] for k in ['Wm','Ws','Ls2','Ls3'])
+    from solver_runtime import passes
+    assert passes(source/'convergence.txt')[-1][1]==s['actual_elements']
+    return p,s,read(source/'response_metrics.json')

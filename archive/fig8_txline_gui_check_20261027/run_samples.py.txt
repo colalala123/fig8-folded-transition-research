@@ -1,0 +1,30 @@
+import json, subprocess, sys
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+source=ROOT.parent/'fig8_PR_current_material_20261026'/'analysis.json'
+rows=json.loads(source.read_text(encoding='utf-8-sig'))['rows']
+kind=sys.argv[1]
+assert kind in ('microstrip','slotline')
+widths=sorted(set(r['Wm' if kind=='microstrip' else 'Ws'] for r in rows))
+def run(script,args):
+ p=subprocess.run(['powershell','-NoProfile','-File',str(ROOT/'scripts'/script),*args],capture_output=True,text=True,timeout=30)
+ if p.returncode: raise RuntimeError(p.stderr or p.stdout)
+ return json.loads(p.stdout)
+for w in widths:
+ um=w*1000
+ name=f'{kind}_{um:.6f}'.rstrip('0').rstrip('.')+'.json'
+ target=ROOT/name
+ if target.exists():
+  d=json.loads(target.read_text(encoding='utf-8-sig'))
+ else:
+  args=['-Er','3.55','-TanD','0.0027','-FrequencyGHz','6.72','-LengthUm','6270' if kind=='microstrip' else '14600','-HeightUm','813']
+  args+=['-WidthUm',str(um),'-ThicknessUm','35'] if kind=='microstrip' else ['-GapUm',str(um)]
+  d=run(f'txline_control_{kind}.ps1',args)
+  target.write_text(json.dumps(d,indent=2),encoding='utf-8')
+ o=d['output'];m=d['readback_material']
+ assert float(m['er'])==3.55 and float(m['tanD'])==.0027
+ assert float(o['frequency_ghz'])==6.72 and float(o['height_um'])==813
+ assert abs(float(o['width_um' if kind=='microstrip' else 'gap_um'])-um)<.001
+ assert 10<float(o['impedance_ohm'])<300
+ if kind=='microstrip':assert float(o['thickness_um'])==35
+ print(kind,w,o['impedance_ohm'],flush=True)

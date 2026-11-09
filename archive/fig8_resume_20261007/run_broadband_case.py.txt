@@ -1,0 +1,89 @@
+"""Original Broadband production workflow in visible AEDT, guarded and serial."""
+import asyncio,json,os,shutil,sys,time,traceback
+from pathlib import Path
+import psutil
+HERE=Path(__file__).resolve().parent;ROOT=Path('J:/f8_261007')
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+from pilot_worker import now,sha,write_json,set_modes,inspect_rebuilt_geometry,check_settings,export_data,convergence
+from mcp_call import connected_client,session_call
+from ansys.aedt.core import Hfss
+from response_metrics import analyze
+from broadband_recovery import audit_matrix
+from complete_reference_evidence import common_fields
+from pilot_supervisor import aux_compare,verify_boundaries
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def solvers():return [p.info for p in psutil.process_iter(['pid','name','cmdline']) if (p.info['name'] or '').lower()=='hf3d.exe']
+def save(path,s):
+    s['updated_at_utc']=now();tmp=path.with_suffix('.tmp');write_json(tmp,s);os.replace(tmp,path)
+def connect(project,port):
+    return Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=port,non_graphical=False,new_desktop=False,close_on_exit=False)
+
+async def solve(spec_path,protocol,ordinal):
+    run=Path(spec_path).parent;spec=read(spec_path);state_path=run/'state.json'
+    assert not state_path.exists(),'Existing attempt must be recovered, never blindly repeated'
+    assert run.parent==ROOT/spec['case'] and run.name==f'i{ordinal:02d}'
+    assert protocol['adaptive_method']=='Broadband0p1to15' and protocol['sweep_method']=='original_fullband_scalar_audited_v1'
+    assert not solvers(),'Another HFSS solver is active'
+    assert shutil.disk_usage(ROOT).free>=25*1024**3
+    lock=ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    s={**spec,'status':'preparing','started_at_utc':now(),'setup':'Setup19','modes_per_port':2,'port':protocol['port'],'adaptive_method':'Broadband0p1to15'}
+    project=run/f'{spec["case"]}_{ordinal:02d}.aedt';s['project']=str(project)
+    try:
+        save(state_path,s);shutil.copy2(spec['source'],project)
+        app=connect(project,s['port'])
+        try:
+            assert not app.are_there_simulations_running
+            from folded_transition import apply_folded_geometry
+            g=spec['geometry'];s['build']=apply_folded_geometry(app,wm=g['Wm'],lm=g['Lm'],ws=g['Ws'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3'])
+            s['cad_verification']=inspect_rebuilt_geometry(app,g)
+            s['microstrip_boxes']={n:list(app.modeler[n].bounding_box) for n in ['Substrate_3','Substrate_18']}
+            for box in s['microstrip_boxes'].values():assert abs(box[3]-box[0]-g['Wm'])<1e-7 and abs(box[4]-box[1]-g['Lm'])<1e-7
+            s['port_settings']=set_modes(app,2);s['settings']=check_settings(app)
+            expected=read(Path(protocol['baseline_run'])/'manifest.json')['settings']
+            # Compare every persisted production setup/sweep property, not a few tolerances.
+            assert s['settings']==expected,'Settings differ from the validated original collector'
+            mat=app.materials['rogers ro4003 (tm)'];s['material']={'er':float(mat.permittivity.value),'tand':float(mat.dielectric_loss_tangent.value),'h_mm':.813}
+            assert s['material']==protocol['material']
+            s['messages_before_solve']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+            app.odesktop.ClearMessages(app.project_name,app.design_name,3)
+            app.save_project();s['project_sha256_before_solve']=sha(project);s['status']='prepared';save(state_path,s)
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':s['port'],'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+        async with connected_client() as client:
+            assert not solvers()
+            response=await session_call(client,'start_analysis',args)
+            assert response.get('started'),response
+            s.update(status='solving',mcp_request=args,mcp_response=response,active_segment='Sweep1');save(state_path,s)
+            start=time.monotonic()
+            while True:
+                await asyncio.sleep(30)
+                st=await session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+                s['last_mcp_status']=st;s['solver_processes']=solvers();save(state_path,s)
+                if not st.get('running') and not s['solver_processes']:break
+                if time.monotonic()-start>7200:raise RuntimeError('Two-hour review trigger; retain solver, stop further dispatch')
+        app=connect(project,s['port'])
+        try:
+            app.save_project();s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+            s['export']=export_data(app,run,2)
+            app.export_convergence('Setup19',output_file=str(run/'convergence.txt'))
+            s['convergence']=convergence(run/'convergence.txt')
+            s['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in s['messages'])
+            for norm,label in [(False,'native_hfss'),(True,'50ohm_hfss_original')]:
+                dest=run/f'{label}.s4p'
+                assert app.export_touchstone(setup='Setup19',sweep='Sweep1',output_file=str(dest),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+                s[label]={'file':str(dest),'sha256':sha(dest)}
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        s['source_unchanged']=sha(spec['source'])==spec['source_sha256'];assert s['source_unchanged']
+        manifest={**s,'modes':2,'status':'exported_review_required','curve_sha256':sha(run/'sparams.csv'),'execution_transport':'visible AEDT MCP','phase_solve_ordinal_including_history':ordinal+1,'geometry_check':s['cad_verification']}
+        write_json(run/'manifest.json',manifest)
+        from collect_completed_exports import collect
+        review=collect(run,Path(protocol['baseline_run']))
+        accepted=review['accepted'];s['numerical_review']=review['matrix']
+        s.update(status='completed' if accepted else 'review_required',active_segment=None,finished_at_utc=now());save(state_path,s)
+        assert accepted,'Numerical or mode review failed. Data retained; no automatic repeat.'
+    except Exception:
+        s.update(status='review_required',error=traceback.format_exc());save(state_path,s);raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()

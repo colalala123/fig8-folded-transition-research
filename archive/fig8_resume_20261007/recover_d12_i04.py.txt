@@ -1,0 +1,195 @@
+"""Evidence-specific D12/i04 same-mesh recovery; no production approval."""
+import argparse
+import asyncio
+import csv
+import json
+import os
+from pathlib import Path
+import traceback
+import numpy as np
+import recover_same_port_phase as r
+import review_d12_i04_direct as reviewer
+from run_same_port_recovery_io import retry_metadata
+from run_same_port_recovery_v2 import timeout_wrapper
+
+HERE = Path(__file__).resolve().parent
+ATTEMPT = r.ROOT / 'D12G05/i04'
+BASE = r.ROOT / 'local_repair/D12G05_i04'
+PROJECT = BASE / 'D12G05_i04_repair.aedt'
+REVIEW = HERE / 'd12_i04_recovery_plan.json'
+WINDOWS = [(930,965),(1420,1500)]
+SEGMENTS = {'Low':(1,930),'Middle':(965,1420)}
+ANCHORS = [1,101,200,300,550,600,645,700,800,850,900,912,946,1000,1100,1177,1200,1300,1400,1440,1500]
+
+
+def layout():
+    points = sorted(set(ANCHORS) | {k for lo,hi in WINDOWS for k in range(lo,hi+1)})
+    selected = {}
+    for name,(lo,hi) in SEGMENTS.items():
+        assert sum(lo <= k <= hi for k in points) >= 3
+        for k in range(lo,hi+1):
+            selected[k] = name
+    for lo,hi in WINDOWS:
+        for k in range(lo,hi+1):
+            selected[k] = 'Direct'
+    assert set(selected) == set(range(1,1501))
+    return points, selected
+
+
+def derive():
+    m=r.read(ATTEMPT/'manifest.json')
+    assert m['status']=='numerical_or_port_review_required'
+    assert m['convergence']['converged'] and m['convergence']['final_delta_s']<=.005
+    assert m['sweep_converged'] and m['source_unchanged']
+    assert r.read(ATTEMPT/'port_review.json')['passed']
+    f,s,z,modes=r.load_segment(ATTEMPT)
+    assert len(f)==1500 and np.allclose(f,np.arange(1,1501)/100,rtol=0,atol=1e-9)
+    fixed=r.transform(s,z,'traveling')
+    sv=np.linalg.svd(fixed,compute_uv=False)[:,0]
+    rec=abs(fixed-fixed.transpose(0,2,1)).max(axis=(1,2))
+    bad=np.flatnonzero(sv>1.001)
+    assert (bad+1).tolist()==[1440] and int(sum(rec>1e-6))==976
+    assert all(any(lo<=int(k)+1<=hi for lo,hi in WINDOWS) for k in bad)
+    events=[]
+    for i,mode in enumerate(modes):
+        v=z[:,i];change=abs(np.diff(v))/np.maximum(np.minimum(abs(v[:-1]),abs(v[1:])),1.)
+        for idx in np.flatnonzero(change>.2):
+            k=int(idx)+2
+            assert any(lo <= max(1,k-15) and min(1500,k+15) <= hi for lo,hi in WINDOWS)
+            events.append({'mode':mode,'GHz':k/100,'relative_Zo_jump':float(change[idx])})
+    assert int(rec.argmax())+1==946
+    points,_=layout()
+    files=[ATTEMPT/n for n in ['manifest.json','state.json','prediction_frozen.json','all_modes_sparams.csv',
+        'mode_impedance_gamma.csv','port_review.json','normalization_recovery_review.json','observed_solver_commands.json','monitoring_600.json']]
+    files += [Path(__file__).resolve(),Path(reviewer.__file__),Path(r.__file__),Path(r.direct.__file__),
+              Path(r.backend.__file__),HERE/'run_same_port_recovery_io.py',HERE/'run_same_port_recovery_v2.py',
+              HERE/'export_modal_segment.py',HERE/'preserve_discrete_ranges.py',HERE/'review_same_port_direct.py',
+              r.ROOT/'production_protocol.json',r.ROOT/'continuation_after_d12_i03.json']
+    return {'attempt':str(ATTEMPT),'geometry':m['geometry'],'windows_indices':WINDOWS,
+        'segments_indices':SEGMENTS,'direct_frequencies_GHz':[k/100 for k in points],
+        'windows_GHz':[[lo/100,hi/100] for lo,hi in WINDOWS],
+        'segments_GHz':{n:[lo/100,hi/100] for n,(lo,hi) in SEGMENTS.items()},
+        'observed_Zo_jumps':events,'guard_GHz':.15,
+        'original_max_sv':float(sv.max()),'original_reciprocity_error':float(rec.max()),
+        'original_passivity_violations':len(bad),'original_reciprocity_violations':int(sum(rec>1e-6)),
+        'source_prediction_sha256':r.sha(ATTEMPT/'prediction_frozen.json'),
+        'layout_evidence':{'source':str(ATTEMPT/'mode_impedance_gamma.csv'),
+            'sha256':r.sha(ATTEMPT/'mode_impedance_gamma.csv'),'original_export_available':True},
+        'implementation_hashes':{str(p):r.sha(p) for p in files},
+        'precision_unchanged':True,'monitor_interval_seconds':600,'phase_solves_added':0,
+        'scope':'Only D12G05/i04. Direct windows for its own cutoff and 14.35–15 GHz branches with 0.15 GHz guards clipped at the sweep end; includes the 14.40 GHz passivity failure. Independent anchors cover the 1.01–11.77 GHz reciprocity failures and both interpolation segments. No production approval or next pilot dispatch.'}
+
+
+def validate_plan():
+    p=r.read(REVIEW);r.hashes(p['implementation_hashes'])
+    assert p==json.loads(json.dumps(derive()))
+    r.hashes(r.read(r.ROOT/'production_protocol.json')['implementation_hashes'])
+    return p
+
+
+class Poll600:
+    def __init__(self, seconds, observer):
+        self.seconds,self.observer=seconds,observer
+    async def sleep(self, seconds):
+        assert seconds==self.seconds
+        self.observer()
+        await asyncio.sleep(600)
+
+
+def assemble(m):
+    _,selected=layout()
+    sources={n:BASE/n for n in SEGMENTS};sources['Direct']=BASE/'direct/explicit_modal'
+    reviews=[BASE/n/'review.json' for n in [*SEGMENTS,'direct']]
+    for file in reviews:
+        checked=r.read(file);assert checked['passed'];r.hashes(checked['evidence_hashes'])
+    r.audit_observations(BASE)
+    tables={};files=[REVIEW,ATTEMPT/'manifest.json',ATTEMPT/'prediction_frozen.json',BASE/'plan.json',BASE/'snapshot.json',BASE/'observed_solver_commands.json',*reviews]
+    for name,folder in sources.items():
+        tables[name]={}
+        for filename in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+            with (folder/filename).open(encoding='utf-8-sig') as stream:rows=list(csv.DictReader(stream))
+            table={round(float(x['Freq_GHz'])*100):x for x in rows};assert len(table)==len(rows)
+            tables[name][filename]=table;files.append(folder/filename)
+        files.extend([folder/'manifest.json',folder/'mode_map.json'])
+    seams=[]
+    for name,(lo,hi) in SEGMENTS.items():
+        for k in [lo,hi]:
+            if k in [1,1500]:continue
+            sample=next(x for x in r.read(BASE/name/'review.json')['samples'] if abs(x['GHz']-k/100)<1e-9)
+            assert sample['full_50ohm_complex_error']<=.005
+            seams.append({**sample,'interpolated_source':name,'direct_source':'Direct'})
+    assert len(seams)==3
+    out=ATTEMPT/'verified_recovery';out.mkdir(exist_ok=False)
+    for filename in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        rows=[tables[selected[k]][filename][k] for k in range(1,1501)]
+        with (out/filename).open('w',newline='',encoding='utf-8') as stream:
+            writer=csv.DictWriter(stream,fieldnames=rows[0]);writer.writeheader();writer.writerows(rows)
+    r.write_json(out/'mode_map.json',r.read(BASE/'Low/mode_map.json'))
+    r.write_json(out/'assembly_recipe.json',{'source_run':str(ATTEMPT),'seams':seams,
+        'per_frequency_source':{str(k/100):{'name':name,'path':str(sources[name])} for k,name in selected.items()},
+        'input_hashes':{str(p):r.sha(p) for p in files},'scope':'Exact exported rows; no fitting or smoothing; same geometry and mesh.'})
+    r.write_json(out/'manifest.json',{**m,'project':str(PROJECT),'status':'exported_review_required',
+        'curve_sha256':r.sha(out/'sparams.csv'),'diagnostic_only':True,'recovered_from':str(ATTEMPT)})
+    result=r.collect(out,Path(r.read(r.ROOT/'production_protocol.json')['baseline_run']))
+    r.write_json(out/'recovery_candidate_review.json',{'numerical_and_port_passed':result['accepted'],
+        'seams_passed':True,'phase_geometry_unchanged':True,'phase_solves_added':0,
+        'source_run':str(ATTEMPT),'candidate_run':str(out),'production_approved':False,
+        'evidence_hashes':{str(out/n):r.sha(out/n) for n in ['manifest.json','assembly_recipe.json',
+            'normalization_recovery_review.json','port_review.json','response_metrics.json']},'reviewed_at_utc':r.now()})
+    assert result['accepted']
+
+
+async def run():
+    p=validate_plan();r.direct.idle()
+    assert not BASE.exists() and not (ATTEMPT/'recovery_acceptance.json').exists()
+    r.DIRECT=[round(f*100) for f in p['direct_frequencies_GHz']]
+    r.direct.NAME=r.DIRECT_NAME
+    # Snapshot retains all original cache, cutoff, source and convergence checks.
+    r.snapshot(ATTEMPT,BASE,PROJECT,p)
+    events=[];original_write=r.write_json
+    def write(path,value):
+        return retry_metadata('write_json:'+str(path),lambda:original_write(path,value),events)
+    r.write_json=r.direct.write_json=reviewer.write_json=write
+    def state(status,**extra):
+        write(BASE/'flow.json',{'status':status,'pid':os.getpid(),'updated_at_utc':r.now(),
+            'production_approved':False,'monitor_interval_seconds':600,'retry_events':events,**extra})
+    state('direct_check')
+    r.direct.solvers=r.resource_observer(BASE,r.direct.solvers)
+    r.backend.active_solvers=r.resource_observer(BASE,r.backend.active_solvers)
+    r.direct.asyncio=Poll600(5,lambda:r.direct.solvers())
+    r.backend.asyncio=Poll600(30,lambda:r.backend.active_solvers())
+    r.direct.session_call=timeout_wrapper(r.direct.session_call,BASE,PROJECT)
+    r.backend.session_call=timeout_wrapper(r.backend.session_call,BASE,PROJECT)
+    original_save=r.backend.save
+    r.backend.save=lambda s:retry_metadata('run_protocol_tf3.save',lambda:original_save(s),events)
+    try:
+        m=r.read(ATTEMPT/'manifest.json')
+        r.prepare_direct(BASE,PROJECT,m)
+        direct_state=r.read(BASE/'direct/local_state.json')
+        direct_state['case']='D12G05'
+        write(BASE/'direct/local_state.json',direct_state)
+        await r.direct.solve('D12G05',BASE/'direct')
+        s=r.read(BASE/'direct/local_state.json')
+        r.export(PROJECT,'Setup19 : '+r.DIRECT_NAME,BASE/'direct/explicit_modal',s['expected_frequencies_GHz'])
+        reviewer.write_review(ATTEMPT)
+        r.audit_observations(BASE)
+        for name,(lo,hi) in SEGMENTS.items():
+            state('checking_'+name)
+            await r.segment(BASE,PROJECT,m,name,lo,hi)
+            r.audit_observations(BASE)
+        state('assembling');assemble(m)
+        state('candidate_ready_review_required')
+    except BaseException:
+        state('review_required',error=traceback.format_exc());raise
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();group=ap.add_mutually_exclusive_group()
+    group.add_argument('--prepare-review',action='store_true');group.add_argument('--run',action='store_true')
+    args=ap.parse_args()
+    if args.prepare_review:
+        with REVIEW.open('x',encoding='utf-8') as stream:json.dump(derive(),stream,indent=2)
+    elif args.run:asyncio.run(run())
+    else:
+        p=validate_plan();print(json.dumps({'ready':True,'direct_points':len(p['direct_frequencies_GHz']),
+            'windows_GHz':p['windows_GHz'],'segments_GHz':p['segments_GHz']}))

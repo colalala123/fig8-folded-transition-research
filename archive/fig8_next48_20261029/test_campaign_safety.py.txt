@@ -1,0 +1,54 @@
+import json,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import campaign_budget as budget
+
+ROOT=Path(__file__).resolve().parent
+class Safety(unittest.TestCase):
+ def fixture(self,folder,segments=0):
+  root=Path(folder);rows=[]
+  for n in range(48):
+   run=root/f'C{n+1:02d}';g={'Wm':1.8,'Ws':.35}
+   rows.append(dict(case=f'C{n+1:02d}',ordinal=n+1,run_dir=str(run),geometry=g))
+   if segments:
+    run.mkdir();segs=[dict(adaptive_requested=i<12,mcp_request=dict(cores_per_task=14,concurrent_tasks=1)) for i in range(segments)]
+    (run/'state.json').write_text(json.dumps(dict(case=f'C{n+1:02d}',geometry=g,segments=segs)))
+  (root/'campaign_frozen.json').write_text(json.dumps(dict(cases=rows)))
+  return root,rows
+ def test_624_total_bound(self):
+  with tempfile.TemporaryDirectory() as t:
+   root,_=self.fixture(t,13)
+   with patch.object(budget,'ROOT',root):
+    self.assertEqual(budget.validate_campaign()['Analyze_used'],624)
+    with self.assertRaises(AssertionError):budget.validate_campaign(extra_analyze=1)
+ def test_bad_resource_rejected(self):
+  with tempfile.TemporaryDirectory() as t:
+   root,rows=self.fixture(t,1);p=Path(rows[0]['run_dir'])/'state.json';s=json.loads(p.read_text());s['segments'][0]['mcp_request']['cores_per_task']=16;p.write_text(json.dumps(s))
+   with patch.object(budget,'ROOT',root),self.assertRaises(AssertionError):budget.validate_campaign()
+ def test_pause_blocks(self):
+  with tempfile.TemporaryDirectory() as t:
+   root,_=self.fixture(t);(root/'PAUSE.json').write_text('{}')
+   with patch.object(budget,'ROOT',root),self.assertRaises(AssertionError):budget.validate_campaign()
+ def test_case3_requires_real_pilot_gate(self):
+  with tempfile.TemporaryDirectory() as t:
+   root,rows=self.fixture(t)
+   with patch.object(budget,'ROOT',root):
+    budget.validate_campaign(case=rows[0]['case'])
+    with self.assertRaises(FileNotFoundError):budget.validate_campaign(case=rows[2]['case'])
+ def test_split_whole_families(self):
+  plan=json.loads((ROOT/'campaign_frozen.json').read_text(encoding='utf-8'))
+  self.assertEqual(len(plan['cases']),48);self.assertEqual(len(plan['split']['training_cases']),38);self.assertEqual(len(plan['split']['prospective_test_cases']),10)
+  self.assertFalse(set(plan['split']['training_families'])&set(plan['split']['prospective_test_families']))
+  for family in {r['family_id'] for r in plan['cases']}:
+   rows=[r for r in plan['cases'] if r['family_id']==family]
+   self.assertEqual(len(rows),2);self.assertEqual(len({r['role'] for r in rows}),1)
+ def test_report_cleanup_order_and_resources(self):
+  folder=ROOT.parent/'fig8_next48_b01_20261029'
+  c=(folder/'configure_projects.py').read_text(encoding='utf-8');w=(folder/'phase_geometry_worker.py').read_text(encoding='utf-8')
+  self.assertLess(c.index('report_module.DeleteAllReports()'),c.index('build=apply_folded_geometry'))
+  self.assertNotIn('app.post',c);self.assertIn("'cores_per_task':14",w);self.assertNotIn("'cores_per_task':16",w)
+  self.assertIn("'MinimumPasses':16",c);self.assertIn('validate_campaign(extra_analyze=1',w)
+ def test_new_coordination_no_old_lock_writes(self):
+  c=(ROOT.parent/'fig8_next48_b01_20261029/phase_geometry_context.py').read_text(encoding='utf-8')
+  self.assertNotIn("OLD=Path('J:/f8_261007')",c);self.assertIn('coordination',c)
+if __name__=='__main__':unittest.main()

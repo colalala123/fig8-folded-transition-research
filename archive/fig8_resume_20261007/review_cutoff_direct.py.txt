@@ -1,0 +1,50 @@
+"""Compare new direct frequency samples against both retained interpolating sweeps."""
+import json
+import numpy as np
+from broadband_recovery import ROOT,read,sha,write_json,now
+from audit_existing import touchstone
+from check_external_normalization import impedance,transform
+from check_legacy_scalar_reference import load_modal
+
+RUN=ROOT/'local_repair/D04G05/cutoff_check'
+
+def main():
+    state=read(RUN/'local_state.json')
+    assert state['status']=='exported_review_required' and state['source_unchanged']
+    assert state['convergence_after']==state['original_convergence']
+    f,s=touchstone(RUN/'native_direct.s4p',4)
+    z=impedance(RUN/'native_direct.s4p',4)
+    sf=transform(s,z,'traveling')
+    ff,hf=touchstone(RUN/'50ohm_original_direct.s4p',4)
+    assert np.allclose(f,ff,rtol=0,atol=1e-9)
+    sv=np.linalg.svd(sf,compute_uv=False)[:,0]
+    rec=np.max(abs(sf-sf.transpose(0,2,1)),axis=(1,2))
+    calibration=np.max(abs(sf-hf),axis=(1,2))
+    checks=[];evidence=[RUN/'local_state.json',RUN/'native_direct.s4p',RUN/'50ohm_original_direct.s4p']
+    variants={}
+    for label,run in [('original',ROOT/'D04G05/i00'),('with_Zo_convergence',RUN.parent/'zo_fullband')]:
+        freq,raw,imp,_=load_modal(run)
+        variants[label]=(freq,raw,imp,transform(raw,imp,'traveling'))
+        evidence += [run/'all_modes_sparams.csv',run/'mode_impedance_gamma.csv']
+    for i,freq in enumerate(f):
+        row={'GHz':float(freq),'direct_max_sv':float(sv[i]),'direct_reciprocity_error':float(rec[i]),
+             'normalization_calibration_error':float(calibration[i]),
+             'direct_Zo':[[float(x.real),float(x.imag)] for x in z[i]]}
+        for label,(vf,raw,imp,fixed) in variants.items():
+            j=int(np.argmin(abs(vf-freq)));assert abs(vf[j]-freq)<1e-9
+            row[label]={
+                'S11_magnitude_error':float(abs(abs(raw[j,0,0])-abs(s[i,0,0]))),
+                'S21_magnitude_error':float(abs(abs(raw[j,2,0])-abs(s[i,2,0]))),
+                'full_50ohm_complex_error':float(abs(fixed[j]-sf[i]).max()),
+                'modal_Zo_relative_error':(abs(imp[j]-z[i])/abs(z[i])).tolist(),
+            }
+        checks.append(row)
+    result={'reviewed_at_utc':now(),'direct_matrix_checks_passed':bool(max(sv)<=1.001 and max(rec)<=1e-6),
+            'normalization_calibration_passed':bool(max(calibration)<=1e-10),
+            'mesh_reuse_verified':True,'samples':checks,'production_approved':False,
+            'evidence_hashes':{str(p):sha(p) for p in evidence}}
+    write_json(RUN/'direct_comparison.json',result)
+    print(json.dumps({'direct_passed':result['direct_matrix_checks_passed'],'calibration_passed':result['normalization_calibration_passed'],
+        'samples':[{'GHz':r['GHz'],'max_sv':r['direct_max_sv'],**r['with_Zo_convergence']} for r in checks]},indent=2))
+
+if __name__=='__main__':main()

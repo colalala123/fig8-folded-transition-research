@@ -1,0 +1,24 @@
+{
+  "schema_version": "fig8_width_phase_v1",
+  "null_policy": "Use null/empty for unavailable or unidentifiable quantities; never fabricate zeros or success.",
+  "all_iterations_required_columns": [
+    "case", "iteration", "split", "phase", "width_family", "shape_id",
+    "Wm", "Ws", "Lm", "Ls1", "Ls2", "Ls3", "a_mm", "g_mm",
+    "source_project", "source_sha256_before", "source_sha256_after", "project_path",
+    "port_protocol_id", "mode_map_path", "material_er", "material_tand", "substrate_h_mm",
+    "solver_status", "design_status", "reason_code", "geometry_valid",
+    "adaptive_converged", "sweep_converged", "passes", "final_delta_s", "frequency_points",
+    "central_valley_target_GHz", "central_valley_GHz", "signed_peak_difference_dB",
+    "valley_count", "valleys_json", "peaks_json", "peak_level_dB",
+    "f_low_GHz", "f_high_GHz", "BW_2dB_GHz", "BW_joint_GHz",
+    "P_response", "R_zero_left", "R_zero_right", "R_zero_mean", "R_BW",
+    "f0_reference_GHz", "extraction_version", "reciprocity_error", "maximum_S_singular_value",
+    "started_at_utc", "finished_at_utc", "solve_seconds", "curve_path", "curve_sha256",
+    "prediction_path", "prediction_sha256", "selected_as_final"
+  ],
+  "solver_status": ["queued", "preparing", "solving", "exporting", "converged", "unconverged", "failed"],
+  "design_status": ["not_evaluated", "accepted", "phase_failed", "shape_not_identifiable", "geometry_invalid", "numerical_review_required"],
+  "reason_codes": ["none", "no_passband", "not_three_valleys", "peak_gate_failed", "center_gate_failed", "local_sensitivity_unreliable", "step_outside_window", "no_error_reduction", "tuning_budget_exhausted", "port_mapping_unresolved", "protocol_mismatch", "source_changed", "solver_unconverged", "export_failed", "resource_error"],
+  "accepted_designs": "One final accepted iteration per case. All source iterations remain in all_iterations.csv.",
+  "failed_designs": "One row per unsuccessful attempted case with final reason, attempt count, and links to every preserved iteration."
+}

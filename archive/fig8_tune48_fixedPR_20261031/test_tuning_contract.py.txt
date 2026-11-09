@@ -1,0 +1,56 @@
+import copy,json,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import tuning_budget as b
+from build_runtime import ROOT,OUT
+class Contract(unittest.TestCase):
+    def setUp(self):
+        self.tmp=tempfile.TemporaryDirectory();self.addCleanup(self.tmp.cleanup);self.root=Path(self.tmp.name)
+        self.geometry=dict(Wm=1.8,Ws=.35,Lm=6.5,Ls1=12.,Ls2=1.25,Ls3=2.15)
+        index=self.root/'index.json';index.write_text(json.dumps(dict(rows=[dict(case='N',geometry_mm=self.geometry,P_nominal=2.,R_nominal=.45)])))
+        target=dict(f_low_GHz=3.92,f_high_GHz=9.52,BW_GHz=5.6,S11_max_dB=-20,S21_min_dB=-2)
+        (self.root/'campaign.json').write_text(json.dumps(dict(width_changes_authorized=False,target=target,baseline_index=str(index),baseline_index_sha256=b.sha(index),tuning_order=['N'])))
+        self.ctx=self.root/'ctx';self.ctx.mkdir();self.run=self.root/'data/N_S/g01_initial'
+        self.row=dict(case='N_S',parent_case='N',geometry=copy.deepcopy(self.geometry),P_nominal=2.,R_nominal=.45,target=target,run_dir=str(self.run))
+    def save(self):
+        p=self.ctx/'plan.json';p.write_text(json.dumps(dict(cases=[self.row])))
+        (self.root/'runtime_registry.json').write_text(json.dumps(dict(contexts=[dict(context=str(self.ctx),plan_sha256=b.sha(p))])))
+    def call(self,**kw):
+        self.save()
+        with patch.object(b,'ROOT',self.root):return b.validate_campaign(**kw)
+    def test_fixed_probe_valid(self):self.row['geometry']['Ls1']+=.1;self.assertEqual(self.call()['Analyze_used'],0)
+    def test_width_change_rejected(self):
+        self.row['geometry']['Wm']+=.001
+        with self.assertRaises(AssertionError):self.call()
+    def test_fold_change_rejected(self):
+        self.row['geometry']['Ls3']+=.001
+        with self.assertRaises(AssertionError):self.call()
+    def test_gap_change_rejected(self):
+        self.row['geometry']['Ls2']+=.001
+        with self.assertRaises(AssertionError):self.call()
+    def test_length_radius_rejected(self):
+        self.row['geometry']['Ls1']+=.201
+        with self.assertRaises(AssertionError):self.call()
+    def test_target_relaxation_rejected(self):
+        self.row['target']['S11_max_dB']=-19
+        with self.assertRaises(AssertionError):self.call()
+    def test_second_sweep_rejected(self):
+        self.run.mkdir(parents=True);(self.run/'state.json').write_text(json.dumps(dict(case='N_S',geometry=self.geometry,segments=[dict(adaptive_requested=False,mcp_request=dict(cores_per_task=14,concurrent_tasks=1))]*2)))
+        with self.assertRaises(AssertionError):self.call()
+    def test_non14core_rejected(self):
+        self.run.mkdir(parents=True);(self.run/'state.json').write_text(json.dumps(dict(case='N_S',geometry=self.geometry,segments=[dict(adaptive_requested=True,mcp_request=dict(cores_per_task=16,concurrent_tasks=1))])))
+        with self.assertRaises(AssertionError):self.call()
+    def test_pause_blocks_extra_request(self):
+        (self.root/'PAUSE.json').write_text('{}')
+        with self.assertRaises(AssertionError):self.call(extra_analyze=1,case='N_S')
+class ActualMetricRegression(unittest.TestCase):
+    def test_joint_window_not_legacy_center_only(self):
+        import sys
+        ctx=OUT/'fig8_tune48_N17_A18_probes_20261031';sys.path.insert(0,str(ctx))
+        import phase_geometry_worker as w
+        index=b.read(OUT/'fig8_next48_20261029/DATASET48_EFFECTIVE_INDEX_V4.json')['rows']
+        for case,expected in [('N17_A18',False),('N21_A18',True)]:
+            row=next(r for r in index if r['case']==case);m=w.analyze(Path(row['effective_run'])/'sparams.csv',f0=6.85)
+            self.assertEqual(w.design_verdict(m),expected)
+            self.assertAlmostEqual(m['full_primary']['worst_S11_dB'],row['scientific_label']['primary']['worst_S11_dB'],places=9)
+if __name__=='__main__':unittest.main()

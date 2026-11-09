@@ -1,0 +1,47 @@
+import asyncio
+import unittest
+from unittest.mock import AsyncMock, Mock, patch
+import recover_d12_i04 as d
+
+
+class D12RecoveryTests(unittest.TestCase):
+    def test_complete_grid_and_independent_segment_checks(self):
+        points,selected=d.layout()
+        self.assertEqual(sorted(selected),list(range(1,1501)))
+        self.assertEqual(len(points),len(set(points)))
+        for lo,hi in d.WINDOWS:
+            self.assertTrue(all(selected[k]=='Direct' and k in points for k in range(lo,hi+1)))
+        for name,(lo,hi) in d.SEGMENTS.items():
+            self.assertGreaterEqual(len([k for k in points if lo<=k<=hi]),3)
+            self.assertTrue(any(lo<k<hi for k in points))
+
+    def test_three_seams_and_worst_reciprocity_anchor(self):
+        points,selected=d.layout()
+        self.assertIn(946,points)
+        self.assertIn(1440,points)
+        self.assertEqual(selected[1440],'Direct')
+        self.assertEqual(selected[946],'Direct')
+        self.assertEqual(len([k for lo,hi in d.SEGMENTS.values() for k in [lo,hi] if k not in [1,1500]]),3)
+
+    def test_reviewer_changes_only_case_identity(self):
+        original=(d.HERE/'review_same_port_direct.py').read_text(encoding='utf-8')
+        expected=original.replace('bounded D04 length trials','the explicitly reviewed D12G05/i04 recovery')
+        expected=expected.replace("attempt.parent==ROOT/'D04G05' and attempt.name in [f'i{i:02d}' for i in range(1,8)]", "attempt==ROOT/'D12G05/i04'")
+        expected=expected.replace("('D04G05_'+attempt.name)","('D12G05_'+attempt.name)").replace("('D04G05_'+Path(attempt).name)","('D12G05_'+Path(attempt).name)")
+        self.assertEqual(expected,(d.HERE/'review_d12_i04_direct.py').read_text(encoding='utf-8'))
+
+    def test_polling_does_not_dispatch(self):
+        observe=Mock()
+        with patch.object(d.asyncio,'sleep',new_callable=AsyncMock) as sleep:
+            asyncio.run(d.Poll600(5,observe).sleep(5))
+            sleep.assert_awaited_once_with(600)
+        observe.assert_called_once()
+
+    def test_existing_diagnostic_rejected_before_snapshot(self):
+        with patch.object(d,'validate_plan',return_value={}),patch.object(d.r.direct,'idle'), \
+             patch.object(d,'BASE',Mock(exists=lambda:True)),patch.object(d.r,'snapshot') as snap:
+            with self.assertRaises(AssertionError):asyncio.run(d.run())
+            snap.assert_not_called()
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

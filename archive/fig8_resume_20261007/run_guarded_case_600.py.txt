@@ -1,0 +1,60 @@
+"""Original guarded worker with module-local 600s monitoring and command audit."""
+import asyncio
+import json
+import os
+import sys
+from pathlib import Path
+import run_guarded_case as worker
+import run_broadband_case as backend
+
+
+def observe(run):
+    state_path = run / 'state.json'
+    if not state_path.exists():
+        return
+    state = backend.read(state_path)
+    if state['status'] != 'solving':
+        return
+    live = backend.solvers()
+    if not live:
+        return
+    path = run / 'observed_solver_commands.json'
+    record = backend.read(path) if path.exists() else {
+        'scope': 'Launch and 600-second observations during supervised solves',
+        'case': state['case'], 'run': str(run), 'observations': []}
+    if not record['observations'] or record['observations'][-1]['processes'] != live:
+        record['observations'].append({'observed_at_utc': backend.now(),
+            'state_updated_at_utc': state['updated_at_utc'], 'project': state['project'],
+            'processes': live, 'mcp_status': state.get('last_mcp_status')})
+        tmp = path.with_suffix('.tmp')
+        tmp.write_text(json.dumps(record, indent=2), encoding='utf-8')
+        os.replace(tmp, path)
+
+
+class Monitor:
+    def __init__(self, run, sleeper=asyncio.sleep):
+        self.run, self.sleeper = run, sleeper
+
+    async def sleep(self, seconds):
+        assert seconds == 30
+        observe(self.run)
+        await self.sleeper(600)
+
+
+def main():
+    assert len(sys.argv) == 3 and sys.argv[-1] == '--solve'
+    run = Path(sys.argv[1]).resolve().parent
+    assert not (run / 'monitoring_600.json').exists()
+    # All production validation and the actual solver implementation remain original.
+    worker.validate(worker.read(sys.argv[1]))
+    record = {'interval_seconds': 600, 'pid': os.getpid(),
+        'scope': 'Only module-local polling interval and read-only command observations',
+        'implementation_hashes': {str(Path(__file__).resolve()): worker.sha(__file__),
+                                  str(Path(backend.__file__)): worker.sha(backend.__file__)}}
+    (run / 'monitoring_600.json').write_text(json.dumps(record, indent=2), encoding='utf-8')
+    backend.asyncio = Monitor(run)
+    worker.main()
+
+
+if __name__ == '__main__':
+    main()

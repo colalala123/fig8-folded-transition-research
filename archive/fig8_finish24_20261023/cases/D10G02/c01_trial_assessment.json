@@ -1,0 +1,92 @@
+{
+  "at": "2026-10-24T08:30:03.711686+00:00",
+  "case": "D10G02",
+  "center": "J:\\f8_finish24_261023\\D10G02\\g00_rebase",
+  "trial": "J:\\f8_finish24_261023\\D10G02\\c01_candidate",
+  "assessment": {
+    "action": "accept_new_center"
+  },
+  "center_normalized_error": 12.0649997437066,
+  "trial_normalized_error": 7.2719404359756155,
+  "improvement_fraction": 0.39726973970564416,
+  "geometry_budget": {
+    "case": "D10G02",
+    "historical_count": 0,
+    "previous_batch_count": 1,
+    "prior_state_hashes": {
+      "J:\\f8_261007\\D10G02\\i00\\state.json": "1395efd145cdd1387136f634c3b9461284f8ddf8cd0846f200cea407e2957578"
+    },
+    "new_geometry_slots": {
+      "5": [
+        {
+          "path": "J:\\f8_finish24_261023\\D10G02\\c01_candidate\\input.json",
+          "sha256": "0686f86618e6f28857ba787d56a640dd0227df6bcb26b2a074926927569031e2",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.3,
+            "Lm": 6.5994649999999995,
+            "Ls1": 12.763792891536232,
+            "Ls2": 1.15,
+            "Ls3": 1.7
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "4": [
+        {
+          "path": "J:\\f8_finish24_261023\\D10G02\\c01_probe_Lm\\input.json",
+          "sha256": "a346db0b4e8e16817a507cf20b5e52c4ac9c60feefddc71abf1ff0fd62ff3f8c",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.3,
+            "Lm": 6.549465,
+            "Ls1": 12.64066,
+            "Ls2": 1.15,
+            "Ls3": 1.7
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "3": [
+        {
+          "path": "J:\\f8_finish24_261023\\D10G02\\c01_probe_Ls1\\input.json",
+          "sha256": "22726bef632676ff3342dd4d955710b9d9cd1ff13a3a6b25ce8c5080b998f2b5",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.3,
+            "Lm": 6.499465,
+            "Ls1": 12.74066,
+            "Ls2": 1.15,
+            "Ls3": 1.7
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "2": [
+        {
+          "path": "J:\\f8_finish24_261023\\D10G02\\g00_rebase\\input.json",
+          "sha256": "0a6b257d1ca1c0c5759b85ff703b326dcaae994dc78d373799cb14109d11c521",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.3,
+            "Lm": 6.499465,
+            "Ls1": 12.64066,
+            "Ls2": 1.15,
+            "Ls3": 1.7
+          },
+          "explicit_cache_continuation": false
+        }
+      ]
+    },
+    "attempts_used_or_reserved": 5,
+    "limit": 8,
+    "note": "Prepared inputs reserve a slot; explicit same-geometry cache recovery shares its original slot."
+  },
+  "evidence_hashes": {
+    "J:\\f8_finish24_261023\\D10G02\\c01_candidate\\response_metrics.json": "e491b4646879b7474d7b49171ee44703f247330eef5e6be0520ddfd4d109c1e5",
+    "J:\\f8_finish24_261023\\D10G02\\c01_candidate\\receiver_verification.json": "7ef7c7c358df778bb2dacaaa6cedb85e496b928ee3709791cd8a87136a1a6060",
+    "J:\\f8_finish24_261023\\D10G02\\c01_candidate\\receiver_ack.json": "0786c22467f068e9c41a9266ac684bcd692053a2014874be01e3b0e4066e5fda",
+    "J:\\f8_finish24_261023\\D10G02\\g00_rebase\\response_metrics.json": "48bba5b1217ecb27a7c2a078599f0370a276e1869ad776026cfd9ada5dcb3d9a"
+  },
+  "note": "Allows second local tuning cycle only, not design acceptance. Candidate outside existing direct near-threshold entry."
+}

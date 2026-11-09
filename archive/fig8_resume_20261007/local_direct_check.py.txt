@@ -1,0 +1,140 @@
+"""Targeted discrete checks on preserved meshes, never full phase reruns.
+
+No production approval is written here. Prepare/solve/collect are explicit,
+and all actions refuse to overlap the supervised or remaining pilot queue.
+"""
+import argparse,asyncio,json,os,sys,time,traceback,re
+from pathlib import Path
+import numpy as np
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from run_broadband_case import connect,solvers
+from pilot_worker import convergence
+from mcp_call import connected_client,session_call
+from audit_existing import touchstone
+from export_segment_auxiliary import export as export_aux
+NAME='RecoveryDirectV1';PORT=7990
+
+def idle():
+    assert not solvers(),'Wait for active solver; do not overlap'
+    assert not (ROOT/'pilot_queue.lock').exists(),'Wait for pilot queue to stop'
+
+def persisted_sweeps(project):
+    text=Path(project).read_text(encoding='utf-8',errors='replace')
+    models=re.findall(r"\$begin 'HFSSModel'(.*?)\$end 'HFSSModel'",text,re.S)
+    models=[m for m in models if re.search(r"(?m)^\s*Name='Wideband vertical transition'\s*$",m)]
+    assert len(models)==1,'Active HFSS model must be unambiguous'
+    blocks=re.findall(r"\$begin 'Setup19'(.*?)\$end 'Setup19'",models[0],re.S)
+    assert len(blocks)==1
+    result={}
+    for name in re.findall(r"\$begin '([^']+)'",blocks[0]):
+        if name=='Sweeps':continue
+        m=re.search(r"\$begin '"+re.escape(name)+r"'(.*?)\$end '"+re.escape(name)+r"'",blocks[0],re.S)
+        props=dict(re.findall(r"(?m)^\s*(\w+)=(.*?)\s*$",m.group(1)))
+        if props.get('Type','').strip("'") in ['Discrete','Interpolating','Fast']:result[name]={k:v.strip("'") for k,v in props.items()}
+    return result
+
+def prepare(case):
+    idle();run=ROOT/'local_repair'/case;snapshot=read(run/'snapshot.json');state=run/'local_state.json'
+    assert case in ['D01G05','D02G05','D03G02','D04G05'],'Unconverged full sweep needs a separately reviewed recovery plan'
+    if state.exists():raise RuntimeError('Existing local check: inspect/collect it; never create a duplicate')
+    project=Path(snapshot['project']);original=Path(snapshot['original_run'])
+    assert sha(snapshot['original_project'])==snapshot['original_project_sha256']
+    assert sha(project)==snapshot['project_sha256_at_snapshot']
+    app=connect(project,PORT)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved,'Copied cached adaptive solution is not readable'
+        d=app.post.get_solution_data(expressions=['S(1:1,1:1)','S(2:1,1:1)'],setup_sweep_name='Setup19 : Sweep1',domain='Sweep',report_category='Modal Solution Data')
+        assert d,'Copied original Sweep1 is not readable'
+        import csv
+        with (original/'sparams.csv').open(encoding='utf-8-sig') as h:rows=list(csv.DictReader(h))
+        f=np.array(d.primary_sweep_values)*{'GHz':1,'MHz':1e-3,'Hz':1e-9}[d.units_sweeps['Freq']]
+        assert len(f)==1500 and np.allclose(f,np.arange(1,1501)*.01,rtol=0,atol=1e-9)
+        differences={}
+        for label,expr in [('S11','S(1:1,1:1)'),('S21','S(2:1,1:1)')]:
+            _,real=d.get_expression_data(expr,formula='real');_,imag=d.get_expression_data(expr,formula='imag')
+            old=np.array([complex(float(r[label+'_real']),float(r[label+'_imag'])) for r in rows])
+            differences[label]=float(abs(np.array(real)+1j*np.array(imag)-old).max());assert differences[label]<=1e-10
+        app.export_convergence('Setup19',output_file=str(run/'convergence_before.txt'));conv=convergence(run/'convergence_before.txt')
+        assert conv['converged'] and conv['final_delta_s']<=.005
+        before=persisted_sweeps(project)
+        assert NAME not in before
+        for sweep in setup.sweeps:
+            sweep.props['Type']=before[sweep.name]['Type'];sweep.props['IsEnabled']=False;assert sweep.update()
+        window=snapshot['proposed_check'];sw=setup.add_sweep(NAME,sweep_type='Discrete')
+        sw.props.update({'Type':'Discrete','IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+        if 'GHz' in window:
+            frequencies=sorted(window['GHz']);assert len(set(frequencies))==len(frequencies)
+            assert sw.add_subrange('SinglePoints',frequencies[0],unit='GHz',clear=True)
+            for freq in frequencies[1:]:assert sw.add_subrange('SinglePoints',freq,unit='GHz')
+        else:
+            lo,hi=window['range_GHz'];frequencies=np.round(np.arange(lo,hi+.005,.01),2).tolist()
+            assert sw.add_subrange('LinearStep',lo,hi,count=.01,unit='GHz',clear=True)
+        s={'case':case,'project':str(project),'status':'prepared','snapshot':str(run/'snapshot.json'),
+          'copied_curve_max_complex_differences':differences,'original_convergence':conv,'setup_props':json.loads(json.dumps(setup.props,default=str)),
+          'original_sweep_properties':before,'expected_frequencies_GHz':frequencies,
+          'messages_before_check':list(app.odesktop.GetMessages(app.project_name,app.design_name,0)),
+          'scope':'Direct frequency diagnostic on an unchanged existing mesh; not a geometry/phase iteration; no production acceptance granted.'}
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project()
+        saved=persisted_sweeps(project);assert saved[NAME]['Type']=='Discrete' and saved[NAME]['IsEnabled']=='true'
+        assert all(v['IsEnabled']=='false' for k,v in saved.items() if k!=NAME)
+        assert setup.is_solved,'Adaptive cache was invalidated; no solve is permitted'
+        s.update(saved_sweeps=saved,prepared_project_sha256=sha(project),prepared_at_utc=now());write_json(state,s)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+
+def collect(case, run_override=None):
+    idle();run=Path(run_override) if run_override else ROOT/'local_repair'/case;s=read(run/'local_state.json');project=Path(s['project'])
+    app=connect(project,PORT)
+    try:
+        assert not app.are_there_simulations_running
+        app.save_project();s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        assert any('Discrete frequency sweep complete.' in x for x in s['messages'])
+        assert not any('[error]' in x.lower() for x in s['messages'])
+        saved=persisted_sweeps(project);assert saved[NAME]['Type']=='Discrete'
+        for norm,label in [(False,'native'),(True,'50ohm_original')]:
+            dest=run/f'{label}_direct.s4p'
+            assert app.export_touchstone(setup='Setup19',sweep=NAME,output_file=str(dest),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+            f,mat=touchstone(dest,4);assert np.allclose(f,s['expected_frequencies_GHz'],rtol=0,atol=1e-9) and np.isfinite(mat).all()
+            s[label]={'path':str(dest),'sha256':sha(dest),'points':len(f)}
+        app.export_convergence('Setup19',output_file=str(run/'convergence_after.txt'));after=convergence(run/'convergence_after.txt')
+        assert after==s['original_convergence'],'Adaptive convergence changed; inspect whether mesh was reused'
+        s['convergence_after']=after
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    export_aux(project,'Setup19',{'Direct':NAME},run/'auxiliary',PORT,2)
+    snapshot=read(run/'snapshot.json');assert sha(snapshot['original_project'])==snapshot['original_project_sha256']
+    s.update(status='exported_review_required',finished_at_utc=now(),source_unchanged=True);write_json(run/'local_state.json',s)
+
+async def solve(case, run_override=None):
+    idle();run=Path(run_override) if run_override else ROOT/'local_repair'/case;path=run/'local_state.json';s=read(path)
+    assert s['status']=='prepared','Recover an existing attempt instead of rerunning'
+    assert sha(s['project'])==s['prepared_project_sha256']
+    lock=ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:
+        args={'project_name':Path(s['project']).stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+        async with connected_client() as client:
+            result=await session_call(client,'start_analysis',args);assert result.get('started'),result
+            s.update(status='solving',mcp_request=args,mcp_response=result,started_at_utc=now());write_json(path,s)
+            start=time.monotonic()
+            while True:
+                await asyncio.sleep(5);live=solvers()
+                if any('-solve_broadband_adapt ' in ' '.join(x['cmdline'] or []) or '-solve_adapt ' in ' '.join(x['cmdline'] or []) for x in live):
+                    app=connect(Path(s['project']),PORT)
+                    try:app.stop_simulations(clean_stop=True)
+                    finally:app.release_desktop(close_projects=False,close_desktop=False)
+                    raise RuntimeError('Unexpected adaptive rerun stopped; copied cache requires recovery')
+                st=await session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+                s.update(last_mcp_status=st,solver_processes=live,updated_at_utc=now());write_json(path,s)
+                if not st.get('running') and not live:break
+                if time.monotonic()-start>7200:raise RuntimeError('Two-hour review trigger; retain solver, do not dispatch another')
+        collect(case, run_override)
+    except Exception:
+        s.update(status='review_required',error=traceback.format_exc());write_json(path,s);raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('case',choices=['D01G05','D02G05','D03G02','D04G05']);ap.add_argument('action',choices=['prepare','solve','collect']);a=ap.parse_args()
+    if a.action=='solve':asyncio.run(solve(a.case))
+    elif a.action=='prepare':prepare(a.case)
+    else:collect(a.case)

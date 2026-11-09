@@ -1,0 +1,347 @@
+{
+  "case": "D11G02",
+  "case_state": "scoped_accepted",
+  "reason": "same_mesh_direct_checked_and_design_passed",
+  "operation_success": true,
+  "design_passed": true,
+  "numerical_review_passed": true,
+  "full_matrix_approved": false,
+  "selected_run": "J:\\f8_finish24_261023\\D11G02\\c02_candidate",
+  "geometry": {
+    "Wm": 2.0,
+    "Ws": 0.44,
+    "Lm": 6.555693524826204,
+    "Ls1": 12.808474578016787,
+    "Ls2": 1.4300000000000002,
+    "Ls3": 1.8399999999999999
+  },
+  "actual_elements": 102685,
+  "mesh_target_met": true,
+  "mesh_exception_used": false,
+  "metrics": {
+    "extraction_version": "response_pr_v1_20260920",
+    "curve_path": "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\sparams.csv",
+    "curve_sha256": "037f557744abc50c1af705f59c7b05215963c5015fefad8edf2464cdc00afb7f",
+    "points": 1500,
+    "frequency_range_GHz": [
+      0.01,
+      15.0
+    ],
+    "f0_reference_GHz": 6.85,
+    "peak_average": "linear magnitude mean, then 20log10",
+    "R_definition": "zm/zs",
+    "max_S21_dB": -0.4000014770229885,
+    "power_excess_S11_S21": -0.0006313490748206529,
+    "formal_response_PR": {
+      "P_response": 1.5721365576833501,
+      "R_BW": 0.8362263835604866,
+      "Zm_response_ohm": 57.32935696688871,
+      "Zs_response_ohm": 68.55722097979215,
+      "f0_reference_GHz": 6.85
+    },
+    "diagnostic_response_PR": {
+      "P_response": 1.5721365576833501,
+      "R_BW": 0.8362263835604866,
+      "Zm_response_ohm": 57.32935696688871,
+      "Zs_response_ohm": 68.55722097979215,
+      "f0_reference_GHz": 6.85
+    },
+    "passband_2dB": {
+      "f_low_GHz": 2.862944878770753,
+      "f_high_GHz": 10.05862158821797,
+      "BW_GHz": 7.195676709447218,
+      "touches_sweep_edge": false
+    },
+    "passband_joint": {
+      "f_low_GHz": 3.103949621493401,
+      "f_high_GHz": 10.05862158821797,
+      "BW_GHz": 6.95467196672457,
+      "touches_sweep_edge": false
+    },
+    "prominent_valley_count": 3,
+    "valley_prominence_dB": 0.5,
+    "valleys": [
+      {
+        "frequency_GHz": 3.72,
+        "S11_dB": -32.309182033822
+      },
+      {
+        "frequency_GHz": 6.72,
+        "S11_dB": -49.36833659857645
+      },
+      {
+        "frequency_GHz": 9.43,
+        "S11_dB": -31.64287363509891
+      }
+    ],
+    "peaks": [
+      {
+        "frequency_GHz": 4.94,
+        "S11_dB": -19.557530437823655,
+        "S21_dB": -0.44535103975216367
+      },
+      {
+        "frequency_GHz": 8.42,
+        "S11_dB": -19.53515045437076,
+        "S21_dB": -0.7223749043481051
+      }
+    ],
+    "signed_peak_difference_dB": -0.02237998345289327,
+    "peak_difference_dB": 0.02237998345289327,
+    "peak_level_dB": -19.54633323809173,
+    "central_valley_GHz": 6.72,
+    "band_center_GHz": 6.460783233494362,
+    "worst_S11_between_valleys_dB": -19.53515045437076,
+    "min_S21_between_valleys_dB": -0.9034074990900705,
+    "validity": {
+      "peak_difference_le_0p5": true,
+      "S11_below_minus10_between_valleys": true,
+      "S21_ge_minus2_between_valleys": true,
+      "band_not_truncated": true,
+      "nonpositive_transmission": true,
+      "equal_ripple": true,
+      "solver_convergence_verified": false
+    },
+    "bandcenter_sensitivity_PR": {
+      "P_response": 1.5721365576833501,
+      "R_BW": 0.6842610073942653,
+      "Zm_response_ohm": 51.85922639033872,
+      "Zs_response_ohm": 75.78866226474584,
+      "f0_reference_GHz": 6.460783233494362
+    },
+    "R_side_poles_diagnostic": 0.609825009941844,
+    "unused_shape_checks": {
+      "S11_magnitude_RMSE": 0.128504796763127,
+      "S21_dB_RMSE": 0.816423517257143,
+      "low_edge_error_GHz": 0.3892167665056374,
+      "high_edge_error_GHz": 0.38921676650563697,
+      "central_valley_error_GHz": 0.1299999999999999,
+      "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+    }
+  },
+  "finished_at": "2026-10-23T10:16:28.868959+00:00",
+  "evidence_hashes": {
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\state.json": "9496af90b2d73cbdd4c42738e5c473b7ea1fe9830b611525b7882621c83d7874",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\manifest.json": "00d32a1667e7016590345a90d5cd0d1389bd3915f1d27089ad8b5392bd4a560f",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\sparams.csv": "037f557744abc50c1af705f59c7b05215963c5015fefad8edf2464cdc00afb7f",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\convergence.txt": "39f4dc323fdfa674d9893430c663717875f9a82349ef8ab183a69f45e588ce9d",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\finish24_result.json": "ba4be34cc101d453e85f7e011f659fb94629d11eb7b1e910f1cc333e8294a035",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\response_metrics.json": "336485375ad8c21a0327b98ca1a3ad73593ce9fbeb68376c64bb08e0dcef15e7",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\all_modes_sparams.csv": "d0ab3a306d48beb90ca73300a5ee915ba6642d2cfaa70595a35dd7dd4993b193",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\mode_impedance_gamma.csv": "d6bb3565a8c54049d5c92701e5600940756be58f31c59cf08764bc582f657ab9",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\input.json": "78f37f1e1e5bd3d27f6ccad6403be1e6e6cf2489762219b9eb68efc1c27a20e7",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\completion_event.json": "083165fce8fda185677b941c62a913c672192175836fd8a97b4479dc7a99e404",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\receiver_verification.json": "f9a12dd9dd60d1a80817d877c5b394c928bb50824c2fb63411aedd97ab58a0c5",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\receiver_ack.json": "efaafc3795e7d236e5d13dfc969fab6afbb6ecf31de754a4134dfaac2cb1ddd9",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\input.json": "1006e7e35ea05674fb7dd3cae2cce620e9106a65a2f2ab971c12e8b7303a1e55",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\state.json": "a1536b8da61c257896114af42a7e6943cddf0fd35a973157db51de92f8c3b09c",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\comparison.json": "77f29ec7393c8eb5f67b2a86cf911a52ea60442cb1c597c2c5464cd9f10f09b6",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\manifest.json": "0b82fa0abb4ec1d69c2b5f05854e9eaf5ce504597830e3819f2a4a1cb555ba1e",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\sparams.csv": "8e406ff97a7a0846a1805e964adb43842596d0b3aaed1c34ad5ce2900c41da0f",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\all_modes_sparams.csv": "b855515dd950df5837f64dd7143584c74d2ed4b09523c0a0968b198e8b695be9",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\mode_impedance_gamma.csv": "6e7d75c945e977f4eda834e19bb99c2a60309720a42df89cddf818b07c4ade2a",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\convergence_before.txt": "39f4dc323fdfa674d9893430c663717875f9a82349ef8ab183a69f45e588ce9d",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\convergence_after.txt": "39f4dc323fdfa674d9893430c663717875f9a82349ef8ab183a69f45e588ce9d",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\completion_event.json": "e1aa23287dd7b9cb3c749ad7bdf4fa4c50b79c372f913735b28116f48432b21a",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\receiver_verification.json": "35c0a0734864f507baf88860153b16d25c5df282e01445e80fe93584a602f39d",
+    "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct\\receiver_ack.json": "145725cda24fd8f18645af084f9b1805db242f2fb352807eec936af9184edd22"
+  },
+  "direct_run": "J:\\f8_finish24_261023\\D11G02\\c02_candidate_direct",
+  "comparison": {
+    "points": 62,
+    "max_complex_error": 0.0016249560655692491,
+    "max_nearband_S21_error_dB": 0.004351125952603896,
+    "peak_height_errors_dB": [
+      0.0001190065517100436,
+      0.03847823103556536
+    ],
+    "direct_peaks": [
+      {
+        "GHz": 4.95,
+        "dB": -19.557411431271944,
+        "interior": true
+      },
+      {
+        "GHz": 8.43,
+        "dB": -19.496672223335196,
+        "interior": true
+      }
+    ],
+    "direct_peak_difference_dB": 0.060739207936748585,
+    "direct_central_valley": {
+      "GHz": 6.72,
+      "interior": true
+    },
+    "direct_edges_GHz": {
+      "f_low_GHz": 2.862832071413392,
+      "f_high_GHz": 10.059053122105766
+    },
+    "edge_shifts_GHz": {
+      "f_low_GHz": 0.00011280735736107772,
+      "f_high_GHz": 0.00043153388779515467
+    },
+    "direct_BW_GHz": 7.196221050692374,
+    "BW_shift_GHz": 0.0005443412451562324,
+    "numerical_review_passed": true,
+    "sampled_design_supported": true,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite direct samples on unchanged mesh; not full-curve independent convergence or continuous-extrema proof. Requires receiver review; no automatic acceptance."
+  },
+  "direct_verified_metrics": {
+    "peak_difference_dB": 0.060739207936748585,
+    "central_valley_GHz": 6.72,
+    "BW_GHz": 7.196221050692374
+  },
+  "geometry_budget": {
+    "case": "D11G02",
+    "historical_count": 0,
+    "previous_batch_count": 0,
+    "prior_state_hashes": {},
+    "new_geometry_slots": {
+      "4": [
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\c01_candidate\\input.json",
+          "sha256": "3b97931bb0c27c13cef48461d1a1fc11fe5f4c120cd1f4cac4bb5f04b6fffbeb",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.506130609222846,
+            "Ls1": 12.66066,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "3": [
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\c01_probe_Lm\\input.json",
+          "sha256": "09fc72a6d99709d05fed4e020c9c6110115bd62cebfcb4cf2cf8c19f33546423",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.549465,
+            "Ls1": 12.36066,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "2": [
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\c01_probe_Ls1\\input.json",
+          "sha256": "3e0490bb8fdb3809805fb765610fe831008ea29fda52331154f86178549e3b59",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.499465,
+            "Ls1": 12.460659999999999,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "7": [
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\c02_candidate\\input.json",
+          "sha256": "78f37f1e1e5bd3d27f6ccad6403be1e6e6cf2489762219b9eb68efc1c27a20e7",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.555693524826204,
+            "Ls1": 12.808474578016787,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "6": [
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\c02_probe_Lm\\input.json",
+          "sha256": "b8a5c5c5ce8787fe53b7ac27317cf786764a5ab1055024f0fbff809b9ea4c720",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.556130609222846,
+            "Ls1": 12.66066,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "5": [
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\c02_probe_Ls1\\input.json",
+          "sha256": "2d720df208399ebb2437cd984136db041f4f63633ef169860a39fd710b2c131e",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.506130609222846,
+            "Ls1": 12.76066,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": false
+        }
+      ],
+      "1": [
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\g00\\input.json",
+          "sha256": "60dfb621de7e5196e78620cbc146b9fda2fa07aeae6d2da39e411ed71b42f7fd",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.499465,
+            "Ls1": 12.36066,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": false
+        },
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\g00_recovery1\\input.json",
+          "sha256": "f88e19568132022ab5de3487ad8df5df8004e8c32528a1aa3393853e96de4f02",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.499465,
+            "Ls1": 12.36066,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": true
+        },
+        {
+          "path": "J:\\f8_finish24_261023\\D11G02\\g00_sweep_finish\\input.json",
+          "sha256": "bbc16315d81d7ca259bdcb679abeeb15b3c69653e7048d2065a96295452cb701",
+          "geometry": {
+            "Wm": 2.0,
+            "Ws": 0.44,
+            "Lm": 6.499465,
+            "Ls1": 12.36066,
+            "Ls2": 1.4300000000000002,
+            "Ls3": 1.8399999999999999
+          },
+          "explicit_cache_continuation": true
+        }
+      ]
+    },
+    "attempts_used_or_reserved": 7,
+    "limit": 8,
+    "note": "Prepared inputs reserve a slot; explicit same-geometry cache recovery shares its original slot."
+  },
+  "accepted_at": "2026-10-23T10:34:27.373098+00:00",
+  "acceptance_scope": "Native fundamental S11/S21 with sampled direct confirmation on unchanged mesh; not full multimode or fabrication-tolerance qualification.",
+  "risk_note": "Finite frequency windows and local mesh budget; no continuous-extrema or manufacturing-tolerance claim."
+}

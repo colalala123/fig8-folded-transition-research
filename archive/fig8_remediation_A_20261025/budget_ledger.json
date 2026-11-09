@@ -1,0 +1,68 @@
+{
+  "at": "2026-10-24T17:24:54.324073+00:00",
+  "stage": "A",
+  "geometry_cap": 3,
+  "cached_task_cap": 4,
+  "new_geometry_reserved": 1,
+  "new_cached_tasks_reserved": 4,
+  "case_cumulative_geometry": {
+    "D11G05": 7,
+    "D09G02": 7
+  },
+  "tasks": [
+    {
+      "case": "D11G05",
+      "role": "local_direct_diagnostic",
+      "path": "J:\\f8_remA_261025\\D11G05\\n01_local12\\input.json",
+      "input_sha256": "1c6feebd8086e73f21dcec848f2bb9902bdbb78c37a07288561f9f4d065818d1",
+      "status": "reviewed_diagnostic_only",
+      "start_evidence": "J:\\f8_remA_261025\\D11G05\\n01_local12\\supervised_start.json",
+      "start_evidence_sha256": "1e2fb775e314b80f152d1bb4638616724772e94bbe542c2938128099b5ae41c1"
+    },
+    {
+      "case": "D11G05",
+      "role": "cached_interpolation_diagnostic",
+      "path": "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\input.json",
+      "input_sha256": "f5c11ec0b55a6fc24393a6460e524c73b972c0c51226afdd78fe3f444d599f24",
+      "status": "reviewed_scoped_accepted"
+    },
+    {
+      "case": "D09G02",
+      "role": "local_direct_diagnostic",
+      "path": "J:\\f8_remA_261025\\D09G02\\n01_missing10p19\\input.json",
+      "input_sha256": "63a7a07db3999ac80adc9f871320ab22c462b13fcd31a582075bff3f1ebdf1aa",
+      "status": "reviewed_diagnostic_only",
+      "start_evidence": "J:\\f8_remA_261025\\D09G02\\n01_missing10p19\\supervised_start.json",
+      "start_evidence_sha256": "d1870a6d976a5e414e873f12d852b981c31ad6833dd17ac84ff313e17b9550b3"
+    },
+    {
+      "case": "D09G02",
+      "role": "probe_Ls1",
+      "new_phase_geometry_ordinal": 1,
+      "lifetime_geometry_ordinal": 8,
+      "path": "J:\\f8_remA_261025\\D09G02\\g01_probe_Ls1\\input.json",
+      "input_sha256": "94a65030bd0549c4d2e2fdb4d7020be1eb7573cff60d92d7227397fd4fbf2caf",
+      "status": "reviewed_design_passed_pending_direct",
+      "start_evidence": "J:\\f8_remA_261025\\D09G02\\g01_probe_Ls1\\supervised_start.json",
+      "start_evidence_sha256": "a0a4418de4c24ded66c9c90fac8f7475ff88267b6fbfc892d1b73d4db2861fcb"
+    },
+    {
+      "case": "D09G02",
+      "role": "cached_phase_direct",
+      "path": "J:\\f8_remA_261025\\D09G02\\final_direct\\input.json",
+      "input_sha256": "4c5ea27834716f4833e96734f29dd9017a886fbf05e6cb5b8cae9c7a5963d137",
+      "cached_task_ordinal_for_case": 2,
+      "status": "reviewed_scoped_accepted",
+      "start_evidence": "J:\\f8_remA_261025\\D09G02\\final_direct\\supervised_start.json",
+      "start_evidence_sha256": "b0ac0e87dd8af99449f8cbe3252a367a3a4cffdfd4c7dc1c7af7bae4c436d87a"
+    }
+  ],
+  "stage_B_C_released": false,
+  "observed_lifetime_geometry_ordinals": {
+    "D09G02": 8,
+    "D11G05": 7
+  },
+  "geometry_early_stop_decision": "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\D09G02_early_direct_decision.json",
+  "geometry_early_stop_completed": true,
+  "remaining_geometry_slots_not_dispatched": 2
+}

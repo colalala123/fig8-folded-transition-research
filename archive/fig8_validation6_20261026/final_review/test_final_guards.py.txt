@@ -1,0 +1,48 @@
+"""Offline budget and incomplete-initial-stage regression tests; no AEDT calls."""
+import copy,unittest,ast
+from unittest.mock import patch
+from pathlib import Path
+import phase_control as pc
+import phase_direct_context as ctx
+import initialize
+
+class FinalGuards(unittest.TestCase):
+    def setUp(self):
+        self.path=pc.BASE/'V01G02/final_direct/input.json'
+        self.p=dict(case='V01G02',role='cached_phase_direct',cached_task_ordinal_for_case=1,
+            geometry_budget_increment=0,adaptive_allowed=False,input_path=str(self.path))
+        self.auth=dict(stage='V6D',cases=pc.ORDER,execution_authorized=True,cached_task_cap=6)
+        self.ledger=dict(new_geometry_reserved=0,new_cached_tasks_reserved=1,
+            tasks=[dict(case='V01G02',role='cached_phase_direct',path=str(self.path),input_sha256='synthetic')])
+    def guard(self,p=None,ledger=None,auth=None):
+        with patch.object(ctx,'sha',return_value='synthetic'):
+            ctx.budget_guard(p or self.p,ledger or self.ledger,auth or self.auth)
+    def test_single_cached_item_allowed(self):self.guard()
+    def test_no_geometry_or_adaptive_release(self):
+        for change in [{'geometry_budget_increment':1},{'adaptive_allowed':True},{'cached_task_ordinal_for_case':2}]:
+            with self.subTest(change=change),self.assertRaises(AssertionError):self.guard(p={**self.p,**change})
+        with self.assertRaises(AssertionError):self.guard(ledger={**self.ledger,'new_geometry_reserved':1})
+    def test_duplicate_case_or_seventh_item_rejected(self):
+        ledger=copy.deepcopy(self.ledger);ledger['tasks']*=2;ledger['new_cached_tasks_reserved']=2
+        with self.assertRaises(AssertionError):self.guard(ledger=ledger)
+        with self.assertRaises(AssertionError):self.guard(ledger={**self.ledger,'new_cached_tasks_reserved':7})
+    def test_unapproved_or_unknown_case_rejected(self):
+        with self.assertRaises(AssertionError):self.guard(auth={**self.auth,'execution_authorized':False})
+        with self.assertRaises(AssertionError):self.guard(p={**self.p,'case':'D12G05'})
+    def test_incomplete_initial_stage_stops_before_source_or_solver_checks(self):
+        def read(path):
+            if Path(path).name=='authorization.json':return dict(execution_authorized=True,cases=pc.ORDER,execution_plan_sha256='frozen')
+            if Path(path).name=='execution_plan.json':return dict(total_cached_direct_cap=6)
+            if Path(path).name=='budget_ledger.json':return dict(new_geometry_reserved=4,tasks=[])
+            raise AssertionError('Unexpected file read before incomplete-stage guard')
+        with patch.object(pc,'read',side_effect=read),patch.object(pc,'sha',return_value='frozen'),patch.object(initialize,'reviewed_source') as reviewed:
+            with self.assertRaises(AssertionError):initialize.initialize()
+        reviewed.assert_not_called()
+    def test_numerical_compare_and_frequency_selection_unchanged(self):
+        old=pc.PARENT.parent/'fig8_remediation_C3_20261025/phase_final_direct.py'
+        def functions(path):
+            return {n.name:ast.dump(n,include_attributes=False) for n in ast.parse(path.read_text(encoding='utf-8')).body
+                    if isinstance(n,ast.FunctionDef) and n.name in ['frequencies','compare']}
+        self.assertEqual(functions(old),functions(pc.HERE/'phase_final_direct.py'))
+
+if __name__=='__main__':unittest.main()

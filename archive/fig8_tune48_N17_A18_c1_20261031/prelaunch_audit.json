@@ -1,0 +1,63 @@
+{
+  "at": "2026-10-30T16:27:39.409587+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N17_A18_c1_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 0.916s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 1.778s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 2,
+    "new_geometries_declared": 3,
+    "geometry_cap": 172,
+    "Analyze_used": 17,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 3
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "pid": 85208,
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "create_time": 1793355858.6193893,
+      "name": "ansysedt.exe"
+    }
+  ],
+  "projects": [
+    {
+      "case": "N17_A18_C1",
+      "configuration_sha256": "58375074f5dbfb765da52cce41c25c681a34d48e6634a3ecc2a52e1cb8c36008",
+      "project_sha256": "bb66c480cc678f94b52edc4d70c0a88e970c52c7a0219f273d78fd89d5d55696"
+    }
+  ]
+}

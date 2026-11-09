@@ -1,0 +1,37 @@
+"""Read-only scientific inputs; summarize only real final receiver ACKs."""
+from pathlib import Path
+import recovery_control as pc
+
+def report():
+    rows=[];ledger=pc.read(pc.ledger_path())
+    for case in pc.ORDER:
+        task=next((t for t in ledger['tasks'] if t['case']==case),{})
+        run=Path(task.get('effective_run',str(pc.BASE/case/'direct_smallbatch')));ack=run/'receiver_ack.json'
+        initial=pc.read(pc.BASE/case/'g01_initial/response_metrics.json')
+        row=dict(case=case,BW_GHz=initial['passband_2dB']['BW_GHz'],state='pending_final_review',scoped_accepted=False)
+        if ack.exists():
+            a=pc.read(ack);v=pc.read(run/'receiver_verification.json');comparison=pc.read(run/'comparison.json')
+            assert a['event_sha256']==pc.sha(run/'completion_event.json')
+            assert a['verification_sha256']==pc.sha(run/'receiver_verification.json')
+            assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed']
+            assert v['comparison']==comparison
+            row.update(state='accepted' if a['scoped_accepted'] else 'unresolved',scoped_accepted=a['scoped_accepted'],
+                max_complex_error=comparison['max_complex_error'],max_nearband_S21_error_dB=comparison['max_nearband_S21_error_dB'],
+                BW_shift_MHz=comparison['BW_shift_GHz']*1000 if comparison['BW_shift_GHz'] is not None else None,
+                ack_sha256=pc.sha(ack))
+        rows.append(row)
+    out=dict(at=pc.now(),accepted=sum(r['scoped_accepted'] for r in rows),total=6,rows=rows,
+        receiver_entrypoint=str(pc.HERE/'receive_verified.py'),receiver_note=str(pc.HERE/'RECEIVER_NOTE.md'),closeout_entrypoint=str(pc.HERE/'finish_effective_report.py'))
+    pc.write(pc.PARENT/'final_progress.json',out)
+    lines=['# 六配置最终复核进度','',f"最终接受{out['accepted']}/6；六项初值设计指标均已通过。",'',
+        '|配置|带宽/GHz|最大复数差|近带S21差/dB|带宽复核变化/MHz|最终状态|',
+        '|---|---:|---:|---:|---:|---|']
+    for r in rows:
+        if 'max_complex_error' in r:
+            shift='无带边结果' if r['BW_shift_MHz'] is None else f"{r['BW_shift_MHz']:.3f}"
+            lines.append(f"|{r['case']}|{r['BW_GHz']:.6f}|{r['max_complex_error']:.6f}|{r['max_nearband_S21_error_dB']:.6f}|{shift}|{'接受' if r['scoped_accepted'] else '未解决'}|")
+        else:lines.append(f"|{r['case']}|{r['BW_GHz']:.6f}|—|—|—|待复核|")
+    (pc.PARENT/'FINAL_PROGRESS.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    print(dict(accepted=out['accepted'],total=6))
+
+if __name__=='__main__':report()

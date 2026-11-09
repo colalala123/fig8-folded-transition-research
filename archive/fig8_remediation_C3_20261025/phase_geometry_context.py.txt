@@ -1,0 +1,49 @@
+"""New two-cycle accounting; all older ledgers/closures remain immutable."""
+from pathlib import Path
+import sys
+from phase_control import HERE,BASE,ORIGINAL,PLAN,read,write,sha,now,status
+sys.path.insert(0,str(ORIGINAL))
+OLD=Path('J:/f8_261007');status_report=status
+HISTORY={'D04G02':9,'D01G02':7,'D12G05':7}
+ORDER=list(HISTORY)
+REBASE={'D01G02','D12G05'}
+CAPS={'D04G02':6,'D01G02':7,'D12G05':7}
+STEPS=['probe_Ls1','probe_Lm','candidate']
+
+def entry(case,n):
+    assert case in HISTORY and isinstance(n,int) and 1<=n<=CAPS[case]
+    if case in REBASE:
+        if n==1:return 0,'rebase_center'
+        n-=1
+    return (n-1)//3+1,STEPS[(n-1)%3]
+
+def job_name(case,n):
+    cycle,role=entry(case,n)
+    return f'g{n:02d}_rebase_center' if cycle==0 else f'g{n:02d}_c{cycle:02d}_{role}'
+
+def validate_budget(spec,ledger,auth):
+    c=spec['case'];n=spec['new_phase_geometry_ordinal']
+    assert auth['execution_authorized'] and auth['stage']=='C3' and auth['cases']==ORDER
+    cycle,role=entry(c,n)
+    assert spec['cycle']==cycle and spec['role']==role
+    assert spec['historical_geometry_attempts']==HISTORY[c] and spec['phase_solve_ordinal_including_history']==HISTORY[c]+n
+    assert not spec.get('resume_checkpoint'),'Explicit recovery decision required'
+    assert ledger['case_cumulative_geometry']==HISTORY
+    tasks=[t for t in ledger['tasks'] if t.get('new_phase_geometry_ordinal')]
+    assert len(tasks)==ledger['new_geometry_reserved']<=auth['geometry_cap']==20
+    assert 0<=ledger['new_cached_tasks_reserved']<=auth['cached_task_cap']==3
+    assert len({t['path'] for t in tasks})==len(tasks) and all(t['case'] in HISTORY for t in tasks)
+    for case in HISTORY:
+        ts=[t for t in tasks if t['case']==case]
+        assert len(ts)<=CAPS[case] and sorted(t['new_phase_geometry_ordinal'] for t in ts)==list(range(1,len(ts)+1))
+    own=[t for t in tasks if Path(t['path']).resolve()==Path(spec['input_path']).resolve()]
+    assert len(own)==1 and own[0]['case']==c and own[0]['new_phase_geometry_ordinal']==n
+    assert own[0]['input_sha256']==sha(spec['input_path'])
+
+def validate_geometry_budget(spec,path):
+    assert not (HERE/'stage_C3_closure.json').exists()
+    assert Path(path).resolve()==Path(spec['input_path']).resolve()
+    assert Path(spec['run_dir']).resolve()==(BASE/spec['case']/job_name(spec['case'],spec['new_phase_geometry_ordinal'])).resolve()
+    assert sha(HERE/'phase_geometry_worker.py')==spec['worker_sha256'] and sha(ORIGINAL/'mesh_budget.py')==spec['controller_sha256']
+    validate_budget(spec,read(HERE/'budget_ledger.json'),read(HERE/'authorization.json'))
+    assert read(HERE/'reference_validation.json')['legacy_selected_native_reference_verified']

@@ -1,0 +1,98 @@
+"""Recover B0 reference evidence without solving; decide modes by original gates."""
+import csv,json,re,sys
+from pathlib import Path
+import numpy as np
+from audit_existing import HERE,OLD,read,write,sha,touchstone
+from export_segment_auxiliary import export
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+from port_evidence import collect,signature,compare_fields
+from pilot_supervisor import aux_compare,verify_boundaries
+from pilot_queue import compare
+from ansys.aedt.core import Hfss
+ROOT=Path('J:/f8_261007');RUN=HERE/'baseline/native_comparable'
+PROJECT=OLD/'R_tri_diagC/R_tri_diagC.aedt'
+
+def common_fields(a,b):
+    aa=collect(a);bb=collect(b);evidence=[]
+    for ra in aa:
+        matches=[x for x in bb if abs(x['frequency_GHz']-ra['frequency_GHz'])<1e-8]
+        if not matches:continue
+        assert len(matches)==1
+        for port in ['1','2']:
+            x=next(x for x in ra['fields'] if x['port']==port and x['mode']==1);vx=signature(x);scores={}
+            for y in matches[0]['fields']:
+                if y['port']!=port:continue
+                assert np.allclose(x['grid_bounds_native_units'],y['grid_bounds_native_units'])
+                vy=signature(y);scores[y['mode']]=float(vx@vy/(np.linalg.norm(vx)*np.linalg.norm(vy)))
+            margin=scores[1]-max(abs(v) for k,v in scores.items() if k!=1)
+            evidence.append({'GHz':ra['frequency_GHz'],'port':port,'scores':scores,'margin':margin,'passed':scores[1]>=.98 and margin>=.10})
+    return {'passed':len(evidence)>=2 and all(x['passed'] for x in evidence),'evidence':evidence,'scope':'Common saved adaptive frequencies; combined with full passband Zo/Gamma continuity'}
+
+def main():
+    source=Path('F:/hfss_f8_261002/B0/B0.aedt')
+    m=read(OLD/'M_B0_2/manifest.json')
+    app=Hfss(project=str(PROJECT),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+    try:
+        assert not app.are_there_simulations_running
+        current={b.name:json.loads(json.dumps(b.props,default=str)) for b in app.boundaries if b.type=='Wave Port'}
+        assert all(x['NumModes']==3 for x in current.values())
+        ports={'before':m['port_settings']['before'],'after':current}
+        boxes={n:list(app.modeler[n].bounding_box) for n in ['Substrate_3','Substrate_18']}
+        assert all(np.allclose(boxes[k],m['microstrip_boxes'][k]) for k in boxes)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    asol=PROJECT.with_suffix('.aedtresults')/'Wideband vertical transition.asol'
+    text=asol.read_text(errors='replace')
+    assert "SimSetupID=50992\n\tSimSetupName='TriDiagE'" in text
+    assert "Solution=50994, VersionID=51001)'='SolutionBlock16'" in text
+    block=re.search(r"\$begin 'SolutionBlock16'(.*?)\$end 'SolutionBlock16'",text,re.S)[1]
+    assert "SolutionName='LastAdaptive'" in block and 'SolutionID=50994' in block
+    write(RUN/'manifest.json',{'status':'completed','source':str(source),'source_sha256':sha(source),'source_unchanged':sha(source)==m['source_sha256'],'project':str(PROJECT),'port_settings':ports,'field_header_glob':'DV*_S50994_*/fields.evtrs','field_mapping_evidence':{'path':str(asol),'sha256':sha(asol),'setup':'TriDiagE','solution':'LastAdaptive','solution_id':50994}})
+    mapping={'Low':'SweepSplitLowNoPass','Bridge':'SweepBandDirect','High':'SweepSplitHighNoFields','Endpoint':'SweepEndpointDirect'}
+    # Recover from original HFSS comment tables when the current report database
+    # no longer exposes a historical sweep. Cross-check live Low before using.
+    if not (RUN/'auxiliary/Low_auxiliary.csv').exists():export(PROJECT,'TriDiagE',{'Low':mapping['Low']},RUN/'auxiliary',7990,3)
+    with (RUN/'auxiliary/Low_auxiliary.csv').open(encoding='utf-8') as h:live_low=list(csv.DictReader(h))
+    files={'Low':'native_split_low.s6p','Bridge':'native_band_direct.s6p','High':'native_split_high.s6p','Endpoint':'native_endpoint_direct.s6p'}
+    data={}
+    provenance={}
+    for k,filename in files.items():
+        file=PROJECT.parent/filename;freq,_=touchstone(file,6);raw=file.read_text()
+        vals={}
+        for kind,prefix in [('Zo','! Port Impedance '),('Gamma','! Gamma ')]:
+            vals[kind]=np.array([[float(v) for v in line[len(prefix):].split()] for line in raw.splitlines() if line.startswith(prefix)])
+            assert vals[kind].shape==(len(freq),12) and np.isfinite(vals[kind]).all()
+        rows=[]
+        for i,f in enumerate(freq):
+            row={'Freq_GHz':float(f)}
+            for kind in vals:
+                for j,(port,mode) in enumerate((p,m) for p in [1,2] for m in [1,2,3]):
+                    for part,offset in [('real',0),('imag',1)]:row[f'{kind}({port}:{mode})_{part}']=float(vals[kind][i,2*j+offset])
+            rows.append(row)
+        if k=='Low':
+            assert len(rows)==len(live_low)
+            low_max_error=max(abs(row[key]-float(live_low[i][key])) for i,row in enumerate(rows) for key in row)
+            assert all(np.isclose(row[key],float(live_low[i][key]),rtol=1e-8,atol=1e-8) for i,row in enumerate(rows) for key in row)
+            assert all(np.isclose(row[key],float(live_low[i][key]),rtol=1e-10,atol=1e-10) for i,row in enumerate(rows) if 3.2<=row['Freq_GHz']<=10.2 for key in row)
+        data[k]={round(x['Freq_GHz'],2):x for x in rows}
+        provenance[k]={'file':str(file),'sha256':sha(file),'points':len(rows),'source':'Original HFSS Gamma/Port Impedance comment tables; mode labels from Port[] header'}
+    write(RUN/'auxiliary_recovery_provenance.json',{'Low_live_crosscheck_passed':True,'Low_live_max_scalar_error':low_max_error,'export_agreement_tolerance_full_range':1e-8,'export_agreement_tolerance_passband':1e-10,'segments':provenance})
+    rows=[]
+    for i in range(1,1501):
+        f=round(i*.01,2);k='Bridge' if 6.96<=f<=7.01 else 'Endpoint' if i==1500 else 'Low' if f<6.98 else 'High';rows.append(data[k][f])
+    with (RUN/'mode_impedance_gamma.csv').open('w',newline='',encoding='utf-8') as h:
+        w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    out={'B0_stable':compare(OLD/'M_B0_2',RUN,'stable'),'B0_single':compare(Path('F:/hfss_f8_261002/B0'),RUN,'single'),'B0_fields':common_fields(OLD/'M_B0_2',RUN),'B0_auxiliary':aux_compare(OLD/'M_B0_2',RUN),'B0_boundaries':verify_boundaries(RUN)}
+    out['single_to_double_fields']=[compare_fields(Path('F:/hfss_f8_261002')/name,OLD/f'M_{name}_2') for name in ['B0','T_F3']]
+    tf3=read(ROOT/'TF3M3/protocol_review.json');aux=read(ROOT/'TF3M3/auxiliary_continuity.json');boundary=read(ROOT/'TF3M3/boundary_review.json')
+    out['TF3']={'numeric':tf3['comparisons'],'fields':tf3['fields'],'auxiliary':aux,'boundaries':boundary,'matrix':tf3['assembly']}
+    out['B0_matrix']=read(OLD/'R_tri_diagC/final_tri_mode_repair_audit.json')['metrics']['50ohm_segmented_repaired.s6p']
+    out['passed']=all(v['passed'] for k,v in out.items() if k.startswith('B0_') and k not in ['B0_matrix','B0_single']) and all(x['passed'] for x in out['single_to_double_fields']) and tf3['numerical_gate_passed'] and tf3['fields']['passed'] and aux['passed'] and boundary['passed'] and out['B0_matrix']['passivity_violations']==0
+    out['single_mode_close']=out['B0_single']['passed'] and all(x['passed'] for x in tf3['comparisons'] if x['comparison']=='single')
+    out['recommended_modes']=(1 if out['single_mode_close'] else 2) if out['passed'] else None
+    out['decision_basis']='Original execution plan section 5: stable two/three-mode is mandatory; select one mode only if both single-to-stable-multimode comparisons pass, otherwise select two. Collector/new adaptive-method checks still required before production.'
+    files=[ROOT/'TF3M3/protocol_review.json',ROOT/'TF3M3/auxiliary_continuity.json',RUN/'manifest.json',RUN/'mode_impedance_gamma.csv',OLD/'R_tri_diagC/final_tri_mode_repair_audit.json']
+    out['evidence_hashes']={str(p):sha(p) for p in files}
+    write(ROOT/'reference_review.json',out)
+    print(json.dumps({k: v['passed'] if isinstance(v,dict) and 'passed' in v else v for k,v in out.items() if k in ['B0_stable','B0_single','B0_fields','B0_auxiliary','B0_boundaries','passed','recommended_modes']},indent=2))
+
+if __name__=='__main__':main()

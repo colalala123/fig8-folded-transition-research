@@ -1,0 +1,5 @@
+from ansys.aedt.core import Hfss
+app=Hfss(project=r"F:\hfss_f8x_261002\R_B0_single_fix\R_B0_single_fix.aedt",design="Wideband vertical transition",version="2024.2",machine="localhost",port=12704,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ print('\n'.join(app.odesktop.GetMessages(app.project_name,app.design_name,0)))
+finally: app.release_desktop(close_projects=False,close_desktop=False)

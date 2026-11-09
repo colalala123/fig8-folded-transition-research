@@ -1,0 +1,24 @@
+"""Terminal-only completion notification, then supported 5-minute recovery hook."""
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+
+async def publish(run,case,status,summary,artifacts):
+    assert case in pc.ORDER and pc.read(pc.HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(pc.HERE/'hook/config.json');assert cfg['authorized_threads']==[pc.TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Authorized P04G05/P05G05 local edge repair;12 points and3 launches/case; original mesh; no geometry or adaptive')
+    def prompt(event,event_path):
+        return (f'[Fig8两项带边补算完成] 事件：{event_path}\n状态：{status}\n{summary}\n'
+            f'人类已授权“你继续把那2项也解决了”。先读{pc.HERE/"CONTINUATION.md"}及本目录账本。'
+            '仅两项edge_repair，不重开旧阶段。运行receive_verified.py --run事件目录，实际看叠图，再acknowledge_smallbatch.py --run RUN --visual-reviewed --note实际说明。'
+            '保留旧插值失败记录，新的通过只表示修正离散带边标签可用，不是旧插值通过，也不是全带-20dB设计达标。'
+            'P04审查后按冻结计划启动P05，dispatch_smallbatch.py --case P05G05 --solve，再supervise_smallbatch.py核验16核串行。'
+            '每项12新频点/3次Analyze/每批4点，禁止额外重试/新自适应/调几何。两项结束整理带边修正结果并停止本心跳。')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(at=pc.now(),error=traceback.format_exc()))

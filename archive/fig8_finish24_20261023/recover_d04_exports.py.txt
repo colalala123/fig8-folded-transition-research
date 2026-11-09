@@ -1,0 +1,55 @@
+"""Recover the already exported D04 result after process-observation assertion; NO AEDT calls."""
+import numpy as np
+import csv
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from sweep_recovery import *
+
+def main():
+    folder=BASE/'D04G02_sweep_recovery';job=HERE/'cases'/CASE
+    event=read(folder/'completion_event.json')
+    assert event['status']=='failed'
+    for a in event['artifacts']:assert sha(folder/a['path'])==a['sha256']
+    s=read(folder/'state.json');error=read(folder/'worker_error.json')
+    assert 'max_processors 16' in error['error'] and not s['observations']
+    assert not dc.solvers() and s['sweep_converged'] and not s['last_status']['running']
+    assert any('Normal completion' in x for x in s['messages'])
+    assert not any('[error]' in x.lower() for x in s['messages'])
+    assert sha(folder/'convergence_before.txt')==sha(folder/'convergence_after.txt')
+    frozen=read(folder/'plan.json');src=Path(frozen['source']);m=read(src/'manifest.json')
+    assert sha(src/'manifest.json')==frozen['source_manifest_sha256']
+    assert sha(frozen['project_source'])==frozen['source_sha256']
+    for name in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        with (folder/name).open(encoding='utf-8-sig',newline='') as h:
+            reader=csv.reader(h);header=next(reader);data=np.array([[float(x) for x in row] for row in reader])
+        assert data.shape==(1500,len(header)) and np.allclose(data[:,0],np.arange(1,1501)/100)
+        assert np.isfinite(data).all()
+    assert s['cad_verification']['passed'] and canonical_ports(s['ports'])==canonical_ports(m['port_settings']['after'])
+    write(folder/'state_before_export_recovery.json',s)
+    s.update(status='completed',same_mesh_verified=True,source_unchanged=True,recovered_without_resolve=True,
+             observed_16core_process=False,resource_observation_note='MCP requested 16 cores; completed between polls without observed solver process. Actual core use not claimed.',finished_at=now())
+    write(folder/'state.json',s)
+    metrics=analyze(folder/'sparams.csv',f0=6.85);write(folder/'response_metrics.json',metrics)
+    write(folder/'manifest.json',{'case':CASE,'project':s['project'],'geometry':m['geometry'],'source':frozen['project_source'],
+          'source_sha256':frozen['source_sha256'],'convergence':m['convergence'],'sweep_converged':True,'modes':2,
+          'port_settings':{'after':s['ports']},'curve_sha256':sha(folder/'sparams.csv'),'full_matrix_approved':False,
+          'same_mesh_verified':True,'sweep_settings':s['sweep_after']})
+    assert not metrics['validity']['equal_ripple']
+    result={'case':CASE,'case_state':'needs_review','reason':'sweep_recovered_needs_bounded_tuning','operation_success':True,
+            'design_passed':False,'numerical_review_passed':None,'full_matrix_approved':False,'selected_run':str(folder),
+            'geometry':m['geometry'],'metrics':metrics,'finished_at':now(),'recovered_without_resolve':True,
+            'evidence_hashes':{str(p):sha(p) for p in [folder/'state.json',folder/'manifest.json',folder/'sparams.csv',folder/'convergence_after.txt']}}
+    write(folder/'finish24_result.json',result);write(job/'result.json',result)
+    data=np.genfromtxt(folder/'sparams.csv',delimiter=',',names=True)
+    fig,ax=plt.subplots(figsize=(9,4.5))
+    for col in ['S11_dB','S21_dB']:ax.plot(data['Freq_GHz'],data[col],label=col)
+    ax.set(xlim=(0,15),ylim=(-60,2),xlabel='Frequency (GHz)',ylabel='dB',title='D04G02 - recovered sweep; design NOT passed')
+    ax.grid(alpha=.25);ax.legend();fig.tight_layout();fig.savefig(job/'recovered_response.png',dpi=150);plt.close(fig)
+    write(folder/'receiver_ack.json',{'event_id':'4fe9aa50c16b3951adffb6cb','at':now(),'event_sha256':sha(folder/'completion_event.json'),
+          'failure_artifact_verified':True,'cause':'Monitoring assertion required process observation despite cached sweep completing between polls',
+          'recovered_without_resolve':True,'result_sha256':sha(folder/'finish24_result.json'),'design_passed':False})
+    write(job/'attention_resolved.json',{'at':now(),'attention_file':str(job/'attention.json'),'resolution':'Exports recovered; no HFSS rerun'})
+    status_report();print({'case':CASE,'BW_GHz':metrics['passband_2dB']['BW_GHz'],'peak_difference_dB':metrics['peak_difference_dB'],'central_valley_GHz':metrics['central_valley_GHz']})
+
+if __name__=='__main__':main()

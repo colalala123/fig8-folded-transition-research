@@ -1,0 +1,134 @@
+"""Resume only reviewed i03 exports after the archived two-hour controller exit."""
+import argparse
+import asyncio
+import json
+import os
+from pathlib import Path
+import psutil
+import recover_i03_wide_window as w
+
+r = w.r
+BASE = r.ROOT / 'local_repair/D04G05_i03'
+ARCHIVE = BASE / 'two_hour_review_failure'
+RECORD = BASE / 'timeout_resumption.json'
+
+
+class MonitoringAsyncio:
+    """Module-local polling change; never changes the shared asyncio module."""
+    def __init__(self, original, observe):
+        self.original, self.observe = original, observe
+
+    async def sleep(self, seconds):
+        assert seconds == 30, 'Unexpected backend wait requires review'
+        # Capture the newly dispatched solver once, then observe every 600s.
+        self.observe()
+        return await self.original.sleep(600)
+
+
+def validate_evidence():
+    w.validate_review()
+    plan = w.validate_candidate_plan()
+    r.hashes(r.read(r.ROOT / 'production_protocol.json')['implementation_hashes'])
+    collection = r.read(BASE / 'timeout_collection.json')
+    assert collection['status'] == 'direct_exports_recovered'
+    assert collection['solver_dispatches'] == 0 and collection['production_approved'] is False
+    assert collection['failure_evidence_sha256'] == r.sha(ARCHIVE / 'evidence.json')
+    assert collection['plan_sha256'] == r.sha(BASE / 'plan.json')
+    assert collection['direct_state_sha256'] == r.sha(BASE / 'direct/local_state.json')
+    r.hashes(r.read(ARCHIVE / 'evidence.json')['files'])
+    old = r.read(ARCHIVE / 'metadata_io_adapter.json')
+    assert old['status'] == 'review_required' and old['plan_at_start'] == plan
+    for name in ['metadata_io_adapter.json', 'flow.json', 'local_state.json']:
+        assert 'Two-hour review trigger' in r.read(ARCHIVE / name)['error']
+    state = r.read(BASE / 'direct/local_state.json')
+    assert state['status'] == 'exported_review_required' and state['source_unchanged']
+    assert state['convergence_after'] == state['original_convergence'] == r.read(w.ATTEMPT / 'manifest.json')['convergence']
+    assert state['expected_frequencies_GHz'] == plan['direct_frequencies_GHz']
+    assert state['native']['points'] == 242
+    assert r.sha(state['native']['path']) == state['native']['sha256']
+    review = r.read(BASE / 'direct/review.json')
+    assert review['passed'] and review['points'] == 242
+    r.hashes(review['evidence_hashes'])
+    snap = r.read(BASE / 'snapshot.json')
+    assert r.sha(snap['original_project']) == snap['original_project_sha256']
+    return plan, old
+
+
+def readiness():
+    plan, old = validate_evidence()
+    assert not RECORD.exists(), 'Resumption already attempted; review before any retry'
+    assert r.sha(BASE / 'metadata_io_adapter.json') == r.sha(ARCHIVE / 'metadata_io_adapter.json')
+    assert not psutil.pid_exists(old['pid']), 'Original controller must have exited'
+    assert not (w.ATTEMPT / 'recovery_acceptance.json').exists()
+    assert not any((BASE / n).exists() for n in ['Low', 'Middle', 'Upper'])
+    assert not any((r.ROOT / n).exists() for n in ['protocol.lock', 'pilot_queue.lock'])
+    assert not r.direct.solvers(), 'Retain existing solver'
+    return plan
+
+
+def validate_resumption():
+    validate_evidence()
+    record = r.read(RECORD)
+    assert record['status'] == 'candidate_ready_review_required'
+    assert record['direct_solver_dispatches'] == 0 and record['geometry_solves_added'] == 0
+    assert record['monitor_interval_seconds'] == 600 and record['recipe_invocations'] == 1
+    r.hashes(record['evidence_hashes'])
+    w.io.validate_record(BASE)
+    return record
+
+
+async def run():
+    plan = readiness()
+    r.direct.idle()
+    files = [Path(__file__).resolve(), ARCHIVE / 'evidence.json', BASE / 'timeout_collection.json',
+             BASE / 'direct/review.json', BASE / 'direct/local_state.json', BASE / 'plan.json',
+             *map(Path, r.read(ARCHIVE / 'evidence.json')['files'])]
+    record = dict(status='running', pid=os.getpid(), started_at_utc=r.now(),
+                  direct_solver_dispatches=0, geometry_solves_added=0, recipe_invocations=1,
+                  monitor_interval_seconds=600, production_approved=False,
+                  evidence_hashes={str(p): r.sha(p) for p in files})
+    with RECORD.open('x', encoding='utf-8') as stream:
+        json.dump(record, stream, indent=2)
+    # Keep both the earlier immutable archive and the exact journal displaced now.
+    (BASE / 'metadata_io_adapter.json').rename(ARCHIVE / 'displaced_metadata_io_adapter.json')
+    original_ready, original_asyncio = w.io.readiness, r.backend.asyncio
+    def ready(attempt):
+        assert Path(attempt).resolve() == w.ATTEMPT
+        assert not (BASE / 'metadata_io_adapter.json').exists()
+        assert validate_evidence()[0] == plan
+        assert not r.direct.solvers()
+        return BASE, plan, 'resume_adopted_direct_exports'
+    # validate_candidate_plan expects a journal; validate evidence before the move
+    # above, then supply the archived journal only for its read-only plan check.
+    original_candidate = w.validate_candidate_plan
+    def archived_candidate():
+        w.install()
+        expected = w.reviewed_plan(w.ATTEMPT)
+        assert r.read(BASE / 'plan.json') == expected
+        journal = BASE / 'metadata_io_adapter.json'
+        assert r.read(journal if journal.exists() else ARCHIVE / 'metadata_io_adapter.json')['plan_at_start'] == expected
+        return expected
+    w.validate_candidate_plan = archived_candidate
+    w.io.readiness = ready
+    r.backend.asyncio = MonitoringAsyncio(original_asyncio, lambda: r.backend.active_solvers())
+    try:
+        await w.io.run(w.ATTEMPT)
+        record.update(status='candidate_ready_review_required', finished_at_utc=r.now())
+    except BaseException as exc:
+        record.update(status='review_required', error=repr(exc), finished_at_utc=r.now())
+        raise
+    finally:
+        r.write_json(RECORD, record)
+        w.io.readiness, r.backend.asyncio = original_ready, original_asyncio
+        w.validate_candidate_plan = original_candidate
+
+
+if __name__ == '__main__':
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--run', action='store_true')
+    args = ap.parse_args()
+    if args.run:
+        asyncio.run(run())
+    else:
+        readiness()
+        print(json.dumps({'ready': True, 'reuse_direct_points': 242, 'poll_seconds': 600}))

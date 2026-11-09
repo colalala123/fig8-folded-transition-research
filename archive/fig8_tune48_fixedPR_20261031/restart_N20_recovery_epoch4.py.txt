@@ -1,0 +1,77 @@
+"""Explicitly approved restart after zero-Analyze project-load timeout. One shot."""
+import json,shutil,socket,subprocess,time
+from pathlib import Path
+import psutil
+from build_runtime import ROOT,OUT,read,sha,new,now
+
+def native():
+    return [p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('hf3d.exe','ansysedt.exe')]
+def exact(record):
+    p=psutil.Process(record['pid'])
+    assert abs(p.create_time()-record['created'])<.01 and p.cmdline()==record['command']
+    return p
+
+def main():
+    assert not (ROOT/'PAUSE.json').exists()
+    marker=ROOT/'N20_recovery_restart_attempt1.json';assert not marker.exists()
+    diag=read(ROOT/'diagnostics/N20_A14_C2_TR1_startup_timeout.json')
+    ctx=OUT/'fig8_tune48_N20_A14_c2_retry1_20261031'
+    run=ROOT/'data/N20_A14/c2_retry1/N20_A14_C2_TR1/g01_initial'
+    state=read(run/'state.json');assert state['status']=='preparing' and not state['segments'] and not state['mesh_stages']
+    assert not (run/'completion_event.json').exists()
+    assert sha(run/'input.json')==diag['input_sha256'] and sha(run/'state.json')==diag['state_sha256']
+    exact(diag['worker'])
+    desktop=read(ctx/'aedt_identity.json');p=exact(desktop)
+    live=native();assert len(live)==1 and live[0]['pid']==desktop['pid']
+    auth=read(ROOT/'N20_C2_RECOVERY_AUTHORIZATION.json')
+    assert all(sha(f)==h for f,h in auth['original_hashes'].items())
+    snap=ROOT/'diagnostics/N20_restart_snapshot1';assert not snap.exists();snap.mkdir()
+    files=[f for f in run.rglob('*') if f.is_file() and not f.name.lower().endswith(('.lock','.lck','.semaphore'))]
+    source=Path(read(run/'input.json')['source']);files.append(source)
+    hashes={}
+    for f in files:
+        assert f.resolve().is_relative_to(ROOT.resolve())
+        dest=snap/f.relative_to(ROOT);dest.parent.mkdir(parents=True,exist_ok=True)
+        before=sha(f);shutil.copy2(f,dest);assert sha(dest)==sha(f)==before
+        hashes[str(f)]=before
+    new(snap/'snapshot_manifest.json',dict(at=now(),hashes=hashes,original_files_untouched=True,runtime_locks_not_deleted=True))
+    new(marker,dict(at=now(),human_reply='允许重启HFSS后检查接续（推荐）',same_technical_recovery=True,
+      new_Analyze_max_remains=12,old_desktop=desktop,worker=diag['worker'],snapshot=str(snap),snapshot_sha256=sha(snap/'snapshot_manifest.json'),
+      old_input_sha256=sha(run/'input.json'),old_state_sha256=sha(run/'state.json'),no_hf3d=True,no_Analyze=True))
+    # End the hung server first, allowing its exact client to unwind and release its own lease.
+    assert len(native())==1 and not read(run/'state.json')['segments']
+    p=exact(desktop);p.terminate();p.wait(timeout=30)
+    stopped=[]
+    try:
+        worker=exact(diag['worker'])
+        try:worker.wait(timeout=45)
+        except psutil.TimeoutExpired:
+            assert not native() and not read(run/'state.json')['segments']
+            worker=exact(diag['worker']);stopped.append(diag['worker']);worker.terminate();worker.wait(timeout=20)
+    except psutil.NoSuchProcess:pass
+    # The Windows venv launcher may survive its real child; stop only its exact known command.
+    for q in psutil.process_iter(['pid','cmdline','create_time']):
+        cmd=q.info['cmdline'] or []
+        if len(cmd)==4 and Path(cmd[1]).resolve()==(ctx/'phase_geometry_worker.py').resolve() and Path(cmd[3]).resolve()==(run/'input.json').resolve():
+            assert q.info['create_time']<=diag['worker']['created']+.01
+            stopped.append(dict(pid=q.pid,created=q.create_time(),command=cmd));q.terminate();q.wait(timeout=20)
+    assert not native() and not read(run/'state.json')['segments']
+    new(ROOT/'N20_recovery_restart_shutdown_proof.json',dict(at=now(),same_recovery=True,zero_Analyze=True,
+      old_worker_absent=True,old_desktop_absent=True,clients_terminated=stopped,
+      old_input_sha256=sha(run/'input.json'),old_state_sha256=sha(run/'state.json'),
+      protocol_lock_exists=(ROOT/'coordination/protocol.lock').exists(),locks_not_deleted=True))
+    subprocess.Popen(['D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe','-grpcsrv','7990'],stdin=subprocess.DEVNULL)
+    for _ in range(180):
+        live=native();assert not any(q['name'].lower()=='hf3d.exe' for q in live)
+        if len(live)==1:
+            try:
+                with socket.create_connection(('127.0.0.1',7990),timeout=1):pass
+                q=psutil.Process(live[0]['pid'])
+                identity=dict(at=now(),pid=q.pid,created=q.create_time(),command=q.cmdline(),port=7990,
+                  visible_requested=True,old_pid=desktop['pid'],Analyze_requested=False,reason='User-approved zero-Analyze load-timeout restart; same N20_C2 technical recovery')
+                new(ROOT/'desktop_epoch4_N20_20261031.json',identity)
+                print(json.dumps(identity),flush=True);return
+            except OSError:pass
+        time.sleep(1)
+    raise TimeoutError('Restarted AEDT not ready; no automatic second restart')
+if __name__=='__main__':main()

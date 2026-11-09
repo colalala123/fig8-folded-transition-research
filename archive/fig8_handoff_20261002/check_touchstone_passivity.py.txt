@@ -1,0 +1,20 @@
+"""Read HFSS six-port MA Touchstone and compare direct/interpolated matrices."""
+import json
+from pathlib import Path
+import numpy as np
+ROOT=Path('F:/hfss_f8x_261002')
+def read(path):
+    lines=path.read_text().splitlines()
+    assert any(s.startswith('# GHz S MA') for s in lines)
+    a=np.array([float(v) for s in lines if s.strip() and not s.lstrip().startswith(('!','#')) for v in s.split()]).reshape(-1,73)
+    z=a[:,1::2]*np.exp(1j*np.deg2rad(a[:,2::2]))
+    return a[:,0],z.reshape(-1,6,6)
+def check(run):
+    result={}
+    for name in ('hfss_native.s6p','hfss_50ohm.s6p'):
+        f,s=read(run/name);sv=np.linalg.svd(s,compute_uv=False)[:,0]
+        result[name]={'frequencies_GHz':f.tolist(),'max_singular':sv.tolist(),'reciprocity_max_error':np.max(abs(s-s.transpose(0,2,1)),axis=(1,2)).tolist(),'violations_1p0001':int(sum(sv>1.0001)),'worst_GHz':float(f[sv.argmax()]),'worst_singular':float(max(sv))}
+    (run/'touchstone_passivity_review.json').write_text(json.dumps(result,indent=2),encoding='utf-8')
+    return result
+if __name__=='__main__':
+    print(json.dumps(check(ROOT/'R_B0_direct8'),indent=2))

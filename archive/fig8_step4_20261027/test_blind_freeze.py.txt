@@ -1,0 +1,26 @@
+import json,unittest,hashlib
+from pathlib import Path
+import numpy as np
+R=Path(__file__).resolve().parent
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+class TestFreeze(unittest.TestCase):
+ def setUp(self):self.f=read(R/'predictions_frozen.json');self.c=self.f['cases']
+ def test_six_fixed_requests(self):
+  self.assertEqual(len(self.c),6);self.assertEqual([x['target_BW_GHz'] for x in self.c],[5,5,5.3,5.3,5.6,5.6])
+ def test_source_hashes(self):
+  for f,h in self.f['source_hashes'].items():self.assertEqual(hashlib.sha256(Path(f).read_bytes()).hexdigest(),h,f)
+ def test_no_silent_margin_relaxation(self):
+  self.assertGreater(self.f['margin_S11_dB'],4.9);self.assertTrue(all(x['category']=='E' for x in self.c));self.assertFalse(self.f['geometry_tuning_authorized'])
+ def test_predictions_frozen_without_truth(self):
+  self.assertFalse(self.f['HFSS_results_seen']);self.assertTrue(all(not x['HFSS_verified'] for x in self.c))
+ def test_domain_and_novelty(self):
+  for i,x in enumerate(self.c):
+   self.assertTrue(2.04<=x['P']<=2.28 and .43<=x['R']<=.475);self.assertGreaterEqual(x['novelty_to_training'],.05)
+   for y in self.c[:i]:self.assertGreaterEqual(np.hypot((x['P']-y['P'])/.24,(x['R']-y['R'])/.045),.05)
+ def test_continuous_band_predictions(self):
+  for x in self.c:
+   self.assertLessEqual(x['predicted_score']['worst_S11_dB'],-20);self.assertGreaterEqual(x['predicted_score']['min_S21_dB'],-2)
+   self.assertTrue(any(lo<=x['f_low_GHz'] and hi>=x['f_high_GHz'] for lo,hi in x['predicted_joint20_intervals_GHz']))
+ def test_no_partial_curves_reintroduced(self):
+  d=read(R/'model_freeze.json');self.assertEqual(len(d['eligible_fullcurve_cases']),50);self.assertEqual(set(d['excluded_fullcurve_cases']),{'P04G05','P05G05'})
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,140 @@
+"""Finite four-point native direct solves on unchanged cached mesh; no retries."""
+import argparse,asyncio,os,shutil,traceback
+from pathlib import Path
+import numpy as np
+import recovery_control as pc
+from solver_runtime import dc,solve_stage,passes,canonical_ports,snapshot
+from phase_final_direct import compare
+from phase_direct_context import reviewed_source
+from case_reference import apply_reference
+from preserve_discrete_ranges import restore_properties
+from merge_native import partial_rows,exported_rows,add_disjoint,export
+from publish_smallbatch import publish
+
+def validate(path):
+    p=pc.read(path);case=p['case'];run=Path(p['run_dir'])
+    assert case in pc.ORDER and run.resolve()==(pc.BASE/case/'edge_repair').resolve()
+    assert Path(path).resolve()==Path(p['input_path']).resolve()
+    assert p['role']=='cached_missing_smallbatches' and p['geometry_budget_increment']==0 and not p['adaptive_allowed']
+    assert p['worker_sha256']==pc.sha(Path(__file__).resolve()) and not (run/'state.json').exists()
+    requested=p['requested_frequencies_GHz'];chunks=p['chunks'];flat=[f for c in chunks for f in c]
+    assert requested==sorted(set(requested)) and len(requested)<=24 and all(.01<=f<=15 for f in requested)
+    assert all(1<=len(c)<=4 for c in chunks) and len(flat)==len(set(flat))
+    assert set(flat).isdisjoint(p['existing_frequencies_GHz']) and sorted(flat+p['existing_frequencies_GHz'])==requested
+    assert p['max_analyze_launches']==len(chunks) and 1<=len(chunks)<=6
+    ledger=pc.read(pc.ledger_path());own=[t for t in ledger['tasks'] if t['case']==case]
+    assert ledger['new_geometry_reserved']==0 and len(own)==1 and own[0]['status']=='reserved'
+    assert own[0]['input_sha256']==pc.sha(path) and own[0]['analyzes_used']==0
+    for f,h in p['input_parent_hashes'].items():assert pc.sha(f)==h,f
+    reviewed_source(p['source'],case)
+    return p
+
+def reserve_launch(case,index):
+    ledger=pc.read(pc.ledger_path());plan=pc.read(pc.HERE/'continuation_plan.json')
+    own=next(t for t in ledger['tasks'] if t['case']==case)
+    assert own['analyzes_used']==index and index<own['max_analyzes']
+    assert ledger['analyze_launches_reserved']<plan['maximum_new_analyze_launches']
+    own['analyzes_used']+=1;ledger['analyze_launches_reserved']+=1;pc.write(pc.ledger_path(),ledger)
+
+async def execute(p,path):
+    case=p['case'];run=Path(p['run_dir']);src=Path(p['source']);source=Path(p['project_source'])
+    assert pc.sha(source)==p['project_source_sha256']
+    original_state=pc.read(src/'state.json');expected_ports=canonical_ports(original_state['port_settings']['after'])
+    cache=source.with_suffix('.aedtresults');files=[f for f in cache.rglob('*') if f.is_file() and not f.name.endswith(('.lock','.semaphore'))]
+    assert shutil.disk_usage(pc.BASE).free>sum(f.stat().st_size for f in files)+15*1024**3
+    project=run/(p['project_name']+'.aedt');assert not project.exists();shutil.copy2(source,project)
+    for f in files:
+        dest=project.with_suffix('.aedtresults')/f.relative_to(cache);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(f,dest)
+    state=dict(case=case,input_sha256=pc.sha(path),status='preparing',project=str(project),segments=[],actual_elements=original_state['actual_elements'],
+        completed_chunks=[],ports_before=expected_ports,requested_frequencies_GHz=p['requested_frequencies_GHz'],new_geometry=0)
+    pc.write(run/'state.json',state)
+    pc.active(dict(case=case,stage='candidate_cached_direct',pid=os.getpid(),run_dir=str(run),phase='PR18R',started_at=pc.now()))
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running and app.get_setup('Setup19').is_solved
+        app.export_convergence('Setup19',output_file=str(run/'convergence_before.txt'))
+        assert passes(run/'convergence_before.txt')==passes(src/'convergence.txt')
+        f,data,_,_=dc.get_data(app,'Sweep1');original=np.genfromtxt(src/'sparams.csv',delimiter=',',names=True)
+        assert len(f)==1500 and np.allclose(f,original['Freq_GHz'])
+        for key,expr in [('S11','S(1:1,1:1)'),('S21','S(2:1,1:1)')]:
+            assert max(abs(data[expr]-(original[key+'_real']+1j*original[key+'_imag'])))<1e-10
+        assert canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})==expected_ports
+        state['copied_original_curves_verified']=True
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    all_rows={};sources=[]
+    assert not p['existing_frequencies_GHz'], 'Fresh PR18 direct stage; no prior failed-run reuse'
+    for index,frequencies in enumerate(p['chunks']):
+        assert not dc.solvers();chunk=run/'chunks'/f'c{index+1:02d}';chunk.mkdir(parents=True,exist_ok=False)
+        name=f'PR18_EdgeRepair{index+1:02d}'
+        app=dc.app_for(project)
+        try:
+            assert not app.are_there_simulations_running and app.get_setup('Setup19').is_solved
+            setup=app.get_setup('Setup19')
+            for sw in setup.sweeps:sw.props['IsEnabled']=False;assert sw.update()
+            sw=setup.add_sweep(name,sweep_type='Discrete');sw.auto_update=False;restore_properties(sw,frequencies)
+            sw.props.update({'IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+            app.export_convergence('Setup19',output_file=str(chunk/'convergence_before.txt'))
+            assert passes(chunk/'convergence_before.txt')==passes(src/'convergence.txt')
+            app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        reserve_launch(case,index)
+        pc.active(dict(case=case,stage='candidate_cached_direct',pid=os.getpid(),run_dir=str(run),phase='PR18R',chunk=index+1,total_chunks=len(p['chunks']),frequencies_GHz=frequencies,at=pc.now()))
+        segment=await solve_stage(project,run,state,f'chunk_{index+1:02d}',False)
+        app=dc.app_for(project)
+        try:
+            messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));pc.write(chunk/'solver_messages.json',messages)
+            assert not any('[error]' in m.lower() for m in messages)
+            assert any('Discrete frequency sweep complete.' in m for m in messages)
+            dc.SWEEP=name;dc.export(app,chunk,frequencies);apply_reference(chunk,case)
+            app.export_convergence('Setup19',output_file=str(chunk/'convergence_after.txt'))
+            assert passes(chunk/'convergence_after.txt')==passes(src/'convergence.txt')
+            assert canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})==expected_ports
+            app.save_project()
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        assert segment['observed_16core_process'] and not segment['observed_adaptive_process']
+        new=exported_rows(chunk);assert sorted(new)==frequencies;add_disjoint(all_rows,new)
+        hashes={str(chunk/f):pc.sha(chunk/f) for f in ['all_modes_sparams.csv','mode_impedance_gamma.csv','sparams.csv','reference_review.json','convergence_before.txt','convergence_after.txt','solver_messages.json']}
+        sources.append(dict(kind='four_point_chunk',frequencies=frequencies,hashes=hashes))
+        state['completed_chunks'].append(dict(index=index+1,frequencies=frequencies,hashes=hashes,mesh_identical=True))
+        state['status']='between_chunks';pc.write(run/'state.json',state)
+    export(run,all_rows,p['requested_frequencies_GHz']);apply_reference(run,case)
+    shutil.copy2(chunk/'convergence_after.txt',run/'convergence_after.txt')
+    pc.write(run/'merge_sources.json',dict(sources=sources,all_frequencies=sorted(all_rows),no_interpolation=True,
+        mesh_verified_at_every_source=True,all_chunk_provenance_preserved=True))
+    for f,h in p['input_parent_hashes'].items():assert pc.sha(f)==h,f
+    state.update(status='completed',same_mesh_verified=True,source_unchanged=pc.sha(source)==p['project_source_sha256'],finished_at=pc.now())
+    assert state['source_unchanged'];pc.write(run/'state.json',state)
+    pc.write(run/'manifest.json',dict(modes=2,diagnostic_only=True,points=len(all_rows),actual_elements=state['actual_elements'],
+        new_geometry=0,Analyze_launches=len(state['segments']),all_chunk_provenance_preserved=True))
+    result=compare(src,run);pc.write(run/'comparison.json',result)
+    # Close only this solved review copy to prevent accumulated open projects.
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        assert app.close_project(save=True)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    return result
+
+async def main(path):
+    p=validate(path);case=p['case'];run=Path(p['run_dir'])
+    assert not dc.solvers();locks=[pc.FINAL/'worker.lock',pc.PARENT/'worker.lock',pc.OLD/'protocol.lock']
+    assert all(not f.exists() for f in locks);acquired=[];status='failed'
+    try:
+        for f in locks:
+            with f.open('x') as h:h.write(str(os.getpid()))
+            acquired.append(f)
+        result=await execute(p,path);status='completed'
+        summary=f'{case}小批次同网格直接复核完成；数值核验={result["numerical_review_passed"]}，采样设计={result["sampled_design_supported"]}；待接收审查。'
+        artifacts=['input.json','state.json','comparison.json','manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','reference_review.json','convergence_before.txt','convergence_after.txt','merge_sources.json']
+    except BaseException:
+        pc.write(run/'worker_error.json',dict(at=pc.now(),error=traceback.format_exc(),live_solvers=dc.solvers()))
+        summary=f'{case}小批次复核异常，保留全部已完成批次，不自动重试。';artifacts=['input.json','worker_error.json']
+        if (run/'state.json').exists():artifacts.append('state.json')
+    finally:
+        for f in acquired:
+            if f.exists() and f.read_text()==str(os.getpid()):f.unlink()
+        pc.active(dict(case=case,stage='awaiting_smallbatch_review',run_dir=str(run),operation_status=status,phase='PR18R',at=pc.now()))
+    await publish(run,case,status,summary,artifacts)
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--spec',type=Path,required=True);asyncio.run(main(ap.parse_args().spec.resolve()))

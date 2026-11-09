@@ -1,0 +1,15 @@
+"""Preserve SinglePoints subranges lost by PyAEDT's sweep-property reload.
+
+Only use authoritative frequency lists from retained direct-solve exports.
+This changes sweep configuration, never starts an analysis.
+"""
+def restore_properties(sweep, frequencies):
+    frequencies=sorted(float(x) for x in frequencies)
+    assert frequencies and len(frequencies)==len(set(frequencies))
+    automatic=getattr(sweep,'auto_update',True);sweep.auto_update=False
+    sweep.props.update({'Type':'Discrete','RangeType':'SinglePoints',
+        'RangeStart':f'{frequencies[0]:g}GHz','RangeEnd':f'{frequencies[0]:g}GHz',
+        'SaveSingleField':False,
+        'SweepRanges':{'Subrange':[{'RangeType':'SinglePoints','RangeStart':f'{f:g}GHz',
+                                   'RangeEnd':f'{f:g}GHz','SaveSingleField':False} for f in frequencies[1:]]}})
+    sweep.auto_update=automatic

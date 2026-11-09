@@ -1,0 +1,628 @@
+{
+  "results": {
+    "length_residual": {
+      "labels": [
+        "delta_Lm_mm",
+        "delta_Ls1_mm"
+      ],
+      "models": {
+        "quadratic_ridge": {
+          "inner_group_CV": {
+            "delta_Lm_mm": {
+              "MAE": 0.012203685267002511,
+              "P95": 0.03191770683646468,
+              "max": 0.05552431655427781,
+              "RMSE": 0.01719291977772957
+            },
+            "delta_Ls1_mm": {
+              "MAE": 0.03460294217422663,
+              "P95": 0.09367194706410599,
+              "max": 0.10366077916309324,
+              "RMSE": 0.04574828240158244
+            }
+          },
+          "inner_selection_score": 0.1262381076016623,
+          "group_holdout": {
+            "delta_Lm_mm": {
+              "MAE": 0.01513797490143086,
+              "P95": 0.044605504400191794,
+              "max": 0.044627979815046404,
+              "RMSE": 0.020939788297503086
+            },
+            "delta_Ls1_mm": {
+              "MAE": 0.0501890808419736,
+              "P95": 0.13043667640222534,
+              "max": 0.18923234825563062,
+              "RMSE": 0.07166226013848082
+            }
+          }
+        },
+        "RF": {
+          "inner_group_CV": {
+            "delta_Lm_mm": {
+              "MAE": 0.025675659037133293,
+              "P95": 0.07171097808649557,
+              "max": 0.10078939628437408,
+              "RMSE": 0.033590741191390806
+            },
+            "delta_Ls1_mm": {
+              "MAE": 0.26988333911580353,
+              "P95": 0.6144353877494839,
+              "max": 0.6518301315525608,
+              "RMSE": 0.3332531099840189
+            }
+          },
+          "inner_selection_score": 0.4947938524326857,
+          "group_holdout": {
+            "delta_Lm_mm": {
+              "MAE": 0.026988633308578105,
+              "P95": 0.048964083351993065,
+              "max": 0.05141836591647636,
+              "RMSE": 0.031546914659114876
+            },
+            "delta_Ls1_mm": {
+              "MAE": 0.21176461442029715,
+              "P95": 0.4791318544234705,
+              "max": 0.6593900205141536,
+              "RMSE": 0.26904998222693344
+            }
+          }
+        },
+        "shared_MLP": {
+          "inner_group_CV": {
+            "delta_Lm_mm": {
+              "MAE": 0.009400869238300172,
+              "P95": 0.024977040770220397,
+              "max": 0.03387883858865076,
+              "RMSE": 0.01273002448529715
+            },
+            "delta_Ls1_mm": {
+              "MAE": 0.04463996845531234,
+              "P95": 0.15786783065046833,
+              "max": 0.2101158384116788,
+              "RMSE": 0.07008169124271287
+            }
+          },
+          "inner_selection_score": 0.13031414067147196,
+          "group_holdout": {
+            "delta_Lm_mm": {
+              "MAE": 0.012965311588664777,
+              "P95": 0.02699447206806179,
+              "max": 0.03392966555371124,
+              "RMSE": 0.015557005764506499
+            },
+            "delta_Ls1_mm": {
+              "MAE": 0.04848904204715637,
+              "P95": 0.1498999299979561,
+              "max": 0.15629046159904214,
+              "RMSE": 0.06896355859599551
+            }
+          }
+        }
+      },
+      "selected_without_holdout": "quadratic_ridge",
+      "folds": [
+        {
+          "train_groups": [
+            "D01",
+            "D02",
+            "D03",
+            "D05",
+            "D09",
+            "D10",
+            "D11",
+            "D12",
+            "I02",
+            "P01",
+            "P02",
+            "P03",
+            "P06",
+            "P07",
+            "P09",
+            "V01"
+          ],
+          "validation_groups": [
+            "D06",
+            "I01",
+            "P05",
+            "V03"
+          ]
+        },
+        {
+          "train_groups": [
+            "D01",
+            "D02",
+            "D03",
+            "D06",
+            "D09",
+            "D10",
+            "D11",
+            "I01",
+            "I02",
+            "P01",
+            "P02",
+            "P05",
+            "P06",
+            "P07",
+            "P09",
+            "V03"
+          ],
+          "validation_groups": [
+            "D05",
+            "D12",
+            "P03",
+            "V01"
+          ]
+        },
+        {
+          "train_groups": [
+            "D01",
+            "D02",
+            "D05",
+            "D06",
+            "D09",
+            "D10",
+            "D12",
+            "I01",
+            "I02",
+            "P01",
+            "P03",
+            "P05",
+            "P06",
+            "P07",
+            "V01",
+            "V03"
+          ],
+          "validation_groups": [
+            "D03",
+            "D11",
+            "P02",
+            "P09"
+          ]
+        },
+        {
+          "train_groups": [
+            "D01",
+            "D03",
+            "D05",
+            "D06",
+            "D09",
+            "D11",
+            "D12",
+            "I01",
+            "I02",
+            "P02",
+            "P03",
+            "P05",
+            "P06",
+            "P09",
+            "V01",
+            "V03"
+          ],
+          "validation_groups": [
+            "D02",
+            "D10",
+            "P01",
+            "P07"
+          ]
+        },
+        {
+          "train_groups": [
+            "D02",
+            "D03",
+            "D05",
+            "D06",
+            "D10",
+            "D11",
+            "D12",
+            "I01",
+            "P01",
+            "P02",
+            "P03",
+            "P05",
+            "P07",
+            "P09",
+            "V01",
+            "V03"
+          ],
+          "validation_groups": [
+            "D01",
+            "D09",
+            "I02",
+            "P06"
+          ]
+        }
+      ],
+      "deployment_train_count": 52,
+      "holdout_is_not_independent_of_deployment": true
+    },
+    "forward_performance": {
+      "labels": [
+        "S21_minus2_BW_GHz",
+        "worse_inner_peak_dB"
+      ],
+      "models": {
+        "quadratic_ridge": {
+          "inner_group_CV": {
+            "S21_minus2_BW_GHz": {
+              "MAE": 0.018638506404805643,
+              "P95": 0.038989890550052336,
+              "max": 0.04844962993478141,
+              "RMSE": 0.022681632883738978
+            },
+            "worse_inner_peak_dB": {
+              "MAE": 0.3250718493051114,
+              "P95": 0.9628107832593262,
+              "max": 1.0788273915962776,
+              "RMSE": 0.42099272754642636
+            }
+          },
+          "inner_selection_score": 0.09993536494862729,
+          "group_holdout": {
+            "S21_minus2_BW_GHz": {
+              "MAE": 0.023739250525062355,
+              "P95": 0.047454745142137454,
+              "max": 0.065529396608218,
+              "RMSE": 0.027632408107893688
+            },
+            "worse_inner_peak_dB": {
+              "MAE": 0.24507665118502833,
+              "P95": 0.39262347579773244,
+              "max": 0.4084532985144165,
+              "RMSE": 0.28673573815894426
+            }
+          }
+        },
+        "RF": {
+          "inner_group_CV": {
+            "S21_minus2_BW_GHz": {
+              "MAE": 0.12931374871714452,
+              "P95": 0.29785710241234986,
+              "max": 0.3508551139310727,
+              "RMSE": 0.16202379083691165
+            },
+            "worse_inner_peak_dB": {
+              "MAE": 1.0363368353836968,
+              "P95": 2.4482269402806867,
+              "max": 2.5896744351006973,
+              "RMSE": 1.2627090458226542
+            }
+          },
+          "inner_selection_score": 0.46724106134472315,
+          "group_holdout": {
+            "S21_minus2_BW_GHz": {
+              "MAE": 0.12746766981616245,
+              "P95": 0.36790323411862225,
+              "max": 0.3901048381592398,
+              "RMSE": 0.18550358105659628
+            },
+            "worse_inner_peak_dB": {
+              "MAE": 1.1283563437390274,
+              "P95": 2.598057332860575,
+              "max": 2.6420922349207476,
+              "RMSE": 1.469046395184721
+            }
+          }
+        },
+        "shared_MLP": {
+          "inner_group_CV": {
+            "S21_minus2_BW_GHz": {
+              "MAE": 0.02302356631154536,
+              "P95": 0.06987205133564878,
+              "max": 0.14088338585527804,
+              "RMSE": 0.03760326165762295
+            },
+            "worse_inner_peak_dB": {
+              "MAE": 0.31163243227586024,
+              "P95": 0.6345778320865089,
+              "max": 1.272997488242801,
+              "RMSE": 0.39538401177124244
+            }
+          },
+          "inner_selection_score": 0.12290580125605338,
+          "group_holdout": {
+            "S21_minus2_BW_GHz": {
+              "MAE": 0.019799406059646918,
+              "P95": 0.04803254331012814,
+              "max": 0.06600690515794305,
+              "RMSE": 0.02648962294896818
+            },
+            "worse_inner_peak_dB": {
+              "MAE": 0.13332459648471864,
+              "P95": 0.27429149414655174,
+              "max": 0.29416425214692765,
+              "RMSE": 0.16403962586279836
+            }
+          }
+        }
+      },
+      "selected_without_holdout": "quadratic_ridge",
+      "folds": [
+        {
+          "train_groups": [
+            "D01",
+            "D02",
+            "D03",
+            "D05",
+            "D09",
+            "D10",
+            "D11",
+            "D12",
+            "I02",
+            "P01",
+            "P02",
+            "P03",
+            "P06",
+            "P07",
+            "P09",
+            "V01"
+          ],
+          "validation_groups": [
+            "D06",
+            "I01",
+            "P05",
+            "V03"
+          ]
+        },
+        {
+          "train_groups": [
+            "D01",
+            "D02",
+            "D03",
+            "D06",
+            "D09",
+            "D10",
+            "D11",
+            "I01",
+            "I02",
+            "P01",
+            "P02",
+            "P05",
+            "P06",
+            "P07",
+            "P09",
+            "V03"
+          ],
+          "validation_groups": [
+            "D05",
+            "D12",
+            "P03",
+            "V01"
+          ]
+        },
+        {
+          "train_groups": [
+            "D01",
+            "D02",
+            "D05",
+            "D06",
+            "D09",
+            "D10",
+            "D12",
+            "I01",
+            "I02",
+            "P01",
+            "P03",
+            "P05",
+            "P06",
+            "P07",
+            "V01",
+            "V03"
+          ],
+          "validation_groups": [
+            "D03",
+            "D11",
+            "P02",
+            "P09"
+          ]
+        },
+        {
+          "train_groups": [
+            "D01",
+            "D03",
+            "D05",
+            "D06",
+            "D09",
+            "D11",
+            "D12",
+            "I01",
+            "I02",
+            "P02",
+            "P03",
+            "P05",
+            "P06",
+            "P09",
+            "V01",
+            "V03"
+          ],
+          "validation_groups": [
+            "D02",
+            "D10",
+            "P01",
+            "P07"
+          ]
+        },
+        {
+          "train_groups": [
+            "D02",
+            "D03",
+            "D05",
+            "D06",
+            "D10",
+            "D11",
+            "D12",
+            "I01",
+            "P01",
+            "P02",
+            "P03",
+            "P05",
+            "P07",
+            "P09",
+            "V01",
+            "V03"
+          ],
+          "validation_groups": [
+            "D01",
+            "D09",
+            "I02",
+            "P06"
+          ]
+        }
+      ],
+      "deployment_train_count": 52,
+      "holdout_is_not_independent_of_deployment": true
+    }
+  },
+  "warnings": [
+    {
+      "task": "length_residual",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 90 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "length_residual",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 69 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "length_residual",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 84 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "length_residual",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 126 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "forward_performance",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 88 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "forward_performance",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 63 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "forward_performance",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 66 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "forward_performance",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 73 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "forward_performance",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 87 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    },
+    {
+      "task": "forward_performance",
+      "model": "shared_MLP",
+      "message": "lbfgs failed to converge after 85 iteration(s) (status=2):\nABNORMAL: \n\nYou might also want to scale the data as shown in:\n    https://scikit-learn.org/stable/modules/preprocessing.html"
+    }
+  ],
+  "split": {
+    "seed": 20261028,
+    "split_unit": "width_pair_design_family; both arms stay together",
+    "train_cases": [
+      "D01G02",
+      "D01G05",
+      "D02G02",
+      "D02G05",
+      "D03G02",
+      "D03G05",
+      "D05G02",
+      "D05G05",
+      "D06G02",
+      "D06G05",
+      "D09G02",
+      "D09G05",
+      "D10G02",
+      "D10G05",
+      "D11G02",
+      "D11G05",
+      "D12G02",
+      "D12G05",
+      "V01G02",
+      "V01G05",
+      "V03G02",
+      "V03G05",
+      "I01G02",
+      "I02G02",
+      "I01G05",
+      "I02G05",
+      "P01G05",
+      "P02G05",
+      "P03G05",
+      "P05G05",
+      "P06G05",
+      "P07G05",
+      "P09G05",
+      "P01G02",
+      "P02G02",
+      "P03G02",
+      "P05G02",
+      "P06G02",
+      "P07G02",
+      "P09G02"
+    ],
+    "test_cases": [
+      "D04G02",
+      "D04G05",
+      "D07G02",
+      "D07G05",
+      "D08G02",
+      "D08G05",
+      "V02G02",
+      "V02G05",
+      "P04G05",
+      "P08G05",
+      "P04G02",
+      "P08G02"
+    ],
+    "train_groups": [
+      "D01",
+      "D02",
+      "D03",
+      "D05",
+      "D06",
+      "D09",
+      "D10",
+      "D11",
+      "D12",
+      "I01",
+      "I02",
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P09",
+      "V01",
+      "V03"
+    ],
+    "test_groups": [
+      "D04",
+      "D07",
+      "D08",
+      "P04",
+      "P08",
+      "V02"
+    ],
+    "train_count": 40,
+    "test_count": 12,
+    "holdout_fraction_requested": 0.2,
+    "caveat": "Previously observed research data; honest group holdout, not a new prospective HFSS blind test"
+  },
+  "independent_samples": 26,
+  "geometry_rows": 52,
+  "four_free_geometry_regression": false,
+  "reason": "At fixed P/R, Wm/Ws are independent line-model inversions; current learned corrections are Lm/Ls1 only. Do not report zero learned Wm/Ws MAE.",
+  "first_blind_six_untouched": true,
+  "HFSS_new_validation_done": false
+}

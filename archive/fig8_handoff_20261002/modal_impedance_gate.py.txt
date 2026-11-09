@@ -1,0 +1,23 @@
+"""Check the saved 15-GHz modal reference blocks before accepting a sweep."""
+import re
+from pathlib import Path
+import numpy as np
+
+def audit(project, sweep='Sweep1'):
+    base=Path(project).with_suffix('.aedtresults')/'Wideband vertical transition.results'
+    results=[]
+    for path in base.glob('*_SOL*.sd'):
+        text=path.read_text(encoding='utf-8',errors='replace')
+        if "SolutionType='HfssInterpolatingSweep'" not in text or f"Name='{sweep}'" not in text:continue
+        for match in re.finditer(r"\$begin 'DataPoint'(.*?)\$end 'DataPoint'",text,re.S):
+            point=match[1];frequency=re.search(r'Frequency=([0-9.eE+-]+)',point)
+            if not frequency or abs(float(frequency[1])/1e9-15)>1e-8:continue
+            impedance=re.search(r"\$begin 'PortImpedance'(.*?)\$end 'PortImpedance'",point,re.S)
+            if not impedance:continue
+            for block in re.finditer(r"\$begin '(Block\d+)'(.*?)\$end '\1'",impedance[1],re.S):
+                n=int(re.search(r'm=(\d+)',block[2])[1])
+                z=np.array([complex(float(a),float(b)) for a,b in re.findall(r'c\(([^,]+), ([^)]+)\)',block[2])]).reshape(n,n)
+                rank=int(np.linalg.matrix_rank(z));scale=max(float(np.max(abs(z))),1e-30)
+                offdiag=float(np.max(abs(z-np.diag(np.diag(z)))))
+                results.append({'file':str(path),'frequency_GHz':15,'block':block[1],'size':n,'rank':rank,'off_diagonal_max_ohm':offdiag,'passed':rank==n and offdiag/scale<=1e-10})
+    return {'scope':'Saved 15GHz modal reference impedance must remain full-rank and diagonal; does not replace full-band passivity or mode identity.','blocks':results,'passed':bool(results) and all(r['passed'] for r in results)}

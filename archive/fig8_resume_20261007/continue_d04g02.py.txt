@@ -1,0 +1,39 @@
+"""Resume D04G02 only, retaining all production and supervised release gates."""
+import os
+import traceback
+import guarded_pilot_queue as g
+
+def main(case_id='D04G02'):
+    plan = g.read(g.HERE / 'resume_queue_plan.json')
+    p = g.read(g.ROOT / 'production_protocol.json')
+    assert len(plan['cases']) == 24
+    assert g.sha(g.Path('F:/hfss_f8x_261002/pilot_24.csv')) == plan['matrix_sha256']
+    assert p['status'] == 'frozen_verified'
+    assert g.sha(g.q.SOURCE) == p['source_B0_sha256']
+    assert g.sha(g.Path('F:/hfss_f8_261002/T_F3/T_F3.aedt')) == p['source_T_F3_sha256']
+    for file, digest in p['implementation_hashes'].items():
+        assert g.sha(file) == digest, file
+    for key in ['reference_review', 'collector_review']:
+        e = p[key]
+        assert g.sha(e['path']) == e['sha256'] and g.read(e['path'])['passed']
+    review = g.read(g.ROOT / 'supervised_first_review.json')
+    assert review['passed'] and review['protocol_sha256'] == g.sha(g.ROOT / 'production_protocol.json')
+    assert set(review['cases']) == set(plan['supervised_first'])
+    for file, digest in review['evidence_hashes'].items():
+        assert g.sha(file) == digest, file
+    case = next(c for c in plan['cases'] if c['case'] == case_id)
+    lock = g.ROOT / 'pilot_queue.lock'
+    with lock.open('x') as h:
+        h.write(str(os.getpid()))
+    try:
+        g.status(status='preflight_verified', active_case=case_id, active_run=None, error=None)
+        result = g.tune(case, p)
+        g.status(status='case_finished', active_case=case['case'], active_run=None, error=None, result_status=result['status'])
+    except Exception:
+        g.status(status='review_required', error=traceback.format_exc())
+        raise
+    finally:
+        lock.unlink(missing_ok=True)
+
+if __name__ == '__main__':
+    main()

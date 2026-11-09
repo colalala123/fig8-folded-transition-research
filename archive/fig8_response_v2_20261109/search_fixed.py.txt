@@ -1,0 +1,12 @@
+from models import *
+from scipy.optimize import minimize
+m=joblib.load(ROOT/'model_C.joblib');r=next(r for r in rows if r['case']=='N19_A14');g=r['geometry'];x=np.array(r['features']);scale=np.array([.1,.2]);p0=decode(predict(m,x[None]))[0];js=[]
+for k in [3,4]:
+ a=x.copy();a[k]+=scale[k-3];js.append(decode(predict(m,a[None]))[0]-p0)
+J=np.stack(js,axis=-1);print('cfg',m['config'])
+def pred(u):return p0+np.einsum('nkd,d->nk',J,u)
+def fun(v):return v[2]
+def cons(v):return v[2]-abs(pred(v[:2])[band,0])
+o=minimize(fun,[0,0,max(abs(p0[band,0]))],method='SLSQP',constraints=[dict(type='ineq',fun=cons)],bounds=[(-1,1),(-1,1),(0,None)],options={'ftol':1e-12,'maxiter':500})
+u=o.x[:2];q=label(f,pred(u));print('N19',u,q)
+write('N19_FIXED_PR_SEARCH.json',{'model_config':m['config'],'geometry_origin':g,'delta_Lm_Ls1_mm':(scale*u).tolist(),'bounds_relative_to_baseline_mm':[.1,.2],'prediction':q,'solver_success':bool(o.success),'note':'reflection minimax is not joint feasibility proof; predicted only','model_sha256':sha(ROOT/'model_C.joblib')})

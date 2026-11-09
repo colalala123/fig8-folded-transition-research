@@ -1,0 +1,28 @@
+"""Additive same-geometry recovery result selection; never rewrites old failure/ACK."""
+import argparse,json
+from pathlib import Path
+import continue_tuning as old
+from tuning_budget_recovery_v1 import validate_campaign,registry
+from build_runtime import ROOT,read,sha,new,now
+old.validate_campaign=validate_campaign
+
+def main(context):
+    validate_campaign();ctx=Path(context).resolve()
+    e=next(e for e in registry()['contexts'] if Path(e['context']).resolve()==ctx)
+    if e['kind']!='technical_recovery_c2':return old.main(str(ctx))
+    row=read(ctx/'plan.json')['cases'][0];run=Path(row['run_dir'])
+    event=read(run/'completion_event.json')
+    if event['status']!='completed':return dict(action='technical_hold_no_second_recovery',case=row['case'])
+    if not (run/'receiver_ack.json').exists():return dict(action='actual_visual_ACK_required',run=str(run))
+    score=old.checked(run);parent=row['parent_case']
+    if score['passed']:
+        dest=ROOT/'decisions'/f'{parent}_selected.json'
+        if not dest.exists():new(dest,dict(at=now(),parent=parent,selected_case=row['case'],selected_run=str(run),
+          geometry=row['geometry'],P_nominal=row['P_nominal'],R_nominal=row['R_nominal'],score=score,
+          ACK_sha256=sha(run/'receiver_ack.json'),nominal_interpolated_target_pass=True,not_final_direct_certification=True,
+          technical_recovery_attempt=1,original_failed_attempt_preserved=True))
+        return old.next_parent()
+    return old.unsupported(parent,ctx,'Two actual length candidates plus one explicitly authorized same-geometry technical recovery completed; original target not passed')
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);a=p.parse_args();print(json.dumps(main(a.context),ensure_ascii=False,indent=2))

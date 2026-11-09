@@ -1,0 +1,25 @@
+import json,csv,hashlib,re
+from pathlib import Path
+import numpy as np
+import matplotlib.pyplot as plt
+import sys
+sys.path.insert(0,r'${WORKSPACE}\output\fig8_handoff_20261002');sys.path.insert(0,r'${WORKSPACE}\output\folded_simulation_plan_20260920')
+from check_touchstone_passivity import read
+from response_metrics import analyze
+ROOT=Path(r'F:\hfss_f8x_261002\R_B0_rebuild_max500'); src=ROOT/'bb_50ohm.s6p'; f,s=read(src)
+rows=[]
+for k,fr in enumerate(f):
+ row={'Freq_GHz':float(fr)}
+ for label,i,j in [('S11',0,0),('S21',3,0),('S12',0,3),('S22',3,3)]:
+  z=s[k,i,j]; row.update({label+'_real':float(z.real),label+'_imag':float(z.imag),label+'_mag':float(abs(z)),label+'_dB':float(20*np.log10(max(abs(z),1e-300)))})
+ rows.append(row)
+curve=ROOT/'sparams_mixed_verified.csv'
+with curve.open('w',newline='',encoding='utf-8') as out:
+ w=csv.DictWriter(out,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+sv=np.linalg.svd(s,compute_uv=False)[:,0];rec=np.max(np.abs(s-s.transpose(0,2,1)),axis=(1,2));metrics=analyze(curve,f0=6.85)
+status=json.loads((ROOT/'bb_review'/'repair_status_20261004.json').read_text(encoding='utf-8'))
+final={'created_at_utc':'2026-10-04T12:25:00Z','dataset':'bb_50ohm.s6p','dataset_role':'mixed_verified_curve_from_successful subrange exports; no claim of a single HFSS interpolating sweep convergence','points':int(len(f)),'f_start_GHz':float(f[0]),'f_end_GHz':float(f[-1]),'grid_step_GHz':float(np.min(np.diff(f))),'max_singular_50ohm':float(sv.max()),'passivity_violations_gt_1p0001':int(np.sum(sv>1.0001)),'worst_singular_GHz':float(f[np.argmax(sv)]),'max_reciprocity_error':float(rec.max()),'curve_sha256':hashlib.sha256(src.read_bytes()).hexdigest(),'response_metrics':metrics,'formal_interpolation_status':status.get('interpolation_status'),'latest_discrete_attempts':{'full_discrete_fix':'stopped_for_scope; HFSS estimated ~24h and snapshot preserved','target_discrete':'HFSS reused stale 1500-point solution; output rejected','unique_target_50ohm':'stopped_for_scope; no accepted output; project restored'},'source_files':{'touchstone':str(src),'curve_csv':str(curve),'formal_status':str(ROOT/'bb_review'/'repair_status_20261004.json')}}
+(ROOT/'repair_final_report_20261004.json').write_text(json.dumps(final,indent=2,ensure_ascii=False),encoding='utf-8')
+# plot
+s11=20*np.log10(np.maximum(abs(s[:,0,0]),1e-15));s21=20*np.log10(np.maximum(abs(s[:,3,0]),1e-15));fig,ax=plt.subplots(figsize=(10,5.6),dpi=160);ax.plot(f,s21,'r',label='S21 (50 ohm, verified mixed)');ax.plot(f,s11,'b',label='S11 (50 ohm, verified mixed)');ax.axhline(-2,c='gray',ls=':',lw=.8);ax.axhline(-10,c='gray',ls=':',lw=.8);ax.set(xlim=(0,15),ylim=(-60,2),xlabel='Frequency (GHz)',ylabel='S parameter (dB)',title='Fig.8 B0 repair: verified 50-ohm mixed curve');ax.grid(alpha=.25);ax.legend(loc='lower right');fig.tight_layout();fig.savefig(ROOT/'repair_verified_mixed_curve.png');plt.close(fig)
+print(json.dumps({'points':len(f),'max_sv':float(sv.max()),'viol':int(np.sum(sv>1.0001)),'recip':float(rec.max()),'passband':metrics['passband_2dB'],'joint':metrics['passband_joint'],'diagnostic_P':metrics.get('diagnostic_response_PR')},ensure_ascii=False,indent=2))

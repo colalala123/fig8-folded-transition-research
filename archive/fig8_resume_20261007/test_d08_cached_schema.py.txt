@@ -1,0 +1,40 @@
+import unittest
+from pathlib import Path
+from unittest.mock import patch
+import recover_d08_i00 as d
+import resume_d08_cached_schema as resumed
+
+
+class CachedSchemaTests(unittest.TestCase):
+    def test_old_review_still_refuses_additional_cache_frequency(self):
+        with self.assertRaisesRegex(AssertionError,'Unknown full-impedance'):
+            d.reviewer.review(d.ATTEMPT)
+
+    def test_exact_cached_data_pass_independent_routes(self):
+        result=resumed.reviewer.review(d.ATTEMPT)
+        self.assertEqual(result['retained_terminal_export_exception_GHz'],[8.,15.])
+        self.assertEqual(result['HFSS_50ohm_calibrated_points'],143)
+        self.assertEqual(result['independent_impedance_route_points'],145)
+        self.assertLess(result['independent_impedance_route_error'],1e-10)
+
+    def test_changed_cached_source_is_rejected(self):
+        original=resumed.reviewer.load_segment
+        def altered(path):
+            f,s,z,m=original(path)
+            if Path(path)==d.ATTEMPT:
+                z=z.copy();z[799,0]+=1e-5
+            return f,s,z,m
+        with patch.object(resumed.reviewer,'load_segment',side_effect=altered):
+            with self.assertRaises(AssertionError):resumed.reviewer.review(d.ATTEMPT)
+
+    def test_new_non_diagonal_exception_is_rejected(self):
+        original=resumed.reviewer.impedance_comments
+        def altered(path,n=4):
+            z,g,f=original(path,n);z=z.copy();z[1,0,1]=1.
+            return z,g,f
+        with patch.object(resumed.reviewer,'impedance_comments',side_effect=altered):
+            with self.assertRaisesRegex(AssertionError,'two explicitly reviewed'):
+                resumed.reviewer.review(d.ATTEMPT)
+
+
+if __name__=='__main__':unittest.main(verbosity=2)

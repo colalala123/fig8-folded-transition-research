@@ -1,0 +1,105 @@
+"""New independent B05 fourteen-core bounded runtime; never reopens closed queues."""
+import sys,ast,copy,shutil,json
+from pathlib import Path
+MASTER=Path(__file__).resolve().parent
+OUT=MASTER.parent
+OLDMASTER=OUT/'fig8_theory_ml_20261028'
+sys.path.insert(0,str(OLDMASTER))
+from common import read,write,sha,now
+import prepare_runtime as factory
+AUTH='那你现在跑B05，但是用14核'
+BASE=Path('D:/hfss_fig8_B05_20261029')
+TEMP=BASE/'solver_temp'
+PROBES=OUT/'fig8_B05_fix14_probes_20261029'
+
+def cores14(s):
+    s=s.replace("'cores_per_task':16","'cores_per_task':14")
+    for old,new in [('16core','14core'),('16cores','14cores'),('16核','14核'),('-max_processors 16','-max_processors 14')]:s=s.replace(old,new)
+    s=s.replace('开发总计最多6探针加3候选；3个选中项各最多32点/8次直接复核。不超预算、不自动扩大训练批次','仅本轮B05，14核串行，2探针加最多2候选合计4几何/60Analyze；只对最终一个选中项做最多32点/8次直接复核。不重开旧队列，不启动48点')
+    return s
+
+def make_context(folder,base,rows,stage,continuation):
+    factory.ROOT=MASTER;factory.AUTH=AUTH
+    result=factory.runtime(folder,base,rows,stage)
+    folder=Path(folder)
+    # Transform resource evidence, not mesh pass counts such as MinimumPasses16.
+    for f in folder.glob('*.py'):f.write_text(cores14(f.read_text(encoding='utf-8')),encoding='utf-8')
+    f=folder/'phase_geometry_context.py'
+    f.write_text(f.read_text(encoding='utf-8')+f"\nsys.path.insert(0,{str(MASTER)!r})\nfrom b05_budget import validate_development\n_validate_local=validate_geometry_budget\ndef validate_geometry_budget(spec,path):\n    validate_development()\n    return _validate_local(spec,path)\n",encoding='utf-8')
+    f=folder/'phase_geometry_worker.py';s=f.read_text(encoding='utf-8')
+    s=s.replace('async def solve_stage(project, run, state, label, adaptive):','from b05_budget import validate_development\n\nasync def solve_stage(project, run, state, label, adaptive):',1)
+    s=s.replace("    args={'project_name':project.stem","    assert len(state['segments'])<13\n    assert sum(bool(x['adaptive_requested']) for x in state['segments'])<12 if adaptive else sum(not x['adaptive_requested'] for x in state['segments'])<1\n    validate_development(extra_analyze=1)\n    args={'project_name':project.stem",1)
+    s=s.replace('    assert shutil.disk_usage(BASE).free>15*1024**3',"    assert shutil.disk_usage(BASE).free>15*1024**3\n    assert shutil.disk_usage(read(HERE/'desktop_start.json')['temp_directory']).free>15*1024**3",1)
+    s=s.replace("            assert Path(app.project_file).resolve()==project.resolve(),'AEDT attached to a different project'","            assert Path(app.project_file).resolve()==project.resolve(),'AEDT attached to a different project'\n            assert Path(app.temp_directory).resolve()==Path(read(HERE/'desktop_start.json')['temp_directory']).resolve()",1)
+    f.write_text(s,encoding='utf-8')
+    f=folder/'configure_projects.py';s=f.read_text(encoding='utf-8');assert s.count("        g=r['geometry']")==1
+    s=s.replace("        g=r['geometry']",f"        temp_target=Path({str(TEMP)!r})\n        temp_target.mkdir(parents=True,exist_ok=True)\n        assert shutil.disk_usage(temp_target).free>15*1024**3\n        assert app.set_temporary_directory(temp_target)\n        assert Path(app.temp_directory).resolve()==temp_target.resolve()\n        g=r['geometry']")
+    s=s.replace("        reports_before=list(app.post.all_report_names)\n        if reports_before:app.post.delete_report()\n",'')
+    s=s.replace("        g=r['geometry']","        report_module=app.odesign.GetModule('ReportSetup')\n        report_module.DeleteAllReports()\n        assert not list(report_module.GetAllReportNames())\n        g=r['geometry']",1)
+    i=s.index('        report_created=app.post.create_report(');j=s.index('        # Some AEDT',i)
+    s=s[:i]+'        report_created=False  # Preserve template; no empty pre-solve report.\n'+s[j:]
+    f.write_text(s,encoding='utf-8')
+    f=folder/'finalize_and_authorize.py';gate=f.read_text(encoding='utf-8')
+    needle="    assert auth['configuration_authorized'] and not auth['execution_authorized']"
+    gate=gate.replace(needle,needle+f"\n    assert not auth.get('diagnostic_hold',False)\n    diagnostic=pc.read(Path({str(MASTER/'report_preflight_result.json')!r}))\n    assert diagnostic['passed'] and diagnostic['reopen_close_cycles_passed']>=2 and not diagnostic['Analyze_requested']")
+    f.write_text(gate,encoding='utf-8')
+    # Current scope replaces inherited C9 prose; hook retains verified transport.
+    policy=read(folder/'policy.json');policy.update(user_authorization=AUTH,scope='B05 only,14cores serial,maximum4newgeometries',bounded_tuning='2 probes + up to2 candidates; no automatic48-point batch');write(folder/'policy.json',policy)
+    auth=read(folder/'authorization.json');auth.update(combined_development_cap=4,cores_per_task=14,concurrent_tasks=1);write(folder/'authorization.json',auth)
+    ep=read(folder/'execution_plan.json');ep.update(development_geometry_cap=4,selected_final_direct_cases_max=1,total_development_Analyze_cap=60);write(folder/'execution_plan.json',ep)
+    p=read(folder/'parent_evidence.json');p['hashes'].update({str(MASTER/'b05_budget.py'):sha(MASTER/'b05_budget.py'),str(Path(__file__)):sha(__file__),str(OLDMASTER/'closure.json'):sha(OLDMASTER/'closure.json')});p['hashes'][str(MASTER/'report_preflight_result.json')]=sha(MASTER/'report_preflight_result.json');write(folder/'parent_evidence.json',p)
+    (folder/'CONTINUATION.md').write_text(continuation,encoding='utf-8')
+    (folder/'phase_geometry_publish.py').write_text('''from phase_control import HERE,TARGET,ORDER,read,write,now
+from phase_publish import hook
+
+def prompt(event,path):
+    return (f'[B05二轮14核完成通知] {path}\\n{event["summary"]}\\n'
+        f'先读{HERE/"CONTINUATION.md"}与本轮EXECUTION_PLAN。仅本轮B05、14核串行、最多4新几何；旧队列闭账不可重开。'
+        '先review_phase_geometry、实际view_image、acknowledge_review，再启动唯一后继并监督真实14核1组；不重复Analyze。'
+        '正常运行静默，失败查真实进程和缓存，一次技术恢复继承预算。不自动启动48点，不清工程锁。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(HERE/'hook/config.json');path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B05 bounded14core length development;not new independent blind test')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt
+''',encoding='utf-8')
+    shutil.copyfile(OUT/'fig8_ml_candidates_D_20261028/test_lifecycle_watch.py',folder/'test_lifecycle_watch.py')
+    # Keep provenance of all customized copies before any inputs are frozen.
+    prov=read(folder/'implementation_provenance.json')
+    for name,entry in prov.items():entry['local_sha256']=sha(folder/name)
+    write(folder/'implementation_provenance.json',prov)
+    for f in folder.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    return result
+
+CONT=f'''# B05第二轮：14核、两探针
+先读{MASTER/'EXECUTION_PLAN.md'}。本上下文只派发B05N_S、B05N_M，顺序固定。
+每次完成运行本目录review_phase_geometry.py --run RUN，实际view_image看生成PNG，再acknowledge_review.py --run RUN --visual-reviewed --note实际观察。
+第一项审核后用本目录launch_one.py --case B05N_M，监督真实hf3d14核1组，不把Python启动当求解启动。
+两探针全部实际看图ACK后，运行{MASTER/'prepare_candidate.py'}。该脚本只离线生成第一个候选及新的候选上下文，不Analyze。若无受支持候选则保留负例停止，不改变门限。
+新候选上下文继续desktop_preflight、verify_live_hook、configure_projects --all、finalize_and_authorize、launch_one。后续最多2个候选，全轮4几何/60Analyze，详见主方案。最终只验收一个选中结果，不给所有探针加重复直接核验。
+Hook只发当前聊天终态。消息后5分钟无新真实求解才看聊天是否中断；正常仿真不周期发消息。失败查进程与缓存、最多一次技术恢复，不清工程锁，不重开旧C9/24/均匀数据，不自动启动48点。用户暂停立即停心跳。
+'''
+
+def main():
+    assert not PROBES.exists()
+    baseline=Path('D:/hfss_fig8_20261028/candidates/B05C/g01_initial')
+    old=read(OUT/'fig8_ml_candidates_D_20261028/plan.json');row=next(x for x in old['cases'] if x['case']=='B05C')
+    assert read(baseline/'receiver_ack.json')['operation_success']
+    evidence={str(baseline/n):sha(baseline/n) for n in ['input.json','state.json','manifest.json','completion_event.json','receiver_ack.json','receiver_verification.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt']}
+    evidence[str(OLDMASTER/'final_review/cases/B05/disposition.json')]=sha(OLDMASTER/'final_review/cases/B05/disposition.json')
+    rows=[]
+    for suffix,key,step in [('S','Ls1',.10),('M','Lm',.05)]:
+        r={k:copy.deepcopy(row[k]) for k in ['group','family_id','parent_case','target_P','target_R','P_nominal','R_nominal','a_mm','g_mm','target']}
+        g=copy.deepcopy(row['geometry']);g[key]+=step
+        r.update(case='B05N_'+suffix,geometry=g,initial_geometry=g,category='B05_second_cycle_development_not_blind',parent_evidence_hashes=evidence,original_source=str(baseline),probe=dict(parameter=key,step_mm=step,parent_geometry=row['geometry']))
+        rows.append(r)
+    write(MASTER/'baseline.json',dict(run=str(baseline),geometry=row['geometry'],target=row['target'],evidence_hashes=evidence,baseline_cores=16,new_cores=14))
+    print(make_context(PROBES,BASE/'probes',rows,'B05N14P',CONT))
+if __name__=='__main__':main()

@@ -1,0 +1,673 @@
+{
+  "at": "2026-10-31T08:37:12.408566+00:00",
+  "case": "N15_A18_S",
+  "status": "technical_failure_not_design_negative",
+  "Analyze_requests": 4,
+  "last_confirmed_passes": 18,
+  "last_confirmed_elements": 75939,
+  "fourth_stage_finished": true,
+  "fourth_stage_mesh_not_verified": true,
+  "expected_desktop": {
+    "at": "2026-10-31T02:07:30.126797+00:00",
+    "pid": 94084,
+    "created": 1793412433.4871595,
+    "command": [
+      "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+      "-grpcsrv",
+      "7990"
+    ],
+    "port": 7990,
+    "visible_requested": true,
+    "old_pid": 85208,
+    "Analyze_requested": false,
+    "reason": "User-approved zero-Analyze load-timeout restart; same N20_C2 technical recovery"
+  },
+  "native": [
+    {
+      "name": "ansysedt.exe",
+      "create_time": 1793435695.4359088,
+      "cmdline": [
+        "D:\\Program Files\\AnsysEM\\v242\\Win64\\ansysedt.exe",
+        "-grpcsrv",
+        "1976",
+        "-ng"
+      ],
+      "pid": 103608
+    }
+  ],
+  "expected_desktop_absent": true,
+  "exit_cause_unconfirmed": true,
+  "unexpected_desktop_not_touched": true,
+  "new_Analyze_added_by_diagnosis": 0,
+  "cache_inventory_count": 887,
+  "source_original_hashes": {
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\input.json": "9827b3df823fc4b4a5171bee3de3822582a617888625f16e8656b2c9cc6c1d7e",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\state.json": "4480f1163d5d6dfac8a055baa3599e8418683b46aef412136fdf9836584c75c6",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\worker_error.json": "7c8a2feb757ff34cd7d78c14e77df6020df0303daba3ad6ad000bb21ee81042f",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\completion_event.json": "45b1f160dffba6b075cde073348db77e39b762f936fee9246390187f9bc31a72",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\supervised_start.json": "66c72edb3fe4be35248e27358b31225e28c8cc16b2a0621b6c78c8043e9f0216",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\convergence_stage_00.txt": "b6e847598e7b0f21e24ad5b5c6edc5e5122450f5ce2ed2d2d3b4df9ac0df39af",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\convergence_stage_01.txt": "7d03cbfcff410f04d3132413f1b969d2e742bca23bf0b2123a5c2f5df6805610",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\convergence_stage_02.txt": "1080f6dd5b8c2e7263f568a7342dc131cd37f2254e89149c6542b92d2be8096c",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\pre_stage_03.txt": "1080f6dd5b8c2e7263f568a7342dc131cd37f2254e89149c6542b92d2be8096c",
+    "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\N15_A18_S_T48_N15_A18_PROBES_g01.aedt": "9816dfaae5ba3889123c1d8122e28575f630f623f85c0a5247cb4aaaf30fe78b"
+  },
+  "error": {
+    "at": "2026-10-31T08:34:47.535849+00:00",
+    "error": "Traceback (most recent call last):\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\internal\\grpc_plugin_dll_class.py\", line 382, in recreate_application\n    odesktop = self.aedt.GetAppDesktop()\n               ^^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'GetAppDesktop'\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\desktop.py\", line 1170, in odesktop\n    self.__desktop = self.grpc_plugin.odesktop\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\internal\\grpc_plugin_dll_class.py\", line 365, in odesktop\n    return self.recreate_application()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\internal\\grpc_plugin_dll_class.py\", line 386, in recreate_application\n    return run()\n           ^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\internal\\grpc_plugin_dll_class.py\", line 369, in run\n    self.ReleaseAedtObject(self.aedt.objectID)\n                           ^^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'objectID'\n\nDuring handling of the above exception, another exception occurred:\n\nTraceback (most recent call last):\n  File \"${WORKSPACE}\\output\\fig8_tune48_N15_A18_probes_20261031\\phase_geometry_worker.py\", line 273, in main\n    result=await execute(spec_path);status='completed';metrics=result['metrics']\n           ^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\output\\fig8_tune48_N15_A18_probes_20261031\\phase_geometry_worker.py\", line 192, in execute\n    app=dc.app_for(project)\n        ^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\output\\fig8_tune48_N15_A18_probes_20261031\\aedt_session_guard.py\", line 12, in guarded\n    verify();assert Path(path).resolve().is_relative_to(pc.BASE.resolve());return original(path)\n                                                                                  ^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\output\\fig8_acceptance_audit_20261021\\direct_check.py\", line 20, in app_for\n    def app_for(p):return Hfss(project=str(p),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)\n                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\hfss.py\", line 227, in __init__\n    FieldAnalysis3D.__init__(\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\analysis_3d.py\", line 129, in __init__\n    Analysis.__init__(\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\analysis.py\", line 145, in __init__\n    Design.__init__(\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\design.py\", line 251, in __init__\n    self.oproject: str = project_name\n    ^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\application\\design.py\", line 1351, in oproject\n    project_list = self.desktop_class.project_list\n                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\desktop.py\", line 1389, in project_list\n    return list(self.odesktop.GetProjectList())\n                ^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\desktop.py\", line 1175, in odesktop\n    self.grpc_plugin.recreate_application(True)\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\internal\\grpc_plugin_dll_class.py\", line 379, in recreate_application\n    return run()\n           ^^^^^\n  File \"${WORKSPACE}\\.venv\\Lib\\site-packages\\ansys\\aedt\\core\\internal\\grpc_plugin_dll_class.py\", line 369, in run\n    self.ReleaseAedtObject(self.aedt.objectID)\n                           ^^^^^^^^^^^^^^^^^^\nAttributeError: 'NoneType' object has no attribute 'objectID'\n",
+    "live_solvers": []
+  },
+  "supervised_start": {
+    "at": "2026-10-31T04:56:39.765241+00:00",
+    "input_sha256": "9827b3df823fc4b4a5171bee3de3822582a617888625f16e8656b2c9cc6c1d7e",
+    "worker_pid": 91236,
+    "worker_created": 1793422558.9483476,
+    "worker_command": [
+      "D:\\uv\\python\\cpython-3.12.13-windows-x86_64-none\\python.exe",
+      "${WORKSPACE}\\output\\fig8_tune48_N15_A18_probes_20261031\\phase_geometry_worker.py",
+      "--spec",
+      "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial\\input.json"
+    ],
+    "actual_hf3d": [
+      {
+        "cmdline": [
+          "95584_6",
+          "95584_7",
+          "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_95584.pjt/",
+          "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 1 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+        ],
+        "name": "hf3d.exe",
+        "pid": 103468
+      },
+      {
+        "cmdline": [
+          "95584_3",
+          "95584_4",
+          "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_95584.pjt/",
+          "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 1 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+        ],
+        "name": "hf3d.exe",
+        "pid": 100588
+      }
+    ],
+    "active_stage": "supervised_geometry_adaptive",
+    "actual_elements": null,
+    "mcp_requests": [
+      {
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      }
+    ],
+    "geometry": {
+      "Wm": 1.851119,
+      "Ws": 0.414584,
+      "Lm": 6.530716400622243,
+      "Ls1": 12.154120611980494,
+      "Ls2": 1.379168,
+      "Ls3": 2.214584
+    },
+    "actual_14core_single_group_observed": true
+  },
+  "segments_without_large_observation_arrays": [
+    {
+      "label": "adaptive_00",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T04:56:28.986054+00:00",
+      "mcp_request": {
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 279.2970000000205,
+      "finished_at": "2026-10-31T05:01:08.568228+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N15_A18_S_T48_N15_A18_PROBES_g01, Design: Wideband vertical transition, [warning] Adaptive Passes did not converge based on specified criteria. (06:01:04 AM  Oct 31, 2026)\r\n",
+        "Project: N15_A18_S_T48_N15_A18_PROBES_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (06:01:04 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_01",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T05:01:22.634060+00:00",
+      "mcp_request": {
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 57.40600000001723,
+      "finished_at": "2026-10-31T05:02:20.335941+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N15_A18_S_T48_N15_A18_PROBES_g01, Design: Wideband vertical transition, [warning] Adaptive Passes did not converge based on specified criteria. (06:02:16 AM  Oct 31, 2026)\r\n",
+        "Project: N15_A18_S_T48_N15_A18_PROBES_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (06:02:16 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_02",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T05:02:34.520480+00:00",
+      "mcp_request": {
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 63.40600000001723,
+      "finished_at": "2026-10-31T05:03:38.225564+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N15_A18_S_T48_N15_A18_PROBES_g01, Design: Wideband vertical transition, [warning] Adaptive Passes did not converge based on specified criteria. (06:03:34 AM  Oct 31, 2026)\r\n",
+        "Project: N15_A18_S_T48_N15_A18_PROBES_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (06:03:34 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_03",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T05:03:53.942249+00:00",
+      "mcp_request": {
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N15_A18_S_T48_N15_A18_PROBES_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 63.11000000004424,
+      "finished_at": "2026-10-31T05:04:57.353373+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true
+    }
+  ],
+  "mesh_stages": [
+    {
+      "index": 0,
+      "requested": {
+        "action": "initial_adaptive",
+        "maximum_passes": 16,
+        "minimum_passes": 16,
+        "percent_refinement": 30,
+        "sweep_enabled": false,
+        "scope": "supervised only"
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 16,
+        "MinimumPasses": 16,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 30,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 16,
+      "actual_elements": 59802,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 1,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 17,
+        "minimum_passes": 17,
+        "percent_refinement": 10,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 17,
+        "MinimumPasses": 17,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 10,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 17,
+      "actual_elements": 69494,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 2,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 18,
+        "minimum_passes": 18,
+        "percent_refinement": 10,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 18,
+        "MinimumPasses": 18,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 10,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 18,
+      "actual_elements": 75939,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 3,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 19,
+        "minimum_passes": 19,
+        "percent_refinement": 10,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 19,
+        "MinimumPasses": 19,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 10,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      }
+    }
+  ],
+  "state_status_is_stale": "solving",
+  "historical_diagnosis_not_live_process_probe": true
+}

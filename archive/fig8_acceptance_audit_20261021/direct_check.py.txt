@@ -1,0 +1,144 @@
+"""Serial MCP checks of two unchanged meshes, isolated from production files."""
+import faulthandler
+faulthandler.enable()
+faulthandler.dump_traceback_later(90,repeat=True)
+import asyncio,csv,json,os,shutil,sys,time,traceback
+from pathlib import Path
+import numpy as np
+import psutil
+from audit import read,write,sha,load,HERE,ROOT
+OLD=HERE.parent/'fig8_resume_20261007'
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+sys.path.insert(0,str(OLD))
+from pilot_worker import convergence
+from mcp_call import connected_client,session_call
+from preserve_discrete_ranges import restore_properties
+from ansys.aedt.core import Hfss
+BASE=ROOT/'acceptance_audit_20261021'
+SWEEP='FundamentalDirectAudit20261021'
+def solvers():return [p.info for p in psutil.process_iter(['pid','name','cmdline']) if (p.info['name'] or '').lower()=='hf3d.exe']
+def app_for(p):return Hfss(project=str(p),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+def plan(case):
+    src=ROOT/case/'i00';m=read(src/'manifest.json');metrics=read(src/'response_metrics.json')
+    centers=[metrics['passband_2dB'][k] for k in ['f_low_GHz','f_high_GHz']]
+    centers += [p['frequency_GHz'] for p in metrics['peaks']]
+    points={round(f+d,2) for f in centers for d in [-.02,0,.02]}
+    points.update(v['frequency_GHz'] for v in metrics['valleys'])
+    points.update([.1,3.,6.,12.,15.])
+    points.update([9.46,9.48,9.50] if case=='D05G02' else [8.52,8.54,8.57,8.59,8.61])
+    return {'case':case,'source':str(src),'project_source':m['project'],'frequencies_GHz':sorted(points),
+      'geometry':m['geometry'],'source_sha256':sha(m['project']),'original_convergence':m['convergence'],
+      'criteria':{'max_native_complex_error':.005,'max_S21_error_dB_in_band':.05,'max_peak_S11_error_dB':.1,
+      'max_edge_shift_GHz':.02,'max_BW_shift_GHz':.04},
+      'scope':'Same mesh discrete diagnostic; no geometry solve; no full-matrix production approval.'}
+def get_data(app,sweep):
+    modes=['1:1','1:2','2:1','2:2'];expr=[f'S({a},{b})' for a in modes for b in modes]
+    aux=[f'{k}({a})' for k in ['Zo','Gamma'] for a in modes]
+    d=app.post.get_solution_data(expressions=expr+aux,setup_sweep_name='Setup19 : '+sweep,domain='Sweep',report_category='Modal Solution Data')
+    assert d
+    f=np.array(d.primary_sweep_values)*{'GHz':1,'MHz':1e-3,'Hz':1e-9}[d.units_sweeps['Freq']]
+    values={}
+    for e in expr+aux:
+        _,r=d.get_expression_data(e,formula='real');_,i=d.get_expression_data(e,formula='imag')
+        values[e]=np.array(r)+1j*np.array(i)
+        assert np.isfinite(values[e]).all()
+    return f,values,expr,aux
+def export(app,run,expected):
+    f,v,expr,aux=get_data(app,SWEEP);assert len(f)==len(expected) and np.allclose(f,expected,atol=1e-9,rtol=0)
+    for filename,labels in [('all_modes_sparams.csv',{e:e for e in expr}),('mode_impedance_gamma.csv',{e:e for e in aux}),
+      ('sparams.csv',{'S11':'S(1:1,1:1)','S21':'S(2:1,1:1)','S12':'S(1:1,2:1)','S22':'S(2:1,2:1)'})]:
+        rows=[{'Freq_GHz':float(x)} for x in f]
+        for label,e in labels.items():
+            for row,z in zip(rows,v[e]):
+                row[label+'_real']=float(z.real);row[label+'_imag']=float(z.imag)
+                if filename=='sparams.csv':row[label+'_dB']=float(20*np.log10(max(abs(z),1e-300)))
+        with (run/filename).open('w',newline='',encoding='utf-8') as h:
+            w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    write(run/'manifest.json',{'modes':2,'diagnostic_only':True,'setup_sweep':'Setup19 : '+SWEEP})
+async def execute(case):
+    assert not solvers();assert not (ROOT/'pilot_queue.lock').exists()
+    run=BASE/case;run.mkdir(parents=True,exist_ok=True);p=plan(case);pf=run/'plan.json'
+    if pf.exists():assert read(pf)==p
+    else:write(pf,p)
+    stfile=run/'state.json';st=read(stfile) if stfile.exists() else {'status':'new'}
+    if st['status']=='completed':return
+    source=Path(p['project_source']);project=run/(case+'_audit.aedt')
+    if st['status']=='new':
+        assert sha(source)==p['source_sha256']
+        if project.exists():assert sha(project)==sha(source)
+        else:shutil.copy2(source,project)
+        cached=source.with_suffix('.aedtresults');target=project.with_suffix('.aedtresults')
+        assert cached.exists()
+        files=[x for x in cached.rglob('*') if x.is_file() and not x.name.endswith('.semaphore')]
+        assert shutil.disk_usage(BASE).free>sum(x.stat().st_size for x in files)+10*1024**3
+        for file in files:
+            dest=target/file.relative_to(cached);dest.parent.mkdir(exist_ok=True,parents=True)
+            if dest.exists():assert dest.stat().st_size==file.stat().st_size
+            else:shutil.copy2(file,dest)
+        st={'status':'copied','project':str(project),'cache_files':len(files),'source_sha256':sha(source)};write(stfile,st)
+    if st['status']=='copied':
+        app=app_for(project)
+        try:
+            assert not app.are_there_simulations_running
+            setup=app.get_setup('Setup19');assert setup.is_solved
+            app.export_convergence('Setup19',output_file=str(run/'convergence_before.txt'))
+            assert convergence(run/'convergence_before.txt')==p['original_convergence']
+            f,v,_,_=get_data(app,'Sweep1');of,original,oz=load(Path(p['source']))
+            assert np.allclose(f,of) and len(f)==1500
+            assert max(abs(v['S(1:1,1:1)']-original[:,0,0]).max(),abs(v['S(2:1,1:1)']-original[:,2,0]).max())<1e-10
+            assert all(int(b.props['NumModes'])==2 for b in app.boundaries if b.type=='Wave Port')
+            st['settings_before']=json.loads(json.dumps(setup.props,default=str))
+            for sw in setup.sweeps:
+                assert sw.name=='Sweep1';sw.props['Type']='Interpolating';sw.props['IsEnabled']=False;assert sw.update()
+            sw=setup.add_sweep(SWEEP,sweep_type='Discrete');sw.auto_update=False
+            restore_properties(sw,p['frequencies_GHz']);sw.props.update({'IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+            app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+            st.update(status='prepared',copied_original_curves_verified=True);write(stfile,st)
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+    if st['status'] not in ['prepared','solving']:raise RuntimeError(st)
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+    async with connected_client() as client:
+        if st['status']=='prepared':
+            response=await session_call(client,'start_analysis',args);assert response.get('started')
+            st.update(status='solving',mcp_request=args,mcp_response=response,observations=[]);write(stfile,st)
+        while True:
+            await asyncio.sleep(10);live=solvers()
+            for process in live:
+                command=' '.join(process['cmdline'] or [])
+                if '-solve_broadband_adapt ' in command or '-solve_adapt ' in command:
+                    app=app_for(project)
+                    try:app.stop_simulations(clean_stop=True)
+                    finally:app.release_desktop(close_projects=False,close_desktop=False)
+                    raise RuntimeError('Unexpected adaptive re-solve; stopped')
+            if live and (not st['observations'] or st['observations'][-1]!=live):st['observations'].append(live)
+            status=await session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+            st['last_status']=status;write(stfile,st)
+            if not live and not status.get('running'):break
+    app=app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));st['messages']=messages
+        assert any('Discrete frequency sweep complete.' in x for x in messages)
+        assert not any('[error]' in x.lower() for x in messages)
+        export(app,run,p['frequencies_GHz'])
+        app.export_convergence('Setup19',output_file=str(run/'convergence_after.txt'))
+        assert convergence(run/'convergence_after.txt')==p['original_convergence']
+        app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(source)==p['source_sha256']
+    commands=[' '.join(x['cmdline'] or []) for obs in st['observations'] for x in obs]
+    assert any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    st.update(status='completed',same_mesh_verified=True,source_unchanged=True);write(stfile,st)
+async def main():
+    BASE.mkdir(exist_ok=True)
+    lock=ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:
+        for case in ['D05G02','D08G05']:await execute(case)
+    except BaseException:
+        write(BASE/'error.json',{'error':traceback.format_exc()});raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+if __name__=='__main__':
+    faulthandler.cancel_dump_traceback_later()
+    asyncio.run(main())

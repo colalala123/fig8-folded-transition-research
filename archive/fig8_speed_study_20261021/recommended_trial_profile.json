@@ -1,0 +1,24 @@
+{
+  "status": "representative_tests_passed_candidate_not_global_production",
+  "MaxDeltaS": 0.005,
+  "InterpTolerance": 1.0,
+  "EnforcePassivity": false,
+  "MinimumConvergedPasses": 2,
+  "MinimumPasses": 6,
+  "MaximumPasses": 40,
+  "cores_per_task": 16,
+  "concurrent_tasks": 1,
+  "modes_per_port": 2,
+  "scope": "Native fundamental S11/S21 response tuning; retain full matrix diagnostics and critical-point checks.",
+  "validated_cases": [
+    "D05G02/i00",
+    "D08G05/i00"
+  ],
+  "production_protocol_modified": false,
+  "all_geometry_guarantee": false,
+  "evidence": "study_summary.json; verification.json",
+  "not_recommended": {
+    "MaxDeltaS": 0.01,
+    "reason": "Predeclared response-error budget failed on representative geometry."
+  }
+}

@@ -1,0 +1,97 @@
+{
+  "purpose": "Compare parameter definitions, not validate a geometry-to-response predictor.",
+  "formula": "F=sqrt(R/P)*(P*R*u^3+(1-P)*u), u=cot(pi*f/(2*f_phi)); R_zero=(P-1)/(P*u_zero^2).",
+  "assumptions": "An approximately symmetric three-valley reflection shape with comparable ripple peaks.",
+  "limitations": [
+    "The same response supplies the fitted peak level, center and outer-valley locations.",
+    "Reported shape RMSE is a within-curve diagnostic, not an independent prediction test.",
+    "Nonzero and asymmetric valley minima in lossy HFSS data are only approximate ideal zeros.",
+    "R_zero and R_BW are response parameters and need not be a local physical impedance ratio.",
+    "Theoretical S21 is lossless; matching S11 does not establish the actual lossy bandwidth.",
+    "A0 is an existing historical reference and was not rerun in this five-case batch."
+  ],
+  "rows": [
+    {
+      "case": "A0 (historical)",
+      "curve_path": "F:\\hfss_fold_260920\\A0\\sparams.csv",
+      "curve_sha256": "4b84cb853e4cbbe30322e4ca889b2d87d162f945c906949d359f14fbf82e8c0c",
+      "P_from_equal_peaks": 2.1263624703623187,
+      "f_phi_GHz": 6.77,
+      "outer_valleys_GHz": [
+        3.78,
+        9.6
+      ],
+      "R_zero_left_right": [
+        0.7658624904441963,
+        0.8917784844193402
+      ],
+      "R_zero_mean": 0.8288204874317682,
+      "R_BW_at_same_f_phi": 1.1028299333284584,
+      "evaluation_band_GHz": [
+        3.78,
+        9.6
+      ],
+      "calibrations": {
+        "BW, nominal center": {
+          "R": 1.1433305595144116,
+          "f0_GHz": 6.85,
+          "S11_magnitude_RMSE": 0.06085105703379784,
+          "S21_dB_RMSE": 0.6410374386249265
+        },
+        "BW, observed center": {
+          "R": 1.1028299333284584,
+          "f0_GHz": 6.77,
+          "S11_magnitude_RMSE": 0.050653726208630796,
+          "S21_dB_RMSE": 0.6436505198553361
+        },
+        "Outer valleys, observed center": {
+          "R": 0.8288204874317682,
+          "f0_GHz": 6.77,
+          "S11_magnitude_RMSE": 0.016913240995736028,
+          "S21_dB_RMSE": 0.6346948637384963
+        }
+      }
+    },
+    {
+      "case": "B0 (fresh)",
+      "curve_path": "F:\\hfss_f8_261002\\B0\\sparams.csv",
+      "curve_sha256": "8ded91edfe45e2510cc07db0b8f6437fd2489761f962c7af6c7ffc9f3392eee0",
+      "P_from_equal_peaks": 2.096496977300292,
+      "f_phi_GHz": 6.74,
+      "outer_valleys_GHz": [
+        3.83,
+        9.59
+      ],
+      "R_zero_left_right": [
+        0.8057347805359668,
+        0.8533598825759396
+      ],
+      "R_zero_mean": 0.8295473315559532,
+      "R_BW_at_same_f_phi": 1.031371187280202,
+      "evaluation_band_GHz": [
+        3.83,
+        9.59
+      ],
+      "calibrations": {
+        "BW, nominal center": {
+          "R": 1.084898704872393,
+          "f0_GHz": 6.85,
+          "S11_magnitude_RMSE": 0.043514909669001,
+          "S21_dB_RMSE": 0.5268768229817309
+        },
+        "BW, observed center": {
+          "R": 1.031371187280202,
+          "f0_GHz": 6.74,
+          "S11_magnitude_RMSE": 0.032516019504539834,
+          "S21_dB_RMSE": 0.5297839586506489
+        },
+        "Outer valleys, observed center": {
+          "R": 0.8295473315559532,
+          "f0_GHz": 6.74,
+          "S11_magnitude_RMSE": 0.008773784839194398,
+          "S21_dB_RMSE": 0.5216801593746098
+        }
+      }
+    }
+  ]
+}

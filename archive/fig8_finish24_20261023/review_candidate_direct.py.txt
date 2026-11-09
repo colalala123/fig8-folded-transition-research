@@ -1,0 +1,58 @@
+"""Independent receiver check for candidate_direct events; never auto-accepts."""
+import argparse
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from candidate_direct import compare, passes
+from control import HERE,read,write,sha,now
+from publish_event import hook
+
+
+def review(run):
+    run=Path(run).resolve();event=read(run/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success']
+    verified={}
+    for a in event['artifacts']:
+        p=(run/a['path']).resolve();assert p.is_relative_to(run) and sha(p)==a['sha256'];verified[str(p)]=a['sha256']
+    plan=read(run/'input.json');state=read(run/'state.json');source=Path(plan['source'])
+    for p,digest in plan['parent_evidence_hashes'].items():assert sha(p)==digest
+    assert state['status']=='completed' and state['same_mesh_verified'] and state['source_unchanged'] and state['copied_original_curves_verified']
+    history=passes(source/'convergence.txt')
+    assert history==passes(run/'convergence_before.txt')==passes(run/'convergence_after.txt')
+    assert history[-1][1]==state['actual_elements']
+    assert len(state['segments'])==1 and not state['segments'][0]['observed_adaptive_process']
+    for name in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        data=np.genfromtxt(run/name,delimiter=',',skip_header=1)
+        assert len(data)==len(plan['frequencies_GHz']) and np.isfinite(data).all()
+        assert np.allclose(data[:,0],plan['frequencies_GHz'])
+    result=compare(source,run);assert result==read(run/'comparison.json')
+    original=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+    direct=np.genfromtxt(run/'sparams.csv',delimiter=',',names=True)
+    fig,axes=plt.subplots(1,3,figsize=(14,4))
+    for key,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+        axes[0].plot(original['Freq_GHz'],original[key],color=color,label=key+' interpolation')
+        axes[0].scatter(direct['Freq_GHz'],direct[key],s=12,facecolors='none',edgecolors=color)
+    axes[0].set(xlim=(2.5,11),ylim=(-65,1),title=plan['case']+' same mesh')
+    metrics=read(source/'response_metrics.json')
+    for ax,p in zip(axes[1:],metrics['peaks']):
+        f=p['frequency_GHz'];win=abs(direct['Freq_GHz']-f)<=.050001
+        ax.plot(original['Freq_GHz'],original['S11_dB'],label='Interpolated')
+        ax.scatter(direct['Freq_GHz'][win],direct['S11_dB'][win],label='Direct',color='tab:orange')
+        y=direct['S11_dB'][win]
+        ax.set(xlim=(f-.06,f+.06),ylim=(y.min()-.03,y.max()+.03),title=f'Peak near {f:g} GHz')
+    for ax in axes:ax.set_xlabel('GHz');ax.set_ylabel('dB');ax.grid(alpha=.2)
+    axes[0].legend(fontsize=7);axes[1].legend(fontsize=8);fig.tight_layout()
+    plot=HERE/'cases'/plan['case']/(run.name+'_overlay.png');fig.savefig(plot,dpi=150);plt.close(fig)
+    out={'event_id':hook.event_id(event),'event_sha256':sha(run/'completion_event.json'),'at':now(),
+         'artifacts_verified':verified,'same_mesh_verified':True,'actual_elements':state['actual_elements'],
+         'observed_16core_process':state['segments'][0]['observed_16core_process'],
+         'comparison':result,'plot':str(plot),'plot_sha256':sha(plot),'visual_review_pending':True,'full_matrix_approved':False}
+    write(run/'receiver_verification.json',out)
+    print({'plot':str(plot),'direct_peak_difference_dB':result['direct_peak_difference_dB'],
+           'numerical_review_passed':result['numerical_review_passed'],'sampled_design_supported':result['sampled_design_supported']})
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True);review(p.parse_args().run)

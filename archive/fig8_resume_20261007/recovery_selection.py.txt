@@ -1,0 +1,97 @@
+"""Verify explicit protocol equivalence and separately accepted recovery data.
+
+Read-only helpers. A candidate file or a 'completed' label cannot authorize
+reuse: an acceptance record must bind the original attempt and every export.
+"""
+import hashlib,json
+from pathlib import Path
+
+ROOT=Path('J:/f8_261007')
+PHYSICAL_KEYS=['modes','adaptive_method','sweep_method','baseline_run',
+    'central_valley_target_GHz','f0_reference_GHz','material','cores','tasks','port',
+    'normalization','source_B0_sha256','source_T_F3_sha256',
+    'reference_review','collector_review','pilot_matrix_sha256']
+DATA_FILES=['manifest.json','response_metrics.json','sparams.csv','port_review.json',
+    'normalization_recovery_review.json','scalar_reference_50ohm.npz',
+    'all_modes_sparams.csv','mode_impedance_gamma.csv','mode_map.json']
+
+def read(path):return json.loads(Path(path).read_text(encoding='utf-8'))
+def sha(path):return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+def hashes(mapping):
+    assert mapping,'Missing evidence hashes'
+    for file,digest in mapping.items():assert sha(file)==digest, f'Changed evidence: {file}'
+
+def compatible_protocol(digest,root=ROOT):
+    root=Path(root);current_file=root/'production_protocol.json';current=read(current_file)
+    assert current['status']=='frozen_verified'
+    if digest==sha(current_file):return current
+    matches=[x for x in current.get('compatible_prior_protocols',[]) if x['sha256']==digest]
+    assert len(matches)==1,'Protocol has no explicit equivalence review'
+    entry=matches[0];assert sha(entry['path'])==digest
+    old=read(entry['path']);assert old['status']=='frozen_verified'
+    assert all(old.get(k)==current.get(k) for k in PHYSICAL_KEYS),'Physical protocol changed'
+    assert entry['scope']=='unchanged_original_sweeps_and_frozen_geometry_specs'
+    proof=entry['equivalence_review'];assert sha(proof['path'])==proof['sha256']
+    review=read(proof['path'])
+    assert review['passed'] and review['prior_protocol_sha256']==digest
+    assert review['physical_keys_verified']==PHYSICAL_KEYS
+    assert review['physical_values']=={k:current[k] for k in PHYSICAL_KEYS}
+    hashes(review['evidence_hashes'])
+    return current
+
+def validate_data(run):
+    run=Path(run);m=read(run/'manifest.json')
+    assert m['status']=='completed' and m['source_unchanged']
+    assert sha(m['source'])==m['source_sha256']
+    assert sha(run/'sparams.csv')==m['curve_sha256']
+    assert m['convergence']['converged'] and m['convergence']['final_delta_s']<=.005 and m['sweep_converged']
+    matrix=read(run/'normalization_recovery_review.json')
+    assert matrix['passed'] and matrix['points']==1500
+    assert matrix['passivity_violations']==0 and matrix['max_sv']<=1.001 and matrix['reciprocity_error']<=1e-6
+    assert sha(run/'normalization_recovery_review.json')==m['normalization_recovery_review_sha256']
+    hashes(matrix['evidence_hashes'])
+    ports=read(run/'port_review.json');assert ports['passed']
+    assert sha(run/'port_review.json')==m['port_review_sha256']
+    if ports.get('evidence_hashes'):hashes(ports['evidence_hashes'])
+    metrics=read(run/'response_metrics.json');assert metrics['validity']['solver_convergence_verified']
+    return m
+
+def resolve_attempt(attempt,root=ROOT):
+    attempt=Path(attempt);decision_file=attempt/'recovery_acceptance.json'
+    if not decision_file.exists():return attempt
+    root=Path(root);decision=read(decision_file)
+    assert decision['approved'] and decision['protocol_sha256']==sha(root/'production_protocol.json')
+    assert Path(decision['original_attempt']).resolve()==attempt.resolve()
+    candidate=Path(decision['candidate_run'])
+    assert candidate.resolve()==(attempt/'verified_recovery').resolve(),'Unexpected recovery location'
+    spec=read(attempt/'prediction_frozen.json')
+    compatible_protocol(spec['protocol_sha256'],root)
+    assert decision['case']==spec['case'] and decision['geometry']==spec['geometry']
+    assert decision['phase_solves_added']==0 and decision['phase_geometry_unchanged']
+    assert decision['resource_review']['cores']==16 and decision['resource_review']['tasks']==1
+    assert decision['resource_review']['passed'] and decision['mesh_reuse_verified']
+    hashes(decision['evidence_hashes'])
+    required=[attempt/n for n in ['manifest.json','state.json','prediction_frozen.json','sparams.csv']]
+    required += [candidate/n for n in DATA_FILES+['assembly_recipe.json','recovery_candidate_review.json']]
+    assert all(str(p) in decision['evidence_hashes'] for p in required),'Acceptance does not bind every required input/output'
+    m=validate_data(candidate)
+    assert m['geometry']==spec['geometry'] and m['case']==spec['case']
+    assert m['source_sha256']==spec['source_sha256']
+    assert m['phase_solve_ordinal_including_history']==int(attempt.name[1:])+1
+    review=read(candidate/'recovery_candidate_review.json')
+    assert review['numerical_and_port_passed'] and review['seams_passed'] and review['phase_geometry_unchanged']
+    assert review['phase_solves_added']==0
+    hashes(review['evidence_hashes'])
+    recipe=read(candidate/'assembly_recipe.json');hashes(recipe['input_hashes'])
+    assert set(recipe['per_frequency_source'])=={str(i/100) for i in range(1,1501)}
+    return candidate
+
+def attempt_evidence(attempt,root=ROOT):
+    attempt=Path(attempt);data=resolve_attempt(attempt,root)
+    files=[data/n for n in DATA_FILES]
+    if data!=attempt:
+        files += [attempt/'recovery_acceptance.json',attempt/'manifest.json',attempt/'state.json',attempt/'prediction_frozen.json']
+        decision=read(attempt/'recovery_acceptance.json')
+        files += [Path(p) for p in decision['evidence_hashes']]
+    return list(dict.fromkeys(files))

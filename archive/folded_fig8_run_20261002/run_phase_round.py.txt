@@ -1,0 +1,244 @@
+"""Run the three authorized Fig. 8 phase corrections on isolated copies."""
+from __future__ import annotations
+
+import argparse
+import json
+import re
+import shutil
+import subprocess
+import sys
+import time
+import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+
+from run_batch import ROOT, WORK, check_settings, now, postprocess, sha, write_json
+from freeze_prediction import features
+from prepare_geometry_scope import derive
+
+HERE = Path(__file__).resolve().parent
+CASES = ("T_F2", "T_F3", "T_G2")
+STATE = ROOT / "phase_round_status.json"
+
+
+def freeze(case, cores, spec_path=None):
+    plan = json.loads((ROOT / "phase_correction_plan.json").read_text(encoding="utf-8"))
+    proposal = (json.loads(Path(spec_path).read_text(encoding="utf-8")) if spec_path
+                else next(p for p in plan["proposals"] if p["case"] == case))
+    if proposal["case"] != case:
+        raise ValueError("Candidate name differs from its specification.")
+    parent = proposal["parent"]
+    source = Path(proposal["source"])
+    parent_run = source.parent
+    geometry = dict(proposal["geometry"])
+    geomcheck = derive(geometry)
+    if not geomcheck["inside_research_window"]:
+        raise ValueError(geomcheck)
+    parent_manifest = json.loads((parent_run / "manifest.json").read_text(encoding="utf-8"))
+    for key in ("Wm", "Ws", "Ls2", "Ls3"):
+        if abs(geometry[key] - parent_manifest["geometry"][key]) > 1e-10:
+            raise ValueError(f"Phase correction must preserve {key}.")
+    current = features(parent_run / "sparams.csv")
+    delta = {k: geometry[k] - parent_manifest["geometry"][k] for k in ("Ls1", "Lm")}
+    q1 = features(Path("F:/hfss_fold_260920/Q1/sparams.csv"))
+    q2 = features(Path("F:/hfss_fold_260920/Q2/sparams.csv"))
+    slopes = {key: (q2[key] - q1[key]) / 0.2 for key in current}
+    prediction = {key: current[key] + slopes[key] * delta["Ls1"] for key in current}
+    if delta["Lm"]:
+        prediction = proposal.get("prediction", {})
+    baseline = features(ROOT / "B0/sparams.csv")
+    run = ROOT / case
+    run.mkdir(exist_ok=False)
+    frozen = {
+        "frozen_at": now(), "case": case, "parent": parent, "source": str(source),
+        "source_sha256": sha(source), "parent_curve_sha256": sha(parent_run / "sparams.csv"),
+        "method": proposal.get("method", "Historical Q1/Q2 local Ls1 sensitivity; independent prospective correction."),
+        "geometry": geometry, "geometry_check": geomcheck, "changes_mm": delta,
+        "parent_response": current, "slopes_per_mm": slopes, "prediction": prediction,
+        "slope_training": [{"case": n, "curve_sha256": sha(Path("F:/hfss_fold_260920") / n / "sparams.csv")}
+                           for n in ("Q1", "Q2")],
+        "acceptance": {"absolute_peak_difference_max_dB": 0.5,
+                       "central_valley_target_GHz": baseline["central_valley_GHz"],
+                       "central_valley_deviation_max_GHz": 0.03,
+                       "solver_and_sweep_converged": True, "frequency_points": 1500},
+        "cores": cores, "tasks": 1,
+    }
+    write_json(run / "prediction_frozen.json", frozen)
+    write_json(ROOT / f"{case}_prediction_frozen.json", frozen)
+    return frozen
+
+
+def worker(case):
+    run = ROOT / case
+    frozen = json.loads((run / "prediction_frozen.json").read_text(encoding="utf-8"))
+    geometry = frozen["geometry"]
+    source = Path(frozen["source"])
+    project = run / f"{case}.aedt"
+    if project.exists() or (run / "manifest.json").exists():
+        raise FileExistsError(f"Preserving an existing candidate: {run}")
+    if sha(source) != frozen["source_sha256"]:
+        raise RuntimeError("Parent project changed after the prediction was frozen.")
+    shutil.copy2(source, project)
+    manifest = {
+        "case": case, "parent": frozen["parent"], "scope": "Fig8_phase_correction_only",
+        "started_at": now(), "source": str(source), "source_sha256": frozen["source_sha256"],
+        "project": str(project), "geometry": geometry, "geometry_check": frozen["geometry_check"],
+        "cores": frozen["cores"], "tasks": 1, "aedt_version": "2024.2",
+        "fresh_solve_requested": True, "status": "opening", "prediction_file": str(run / "prediction_frozen.json"),
+    }
+    def save():
+        write_json(run / "manifest.json", manifest)
+    save()
+    app = None
+    try:
+        from ansys.aedt.core import Hfss
+        from folded_transition import apply_folded_geometry
+        from resume_folded_case import export_sparams
+
+        app = Hfss(project=str(project), design="Wideband vertical transition", version="2024.2",
+                   non_graphical=True, new_desktop=True, close_on_exit=True)
+        manifest["desktop_pid"] = app.desktop_class.aedt_process_id
+        if Path(app.project_path).resolve() != run.resolve():
+            raise RuntimeError("Unexpected active project location.")
+        manifest["status"] = "preparing"
+        save()
+        manifest["build"] = apply_folded_geometry(app, wm=geometry["Wm"], lm=geometry["Lm"], ws=geometry["Ws"],
+                                                  ls1=geometry["Ls1"], ls2=geometry["Ls2"], ls3=geometry["Ls3"])
+        manifest["settings"] = check_settings(app)
+        mat = app.materials["rogers ro4003 (tm)"]
+        manifest["materials"] = {"rogers ro4003 (tm)": {
+            "permittivity": mat.permittivity.value, "dielectric_loss_tangent": mat.dielectric_loss_tangent.value}}
+        if abs(float(mat.permittivity.value) - 3.55) > 1e-10 or abs(float(mat.dielectric_loss_tangent.value) - 0.0027) > 1e-10:
+            raise RuntimeError("Substrate differs from the reference.")
+        manifest["microstrip_boxes"] = {n: list(app.modeler[n].bounding_box) for n in ("Substrate_3", "Substrate_18")}
+        for box in manifest["microstrip_boxes"].values():
+            if abs(box[3] - box[0] - geometry["Wm"]) > 1e-7 or abs(box[4] - box[1] - geometry["Lm"]) > 1e-7:
+                raise RuntimeError("Microstrip dimensions differ from the requested geometry.")
+        manifest["boundaries"] = {b.name: {"type": b.type, "props": dict(b.props)} for b in app.boundaries}
+        app.save_project()
+        manifest["status"] = "solving"
+        manifest["solve_started_at"] = now()
+        save()
+        started = time.perf_counter()
+        ok = app.analyze_setup("Setup19", cores=frozen["cores"], tasks=1, use_auto_settings=False,
+                               revert_to_initial_mesh=True, blocking=True)
+        manifest["solve_wall_seconds"] = time.perf_counter() - started
+        manifest["analyze_result"] = ok
+        manifest["messages"] = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+        app.save_project()
+        if ok is not True:
+            raise RuntimeError("HFSS solve failed; see saved messages.")
+        manifest["status"] = "exporting"
+        save()
+        manifest["export"] = export_sparams(app, "Setup19 : Sweep1", run)
+        app.export_convergence("Setup19", output_file=str(run / "convergence.txt"))
+        app.export_mesh_stats("Setup19", output_file=str(run / "mesh_stats.txt"))
+        metrics = postprocess(run)
+        actual = features(run / "sparams.csv")
+        acceptance = frozen["acceptance"]
+        prediction = frozen["prediction"]
+        validation = {
+            "case": case, "parent": frozen["parent"], "prediction": prediction, "actual": actual,
+            "errors": {key: actual[key] - value for key, value in prediction.items()},
+            "equal_ripple_gate": metrics["validity"]["equal_ripple"],
+            "center_gate": abs(actual["central_valley_GHz"] - acceptance["central_valley_target_GHz"]) <= 0.03 + 1e-10,
+            "converged": metrics["convergence"]["converged"],
+            "sweep_converged": any("Interpolating frequency sweep complete. Converged." in m for m in manifest["messages"]),
+            "frequency_point_gate": manifest["export"]["points"] == 1500,
+        }
+        validation["acceptance_passed"] = all(validation[k] for k in (
+            "equal_ripple_gate", "center_gate", "converged", "sweep_converged", "frequency_point_gate"))
+        write_json(run / "prospective_validation.json", validation)
+        manifest["acceptance_passed"] = validation["acceptance_passed"]
+        manifest["status"] = "completed" if validation["converged"] and validation["sweep_converged"] else "completed_unconverged"
+        manifest["curve_sha256"] = sha(run / "sparams.csv")
+        app.save_project()
+        save()
+        print(json.dumps(validation, ensure_ascii=False), flush=True)
+        return 0 if validation["acceptance_passed"] else 2
+    except Exception:
+        manifest["status"] = "failed"
+        manifest["error"] = traceback.format_exc()
+        print(manifest["error"], flush=True)
+        return 1
+    finally:
+        if app is not None:
+            try:
+                manifest["release"] = app.release_desktop(close_projects=True, close_desktop=True)
+            except Exception as exc:
+                manifest["release_error"] = repr(exc)
+        manifest["source_unchanged"] = sha(source) == frozen["source_sha256"]
+        manifest["finished_at"] = now()
+        save()
+
+
+def queue(cases, workers, cores, spec_path=None):
+    for case in cases:
+        freeze(case, cores, spec_path)
+    state = {"scope": "Fig8_phase_correction_only", "started_at": now(), "workers": workers,
+             "cores_per_worker": cores, "status": "running", "cases": {c: {"status": "queued"} for c in cases}}
+    write_json(STATE, state)
+    def launch(case):
+        with (ROOT / case / "worker.log").open("a", encoding="utf-8") as log:
+            proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--worker", case],
+                                    cwd=str(WORK), stdout=log, stderr=subprocess.STDOUT,
+                                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
+            print(json.dumps({"event": "started", "case": case, "worker_pid": proc.pid, "time": now()}), flush=True)
+            return case, proc.wait()
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        for future in as_completed([pool.submit(launch, case) for case in cases]):
+            case, code = future.result()
+            m = json.loads((ROOT / case / "manifest.json").read_text(encoding="utf-8"))
+            state["cases"][case] = {"status": m["status"], "returncode": code,
+                                   "acceptance_passed": m.get("acceptance_passed", False)}
+            state["updated_at"] = now()
+            write_json(STATE, state)
+            print(json.dumps({"event": "finished", "case": case, **state["cases"][case]}), flush=True)
+    state["status"] = "completed" if all(v["returncode"] == 0 for v in state["cases"].values()) else "needs_review"
+    state["finished_at"] = now()
+    write_json(STATE, state)
+    return 0 if state["status"] == "completed" else 2
+
+
+def progress():
+    state = json.loads(STATE.read_text(encoding="utf-8"))
+    rows = []
+    for case in state["cases"]:
+        run = ROOT / case
+        path = run / "manifest.json"
+        m = json.loads(path.read_text(encoding="utf-8")) if path.exists() else {"status": "queued"}
+        row = {"case": case, "status": m["status"], "acceptance_passed": m.get("acceptance_passed")}
+        for conv in (run / f"{case}.aedtresults" / "Wideband vertical transition.results").glob("*.EMConvData"):
+            content = conv.read_text(encoding="utf-8", errors="replace")
+            values = []
+            for group in re.findall(r"\$begin 'QuantityValues'(.*?)\$end 'QuantityValues'", content, re.S):
+                p, d = re.search(r"PassNo=(\d+)", group), re.search(r"MaxMagDeltaS\(([^,]+),", group)
+                if "Intrinsics=''" in group and p and d:
+                    values.append((int(p.group(1)), float(d.group(1))))
+            if values:
+                latest = max(p for p, _ in values)
+                row.update(adaptive_pass=latest, latest_max_delta_s=max(d for p, d in values if p == latest))
+                by_pass = {p: max(d for pp, d in values if pp == p) for p, _ in values}
+                row["adaptive_converged"] = ("IsConverged=true" in content and
+                                               all(by_pass.get(p, 1) <= 0.005 for p in (latest, latest - 1)))
+        result = run / "prospective_validation.json"
+        if result.exists():
+            v = json.loads(result.read_text(encoding="utf-8"))
+            row.update(v["actual"])
+        rows.append(row)
+    print(json.dumps({"round_status": state["status"], "cases": rows}, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--worker")
+    parser.add_argument("--cases", nargs="+", default=list(CASES))
+    parser.add_argument("--workers", type=int, default=3)
+    parser.add_argument("--cores", type=int, default=4)
+    parser.add_argument("--spec")
+    parser.add_argument("--progress", action="store_true")
+    args = parser.parse_args()
+    if args.progress:
+        progress()
+    else:
+        raise SystemExit(worker(args.worker) if args.worker else queue(args.cases, args.workers, args.cores, args.spec))

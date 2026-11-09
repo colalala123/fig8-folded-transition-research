@@ -1,0 +1,68 @@
+"""Pure local complex-response length corrector; no HFSS calls and no guarantees."""
+from common import *
+import numpy as np
+from scipy.signal import find_peaks
+from scipy.optimize import minimize
+
+def load_curve(path):
+    d=np.atleast_1d(np.genfromtxt(path,delimiter=',',names=True))
+    needed=['Freq_GHz','S11_real','S11_imag','S21_real','S21_imag']
+    if not all(k in d.dtype.names for k in needed):raise ValueError('Native complex S11/S21 required')
+    f=d['Freq_GHz'];s=np.column_stack([d[k+'_real']+1j*d[k+'_imag'] for k in ['S11','S21']])
+    if not np.isfinite(f).all() or not np.isfinite(s).all() or not np.all(np.diff(f)>0):raise ValueError('Invalid native curve')
+    return f,s
+
+def assess(f,s,target,optimization_margin=False):
+    db=20*np.log10(np.maximum(abs(s),1e-15));r,t=db.T
+    lo,hi=target['f_low_GHz'],target['f_high_GHz']
+    score=band_score(f,r,t,lo,hi)
+    # Match frozen historical three-prominent-valley definition, in the main S21 band.
+    seg=intervals(f,np.full_like(f,-100),t)
+    bands=sorted(seg,key=lambda p:p[1]-p[0],reverse=True)
+    if not bands:return dict(passed=False,shape_valid=False,objective=1e6,**score)
+    left,right=bands[0];mins=find_peaks(-r,prominence=.5)[0]
+    vv=[i for i in mins if left<f[i]<right and r[i]<-10]
+    if len(vv)!=3:return dict(passed=False,shape_valid=False,objective=1e6+abs(len(vv)-3),**score)
+    peaks=[a+1+int(np.argmax(r[a+1:b])) for a,b in zip(vv,vv[1:])]
+    center=float(f[vv[1]]);gap=float(abs(r[peaks[0]]-r[peaks[1]]))
+    rlimit=target.get('S11_max_dB',-20);tlimit=target.get('S21_min_dB',-2)
+    passed=bool(score['worst_S11_dB']<=rlimit and score['min_S21_dB']>=tlimit and abs(center-6.72)<=.03000000001 and gap<=.5)
+    rm=.2 if optimization_margin else 0;tm=.05 if optimization_margin else 0
+    gaplimit=.35 if optimization_margin else .5;centerlimit=.02 if optimization_margin else .03
+    v=np.array([max(0,score['worst_S11_dB']-rlimit+rm)/.1,
+                max(0,tlimit+tm-score['min_S21_dB'])/.05,
+                max(0,abs(center-6.72)-centerlimit)/.01,max(0,gap-gaplimit)/.1])
+    return dict(**score,shape_valid=True,passed=passed,central_valley_GHz=center,
+                peak_difference_dB=gap,inner_peaks=[dict(GHz=float(f[i]),S11_dB=float(r[i])) for i in peaks],
+                objective=float(v@v),nominal_buffer_satisfied=bool(np.all(v<=1e-10)))
+
+def propose(base,probe_s,probe_m,geometry,target,steps=(.1,.05)):
+    f,s=base;fs,ss=probe_s;fm,sm=probe_m
+    if not(np.array_equal(f,fs) and np.array_equal(f,fm)):raise ValueError('Different grids; no hidden resampling')
+    if steps!=(.1,.05):raise ValueError('Frozen probe order/steps must be Ls1+.10 and Lm+.05')
+    ds=(ss-s)/steps[0];dm=(sm-s)/steps[1]
+    scales=np.array([.20,.10])
+    band=(f>=target['f_low_GHz'])&(f<=target['f_high_GHz'])
+    jj=np.column_stack([np.r_[ds[band].real.ravel(),ds[band].imag.ravel()]*scales[0],
+                        np.r_[dm[band].real.ravel(),dm[band].imag.ravel()]*scales[1]])
+    singular=np.linalg.svd(jj,compute_uv=False)
+    if singular[-1]<=1e-10 or singular[0]/singular[-1]>1e4:
+        return dict(action='no_supported_length_candidate',reason='Length sensitivities not independently identifiable',
+                    singular_values=singular.tolist(),prediction_is_HFSS=False)
+    def pred(u):return s+u[0]*scales[0]*ds+u[1]*scales[1]*dm
+    def objective(u):return assess(f,pred(u),target,True)['objective']+.02*float(np.dot(u,u))
+    grid=[(objective(np.array([a,b])),np.array([a,b])) for a in np.linspace(-1,1,31) for b in np.linspace(-1,1,31)]
+    grid.sort(key=lambda t:t[0]);best=grid[0]
+    for _,u in grid[:5]:
+        opt=minimize(objective,u,method='Powell',bounds=[(-1,1),(-1,1)],options=dict(maxiter=80,xtol=1e-4,ftol=1e-5))
+        if np.isfinite(opt.fun) and opt.fun<best[0]:best=(float(opt.fun),np.clip(opt.x,-1,1))
+    delta=best[1]*scales
+    g={**geometry,'Ls1':float(geometry['Ls1']+delta[0]),'Lm':float(geometry['Lm']+delta[1])}
+    old=assess(f,s,target,True);new=assess(f,pred(best[1]),target,True)
+    meaningful=new['shape_valid'] and new['passed'] and (old['objective']-new['objective']>.01)
+    return dict(action='candidate' if meaningful else 'no_supported_length_candidate',geometry=g,delta_mm=delta.tolist(),
+        predicted=new,baseline=old,method='Native complex S11/S21 first-order finite differences, bounded2D search',
+        trust_region_mm=dict(Ls1=.20,Lm=.10),prediction_is_HFSS=False,
+        complex_sensitivity_condition=float(singular[0]/singular[-1]),
+        reflection_buffer_dB=.2,buffer_is_certified=False,strict_R_screen_not_changed=True,
+        keep_original_blind_outcome=True,reason='Predicted pass and meaningful constraint improvement' if meaningful else 'No predicted target pass/improvement in trust region')

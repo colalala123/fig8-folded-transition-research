@@ -1,0 +1,62 @@
+"""Offline synthesis only: no AEDT, hook, network, or source-file writes."""
+import hashlib
+import json
+import math
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[2]
+OUT = Path(__file__).resolve().parent
+SOURCES = {
+    'training_analysis': ROOT / 'output/fig8_law_analysis_20261026/analysis.json',
+    'validation6': ROOT / 'output/fig8_validation6_20261026/deliverables/validation6_results.json',
+    'iso4': ROOT / 'output/fig8_iso4_20261026/deliverables/results.json',
+}
+data = {k: json.loads(p.read_text(encoding='utf-8-sig')) for k, p in SOURCES.items()}
+hashes = {k: hashlib.sha256(p.read_bytes()).hexdigest() for k, p in SOURCES.items()}
+v = data['validation6']['cases']
+i = data['iso4']['cases']
+new = v + i
+assert len(new) == 10 and all(c['scoped_accepted'] for c in new)
+assert not data['validation6']['refitted'] and not data['iso4']['refitted']
+coefficients = [6.804574332182727, 0.7981664522603809, 0.8661775218699251]
+
+def geometry(c):
+    return c.get('geometry_mm', c.get('geometry'))
+
+def error_stats(cases, direct=False):
+    errors = [(c['direct_BW_GHz' if direct else 'BW_GHz'] - c['predicted_BW_GHz']) * 1000 for c in cases]
+    return dict(n=len(errors), MAE_MHz=sum(map(abs, errors))/len(errors),
+                RMSE_MHz=math.sqrt(sum(e*e for e in errors)/len(errors)), max_absolute_MHz=max(map(abs, errors)))
+
+def direct_peak(c):
+    return 20 * math.log10(sum(10**(p['dB']/20) for p in c['comparison']['direct_peaks'])/2)
+
+pairs = []
+for c in new:
+    g = geometry(c)
+    pred = coefficients[0]+coefficients[1]*math.log(g['Wm']/1.2)+coefficients[2]*math.log(g['Ws']/.44)
+    assert abs(pred-c['predicted_BW_GHz']) < 1e-10
+    if c['a_mm'] != 1.4:
+        continue
+    d = next(x for x in new if x['case'] == c['case'][:-2]+'05')
+    h = geometry(d)
+    pairs.append(dict(short=c['case'], long=d['case'], Wm=g['Wm'], Ws=g['Ws'],
+        delta_BW_MHz=(d['BW_GHz']-c['BW_GHz'])*1000,
+        delta_direct_BW_MHz=(d['direct_BW_GHz']-c['direct_BW_GHz'])*1000,
+        delta_direct_peak_dB=direct_peak(d)-direct_peak(c),
+        delta_Ls1_mm=h['Ls1']-g['Ls1'], delta_Lm_mm=h['Lm']-g['Lm']))
+assert len(pairs)==5
+assert all(p['delta_direct_BW_MHz']>0 and p['delta_direct_peak_dB']<0 for p in pairs)
+summary = dict(source_hashes=hashes, source_paths={k:str(p) for k,p in SOURCES.items()},
+    refitted=False, uniform_data_used=False, simulation_started=False,
+    training_configurations=24, validation_configurations=10, total_width_pairs=17,
+    coefficients=coefficients, validation6=error_stats(v), iso4=error_stats(i),
+    combined_validation10=error_stats(new), combined_validation10_direct=error_stats(new,True),
+    new_arm_pairs=pairs, width_tradeoff=data['iso4']['width_tradeoff'],
+    derived_constant_BW_exponent=-coefficients[1]/coefficients[2],
+    new_mesh_range=[min(c['actual_elements'] for c in new),max(c['actual_elements'] for c in new)],
+    caveats=['10 validation configurations represent 5 width pairs, not 10 independent widths.',
+             'Validation cases were prospectively selected, not a random test population.',
+             'Direct samples use the same mesh; not mesh-independent convergence.'])
+(OUT/'evidence.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+print(json.dumps(summary,ensure_ascii=False,indent=2))

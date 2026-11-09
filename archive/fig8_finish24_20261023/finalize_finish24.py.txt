@@ -1,0 +1,261 @@
+"""Read-only source audit and reproducible Fig8-only JSON/Markdown delivery.
+
+Never invokes AEDT, changes acceptance, or merges uniform-model data.
+"""
+from collections import Counter
+from datetime import datetime, timezone, timedelta
+from pathlib import Path
+import json
+import math
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from control import HERE, BASE, read, write, sha, now
+from geometry_worker import dc
+from analyze_study import passes
+from prepare_tuning import attempt_ledger
+
+OUT = HERE/'deliverables'
+TERMINAL = {'preserved_accepted', 'scoped_accepted', 'preserved_design_failed',
+            'bounded_design_failed', 'unresolved_numerical'}
+ACCEPTED = {'preserved_accepted', 'scoped_accepted'}
+LABELS = {'preserved_accepted':'历史通过（保留）', 'scoped_accepted':'基模范围通过',
+          'preserved_design_failed':'历史设计未过', 'bounded_design_failed':'有界设计未过',
+          'unresolved_numerical':'数值未解决'}
+
+
+def collect():
+    plan = read(HERE/'plan.json')
+    assert len(plan['cases']) == 24
+    rows, evidence, curves = [], {}, []
+    refs = 0
+    for item in plan['cases']:
+        case = item['case']
+        source = HERE/'cases'/case/'result.json'
+        if not source.exists():
+            source = Path(item['legacy_result'])
+            assert sha(source) == item['legacy_result_sha256']
+        result = read(source)
+        state = result.get('case_state', item['state'])
+        assert state in TERMINAL, (case, state)
+        evidence[str(source)] = sha(source)
+        for path, digest in result['evidence_hashes'].items():
+            assert sha(path) == digest, path
+            evidence[path] = digest
+            refs += 1
+        run = Path(result['selected_run'])
+        metrics = result['metrics']
+        curve = run/'sparams.csv'
+        assert sha(curve) == metrics['curve_sha256']
+        evidence[str(curve)] = sha(curve)
+        arr = np.genfromtxt(curve, delimiter=',', names=True)
+        freq = arr['Freq_GHz']
+        def db(prefix):
+            if prefix+'_dB' in arr.dtype.names:
+                return arr[prefix+'_dB']
+            return 20*np.log10(np.maximum(arr[prefix+'_mag'], 1e-300))
+        s11, s21 = db('S11'), db('S21')
+        assert len(freq) == 1500 and np.isfinite(np.c_[freq, s11, s21]).all()
+        assert np.allclose(freq, np.arange(1,1501)/100)
+        history = run/'convergence.txt'
+        if not history.exists() and run.name == 'verified_recovery':
+            # The only derived export directory: bind its unchanged parent solve.
+            assert read(run/'normalization_recovery_review.json')['passed']
+            assert read(run.parent/'state.json')['geometry'] == result['geometry']
+            history = run.parent/'convergence.txt'
+        elements = result.get('actual_elements')
+        if history.exists():
+            elements = passes(history)[-1][1]
+            evidence[str(history)] = sha(history)
+            if result.get('actual_elements'):
+                assert elements == result['actual_elements']
+        assert elements is not None
+        reference_review = run/'normalization_recovery_review.json'
+        reference = dict(treatment='selected source export retained; no new normalization',
+            normalization_recovery_review=str(reference_review) if reference_review.exists() else None,
+            note='If normalization recovery exists, preserve that calibrated reference transformation; do not relabel every historical curve native or assume a universal50ohm reference.')
+        if reference_review.exists():
+            evidence[str(reference_review)] = sha(reference_review)
+        comparison = result.get('comparison', result.get('direct_comparison', {}))
+        direct = {
+            'BW_GHz': comparison.get('direct_BW_GHz', comparison.get('direct_bracket_BW_GHz')),
+            'peak_difference_dB': comparison.get('direct_peak_difference_dB'),
+            'central_valley_GHz': comparison.get('direct_central_valley', {}).get('GHz'),
+            'max_complex_error': comparison.get('max_complex_error', comparison.get('max_fundamental_complex_error')),
+            'BW_shift_GHz': comparison.get('BW_shift_GHz'),
+            'points': comparison.get('points'),
+            'run': result.get('direct_run'),
+        }
+        threshold = HERE/'cases'/case/'threshold_review.json'
+        threshold_data = read(threshold) if threshold.exists() else None
+        if threshold_data:
+            evidence[str(threshold)] = sha(threshold)
+            direct['peak_difference_dB'] = threshold_data['direct_sample_peak_difference_dB']
+            if 'direct_sample_central_valley_GHz' in threshold_data:
+                direct['central_valley_GHz'] = threshold_data['direct_sample_central_valley_GHz']
+        if state == 'scoped_accepted':
+            assert result['design_passed'] and result['numerical_review_passed']
+        ledger = result.get('geometry_budget') or attempt_ledger(case)
+        assert ledger['attempts_used_or_reserved'] <= 8
+        row = dict(case=case, state=state, state_label=LABELS[state],
+            included_in_accepted_subset=state in ACCEPTED,
+            acceptance_tier='historical_preserved' if state=='preserved_accepted' else
+                ('fundamental_same_mesh_direct' if state=='scoped_accepted' else 'not_accepted'),
+            geometry_mm=result['geometry'], selected_run=str(run), result_path=str(source),
+            source_reference=reference,
+            result_sha256=sha(source), selected_curve_sha256=sha(curve), actual_elements=elements,
+            geometry_attempts_including_history=ledger['attempts_used_or_reserved'],
+            selected_curve_metrics=metrics, direct_review=direct,
+            design_passed=result.get('design_passed', state=='preserved_accepted'),
+            numerical_review_passed=result.get('numerical_review_passed'),
+            numerical_status=result.get('numerical_status', 'historical_policy_preserved' if state.startswith('preserved') else state),
+            reason=result['reason'], risk_note=result.get('risk_note', result.get('scope')),
+            threshold_warning=threshold_data, full_matrix_approved=False)
+        rows.append(row)
+        curves.append(dict(case=case, state=state, acceptance_tier=row['acceptance_tier'],
+            source_reference=reference,
+            source=str(curve), source_sha256=sha(curve), frequency_GHz=freq.tolist(),
+            S11_dB=s11.tolist(), S21_dB=s21.tolist()))
+    assert len({r['case'] for r in rows}) == 24
+    counts = dict(Counter(r['state'] for r in rows))
+    assert counts == dict(preserved_design_failed=2, scoped_accepted=14,
+        preserved_accepted=4, bounded_design_failed=3, unresolved_numerical=1)
+    evidence[str(HERE/'plan.json')] = sha(HERE/'plan.json')
+    evidence[str(HERE/'policy.json')] = sha(HERE/'policy.json')
+    evidence[str(Path(__file__).resolve())] = sha(__file__)
+    return rows, curves, evidence, refs, counts
+
+
+def paired_summary(rows):
+    accepted = {r['case']:r for r in rows if r['included_in_accepted_subset']}
+    pairs = []
+    for i in range(1, 13):
+        a, b = accepted.get(f'D{i:02}G02'), accepted.get(f'D{i:02}G05')
+        if a is None or b is None:
+            continue
+        ba = a['selected_curve_metrics']['passband_2dB']['BW_GHz']
+        bb = b['selected_curve_metrics']['passband_2dB']['BW_GHz']
+        pairs.append(dict(D=f'D{i:02}', G02=a['case'], G05=b['case'],
+            Wm_mm=a['geometry_mm']['Wm'], Ws_mm=a['geometry_mm']['Ws'],
+            BW_G02_GHz=ba, BW_G05_GHz=bb, delta_BW_GHz=bb-ba,
+            Ls1_G02_mm=a['geometry_mm']['Ls1'], Ls1_G05_mm=b['geometry_mm']['Ls1'],
+            Lm_G02_mm=a['geometry_mm']['Lm'], Lm_G05_mm=b['geometry_mm']['Lm'],
+            limitation='Retuned geometries, preserved/new numerical policies, and source-reference treatment retained; descriptive association, not an isolated arm-length effect.'))
+    return dict(pairs=pairs, n=len(pairs), positive=sum(p['delta_BW_GHz']>0 for p in pairs),
+        mean_delta_BW_GHz=float(np.mean([p['delta_BW_GHz'] for p in pairs])),
+        scope='Selected interpolated curves only, with accepted tiers retained. No statistical independence or causal law claimed.')
+
+
+def render_plots(rows, pairs):
+    fig, ax = plt.subplots(figsize=(12, 5.6), layout='constrained')
+    colors = {'preserved_accepted':'#549bc4','scoped_accepted':'#1a786d',
+        'preserved_design_failed':'#b96736','bounded_design_failed':'#bd4f38','unresolved_numerical':'#9b61a8'}
+    for state in TERMINAL:
+        group = [(i,r) for i,r in enumerate(rows) if r['state']==state]
+        ax.scatter([i for i,r in group], [r['selected_curve_metrics']['passband_2dB']['BW_GHz'] for i,r in group],
+            s=62, color=colors[state], label=state, zorder=3)
+    ax.set_xticks(range(24), [r['case'] for r in rows], rotation=65, ha='right')
+    ax.set(ylabel='Selected-curve S21 >= -2 dB bandwidth (GHz)', title='Fig8 first24: final dispositions (not all accepted)')
+    ax.grid(axis='y', alpha=.25)
+    ax.legend(fontsize=8, ncol=2)
+    fig.savefig(OUT/'bandwidth_status.png', dpi=170)
+    plt.close(fig)
+    fig, ax = plt.subplots(figsize=(9, 4.5), layout='constrained')
+    ps = pairs['pairs']
+    ax.bar([p['D'] for p in ps], [p['delta_BW_GHz']*1000 for p in ps], color='#337f87')
+    ax.axhline(0, color='#555555', lw=.8)
+    ax.set(ylabel='BW(G05) - BW(G02), MHz', title='Accepted pairs only: descriptive association, retuning confounded')
+    ax.grid(axis='y', alpha=.2)
+    fig.savefig(OUT/'accepted_pair_bandwidth.png', dpi=170)
+    plt.close(fig)
+
+
+def write_report(rows, pairs, refs, counts):
+    stamp = datetime.now(timezone(timedelta(hours=9))).isoformat(timespec='seconds')
+    lines = ['# Fig8 首批24配置收尾报告', '', f'生成：{stamp}（Asia/Tokyo）', '',
+        '## 1. 交付结论', '',
+        '- 原24项全部有明确处置：**18项通过（4项历史保留、14项本轮基模范围验收），5项设计未达标，1项数值未解决**。不再派发本批仿真。',
+        '- 这是有界批次收尾，不是24项全部合格，也不是“弯折带宽物理规律已经充分验证”。均匀数据未混入。',
+        f'- 逐项复核正式结果中的 **{refs} 条证据哈希引用**，均一致；另核验全部24条选定曲线的源SHA、1500点有限值和频率轴。去重证据见 evidence_audit.json。',
+        '- `all24_results.json` 保留全部状态、几何(mm)、网格、曲线指标、直接复核指标及源路径；`accepted18_results.json` 仅含通过子集，但仍区分历史与新验收层级。',
+        '- `selected_curves.json` 内嵌全部24条基模S11/S21幅度曲线(GHz/dB)，可独立交给其他分析程序；不是复数网络、完整模式矩阵或可直接级联模型。原复数数据路径保留在源记录中。',
+        '', '## 2. 逐项结果', '',
+        '表中BW和峰差统一采用选定完整插值曲线，便于同口径查阅；通过结论仍以原正式验收为准，直接采样量单列于JSON，不能混成同一口径。历史通过没有伪标成本轮直接复核通过。', '',
+        '| 配置 | 处置 | 网格 | 几何次数(含历史) | BW₂dB/GHz | 两峰差/dB | 中央谷/GHz |',
+        '|---|---|---:|---:|---:|---:|---:|']
+    for r in rows:
+        m=r['selected_curve_metrics']
+        lines.append(f"| {r['case']} | {r['state_label']} | {r['actual_elements']} | {r['geometry_attempts_including_history']} | {m['passband_2dB']['BW_GHz']:.6f} | {m['peak_difference_dB']:.6f} | {m['central_valley_GHz']:.2f} |")
+    lines += ['', '## 3. 最后D04G02为什么停止', '',
+        '- 选定候选：Ls1=12.34066 mm、Lm=6.5147442317782405 mm；Wm=1.2、Ws=0.3、Ls2=1.15、Ls3=1.7 mm。102244单元；BW=6.491287567 GHz。',
+        '- 相对本轮中心，归一化误差16.754481883→8.730590969，改善47.8910%；实际峰差4.365295485 dB、中央谷6.94 GHz，仍不达设计，也不满足同网格直接复核入口。求解成功与设计失败分开记录。',
+        '- 原2次历史+1中心+2独立探针+1候选=6次。余2次不能容纳完整的独立双探针+候选周期；已改善候选不触发“未改善时一次半步”。按冻结规则保存最好实测结果，不盲试余量，也不声称结构全局不可行。',
+        '', '## 4. 必须保留的问题与适用边界', '',
+        '- D01G02、D12G05：保留历史有界设计失败；D04G02、D09G05：本轮有界调参后设计失败，未满足直接复核入口。失败点不进入通过设计拟合。',
+        '- D09G02：设计未过，另有直接扫频10.19 GHz单点失败。62点中61点有效，仅恢复有效子集作诊断，没有补值或伪标完整通过；有效子集数值误差通过不等于完整数值验收通过。',
+        '- D11G05：采样设计指标通过，但12 GHz带外复数误差0.009655397超过原0.005；保持数值未解决，不误叫几何失败、不纳入通过子集。',
+        '- D01G05、D10G02临界通过：直接采样峰差分别0.495173446、0.494267951 dB，距0.5仅0.004826554、0.005732049 dB。不能宣传为有充足制造或数值裕量的设计。',
+        '- 网格总数接近不保证逐点等价。本轮新几何目标10–11万，轻微记录超限≤11.2万获授权；核验通过的旧高网格曲线保留，不为了网格数重跑。',
+        '- D04同几何、相同1%/passivity-off扫频下，153288→102464网格中心比较：BW -12.913143 MHz、中央谷+10 MHz、最大单峰高差约0.506912 dB；这是数值策略敏感性诊断，不是统一误差界。其他配置若网格与扫频同时改变，不可单独归因网格。',
+        '- D07G02新旧中心比较有约0.831442 dB峰差偏移，D08G05曾出现40 MHz粗/严格中心差；各项证据保留，不以本轮有限直接采样替代全曲线网格收敛证明。',
+        '- 只验原生基模S11/S21；2模式端口的设置不等于完整多模网络已批准。未做制造容差、所有宽度模式充分性或辐射损耗分量验证。',
+        '- 历史源中有明确参考归一化恢复（如D04G05、D08G02），源变换及其证据原样保留。交付不是把所有历史曲线重新归一化成统一原生/50Ω数据；每项source_reference单列来源。因此跨源配对还含参考处理差异风险，不能拿汇总图直接做统一物理阻抗拟合。',
+        '', '## 5. 仿真和验收设置', '',
+        '- 可见AEDT/HFSS 2024 R2，现有MCP/gRPC接口，16核、1并行组、逐项串行。新几何由实际网格计数控制器自适应，历史/缓存恢复沿用其原设置并保留中断事实。',
+        '- 新曲线0.01–15 GHz，输出间隔0.01 GHz，共1500点；最终插值容差1%，EnforcePassivity关闭。RO4003：εr=3.55、tanδ=0.0027、厚0.813 mm；每端口2模式。',
+        '- 设计：三谷双峰；峰差≤0.5 dB；中央谷6.72±0.03 GHz；谷间S11<-10 dB且S21≥-2 dB，带宽不截断。',
+        '- 新候选直接复核入口：峰差≤0.6 dB且中央谷偏差≤0.05 GHz；入口不是最终放宽标准。关键频点在不改变网格的缓存上直接求解，典型61–62点。',
+        '- 本轮直接复核原限值：最大复数误差≤0.005、近带S21误差≤0.05 dB、峰高差≤0.1 dB、每边缘和带宽位移≤0.02 GHz。数值通过和采样设计通过分别记录；历史保留项仍有自身原验收层级。',
+        '- 每完成事件→哈希核验→查看实际曲线→ACK→实际启动下一项或有证据终态。仅完成通知后5分钟仍无新求解时检查AI状态，正常求解不周期性催促。',
+        '', '## 6. 带宽、P、R现在能得出什么', '',
+        '- 归一化阻抗记zm=Zm/50、zs=Zs/50，理论标签P=zm·zs、R=zm/zs。当前JSON的P_response由反射两峰的线性幅度平均值反推，R_BW又用已测S21的-2 dB带宽及P_response反解；它们是响应等效标签，不是独立测得的弯折局部特性阻抗。',
+        '- 提取代码是 `output/folded_simulation_plan_20260920/response_metrics.py` 的固定版本；参考频率f0=6.85 GHz，**不等于**设计中央谷目标6.72 GHz。JSON同时保留带宽中心参考的敏感性标签，不静默混换。',
+        '- 因为R_BW使用BW反算，再用BW对R_BW画拟合是循环关系，不能声称发现新物理规律。P_response与峰高也同样是反推关系。R_side_poles只是另一个响应诊断，不能不加核查地当成几何阻抗比。',
+        '- 带宽定义：BW₂dB为S21≥-2 dB的最大连续频带宽；BW_joint为同时S21≥-2 dB、S11≤-10 dB的最大连续频带宽，均线性阈值插值。不要与相对带宽BW/f0或不同中心定义混用。',
+        '', '### 已通过配对的描述性观察', '',
+        '仅在同一D的G02/G05均通过时比较；这些点经过分别调相，Ls1和Lm并不相同，且有历史/新网格策略混用，不能把变化完全归因于折臂。', '',
+        '| 配对 | G02 BW/GHz | G05 BW/GHz | G05−G02/MHz |', '|---|---:|---:|---:|']
+    for p in pairs['pairs']:
+        lines.append(f"| {p['D']} | {p['BW_G02_GHz']:.6f} | {p['BW_G05_GHz']:.6f} | {1000*p['delta_BW_GHz']:.3f} |")
+    lines += ['', f"共{pairs['n']}组，{pairs['positive']}组G05带宽更大；平均差{1000*pairs['mean_delta_BW_GHz']:.3f} MHz。这是本批选定通过点的描述，不是对任意结构的保证、因果结论或独立验证集结果。", '',
+        '## 7. 下一阶段建议（尚未启动）', '',
+        '1. 先讨论5个设计未过点是否值得扩展预算；D11G05若继续，先定位12 GHz数值差异，不能用几何调参掩盖。D09G02若继续，先只针对缺失频点提出有限恢复方案。未经新授权不自动开新批次。',
+        '2. 用当前18项（保留历史/新验收分层，并对两个临界点做剔除敏感性）筛选几何解释变量，输出初步趋势；不以R_BW作为独立预测BW的输入。',
+        '3. 若要达到均匀模型约1000点那样的规律验证，另行冻结几何→独立阻抗/相位或直接BW预测模型、分层抽样与独立留出集；先小规模验证预测，再决定是否扩大，避免先堆点后定义问题。',
+        '4. 要验证“弯折减少辐射边缘损耗、略减带宽”的导师解释，需要受控对照、统一频率/几何/端口/网格策略及损耗分解证据。本批S11/S21本身不能单独证实该归因。', '',
+        '## 文件', '',
+        '- all24_results.json：全24项结构化结果；accepted18_results.json：通过子集，保留层级。',
+        '- selected_curves.json：24条自包含基模幅度曲线；paired_bandwidth.json：上述配对统计。',
+        '- evidence_audit.json：去重源证据及SHA；manifest.json：交付文件SHA及状态计数。',
+        '- bandwidth_status.png、accepted_pair_bandwidth.png：可视化，均不代表已验证的物理规律。',
+        '- 原始ACK、事件、收敛历史、失败点及中断文件均留在原处，没有覆盖旧验收。', '']
+    (OUT/'REPORT.md').write_text('\n'.join(lines), encoding='utf-8')
+
+
+def main():
+    assert not dc.solvers(), 'A solver remains active; do not close batch yet'
+    rows, curves, evidence, refs, counts = collect()
+    assert not (OUT/'manifest.json').exists(), 'Do not overwrite a frozen delivery'
+    OUT.mkdir(exist_ok=True)
+    pairs = paired_summary(rows)
+    meta = dict(schema='fig8_finish24_delivery_v1', generated_at=now(), full_matrix_approved=False,
+        scope='Folded Fig8 first24 only; uniform data excluded; final disposition does not imply all accepted.')
+    write(OUT/'all24_results.json', dict(**meta, counts=counts, rows=rows))
+    write(OUT/'accepted18_results.json', dict(**meta, rows=[r for r in rows if r['included_in_accepted_subset']]))
+    write(OUT/'selected_curves.json', dict(**meta, quantity='selected-source fundamental magnitude only; reference treatment retained per case', curves=curves))
+    write(OUT/'paired_bandwidth.json', {**meta, **pairs})
+    write(OUT/'evidence_audit.json', dict(**meta, formal_evidence_references_verified=refs,
+        unique_sources_verified=len(evidence), mismatches=[], evidence_hashes=evidence))
+    render_plots(rows, pairs)
+    write_report(rows, pairs, refs, counts)
+    files = {str(p.name):sha(p) for p in sorted(OUT.iterdir()) if p.is_file()}
+    write(OUT/'manifest.json', dict(**meta, counts=counts, file_sha256=files,
+        final_event_path=str(BASE/'D04G02/c01_candidate/completion_event.json'),
+        final_event_sha256=sha(BASE/'D04G02/c01_candidate/completion_event.json')))
+    print(json.dumps(dict(counts=counts, evidence_references=refs, unique_evidence=len(evidence),
+        accepted=18, pairs=pairs, delivery=str(OUT)), ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

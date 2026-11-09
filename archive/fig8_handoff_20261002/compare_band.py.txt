@@ -1,0 +1,19 @@
+import numpy as np
+from pathlib import Path
+R=Path(r'F:\hfss_f8x_261002\R_tri_diagC')
+def parse(p):
+ vals=[];unit=1;fmt='RI'
+ for ln in Path(p).read_text(errors='ignore').splitlines():
+  ln=ln.strip()
+  if not ln or ln.startswith('!'):continue
+  if ln.startswith('#'):
+   t=ln.upper().split();unit={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+  vals.extend(float(x.replace('D','E')) for x in ln.split())
+ n=6;st=73; ch=[vals[i:i+st] for i in range(0,len(vals)-st+1,st)];f=np.array([c[0]*unit/1e9 for c in ch]);s=np.zeros((len(ch),n,n),complex)
+ for k,c in enumerate(ch):
+  x=np.array(c[1:]).reshape(36,2);z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1])) if fmt=='MA' else x[:,0]+1j*x[:,1];s[k]=z.reshape(n,n)
+ return f,s
+f,s=parse(R/'50ohm_full_no_pass.s6p');fd,sd=parse(R/'50ohm_band_direct.s6p')
+for ff,ss in zip(fd,sd):
+ i=np.where(np.isclose(f,ff))[0][0]; print(ff,'diff',np.max(np.abs(s[i]-ss)),'adjleft',np.max(np.abs(s[i]-s[max(0,i-1)])),'adjright',np.max(np.abs(s[i]-s[min(len(f)-1,i+1)])))
+

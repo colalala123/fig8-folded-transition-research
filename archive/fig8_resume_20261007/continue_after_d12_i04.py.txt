@@ -1,0 +1,59 @@
+"""Resume supervised tuning after accepted D12/i04 numerical recovery."""
+import argparse
+import json
+import os
+from pathlib import Path
+import sys
+import psutil
+import supervised_queue_600 as adapter
+import approve_d12_i04 as approval
+from recovery_selection import resolve_attempt, hashes
+
+q=adapter.queue
+ROOT=q.ROOT
+RECORD=ROOT/'continuation_after_d12_i04.json'
+
+
+def readiness():
+    attempt=ROOT/'D12G05/i04'
+    assert resolve_attempt(attempt)==attempt/'verified_recovery'
+    approval.review()
+    assert not RECORD.exists(),'Existing continuation requires review; never start twice'
+    old=q.read(ROOT/'pilot_queue_state.json')
+    assert old['status']=='review_required' and old['active_case']=='D12G05'
+    assert Path(old['active_run'])==attempt
+    assert not psutil.pid_exists(old['pid'])
+    prior=q.read(ROOT/'continuation_after_d12_i03.json')
+    assert prior['status']=='review_required' and prior['pid']==old['pid']
+    hashes(prior['evidence_hashes'])
+    hashes(q.read(ROOT/'production_protocol.json')['implementation_hashes'])
+    assert not approval.r.direct.solvers()
+    assert not any((ROOT/n).exists() for n in ['protocol.lock','pilot_queue.lock'])
+    # Prior successes remain sealed and are reused by the original queue.
+    q.verify_result(q.read(ROOT/'D04G05/design_result.json'))
+    q.verify_result(q.read(ROOT/'D08G02/design_result.json'))
+    files=[Path(__file__).resolve(),Path(approval.__file__),Path(adapter.__file__),
+           adapter.HERE/'run_guarded_case_600.py',attempt/'recovery_acceptance.json',ROOT/'continuation_after_d12_i03.json']
+    return old,{str(p):q.sha(p) for p in files}
+
+
+def main():
+    old,evidence=readiness()
+    record={'status':'running','pid':os.getpid(),'started_at_utc':q.now(),
+            'stage':'supervised','remaining_released':False,'prior_queue_state':old,
+            'evidence_hashes':evidence,'monitor_interval_seconds':600}
+    with RECORD.open('x',encoding='utf-8') as stream:json.dump(record,stream,indent=2)
+    q.subprocess=adapter.WorkerTransport()
+    sys.argv=[str(adapter.HERE/'guarded_pilot_queue.py'),'--stage','supervised','--solve']
+    try:
+        q.main();record['status']='supervised_review_required'
+    except BaseException as exc:
+        record.update(status='review_required',error=repr(exc));raise
+    finally:
+        record['finished_at_utc']=q.now();q.write(RECORD,record)
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--run',action='store_true');a=ap.parse_args()
+    if a.run:main()
+    else:readiness();print(json.dumps({'ready':True,'stage':'supervised','reuse_D12_i04':True}))

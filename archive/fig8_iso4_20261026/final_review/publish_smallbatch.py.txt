@@ -1,0 +1,26 @@
+"""One current-chat completion/failure event per I4 direct work item."""
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+
+async def publish(run,case,status,summary,artifacts):
+    assert case in pc.ORDER and pc.read(pc.HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(pc.HERE/'hook/config.json');assert cfg['authorized_threads']==[pc.TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,
+        verified_success=status=='completed',purpose='I4 native same-mesh final review, <=4 actual frequencies per Analyze')
+    def prompt(event,event_path):
+        return (f'[Fig8 I4 四点：同网格直接复核完成事件]\n事件：{event_path}\n状态：{status}\n{summary}\n'
+            f'先读{pc.HERE/"CONTINUATION.md"}、continuation_plan.json、case_work_ledger.json。'
+            '仅本批I01G02/I02G02/I01G05/I02G05，用户已授权完成及用hook接续，不再询问启动。'
+            '运行receive_verified.py --run事件目录，核验native参考、每批来源、网格不变、全部实际频点和资源；实际看叠图后才acknowledge_smallbatch.py。'
+            '尚有未复核配置则按ORDER用dispatch_smallbatch.py --case CASE --solve，并supervise_smallbatch.py记录真实16核/1组启动。'
+            '每项<=70频点、每批<=4点，只有缓存网格；禁止新自适应、重复已有点或无界重试。故障保留原证据先诊断。'
+            '四项均实际审查后汇总四点及已有V02的等带宽/匹配对比，保留联合带宽定义；全部实际通过才关闭心跳收尾。'
+            '正常求解不周期发消息，完成通知送达5分钟无下一真实求解才检查AI状态；不要重开原24或V6。')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(at=pc.now(),error=traceback.format_exc()))

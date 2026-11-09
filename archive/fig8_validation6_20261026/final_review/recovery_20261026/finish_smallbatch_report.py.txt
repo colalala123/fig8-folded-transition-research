@@ -1,0 +1,107 @@
+"""Assemble the six independently reviewed V6 results; close only on all-pass."""
+from pathlib import Path
+import csv,json,shutil,zipfile
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import recovery_control as pc
+from phase_final_direct import compare
+
+def finish():
+    assert not (pc.HERE/'closure.json').exists(),'Final artifacts already closed; inspect, do not overwrite'
+    ledger=pc.read(pc.ledger_path())
+    assert len(ledger['tasks'])==6 and all(t['status']=='reviewed' for t in ledger['tasks'])
+    assert ledger['new_geometry_reserved']==0 and ledger['new_cached_tasks_reserved']==6
+    plan=pc.read(pc.PARENT/'plan.json')
+    frozen=pc.read(pc.PARENT/'predictions_frozen.json');coefficient=frozen['coefficients']
+    assert frozen['model']=='log_widths' and len(coefficient)==3
+    assert pc.sha(plan['prediction_source'])==plan['prediction_source_sha256']
+    assert pc.sha(plan['training_source'])==plan['training_source_sha256']
+    out=pc.PARENT/'deliverables';out.mkdir(exist_ok=True)
+    rows=[];fig,axes=plt.subplots(3,2,figsize=(12,12))
+    for case,ax in zip(pc.ORDER,axes.flat):
+        run=pc.BASE/case/'direct_smallbatch';spec=pc.read(run/'input.json');src=Path(spec['source'])
+        ack=pc.read(run/'receiver_ack.json');verify=pc.read(run/'receiver_verification.json')
+        assert ack['event_sha256']==pc.sha(run/'completion_event.json') and ack['verification_sha256']==pc.sha(run/'receiver_verification.json')
+        assert ack['operation_success'] and ack['visual_review_completed'] and ack['artifacts_verified']
+        for f,h in spec['input_parent_hashes'].items():assert pc.sha(f)==h,f
+        for f,h in verify['artifacts_verified'].items():assert pc.sha(f)==h,f
+        comp=compare(src,run);assert comp==pc.read(run/'comparison.json')
+        accepted=comp['numerical_review_passed'] and comp['sampled_design_supported']
+        assert bool(accepted)==ack['scoped_accepted']
+        m=pc.read(src/'response_metrics.json');source_input=pc.read(src/'input.json');source_state=pc.read(src/'state.json')
+        original=next(r for r in plan['cases'] if r['case']==case)
+        g=source_input['geometry']
+        assert abs(coefficient[0]+coefficient[1]*np.log(g['Wm']/1.2)+coefficient[2]*np.log(g['Ws']/.44)-original['predicted_BW_GHz'])<1e-12
+        prediction=original['predicted_BW_GHz'];bw=m['passband_2dB']['BW_GHz'];err=(bw-prediction)*1000
+        row=dict(case=case,scoped_accepted=bool(accepted),geometry=source_input['geometry'],a_mm=original['a_mm'],
+            actual_elements=source_state['actual_elements'],geometry_attempts=source_state['cumulative_geometry_ordinal'],
+            predicted_BW_GHz=prediction,BW_GHz=bw,prediction_error_MHz=err,prediction_error_percent=err/(prediction*10),
+            central_valley_GHz=m['central_valley_GHz'],peak_difference_dB=m['peak_difference_dB'],
+            direct_BW_GHz=comp['direct_BW_GHz'],comparison=comp,source=str(src),direct=str(run),
+            source_curve_sha256=pc.sha(src/'sparams.csv'),direct_curve_sha256=pc.sha(run/'sparams.csv'),
+            final_ack_sha256=pc.sha(run/'receiver_ack.json'))
+        rows.append(row)
+        folder=out/case;folder.mkdir(exist_ok=True)
+        for original_path,name in [(src/'sparams.csv','interpolated_sparams.csv'),(run/'sparams.csv','direct_sparams.csv'),
+            (src/'response_metrics.json','response_metrics.json'),(run/'comparison.json','comparison.json'),
+            (run/'input.json','direct_input.json'),(src/'input.json','geometry_input.json'),
+            (run/'receiver_ack.json','direct_receiver_ack.json'),(run/'receiver_verification.json','direct_verification.json')]:
+            shutil.copy2(original_path,folder/name)
+        shutil.copy2(verify['plot'],folder/'direct_overlay.png')
+        data=np.genfromtxt(src/'sparams.csv',delimiter=',',names=True)
+        direct=np.genfromtxt(run/'sparams.csv',delimiter=',',names=True)
+        for key,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+            ax.plot(data['Freq_GHz'],data[key],color=color,label=key.replace('_dB',''))
+            ax.scatter(direct['Freq_GHz'],direct[key],s=8,facecolors='none',edgecolors=color,linewidths=.5)
+        ax.set(xlim=(0,15),ylim=(-65,1),xlabel='GHz',ylabel='dB',title=f"{case}: {bw:.4f} GHz; {'accepted' if accepted else 'unresolved'}")
+        ax.grid(alpha=.2);ax.legend(fontsize=8)
+    fig.tight_layout();fig.savefig(out/'curves6.png',dpi=160);plt.close(fig)
+    errors=np.array([r['prediction_error_MHz'] for r in rows]);all_pass=all(r['scoped_accepted'] for r in rows)
+    pairs=[dict(short=lo['case'],long=hi['case'],BW_change_MHz=(hi['BW_GHz']-lo['BW_GHz'])*1000,
+        direct_BW_change_MHz=(hi['direct_BW_GHz']-lo['direct_BW_GHz'])*1000 if hi['direct_BW_GHz'] is not None and lo['direct_BW_GHz'] is not None else None)
+        for lo,hi in zip(rows[::2],rows[1::2])]
+    stats=dict(MAE_MHz=float(np.mean(abs(errors))),RMSE_MHz=float(np.sqrt(np.mean(errors**2))),max_absolute_error_MHz=float(max(abs(errors))),
+        max_absolute_relative_error_percent=max(abs(r['prediction_error_percent']) for r in rows),
+        max_direct_BW_shift_MHz=max(r['comparison']['BW_shift_GHz']*1000 for r in rows) if all(r['comparison']['BW_shift_GHz'] is not None for r in rows) else None)
+    result=dict(at=pc.now(),stage='V6',cases=rows,accepted=sum(r['scoped_accepted'] for r in rows),total=6,
+        frozen_prediction_validation=stats,paired_arm_comparisons=pairs,refitted=False,full_matrix_approved=False,
+        prediction_source_sha256=plan['prediction_source_sha256'],training_source_sha256=plan['training_source_sha256'],
+        operational_history=dict(original_failed_cached_workitems=1,single_frequency_diagnostic_workitems=1,smallbatch_aggregate_workitems=6,
+            actual_Analyze_launches=ledger['analyze_launches_reserved']+2,original_failed_event_preserved=True))
+    pc.write(out/'validation6_results.json',result)
+    for name in ['predictions_frozen.json','configurations.csv']:shutil.copy2(pc.PARENT/name,out/name)
+    lines=['# Fig8 六配置独立验证结果','',f"最终接受{result['accepted']}/6。采用冻结预测进行独立验证，未重新拟合。",'',
+        f"冻结关系：BW/GHz = {coefficient[0]:.9f} + {coefficient[1]:.9f} ln(Wm/1.2mm) + {coefficient[2]:.9f} ln(Ws/0.44mm)，ln为自然对数，BW为S21≥−2dB的全带宽。",'',
+        '|配置|网格|实际BW/GHz|预测BW/GHz|误差/MHz|峰差/dB|直接复核|',
+        '|---|---:|---:|---:|---:|---:|---|']
+    for r in rows:lines.append(f"|{r['case']}|{r['actual_elements']}|{r['BW_GHz']:.6f}|{r['predicted_BW_GHz']:.6f}|{r['prediction_error_MHz']:+.3f}|{r['peak_difference_dB']:.4f}|{'通过' if r['scoped_accepted'] else '未解决'}|")
+    lines+=['',f"带宽预测MAE={stats['MAE_MHz']:.3f}MHz，RMSE={stats['RMSE_MHz']:.3f}MHz，最大绝对误差={stats['max_absolute_error_MHz']:.3f}MHz。",'',
+        f"最大相对预测误差={stats['max_absolute_relative_error_percent']:.4f}%；直接点核验带宽相对插值的最大变化={stats['max_direct_BW_shift_MHz']}MHz。",'',
+        '同宽度下折臂从1.4增加到1.8mm的差异（Lm/Ls1已按设计条件确定）：']
+    for p in pairs:lines.append(f"- {p['short']}→{p['long']}：插值全带宽变化{p['BW_change_MHz']:+.3f}MHz；直接点带边确认值为{p['direct_BW_change_MHz']}MHz。")
+    lines+=['',f"执行记录：保留1次整批直接扫频失败和1次单频诊断；小批次实际Analyze {ledger['analyze_launches_reserved']}次，合计{ledger['analyze_launches_reserved']+2}次。新增几何为0，初始几何配置总数6。"]
+    lines+=['','结果适用于本批三个新宽度组合、两种折臂和既定材料/端口/网格条件。直接复核为相同网格上的有限关键频点检查；不等同于全频连续误差证明或完整4×4网络批准。',
+        '折臂差异是按设计条件重调谐后的净效应，应结合实际数值核验差异判断；不能直接用来证明仅改变折臂时的辐射损耗机制。',
+        '本关系只使用几何宽度作为输入，未把S参数反推的P/R当作独立预测量。predictions_frozen.json中的proposal状态是仿真前保留的快照，最终状态以validation6_results.json为准。',
+        '6项完整S11/S21及直接点见curves6.png；各配置文件夹含原始复数S参数、数值比较和接收审查证据。']
+    (out/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    manifest={str(f.relative_to(out)):pc.sha(f) for f in out.rglob('*') if f.is_file() and f.name!='artifact_manifest.json'}
+    pc.write(out/'artifact_manifest.json',dict(at=pc.now(),files=manifest))
+    archive=pc.PARENT/'fig8-validation6-results-20261026.zip'
+    with zipfile.ZipFile(archive,'w',compression=zipfile.ZIP_DEFLATED) as z:
+        for f in out.rglob('*'):
+            if f.is_file():z.write(f,str(f.relative_to(out)))
+    if all_pass:
+        closure=dict(at=pc.now(),state='all6_scoped_accepted',geometry_count=sum(r['geometry_attempts'] for r in rows),
+            direct_count=6,actual_Analyze_launches=ledger['analyze_launches_reserved']+2,original_failed_workitems=1,single_point_diagnostic_workitems=1,result_sha256=pc.sha(out/'validation6_results.json'),artifact_manifest_sha256=pc.sha(out/'artifact_manifest.json'),zip_sha256=pc.sha(archive))
+        pc.write(pc.HERE/'closure.json',closure);pc.write(pc.PARENT/'stage_V6_closure.json',closure)
+        last=pc.BASE/pc.ORDER[-1]/'direct_smallbatch'
+        pc.write(last/'continuation_resolution.json',dict(at=pc.now(),event_sha256=pc.sha(last/'completion_event.json'),
+            disposition='batch_complete',reason='All6 V6 candidates have real receiver ACKs, design and same-mesh numerical checks passed, deliverables assembled.'))
+        pc.write(pc.PARENT/'active.json',dict(stage='all6_scoped_accepted',accepted=6,total=6,report=str(out/'REPORT.md'),at=pc.now()))
+        (pc.PARENT/'STATUS.md').write_text('# Fig8 六配置：全部完成\n\n6/6最终接受。报告：'+str(out/'REPORT.md')+'\n',encoding='utf-8')
+    print(dict(accepted=result['accepted'],total=6,statistics=stats,report=str(out/'REPORT.md'),archive=str(archive),closed=all_pass))
+
+if __name__=='__main__':finish()

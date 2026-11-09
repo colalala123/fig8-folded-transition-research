@@ -1,0 +1,20 @@
+from phase_control import HERE,TARGET,ORDER,read,write,now
+from phase_publish import hook
+
+def prompt(event,path):
+    return (f'[B05二轮14核完成通知] {path}\n{event["summary"]}\n'
+        f'先读{HERE/"CONTINUATION.md"}与本轮EXECUTION_PLAN。仅本轮B05、14核串行、最多4新几何；旧队列闭账不可重开。'
+        '先review_phase_geometry、实际view_image、acknowledge_review，再启动唯一后继并监督真实14核1组；不重复Analyze。'
+        '正常运行静默，失败查真实进程和缓存，一次技术恢复继承预算。不自动启动48点，不清工程锁。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(HERE/'hook/config.json');path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='B05 bounded14core length development;not new independent blind test')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

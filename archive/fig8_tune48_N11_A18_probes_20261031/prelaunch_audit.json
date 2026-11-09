@@ -1,0 +1,71 @@
+{
+  "at": "2026-10-30T16:57:12.160292+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N11_A18_probes_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 1.028s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 2.053s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 3,
+    "new_geometries_declared": 5,
+    "geometry_cap": 172,
+    "Analyze_used": 28,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 0,
+      "N11_A18_M": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 2
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "create_time": 1793355858.6193893,
+      "name": "ansysedt.exe",
+      "pid": 85208,
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ]
+    }
+  ],
+  "projects": [
+    {
+      "case": "N11_A18_S",
+      "configuration_sha256": "ab26e7492fcc2284f244335a2c7a6fe6f016387b100ce92bbe40d3ea048ed380",
+      "project_sha256": "bc338e480d59b83561790e121b9ae66f60f5cf2a56a203eef1a71d0add903a57"
+    },
+    {
+      "case": "N11_A18_M",
+      "configuration_sha256": "64e8726d67f1c040b8db526159b431d7ad5fb48fb60826e5d762b0f1f464fc67",
+      "project_sha256": "8b1572126b10d733453908f5a87ef74242a648717fda87410137c5e334d1c7be"
+    }
+  ]
+}

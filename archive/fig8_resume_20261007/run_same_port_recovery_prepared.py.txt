@@ -1,0 +1,66 @@
+"""Fresh D04 i04-i07 diagnostics: bridge the I/O journal to frozen preparation.
+
+Original bounded frequency layout and all numerical gates remain unchanged.
+Never resumes an existing diagnostic, changes an accepted attempt or retries
+a solver dispatch. Use only after the first i03 preparation is accepted.
+"""
+import argparse,asyncio,json,os,shutil
+from pathlib import Path
+import run_same_port_recovery_io as io
+
+r=io.r
+ORIGINAL_PLAN=io.v2.plan
+ORIGINAL_SNAPSHOT=r.snapshot
+VERSION='fresh_metadata_preparation_v1_20261008'
+
+
+def allowed(attempt):
+    attempt=Path(attempt).resolve()
+    assert attempt.parent==r.ROOT/'D04G05' and attempt.name in ['i04','i05','i06','i07']
+    return attempt
+
+
+def plan(attempt):
+    attempt=allowed(attempt);result=ORIGINAL_PLAN(attempt)
+    result['metadata_preparation_version']=VERSION
+    result['implementation_hashes'][str(Path(__file__).resolve())]=r.sha(__file__)
+    return result
+
+
+def snapshot(attempt,base,project,plan):
+    attempt=allowed(attempt)
+    assert {p.name for p in base.iterdir()}=={'metadata_io_adapter.json'}
+    journal=r.read(base/'metadata_io_adapter.json')
+    assert journal['status']=='running' and journal['kind']=='new_diagnostic'
+    assert journal['pid']==os.getpid() and journal['plan_at_start']==plan
+    assert journal['recipe_invocations']==1 and plan['metadata_preparation_version']==VERSION
+    assert plan['attempt']==str(attempt)
+    source=Path(r.read(attempt/'manifest.json')['project'])
+    assert not project.exists()
+    r.write_json(base/'plan.json',plan);shutil.copy2(source,project)
+    # Every original cached matrix, source, cutoff and convergence check runs.
+    ORIGINAL_SNAPSHOT(attempt,base,project,plan)
+
+
+def readiness(attempt):
+    attempt=allowed(attempt)
+    basis=r.ROOT/'D04G05/i03'
+    assert (basis/'recovery_acceptance.json').exists(),'i03 explicit recovery must be accepted first'
+    assert r.resolve_attempt(basis)==basis/'verified_recovery'
+    base=r.ROOT/'local_repair'/f'D04G05_{attempt.name}'
+    assert not base.exists(),'Existing diagnostic requires explicit review; no repeat'
+    r.frequency_layout(attempt)  # Retain the original bounded window guard.
+    return attempt
+
+
+def install():
+    io.v2.plan=plan;r.snapshot=snapshot
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('attempt');parser.add_argument('--run',action='store_true');a=parser.parse_args()
+    attempt=readiness(a.attempt);install()
+    if a.run:asyncio.run(io.run(attempt))
+    else:
+        base,p,kind=io.readiness(attempt)
+        print(json.dumps({'ready':True,'kind':kind,'version':VERSION,'windows_GHz':p['windows_GHz']},indent=2))

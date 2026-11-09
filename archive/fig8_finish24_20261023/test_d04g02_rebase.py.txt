@@ -1,0 +1,56 @@
+import copy
+import unittest
+from prepare_d04g02_rebase import check_decision
+
+
+class RecoveredSweepCenterTests(unittest.TestCase):
+    def setUp(self):
+        self.row = dict(case='D04G02', initial_geometry={'Lm':6.499465},
+                        current_geometry={'Lm':6.499465})
+        self.ledger = dict(historical_count=1, previous_batch_count=1,
+                           attempts_used_or_reserved=2, new_geometry_slots={})
+        self.d = dict(case='D04G02', action='one_same_policy_center',
+            old_results_preserved=True, count_as_additional_geometry_attempt=True,
+            reuse_old_sensitivities=False, mesh_count_is_failure=False,
+            geometry={'Lm':6.499465}, legacy_sweep=dict(InterpTolerance=1.,EnforcePassivity=False),
+            recovered_sweep_already_available=True, repeat_sweep_repair=False,
+            same_controller_center_available=False, design_already_passed=False)
+
+    def check(self): check_decision(self.d,self.row,self.ledger)
+
+    def test_valid_recovered_center(self): self.check()
+
+    def test_no_repeating_sweep_repair(self):
+        self.d['repeat_sweep_repair'] = True
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_no_missing_recovery_evidence(self):
+        self.d['recovered_sweep_already_available'] = False
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_no_history_reset_or_second_center(self):
+        for count in [1,3]:
+            self.ledger['attempts_used_or_reserved'] = count
+            with self.assertRaises(AssertionError): self.check()
+
+    def test_preserve_both_history_sources(self):
+        for key in ['historical_count','previous_batch_count']:
+            self.ledger[key] = 0
+            with self.assertRaises(AssertionError): self.check()
+            self.ledger[key] = 1
+
+    def test_sweep_settings_must_already_match(self):
+        self.d['legacy_sweep']['InterpTolerance'] = .5
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_scope_and_no_mesh_only_failure(self):
+        for key,value in [('case','D09G05'),('mesh_count_is_failure',True),
+                          ('geometry',{'Lm':6.6}),('same_controller_center_available',True),
+                          ('reuse_old_sensitivities',True),('design_already_passed',True)]:
+            with self.subTest(key=key):
+                original=copy.deepcopy(self.d);self.d[key]=value
+                with self.assertRaises(AssertionError): self.check()
+                self.d=original
+
+
+if __name__ == '__main__': unittest.main()

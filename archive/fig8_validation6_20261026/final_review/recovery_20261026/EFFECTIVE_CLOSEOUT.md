@@ -1,0 +1,1 @@
+最终汇总使用finish_effective_report.py。它保留原数值比较和验收判据，按case_work_ledger.json的effective_run选择恢复后的有效结果，累计resume_analyze_launches_reserved，并把原始批次/网格和两次运行故障证据打包。所有原冻结输入和原失败事件不变。

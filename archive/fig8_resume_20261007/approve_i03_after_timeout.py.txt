@@ -1,0 +1,35 @@
+"""Full i03 approval plus mandatory timeout-resumption provenance."""
+import argparse
+import json
+from pathlib import Path
+import resume_i03_after_timeout as resume
+import approve_same_port_recovery as normal
+
+
+def review():
+    record = resume.validate_resumption()
+    w = resume.w
+    plan = w.validate_candidate_plan()
+    result = normal.review(w.ATTEMPT)
+    result['explicit_layout_review'] = {'review_id': plan['layout_review_id'],
+        'file': str(w.REVIEW), 'sha256': w.r.sha(w.REVIEW),
+        'scope': 'Exact reviewed 242-point layout; all original numerical gates retained.'}
+    result['timeout_resumption'] = {'file': str(resume.RECORD), 'sha256': w.r.sha(resume.RECORD),
+        'direct_points_reused': 242, 'direct_solver_dispatches': 0,
+        'scope': 'Completed direct sweep recovered after controller timeout; same-mesh segments resumed once.'}
+    paths = [w.REVIEW, resume.RECORD, Path(__file__).resolve(), *map(Path, record['evidence_hashes'])]
+    result['evidence_hashes'].update({str(p): w.r.sha(p) for p in paths})
+    return result
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--apply', action='store_true')
+    args = parser.parse_args()
+    result = review()
+    if args.apply:
+        path = resume.w.ATTEMPT / 'recovery_acceptance.json'
+        assert not path.exists()
+        resume.r.write_json(path, result)
+        assert normal.resolve_attempt(resume.w.ATTEMPT) == resume.w.ATTEMPT / 'verified_recovery'
+    print(json.dumps({'ready': True, 'written': args.apply, 'design_acceptance_not_evaluated': True}))

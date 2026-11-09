@@ -1,0 +1,30 @@
+import json,hashlib,shutil,sys,ast,copy
+from pathlib import Path
+R=Path('${WORKSPACE}/output/fig8_verify_N19_N22_20261109');OLD=R.parent/'fig8_tune48_fixedPR_20261031'
+sys.path.insert(0,str(R));import build_runtime as br
+oldctx=R.parent/'fig8_diag_N19_A14_c1_20261109';oldrun=R/'data/N19_A14/c1/N19_A14_D1/g01_initial'
+assert not (oldrun/'state.json').exists() and not list(oldrun.glob('*.aedt'))
+e=br.read(oldrun/'completion_event.json');assert e['status']=='failed'
+record=dict(scope='Same N19 geometry, startup dependency correction BEFORE ANY Analyze; no desktop restart',old_context=str(oldctx),old_run=str(oldrun),Analyze_used=0,geometry_unchanged=True,old_hashes={str(p):br.sha(p) for p in oldrun.iterdir() if p.is_file() and p.name in ['input.json','worker_error.json','completion_event.json','notification_receipt.json']},old_registry=br.read(R/'runtime_registry.json'))
+br.new(R/'ZERO_ANALYZE_STARTFIX.json',record)
+source=OLD/'coordination/production_protocol.json';dest=R/'coordination/production_protocol.json'
+assert br.sha(source)==br.read(oldctx/'policy.json')['old_protocol_sha256'];assert not dest.exists();shutil.copyfile(source,dest)
+# No frozen source/input is edited. Derive a versioned context generator in memory.
+s=(R/'build_runtime.py').read_text(encoding='utf-8-sig');tree=ast.parse(s);n=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='make')
+fn=ast.get_source_segment(s,n).replace("ctx=OUT/f'fig8_diag_{parent}_{kind}_20261109';base=ROOT/'data'/parent/kind","ctx=OUT/f'fig8_diag_{parent}_{kind}_20261109_startfix1';base=ROOT/'data'/parent/(kind+'_startfix1')")
+assert fn!=ast.get_source_segment(s,n)
+reg=br.read(R/'runtime_registry.json');reg['contexts']=[x for x in reg['contexts'] if x['parent']!='N19_A14'];br.write(R/'runtime_registry.json',reg)
+ns=br.__dict__.copy();exec(compile(fn,'versioned_zero_analyze_generator','exec'),ns)
+row=br.read(R/'PLAN.json')['cases'][0];ctx=ns['make']('N19_A14','c1',[row['geometry']],Path(row['source']))
+shutil.copyfile(R/'aedt_identity.json',ctx/'aedt_identity.json')
+shutil.copyfile(oldctx/'CONTINUATION.md',ctx/'CONTINUATION.md')
+shutil.copyfile(oldctx/'phase_geometry_publish.py',ctx/'phase_geometry_publish.py')
+with (ctx/'CONTINUATION.md').open('a',encoding='utf8') as f:f.write('\nThis is the versioned zero-Analyze startup fix. Original failure is preserved at '+str(oldrun)+'. Only this effective run counts for future N19 review; never relaunch old failed run.\n')
+ev=br.read(ctx/'parent_evidence.json')
+for p in [R/'PLAN.json',R/'HISTORICAL_BUDGET_SNAPSHOT.json',R/'ZERO_ANALYZE_STARTFIX.json',R/'aedt_identity.json',dest,R/'prepare_zero_startfix.py']:ev['hashes'][str(p)]=br.sha(p)
+br.write(ctx/'parent_evidence.json',ev)
+reg=br.read(R/'runtime_registry.json');reg['contexts'].sort(key=lambda x:['N19_A14','N22_A18'].index(x['parent']));br.write(R/'runtime_registry.json',reg)
+launch=(R/'launch_verified.py').read_text(encoding='utf-8-sig').replace("marker=ROOT/'releases'/f'{case}.json'","marker=ROOT/'releases_startfix1'/f'{case}.json'")
+launch=launch.replace("reg=read(ROOT/'runtime_registry.json')['contexts'];", "z=read(ROOT/'ZERO_ANALYZE_STARTFIX.json');assert not (Path(z['old_run'])/'state.json').exists();assert all(sha(p)==h for p,h in z['old_hashes'].items());reg=read(ROOT/'runtime_registry.json')['contexts'];")
+(R/'launch_verified_startfix1.py').write_text(launch,encoding='utf8')
+print('ZERO_ANALYZE_FIX',ctx,br.validate_campaign(storage=True))

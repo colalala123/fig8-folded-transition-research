@@ -1,0 +1,9 @@
+import sys,numpy as np
+from pathlib import Path
+sys.path.insert(0,r'${WORKSPACE}\output\fig8_handoff_20261002')
+from check_touchstone_passivity import read
+for p in [Path(r'F:\hfss_f8x_261002\R_B0_rebuild_max500\bb_segments\seg_0p01_3'),Path(r'F:\hfss_f8x_261002\R_B0_rebuild_max500\bb_segments\seg_3_6')]:
+ print(p.name)
+ for fn in ['native.s6p','50ohm.s6p']:
+  f,s=read(p/fn);sv=np.linalg.svd(s,compute_uv=False)[:,0]
+  print(fn,len(f),f[0],f[-1],sv.max(),int((sv>1.0001).sum()),np.max(np.abs(s-s.transpose(0,2,1))))

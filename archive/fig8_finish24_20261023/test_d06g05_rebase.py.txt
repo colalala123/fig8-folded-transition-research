@@ -1,0 +1,43 @@
+import unittest
+from prepare_d06g05_rebase import check_decision
+
+class D06G05RebaseTests(unittest.TestCase):
+    def setUp(self):
+        self.r = dict(case='D06G05', initial_geometry={'Wm':1.2}, current_geometry={'Wm':1.2})
+        self.l = dict(attempts_used_or_reserved=1, new_geometry_slots={})
+        self.d = dict(case='D06G05', action='one_same_policy_center', old_results_preserved=True,
+            count_as_additional_geometry_attempt=True, reuse_old_sensitivities=False,
+            mesh_count_is_failure=False, geometry={'Wm':1.2},
+            legacy_sweep=dict(InterpTolerance=.5, EnforcePassivity=True),
+            same_controller_center_available=False, design_already_passed=False)
+    def check(self): check_decision(self.d,self.r,self.l)
+    def test_valid(self): self.check()
+    def test_no_second_center(self):
+        self.l['attempts_used_or_reserved']=2
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_other_case(self):
+        self.d['case']='D07G05'
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_retuning_accepted(self):
+        self.d['design_already_passed']=True
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_redundant_compatible_center(self):
+        self.d['same_controller_center_available']=True
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_mesh_only_failure(self):
+        self.d['mesh_count_is_failure']=True
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_geometry_change(self):
+        self.d['geometry']={'Wm':2}
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_mixed_derivatives(self):
+        self.d['reuse_old_sensitivities']=True
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_history_reset(self):
+        self.d['count_as_additional_geometry_attempt']=False
+        with self.assertRaises(AssertionError): self.check()
+    def test_no_unexplained_policy_claim(self):
+        self.d['legacy_sweep']['InterpTolerance']=1
+        with self.assertRaises(AssertionError): self.check()
+
+if __name__ == '__main__': unittest.main()

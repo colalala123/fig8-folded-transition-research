@@ -1,0 +1,140 @@
+"""Scoped, versioned decisions; no silent overwrite of historical acceptance."""
+from datetime import datetime,timezone,timedelta
+from pathlib import Path
+from collections import Counter
+from audit import HERE,ROOT,read,write,sha
+
+def decision(a,direct=None):
+    if a.get('offline_category')=='sweep_not_converged':return 'needs_sweep_repair'
+    conv=a.get('convergence') or {}
+    if not (a.get('complete_finite_grid') and a.get('native_curve_hash_matches_manifest') and a.get('source_hash_matches_manifest') and a.get('port_passed') and conv.get('converged') and conv.get('final_delta_s',1)<=.005):
+        return 'needs_source_port_or_convergence_review'
+    if a.get('offline_category')=='full_matrix_pass':return 'existing_numerical_pass'
+    if direct and direct.get('sample_response_passed') and direct.get('band_edges_passed'):
+        return 'fundamental_response_checked_needs_geometry_tuning'
+    if direct:return 'fundamental_discrepancy_needs_targeted_repair'
+    return 'candidate_needs_case_specific_direct_check'
+
+def main():
+    audit=read(HERE/'offline_audit.json');checks=read(HERE/'direct_comparison.json');bycase={r['case']:r for r in checks}
+    now=datetime.now(timezone(timedelta(hours=9))).isoformat(timespec='seconds')
+    decisions=[]
+    for c in audit['cases']:
+        attempts=c['attempts'];a=attempts[-1] if attempts else {}
+        status=c['production_status'];d='retain_'+status if status in ['accepted','failed'] else decision(a,bycase.get(c['case'])) if a else 'not_run'
+        decisions.append({'case':c['case'],'decision':d,'run':a.get('run',c.get('selected_run')),
+          'production_status_unchanged':status,'latest_metrics':a.get('metrics'),
+          'direct_review':str(HERE/'direct_comparison.json') if c['case'] in bycase else None,
+          'full_matrix_anomaly_retained':a.get('offline_category')!='full_matrix_pass' if a else None})
+    policy={'id':'fig8_fundamental_scoped_review_20261021','created_at':now,
+      'status':'scoped_diagnostic_policy_not_global_production_replacement',
+      'physical_precision_unchanged':{'MaxDeltaS':.005,'InterpTolerance_percent':.5,'points':1500,'cores':16,'tasks':1,'modes_per_port':2},
+      'comparison_convention':'Native HFSS modal S11/S21, longest continuous S21>=-2dB band; optional 50-ohm plots labeled separately.',
+      'solver_and_port_gates':'Original adaptive and sweep convergence, source/geometry/port consistency and full finite exported curve remain required.',
+      'full_matrix_review':'Keep max_sv<=1.001 and reciprocity<=1e-6 for full matrix approval. Failing these triggers localization; it does not alone disqualify the native fundamental response.',
+      'fundamental_scoped_release':{'requires':'Same-geometry, same-mesh independent direct checks, raw source hashes, matching mode identity and converged sweep; no blanket transfer to other runs.',
+        'max_native_complex_error':.005,'max_inband_S21_error_dB':.05,'max_peak_S11_error_dB':.1,'max_edge_shift_GHz':.02,'max_BW_shift_GHz':.02},
+      'threshold_rationale':'Existing collector comparisons used 0.005 magnitude RMSE and 0.02GHz edge shift. This review requires 0.005 maximum complex error at selected points, adds dB/peak bounds and a stricter 0.02GHz total bandwidth shift. These are study-specific checks, not universal HFSS tolerances.',
+      'design_gates':'Separate from numerical review: three identifiable valleys, peak difference<=0.5dB, S11<-10dB and S21>=-2dB between outer valleys, center 6.72+/-0.03GHz for this Fig8 pilot.',
+      'limits':['Sparse direct checks do not certify every unsampled frequency.','Same-mesh checks test interpolation, not mesh independence.','Width-corner mode sufficiency remains pending.','No full 4x4 network or power/radiation analysis is approved by fundamental-only evidence.'],
+      'original_protocol_sha256':sha(ROOT/'production_protocol.json'),
+      'evidence_hashes':{str(HERE/n):sha(HERE/n) for n in ['uniform_evidence.json','offline_audit.json','direct_comparison.json']}}
+    write(HERE/'scoped_review_policy.json',policy);write(HERE/'backlog_decisions.json',{'created_at':now,'counts':dict(Counter(x['decision'] for x in decisions)),'cases':decisions})
+    for d in decisions:
+        if d['decision']!='fundamental_response_checked_needs_geometry_tuning':continue
+        r=bycase[d['case']]
+        write(HERE/f"response_release_{d['case']}.json",{
+          'approved':True,'approved_scope':'native_fundamental_response_for_geometry_tuning_and_exploratory_metrics',
+          'full_matrix_approved':False,'equal_ripple_design_approved':False,
+          'case':d['case'],'run':d['run'],'created_at':now,
+          'frequency_grid_GHz':[.01,15,.01],'direct_frequencies_GHz':[x['GHz'] for x in r['samples']],
+          'direct_check_same_mesh':r['same_mesh_and_source_verified'],
+          'source_evidence_hashes':r['evidence_hashes'],
+          'policy_path':str(HERE/'scoped_review_policy.json'),'policy_sha256':sha(HERE/'scoped_review_policy.json'),
+          'report_path':str(HERE/'direct_comparison.json'),'report_sha256':sha(HERE/'direct_comparison.json'),
+          'limitations':policy['limits'],'original_production_status_retained':True})
+    table=[]
+    labels={'retain_accepted':'保留设计通过','retain_failed':'保留设计失败','not_run':'尚未运行',
+      'needs_source_port_or_convergence_review':'源文件、端口或收敛证据需复核',
+      'needs_sweep_repair':'扫频未收敛，需修复','existing_numerical_pass':'沿用原数值通过',
+      'fundamental_response_checked_needs_geometry_tuning':'关键基模响应核验通过；需调尺寸',
+      'fundamental_discrepancy_needs_targeted_repair':'基模直接核验有偏差；需针对修复',
+      'candidate_needs_case_specific_direct_check':'基模候选；待本案例直接核验'}
+    for d in decisions:
+        m=d.get('latest_metrics') or {};peak=m.get('peak_difference_dB');center=m.get('central_valley_GHz')
+        table.append(f"| {d['case']} | {labels[d['decision']]} | {peak:.4f} | {center:.2f} |" if peak is not None and center is not None else f"| {d['case']} | {labels[d['decision']]} | — | — |")
+    comps=[]
+    for r in checks:
+        edge='无边界局部样本；沿用既有验收' if r['BW_shift_GHz'] is None else f"{r['BW_shift_GHz']*1000:.4f} MHz"
+        comps.append(f"| {r['case']} | {r['points']} | {r['max_fundamental_complex_error']:.6g} | {r['max_S21_error_dB_near_band']:.6g} dB | {edge} |")
+    doc=f'''# Fig.8 验收复核报告
+
+更新时间：{now}（日本时间）
+
+## 1. 均匀模型与弯折模型的实际差别
+
+已直接读取三组历史均匀目标工程中名为 `Wideband vertical transition` 的活动设计、`Setup19/Sweep1`，并核对原始导出函数和数据筛选函数。
+
+| 项目 | 三组均匀历史工程 | 当前 Fig.8 |
+|---|---|---|
+| 端口模式 | 每端口1模 | 每端口2模；3模为先前诊断 |
+| 自适应 | Broadband；最大ΔS=0.005；6–40轮；连续2轮 | 相同 |
+| 扫频 | 0.01–15GHz，0.01GHz步长，1500输出点 | 相同 |
+| 插值 | 0.5%，最多250基点，开启无源性 | 相同 |
+| 主响应 | 原生 Modal S11/S21 | 原生 Modal 基模 S11/S21 |
+| 额外后处理 | 找到的旧筛选函数未要求完整多模矩阵检查 | 完整4×4矩阵转50Ω，最大奇异值≤1.001、互易误差≤1e-6 |
+
+因此差异主要在多模和后处理阻断条件，而非网格容差更严格。旧代码 `pass_flags` 的明确要求是三个反射谷、双峰差≤0.5dB、外谷之间S11<-10dB且S21≥-2dB。当前Fig.8还为公平比较增加中心谷6.72±0.03GHz要求，属于本次实验设计约束。
+
+1000行索引的 `hard=681/general_only=319` 是设计/数据质量分层，不能直接解读为通过了当前全矩阵数值门槛。索引中735行带有归档和正常完成标记，265行标记来源尚未解析；这并不表示265行没有仿真。三组工程的设置核对也不能替代对1000个源工程逐一审核。
+
+带宽定义统一为S21≥−2dB最长连续频段。旧汇总直接使用采样点端点；当前指标使用−2dB交点线性插值。两者有最多约两个采样间隔的端点量化差，比较时应明确。
+
+证据：`uniform_evidence.json`、三个 `*_Setup19.txt`、原始 `hfss_structure_a_run.py` 与 `build_structure_a_em_dataset_index.py`。
+
+## 2. 一个合格点与两个异常点的核验
+
+合格点D04G05复用已有242个直接频点及已通过的分段接缝记录。报告明确剔除已经直接用于拼接的频点，避免把同一数据自比较当独立证据；该点未重算。
+
+异常点选择D05G02/i00（完整矩阵互易误差0.0181）和D08G05/i00（完整矩阵最大奇异值1.3682）。两点均复制工程与缓存，在同一已收敛网格上补做关键频点；覆盖两侧−2dB交点、反射峰、反射谷、异常区与带外锚点。使用可见AEDT 2024 R2、MCP、16核单任务。源工程哈希、补算前后收敛记录和实际资源命令留存。
+
+| 配置 | 直接频点数 | 最大基模复数误差 | 通带附近S21最大dB误差 | 带宽变化 |
+|---|---:|---:|---:|---|
+{chr(10).join(comps)}
+
+详见 `direct_comparison.json`；橙色散点是直接求解结果：
+
+![代表点核验](representative_comparison.png)
+
+有限频点核验只支持所检查频率及关键指标，不是全频带误差的数学上界；同网格直接求解不能代替网格独立性验证。基准既有直接点没有覆盖其带宽交点，本次没有凭空补出带宽变化值。
+
+## 3. 采用的分层验收决定
+
+网格/扫频收敛、几何/端口一致、数据完整、源文件校验继续作为硬门槛。完整矩阵仍保留原有无源性与互易性检查。
+
+新增的是限定用途的基模响应复核：完整矩阵报警后先定位通道，再用本案例直接求解验证基模。只有本案例证据满足 `scoped_review_policy.json` 的误差阈值，才可使用原生基模曲线进行本阶段响应分析或尺寸调节；不将整个4×4网络标记为无源/互易合格。不能仅凭基模子矩阵无报警就放行，也不把两例结果推广到全部配置。
+
+旧完整矩阵协议、原始失败记录与已验收结果均保留。新决定单独版本化记录，尚未替换旧自动队列的冻结协议。宽度角点模式充分性检查仍需完成后，才能形成整个24点批次的最终研究结论。
+
+## 4. 全部24个配置重评
+
+| 配置 | 当前处理决定 | 峰差/dB | 中央谷/GHz |
+|---|---|---:|---:|
+{chr(10).join(table)}
+
+14个积压数值复核配置中，D04G02有明确扫频不收敛记录；其余13个具有完整矩阵数据，原生基模互易差和50Ω基模子矩阵未出现先前完整矩阵的大幅异常。但这只是筛查证据。本报告为每个配置保留直接核验需求，不统一改为合格。
+
+D01G05、D02G05、D03G02、D05G05的最新诊断响应已接近或达到设计指标，优先核验能较快获得有效设计；其他候选即使数值放行，通常仍需在既定预算内调整Ls1/Lm。D12G05等设计失败不因新数值口径而自动成功。P/R规律分析仍须区分独立形状参数与由带宽反算的R_BW。
+
+## 技术依据与范围
+
+HFSS官方说明其插值收敛检查和无源性处理是不同步骤；Driven Modal默认插值S矩阵与传播常数，端口阻抗不默认参与插值收敛。当前设置与之相符，但这本身不能证明本次异常的全部根因。重新归一化需要端口特性阻抗，因此本次保留原生和50Ω两种口径，绝不混用带宽指标。
+
+- [Ansys 2024 R2 插值高级选项](https://ansyshelp.ansys.com/public/Views/Secured/Electronics/v242/en/Subsystems/HFSS/Content/HFSS/SetupInterpolatingSweepAdvancedOptions.htm)
+- [Ansys 2024 R2 S矩阵重归一化](https://ansyshelp.ansys.com/public/Views/Secured/Electronics/v242/en/Subsystems/HFSS/Content/HFSS/RenormalizedSMatricesinHFSS.htm)
+
+所有新程序与结果位于本目录；补算工程位于 `J:/f8_261007/acceptance_audit_20261021`。本次报告是验收流程复核结果，不代表首批24配置完成。
+'''
+    (HERE/'验收复核报告.md').write_text(doc,encoding='utf-8')
+    print(dict(Counter(x['decision'] for x in decisions)))
+if __name__=='__main__':main()

@@ -1,0 +1,18 @@
+import numpy as np
+from pathlib import Path
+p=Path(r'F:\hfss_f8x_261002\R_tri_diagC\50ohm_full_no_pass.s6p')
+vals=[];unit=1;fmt='RI'
+for ln in p.read_text(errors='ignore').splitlines():
+ ln=ln.strip()
+ if not ln or ln.startswith('!'): continue
+ if ln.startswith('#'):
+  t=ln.upper().split();unit={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+ vals += [float(x.replace('D','E')) for x in ln.split()]
+n=6; st=73; ch=[vals[i:i+st] for i in range(0,len(vals)-st+1,st)]
+f=np.array([c[0]*unit/1e9 for c in ch]);s=np.zeros((len(ch),n,n),complex)
+for k,c in enumerate(ch):
+ x=np.array(c[1:]).reshape(36,2)
+ z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1])) if fmt=='MA' else x[:,0]+1j*x[:,1]
+ s[k]=z.reshape(n,n)
+sv=np.linalg.svd(s,compute_uv=False).max(axis=1);ii=np.where(sv>1+1e-9)[0]
+print(fmt,len(f),[(float(f[i]),float(sv[i])) for i in ii])

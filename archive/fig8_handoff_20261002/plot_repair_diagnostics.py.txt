@@ -1,0 +1,28 @@
+"""Summarize actual HFSS direct and interpolation diagnostics."""
+import json
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from check_touchstone_passivity import read
+ROOT=Path('F:/hfss_f8x_261002');OUT=ROOT/'R_B0_direct8'
+fd,sd=read(OUT/'hfss_50ohm.s6p');fi,si=read(ROOT/'R_B0_tight01/hfss_50ohm.s6p')
+_,nd=read(OUT/'hfss_native.s6p');_,ni=read(ROOT/'R_B0_tight01/hfss_native.s6p')
+vd=np.linalg.svd(sd,compute_uv=False)[:,0];vi=np.linalg.svd(si,compute_uv=False)[:,0]
+rows=[]
+for k,f in enumerate(fd):
+    j=int(np.argmin(abs(fi-f)))
+    rows.append({'f_GHz':float(f),'direct_max_singular_50ohm':float(vd[k]),'interpolated_max_singular_50ohm':float(vi[j]),'native_S11_magnitude_difference':float(abs(abs(nd[k,0,0])-abs(ni[j,0,0]))),'native_S21_magnitude_difference':float(abs(abs(nd[k,3,0])-abs(ni[j,3,0])))})
+(OUT/'direct_vs_interpolated.json').write_text(json.dumps(rows,indent=2),encoding='utf-8')
+fig,ax=plt.subplots(1,2,figsize=(11,4),layout='constrained')
+ax[0].semilogy(fi,vi,label='Interpolating (0.1% tolerance)',lw=1)
+ax[0].scatter(fd,vd,label='Discrete sweep (8 points)',c='tab:red',zorder=3)
+ax[0].axhline(1.0001,c='k',ls='--',lw=.8);ax[0].set(xlabel='Frequency (GHz)',ylabel='Max singular value, HFSS 50-ohm S',title='Diagnostic only: passivity failure remains')
+ax[0].legend(fontsize=8);ax[0].grid(alpha=.2)
+ax[1].plot(fi,20*np.log10(abs(ni[:,3,0])),label='Interpolated native S21')
+ax[1].scatter(fd,20*np.log10(abs(nd[:,3,0])),c='tab:red',label='Discrete native S21',s=20)
+ax[1].set(xlabel='Frequency (GHz)',ylabel='S21 (dB)',ylim=(-90,1),title='Good fundamental curve alone is insufficient')
+ax[1].legend(fontsize=8);ax[1].grid(alpha=.2)
+fig.savefig(OUT/'repair_diagnostics.png',dpi=180)
+print(json.dumps(rows,indent=2))

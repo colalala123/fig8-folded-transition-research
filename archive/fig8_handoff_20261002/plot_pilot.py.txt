@@ -1,0 +1,78 @@
+"""Plot completed pilot evidence; never present R_BW as independent prediction."""
+import csv,json
+from pathlib import Path
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import numpy as np
+
+ROOT=Path('F:/hfss_f8x_261002')
+
+def rows(name):
+    with (ROOT/name).open(encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+
+def main():
+    accepted=rows('accepted_designs.csv');failed=rows('failed_designs.csv')
+    bycase={x['case']:x for x in accepted+failed}
+    matrix=rows('pilot_24.csv');widths=sorted({float(r['Wm']) for r in matrix});slots=sorted({float(r['Ws']) for r in matrix})
+    vals=[float(x['BW_2dB_GHz']) for x in accepted]
+    fig,axes=plt.subplots(1,2,figsize=(10,4.5),constrained_layout=True)
+    for ax,shape in zip(axes,('development_G02','development_G05')):
+        z=np.full((len(slots),len(widths)),np.nan)
+        for r in matrix:
+            if r['shape_id']!=shape:continue
+            i=slots.index(float(r['Ws']));j=widths.index(float(r['Wm']));a=bycase.get(r['case'])
+            if a and a['design_status']=='accepted':z[i,j]=float(a['BW_2dB_GHz'])
+            text=f'{z[i,j]:.3f}' if np.isfinite(z[i,j]) else ('failed' if a else 'pending')
+            ax.text(j,i,text,ha='center',va='center',fontsize=9,color='black')
+        cmap=plt.get_cmap('YlGnBu').copy();cmap.set_bad('#eeeeee')
+        im=ax.imshow(z,origin='lower',cmap=cmap,vmin=min(vals) if vals else 0,vmax=max(vals) if vals else 1,aspect='auto')
+        ax.set_xticks(range(len(widths)),[f'{x:.2f}' for x in widths]);ax.set_yticks(range(len(slots)),[f'{x:.2f}' for x in slots])
+        ax.set_xlabel('Wm (mm)');ax.set_ylabel('Ws (mm)')
+        ax.set_title('a = '+('1.40' if shape.endswith('G02') else '1.80')+' mm, g = 0.55 mm')
+    fig.colorbar(im,ax=axes,label='Accepted -2 dB bandwidth (GHz)',shrink=.8)
+    fig.suptitle(f'Fig.8 pilot: {len(accepted)} accepted / {len(accepted)+len(failed)} completed / 24 planned')
+    fig.savefig(ROOT/'pilot_width_coverage.png',dpi=180);plt.close(fig)
+    if not accepted:return
+    fig,ax=plt.subplots(figsize=(7.2,5),constrained_layout=True)
+    ps=[float(r['P_response']) for r in accepted]
+    for shape,marker in (('development_G02','o'),('development_G05','^')):
+        subset=[r for r in accepted if r['shape_id']==shape]
+        if not subset:continue
+        scatter=ax.scatter([float(r['R_zero_mean']) for r in subset],[float(r['BW_2dB_GHz']) for r in subset],
+                           c=[float(r['P_response']) for r in subset],vmin=min(ps),vmax=max(ps),cmap='viridis',
+                           marker=marker,s=70,edgecolor='black',linewidth=.4,label='a = '+('1.40' if shape.endswith('G02') else '1.80')+' mm')
+    ax.set_xlabel('R_zero (mean of left/right S11 outer valleys)');ax.set_ylabel('-2 dB bandwidth (GHz)')
+    ax.set_title('Response coverage; no independent bandwidth law fitted')
+    ax.grid(alpha=.2);ax.legend();fig.colorbar(scatter,ax=ax,label='P_response from S11 peak level')
+    fig.savefig(ROOT/'pilot_PR_BW_coverage.png',dpi=180);plt.close(fig)
+    ordered=sorted(accepted,key=lambda r:float(r['BW_2dB_GHz']))
+    chosen=[]
+    for i in np.linspace(0,len(ordered)-1,min(4,len(ordered))).astype(int):
+        if ordered[i]['case'] not in [r['case'] for r in chosen]:chosen.append(ordered[i])
+    fig,axes=plt.subplots(len(chosen),1,figsize=(9,3.1*len(chosen)),sharex=True,constrained_layout=True,squeeze=False)
+    for ax,row in zip(axes[:,0],chosen):
+        with Path(row['curve_path']).open(encoding='utf-8-sig') as f:curve=list(csv.DictReader(f))
+        freq=[float(x['Freq_GHz']) for x in curve]
+        for name,color in (('S21','red'),('S11','royalblue')):
+            ax.plot(freq,[float(x[name+'_dB']) for x in curve],color=color,label=name,lw=1.2)
+        ax.axhline(-2,ls=':',color='grey');ax.axhline(-10,ls=':',color='grey')
+        ax.set_xlim(0,15);ax.set_ylim(-60,2);ax.grid(alpha=.2);ax.set_ylabel('Magnitude (dB)')
+        ax.set_title(f"{row['case']}: BW = {float(row['BW_2dB_GHz']):.3f} GHz, Wm = {float(row['Wm']):.2f} mm, Ws = {float(row['Ws']):.2f} mm")
+        ax.legend(loc='lower right',ncol=2)
+    axes[-1,0].set_xlabel('Frequency (GHz)')
+    fig.savefig(ROOT/'pilot_representative_curves.png',dpi=180);plt.close(fig)
+    pairs=[]
+    for family in sorted({r['width_family'] for r in accepted}):
+        group={r['shape_id']:r for r in accepted if r['width_family']==family}
+        if len(group)!=2:continue
+        a,b=group['development_G02'],group['development_G05']
+        pairs.append({'width_family':family,'Wm':float(a['Wm']),'Ws':float(a['Ws']),
+                      'delta_BW_GHz_a1p8_minus_a1p4':float(b['BW_2dB_GHz'])-float(a['BW_2dB_GHz']),
+                      'delta_P_response':float(b['P_response'])-float(a['P_response']),
+                      'delta_R_zero_mean':float(b['R_zero_mean'])-float(a['R_zero_mean'])})
+    (ROOT/'pilot_paired_shape_differences.json').write_text(json.dumps({'pairs':pairs,
+        'interpretation':'Matched Wm/Ws and g, each phase-tuned independently. This is a paired design comparison, not an isolated radiation-causality experiment.'},indent=2)+'\n',encoding='utf-8')
+    print(json.dumps({'accepted':len(accepted),'failed':len(failed),'matched_shape_pairs':len(pairs),'output_root':str(ROOT)}))
+
+if __name__=='__main__':main()

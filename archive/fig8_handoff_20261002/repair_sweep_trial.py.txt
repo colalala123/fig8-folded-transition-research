@@ -1,0 +1,67 @@
+"""Preserve failed run; tighten interpolation on a copy with its existing mesh."""
+import asyncio, json, shutil, traceback
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Hfss
+from mcp_call import call
+from pilot_worker import write_json, now, sha, export_data, convergence
+
+ROOT=Path('F:/hfss_f8x_261002')
+SRC=ROOT/'M_B0_3w16'
+RUN=ROOT/'R_B0_tight01'
+NAME='M_B0_3w16'
+PORT=12704
+
+def attach():
+    return Hfss(project=str(RUN/(NAME+'.aedt')),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+
+async def main():
+    if any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name'])):
+        raise RuntimeError('Existing solver is active')
+    if RUN.exists(): raise RuntimeError('Trial directory already exists; inspect rather than overwrite')
+    RUN.mkdir()
+    m={'status':'copying','started_at_utc':now(),'source_run':str(SRC),'project':str(RUN/(NAME+'.aedt')),'diagnostic_only':True,'cores':16,'tasks':1}
+    write_json(RUN/'repair_manifest.json',m)
+    shutil.copy2(SRC/(NAME+'.aedt'),RUN/(NAME+'.aedt'))
+    shutil.copytree(SRC/(NAME+'.aedtresults'),RUN/(NAME+'.aedtresults'))
+    m['source_project_sha256']=sha(SRC/(NAME+'.aedt'))
+    app=attach()
+    try:
+        if Path(app.project_path).resolve()!=RUN.resolve(): raise RuntimeError('Attached wrong project directory')
+        setup=app.get_setup('Setup19');sw=next(s for s in setup.sweeps if s.name=='Sweep1')
+        m['sweep_before']=dict(sw.props)
+        sw.props['InterpTolerance']=0.1
+        if not sw.update():raise RuntimeError('Sweep update failed')
+        m['sweep_after']=dict(sw.props)
+        assert sw.props['EnforcePassivity'] and sw.props['PassivityErrorTolerance']==0.0001
+        m['solutions_before']=list(app.existing_analysis_sweeps)
+        m['messages_before']=list(app.odesktop.GetMessages(NAME,app.design_name,0))
+        app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    m['status']='prepared';write_json(RUN/'repair_manifest.json',m)
+    m['mcp_start']=await call('start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120})
+    if not m['mcp_start'].get('started'):raise RuntimeError(m['mcp_start'])
+    m['status']='solving';write_json(RUN/'repair_manifest.json',m)
+    while True:
+        await asyncio.sleep(20)
+        st=await call('get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':PORT,'timeout':120})
+        if not st.get('running'):break
+    app=attach()
+    try:
+        m['messages']=list(app.odesktop.GetMessages(NAME,app.design_name,0))
+        m['export']=export_data(app,RUN,3)
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence.txt'))
+        m['convergence']=convergence(RUN/'convergence.txt')
+        m['new_messages']=[s for s in m['messages'] if s not in m['messages_before']]
+        m['nonpassive_warning']=any('non passive' in s.lower() or 'passivity cannot' in s.lower() for s in m['new_messages'])
+        m['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in s for s in m['new_messages'])
+        m['status']='passed_numerics_needs_review' if m['sweep_converged'] and not m['nonpassive_warning'] and m['convergence']['converged'] else 'failed_numerics'
+        m['source_unchanged']=sha(SRC/(NAME+'.aedt'))==m['source_project_sha256']
+        m['finished_at_utc']=now();app.save_project();write_json(RUN/'repair_manifest.json',m)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+
+if __name__=='__main__':
+    try:asyncio.run(main())
+    except Exception:
+        if RUN.exists(): (RUN/'repair_error.txt').write_text(traceback.format_exc(),encoding='utf-8')
+        raise

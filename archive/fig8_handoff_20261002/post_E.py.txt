@@ -1,0 +1,11 @@
+import json
+from pathlib import Path
+from ansys.aedt.core import Hfss
+R=Path(r'F:\hfss_f8x_261002\R_tri_diagC'); app=Hfss(project=str(R/'R_tri_diagC.aedt'),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False);o={}
+try:
+ o['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0)); o['sweeps']=list(app.existing_analysis_sweeps); o['conv']=app.export_convergence('TriDiagE',output_file=str(R/'convergence_E.txt'))
+ for norm,n in [(False,'native_E.s6p'),(True,'50ohm_E.s6p')]:
+  try:o['export_'+n]=app.export_touchstone(setup='TriDiagE',sweep='SweepDiagE',output_file=str(R/n),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+  except Exception as e:o['export_'+n+'_err']=repr(e)
+finally:app.release_desktop(close_projects=False,close_desktop=False)
+(R/'post_E.json').write_text(json.dumps(o,indent=2),encoding='utf-8');print(json.dumps(o,indent=2))

@@ -1,0 +1,42 @@
+import csv
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+import recover_single_10p19 as worker
+
+
+class AssemblyGuards(unittest.TestCase):
+    def fixture(self, root, bad=None):
+        previous = root/'previous'; run = root/'new'
+        (previous/'recovery_readonly').mkdir(parents=True); run.mkdir()
+        frequencies = [round(1+i*.01,2) for i in range(62)]+[10.19]
+        for name in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+            for target, values in [(previous/'recovery_readonly',frequencies[:-1]),(run,[10.19])]:
+                with (target/name).open('w',newline='') as f:
+                    w=csv.writer(f);w.writerow(['Freq_GHz','test_fixture_value'])
+                    for frequency in values:
+                        w.writerow([1 if bad=='duplicate' and target==run else frequency,
+                                    'nan' if bad=='nan' and target==run else 0.0])
+        (previous/'completion_event.json').write_text('{"status":"failed"}')
+        return dict(previous_direct=str(previous),source=str(root),original_expected_frequencies_GHz=frequencies),run
+
+    def test_only_union_of_measured_rows(self):
+        with tempfile.TemporaryDirectory() as t:
+            p,r=self.fixture(Path(t))
+            with patch.object(worker,'apply_reference',return_value={'test_only':True}),patch.object(worker,'compare',return_value={'points':63}):
+                worker.assemble(p,r)
+            self.assertEqual((r/'assembled_review/sparams.csv').read_text().count('\n'),64)
+
+    def test_missing_or_duplicate_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            p,r=self.fixture(Path(t),'duplicate')
+            with self.assertRaises(AssertionError):worker.assemble(p,r)
+
+    def test_nonfinite_rejected(self):
+        with tempfile.TemporaryDirectory() as t:
+            p,r=self.fixture(Path(t),'nan')
+            with self.assertRaises(AssertionError):worker.assemble(p,r)
+
+
+if __name__=='__main__':unittest.main()

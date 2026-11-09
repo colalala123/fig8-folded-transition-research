@@ -1,0 +1,246 @@
+"""Create an isolated, bounded two-case length-tuning segment. No solver calls."""
+import ast
+from pathlib import Path
+import phase_control as pc
+
+
+def main():
+    root = pc.HERE / 'length_tuning'
+    assert not root.exists(), 'Inspect existing segment; never overwrite frozen inputs'
+    ledger = pc.read(pc.HERE/'budget_ledger.json')
+    assert ledger['new_geometry_reserved'] == 18 and len(ledger['tasks']) == 18
+    assert all(t['status']=='reviewed' for t in ledger['tasks'])
+    rows = pc.read(pc.HERE/'plan.json')['cases']
+    frozen = {}; failed = []; summary = []
+    for row in rows:
+        run = pc.BASE/row['case']/'g01_initial'
+        ack=pc.read(run/'receiver_ack.json'); event=pc.read(run/'completion_event.json')
+        assert ack['event_sha256']==pc.sha(run/'completion_event.json')
+        assert ack['verification_sha256']==pc.sha(run/'receiver_verification.json')
+        assert ack['operation_success'] and ack['visual_review_completed']
+        for item in event['artifacts']: assert pc.sha(run/item['path'])==item['sha256']
+        spec=pc.read(run/'input.json')
+        for file,digest in spec['parent_evidence_hashes'].items(): assert pc.sha(file)==digest
+        result=pc.read(run/'finish24_result.json'); m=result['metrics']; t=pc.read(run/'target20_metrics.json')
+        assert result['geometry']==row['geometry'] and result['design_passed']==ack['design_passed']
+        if not result['design_passed']: failed.append(row['case'])
+        for name in ['input.json','receiver_ack.json','receiver_verification.json','completion_event.json','response_metrics.json','target20_metrics.json','sparams.csv','state.json']:
+            frozen[str(run/name)] = pc.sha(run/name)
+        summary.append(dict(case=row['case'],P=row['target_P'],R=row['target_R'],a_mm=row['a_mm'],
+            actual_elements=result['actual_elements'],baseline_passed=result['design_passed'],
+            center_GHz=m['central_valley_GHz'],peak_difference_dB=m['peak_difference_dB'],
+            transmission_BW_GHz=m['passband_2dB']['BW_GHz'],target20=t,
+            frozen_prediction_BW_GHz=row['predicted_BW_GHz']))
+    assert failed==['P01G05','P04G05'], 'Review unexpected failed-case set'
+    frozen[str(pc.HERE/'budget_ledger.json')]=pc.sha(pc.HERE/'budget_ledger.json')
+    frozen[str(pc.HERE/'authorization.json')]=pc.sha(pc.HERE/'authorization.json')
+    root.mkdir(); (root/'hook').mkdir()
+    provenance={}
+    def copy(name, transform=None):
+        source=pc.HERE/name; text=source.read_text(encoding='utf-8')
+        if transform: text=transform(text)
+        target=root/name; target.parent.mkdir(parents=True,exist_ok=True);target.write_text(text,encoding='utf-8')
+        provenance[name]=dict(source=str(source),source_sha256=pc.sha(source),local_sha256=pc.sha(target))
+    for name in ['phase_geometry_worker.py','case_reference.py','reference_validation.json','prepared_settings.py',
+                 'target_metrics.py','policy.json','mesh_policy_addendum_v2.json','desktop_start.json','aedt_identity.json',
+                 'aedt_session_guard.py','phase_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py',
+                 'review_phase_geometry.py','supervise_start.py']:
+        transform=(lambda s:s.replace("HERE.parent/'fig8_speed_study_20261021'", "ORIGINAL.parent/'fig8_speed_study_20261021'")) if name=='phase_geometry_worker.py' else None
+        copy(name,transform)
+    control=(pc.HERE/'phase_control.py').read_text(encoding='utf-8')
+    control=control.replace("ORIGINAL=HERE.parent/'fig8_finish24_20261023'", "PARENT=HERE.parent\nORIGINAL=PARENT.parent/'fig8_finish24_20261023'")
+    control=control.replace("HOOK=HERE.parent/'completion-hook-portable-1.0.0'", "HOOK=PARENT.parent/'completion-hook-portable-1.0.0'")
+    begin=control.index('ORDER=');end=control.index('\n',begin)
+    control=control[:begin]+'ORDER='+repr(failed)+control[end:]
+    (root/'phase_control.py').write_text(control,encoding='utf-8')
+    # New scoped checks; original worker/context/inputs remain immutable.
+    (root/'phase_geometry_context.py').write_text(CONTEXT,encoding='utf-8')
+    ack=(pc.HERE/'acknowledge_review.py').read_text(encoding='utf-8')
+    ack=ack.replace("assert case in pc.ORDER and run==(pc.BASE/case/'g01_initial').resolve()", "from phase_geometry_context import job_name\n    assert case in pc.ORDER and run==(pc.BASE/case/job_name(spec['new_phase_geometry_ordinal'])).resolve()")
+    begin=ack.index("    gate=pc.HERE/");end=ack.index("    print(",begin)
+    ack=ack[:begin]+ack[end:]
+    (root/'acknowledge_review.py').write_text(ack,encoding='utf-8')
+    pub=(pc.HERE/'phase_geometry_publish.py').read_text(encoding='utf-8')
+    begin=pub.index('def prompt(');end=pub.index('async def publish',begin)
+    pub=pub[:begin]+PUBLISH_PROMPT+'\n'+pub[end:]
+    pub=pub.replace('PR18 initial validation after explicit launch instruction','PR18 bounded length tuning authorized within first three steps')
+    (root/'phase_geometry_publish.py').write_text(pub,encoding='utf-8')
+    (root/'advance.py').write_text(ADVANCE,encoding='utf-8')
+    pc.write(root/'plan.json',dict(stage='PR18_lengths',cases=[r for r in rows if r['case'] in failed]))
+    pc.write(root/'parent_evidence.json',dict(hashes=frozen,initial_geometries=18))
+    pc.write(root/'authorization.json',dict(stage='PR18_lengths',cases=failed,execution_authorized=True,
+        human_instruction='你现在把前三步做了，补点仿真用记得用hook',extra_geometry_cap=6,
+        per_case_extra_cap=3,global_geometry_cap=30,shared_extra_cap=12,
+        rationale='Only two baseline balance failures; one measured two-probe/one-candidate cycle each, stop on passing probe. No -20dB width tuning.'))
+    pc.write(root/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    cfg=pc.read(pc.HERE/'hook/config.json');cfg['state_dir']=str(root/'hook/state');pc.write(root/'hook/config.json',cfg)
+    (root/'CONTINUATION.md').write_text(CONTINUATION,encoding='utf-8')
+    pc.write(root/'implementation_provenance.json',provenance)
+    pc.write(root/'active.json',dict(stage='configured_not_launched',at=pc.now()))
+    pc.write(pc.HERE/'initial18_summary.json',dict(at=pc.now(),initial_completed=18,baseline_passed=16,
+        tuning_cases=failed,peak20_positive=sum(s['target20']['both_inner_peaks_le_minus20'] for s in summary),
+        final_direct_review_completed=False,cases=summary))
+    lines=['# PR18 初始18点汇总（非最终验收）','',
+        '18/18求解完成，16项基础调谐通过；P01G05、P04G05峰差分别约0.618、0.624 dB，需有界长度补偿。',
+        '两内峰≤−20 dB共6项；其余保留为科学负例。所有项最终同网格直接抽查待做。',
+        '下一段只对两项各最多做两次单变量探针和一次候选，共最多6个额外几何；探针已通过则立即停调。',
+        '整体上限仍为30个几何、每配置4个，不能开启第二周期或宽度优化。','',
+        '|配置|P|R|折臂mm|网格|基础通过|S21带宽GHz|较高内峰dB|中心联合20带宽GHz|',
+        '|---|---:|---:|---:|---:|---|---:|---:|---:|']
+    for s in summary:
+        t=s['target20'];lines.append(f"|{s['case']}|{s['P']}|{s['R']}|{s['a_mm']}|{s['actual_elements']}|{s['baseline_passed']}|{s['transmission_BW_GHz']:.6f}|{t['worse_inner_peak_dB']:.6f}|{t['joint20_center_band_GHz'][2]:.6f}|")
+    (pc.HERE/'INITIAL18_RESULTS.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    for file in root.glob('*.py'):ast.parse(file.read_text(encoding='utf-8'),filename=str(file))
+    print(dict(initial_completed=18,baseline_passed=16,peak20_positive=6,tuning_segment=str(root),started=False))
+
+
+CONTEXT='''"""One local cycle per failing PR18 case; cumulative history is never reset."""
+import sys
+from pathlib import Path
+from phase_control import HERE,BASE,ORIGINAL,PLAN,ORDER,PARENT,read,write,sha,now,status
+sys.path.insert(0,str(ORIGINAL))
+OLD=Path('J:/f8_261007');status_report=status
+STEPS=['probe_Ls1','probe_Lm','candidate']
+def job_name(n):
+    assert 1<=n<=3
+    return f'g{n+1:02d}_'+STEPS[n-1]
+def validate_geometry_budget(spec,path):
+    assert not (HERE/'closure.json').exists()
+    auth=read(HERE/'authorization.json'); ledger=read(HERE/'budget_ledger.json')
+    assert auth['execution_authorized'] and auth['cases']==ORDER and auth['extra_geometry_cap']==6
+    parent=read(PARENT/'budget_ledger.json')
+    assert len(parent['tasks'])==parent['new_geometry_reserved']==18
+    assert all(t['status']=='reviewed' for t in parent['tasks'])
+    for f,h in read(HERE/'parent_evidence.json')['hashes'].items():assert sha(f)==h
+    tasks=ledger['tasks'];assert len(tasks)==ledger['new_geometry_reserved']<=6
+    assert 18+len(tasks)<=30 and len(tasks)<=12 and ledger['new_cached_tasks_reserved']==0
+    assert spec['case'] in ORDER and spec['historical_geometry_attempts']==1
+    n=spec['new_phase_geometry_ordinal'];assert 1<=n<=3 and spec['role']==STEPS[n-1]
+    assert spec['phase_solve_ordinal_including_history']==1+n<=4
+    own=[t for t in tasks if t['case']==spec['case']]
+    assert len(own)==n and [t['new_phase_geometry_ordinal'] for t in own]==list(range(1,n+1))
+    assert all(t['status']=='reviewed' for t in tasks if t is not own[-1])
+    assert own[-1]['status']=='reserved' and own[-1]['input_sha256']==sha(path)
+    assert Path(own[-1]['path']).resolve()==Path(path).resolve()==Path(spec['input_path']).resolve()
+    assert Path(spec['run_dir']).resolve()==(BASE/spec['case']/job_name(n)).resolve()
+    initial=read(BASE/spec['case']/'g01_initial/input.json')['geometry']
+    assert all(spec['geometry'][k]==initial[k] for k in ['Wm','Ws','Ls2','Ls3'])
+    assert sha(HERE/'phase_geometry_worker.py')==spec['worker_sha256']
+    assert sha(ORIGINAL/'mesh_budget.py')==spec['controller_sha256']
+'''
+
+PUBLISH_PROMPT='''def prompt(event,path):
+    return (f'[Fig8 PR18长度补偿完成事件]\\n事件ID：{hook.event_id(event)}\\n状态：{event["status"]}\\n摘要：{event["summary"]}\\n事件：{path}\\n'
+        f'先读{HERE/"CONTINUATION.md"}，核验事件/原始曲线/网格，实际看图后ACK。'
+        '这是原18补点的长度补偿子段，仅P01G05/P04G05；不是新批次。16核串行、10–11万网格、完成hook。'
+        '两探针加一候选，每项最多3额外几何，总计最多6；初始历史18不清零，全部几何<=30、每项<=4。'
+        'advance.py --case CASE --solve会先检查早停：任何探针基础通过即选中转下一项，不得强求-20dB。'
+        '两项完成后准备原18项同网格直接抽查，每项<=24点、每次<=4点、最多6次。不得启动第4步盲测或改均匀数据。')
+'''
+
+ADVANCE='''"""Prepare and dispatch one finite-difference step, or stop early. No blind retry."""
+import argparse,subprocess,sys
+from pathlib import Path
+import phase_control as pc
+from phase_geometry_context import STEPS,job_name,validate_geometry_budget
+from phase_geometry_worker import dc,geometry_gate,design_verdict
+from tuning_proposal import propose_probes,propose_candidate
+from pilot_queue import error,normalized_error
+
+def reviewed(run):
+    spec=pc.read(run/'input.json');m=pc.read(run/'response_metrics.json');ack=pc.read(run/'receiver_ack.json')
+    event=pc.read(run/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']==pc.TARGET
+    assert ack['operation_success'] and ack['visual_review_completed'] and ack['artifacts_verified']
+    assert ack['event_sha256']==pc.sha(run/'completion_event.json') and ack['verification_sha256']==pc.sha(run/'receiver_verification.json')
+    for x in event['artifacts']:assert pc.sha(run/x['path'])==x['sha256']
+    for f,h in spec['parent_evidence_hashes'].items():assert pc.sha(f)==h
+    assert m['curve_sha256']==pc.sha(run/'sparams.csv') and m['prominent_valley_count']==3
+    return spec,m,{str(run/f):pc.sha(run/f) for f in ['input.json','response_metrics.json','receiver_ack.json','completion_event.json','receiver_verification.json','sparams.csv','state.json']}
+
+def advance(case,solve=False):
+    auth=pc.read(pc.HERE/'authorization.json');assert auth['execution_authorized'] and case in pc.ORDER
+    ledger=pc.read(pc.HERE/'budget_ledger.json');assert all(t['status']=='reviewed' for t in ledger['tasks'])
+    assert not dc.solvers() and not (pc.HERE/'worker.lock').exists() and not (pc.PARENT/'worker.lock').exists()
+    assert not (Path('J:/f8_261007')/'protocol.lock').exists()
+    for c in pc.ORDER[:pc.ORDER.index(case)]:assert (pc.HERE/'cases'/c/'selection.json').exists()
+    selected=pc.HERE/'cases'/case/'selection.json'
+    if selected.exists():print(pc.read(selected));return
+    initial=pc.BASE/case/'g01_initial';base,m,parents=reviewed(initial)
+    assert not design_verdict(m)
+    own=[t for t in ledger['tasks'] if t['case']==case];n=len(own)+1
+    measurements=[(initial,base,m)]
+    for t in own:
+        run=Path(t['path']).parent;s,mm,hh=reviewed(run);parents.update(hh);measurements.append((run,s,mm))
+    passing=[x for x in measurements if design_verdict(x[2])]
+    if passing or n>3:
+        best=passing[0] if passing else min(measurements,key=lambda x:normalized_error(error(x[2],6.72)))
+        result=dict(case=case,selected_run=str(best[0]),baseline_passed=bool(passing),
+            extra_used=len(own),cumulative_geometry=1+len(own),reason='passing_probe_or_candidate_stop' if passing else 'finite_cycle_exhausted',
+            final_direct_pending=True,evidence_hashes=parents)
+        if solve:pc.write(selected,result)
+        print(result);return
+    assert len(ledger['tasks'])<6 and 18+len(ledger['tasks'])+1<=30
+    prop=propose_probes(base['geometry'],base['geometry'],m,0);assert prop['action']=='probe'
+    if n<=2:proposal=prop['probes'][n-1]
+    else:
+        assert len(measurements)==3
+        proposal=propose_candidate(base['geometry'],base['geometry'],m,[x[2] for x in measurements[1:]],
+            [x['step_mm'] for x in prop['probes']],2)
+        assert proposal['action']=='candidate',proposal
+    g=proposal['geometry'];assert geometry_gate(g,base['geometry'])['passed']
+    assert all(g[k]==base['geometry'][k] for k in ['Wm','Ws','Ls2','Ls3'])
+    run=pc.BASE/case/job_name(n);assert not run.exists(),'Existing attempt: inspect, never re-dispatch'
+    if not solve:print(dict(case=case,ordinal=n,proposal=proposal,started=False));return
+    for f,h in pc.read(pc.HERE/'parent_evidence.json')['hashes'].items():assert pc.sha(f)==h
+    for file in pc.HERE.glob('*.py'):parents[str(file)]=pc.sha(file)
+    for file in ['authorization.json','plan.json','parent_evidence.json','CONTINUATION.md','policy.json','mesh_policy_addendum_v2.json','reference_validation.json','hook/config.json']:
+        parents[str(pc.HERE/file)]=pc.sha(pc.HERE/file)
+    for file in ['tuning_proposal.py','mesh_budget.py']:
+        parents[str(pc.ORIGINAL/file)]=pc.sha(pc.ORIGINAL/file)
+    pc.write(run/'budget_before.json',ledger);parents[str(run/'budget_before.json')]=pc.sha(run/'budget_before.json')
+    pc.write(run/'proposal.json',proposal);parents[str(run/'proposal.json')]=pc.sha(run/'proposal.json')
+    spec=dict(base,role=STEPS[n-1],geometry=g,run_dir=str(run),input_path=str(run/'input.json'),
+        project_name=f'{case}_PR18_g{n+1:02d}',new_phase_geometry_ordinal=n,historical_geometry_attempts=1,
+        phase_solve_ordinal_including_history=1+n,worker_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),
+        parent_evidence_hashes=parents,created_at=pc.now(),scope='PR18 bounded length-only local cycle')
+    pc.write(run/'input.json',spec)
+    ledger['new_geometry_reserved']+=1
+    ledger['tasks'].append(dict(case=case,role=spec['role'],path=spec['input_path'],input_sha256=pc.sha(run/'input.json'),new_phase_geometry_ordinal=n,status='reserved'))
+    pc.write(pc.HERE/'budget_ledger.json',ledger)
+    validate_geometry_budget(spec,run/'input.json')
+    release=dict(case=case,input_path=spec['input_path'],input_sha256=pc.sha(run/'input.json'),bulk_dispatch_released=False,at=pc.now())
+    pc.write(pc.HERE/'supervised_release.json',release)
+    # Handoff old completion-only monitor to the actual successor; never reset its timer.
+    pc.write(pc.PARENT/'supervised_release.json',release)
+    with (pc.HERE/f'{case}_{n}.stdout.log').open('ab') as out,(pc.HERE/f'{case}_{n}.stderr.log').open('ab') as err:
+        proc=subprocess.Popen([sys.executable,str(pc.HERE/'phase_geometry_worker.py'),'--spec',spec['input_path']],
+            cwd=str(pc.HERE),stdin=subprocess.DEVNULL,stdout=out,stderr=err,creationflags=subprocess.CREATE_NO_WINDOW)
+    print(dict(case=case,run=str(run),worker_pid=proc.pid,actual_solver_started=False))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--case',choices=pc.ORDER,required=True);p.add_argument('--solve',action='store_true')
+    a=p.parse_args();advance(a.case,a.solve)
+'''
+
+CONTINUATION='''# PR18原18配置的有界长度补偿（不是新研究批次）
+原始人类授权：你现在把前三步做了，补点仿真用记得用hook。
+初始18项均完成且ACK；16项基础通过。仅P01G05/P04G05峰差>0.5，中心均已合格。
+本子段只用两次独立单变量探针（Ls1+0.10mm，Lm+0.05mm）和一次实测雅可比候选；每项最多3次额外几何。
+探针已满足基础条件时立即选中，不再为零峰差或-20dB多跑。共享额外预算本段最多6，原上限12不扩大；累计几何18+本段<=24且每项<=4。
+不改Wm/Ws/P/R/折臂/间隔，不把-20dB科学负例强制调过。所有原34项和均匀数据只读。
+保持可见AEDT2024R2、本机MCP、16核串行、网格10-11万（允许记录至11.2万）。不清工程锁、不重发Analyze。
+
+接续：读本目录authorization/plan/parent_evidence/budget_ledger/active。完成事件需运行本目录review_phase_geometry.py --run RUN，实际view_image看PNG，然后本目录acknowledge_review.py --run RUN --visual-reviewed --note 实际观察。
+再运行 advance.py --case 当前CASE --solve。它会自动检查早停/预算，可能只写selection.json而不启动。若选中，则转下一CASE；顺序P01G05、P04G05。
+每次启动工作脚本后必须supervise_start.py --run RUN --seconds 600核验真实16核hf3d；不能把worker PID当求解。
+首次跨段启动经确认后，把本子段active.json镜像到父目录active.json，使父完成心跳识别后继真实求解；不改心跳计时/预算/发件箱。
+失败或探针形状不可辨时保留证据，停止盲调。不启动第二周期，不扩预算。
+
+两项选中后，汇总16个原始基础通过结果+两项选中结果，再建立独立final_review上下文，复用旧I4已验证smallbatch代码。
+最终抽查为同网格直接频点，不重自适应；优先两内峰和-20dB联合带边，必要时-2dB带边。通常12-20点，硬限24点/配置、每次最多4点、最多6次。
+全部完成后对冻结预测作18项新实测比较，更新模型证据和汇总交付。第4步独立逆向盲测未授权。
+完成/失败hook只给当前聊天；正常仿真安静，完成通知后5分钟无后继求解才检测对话中断。
+'''
+
+if __name__=='__main__':main()

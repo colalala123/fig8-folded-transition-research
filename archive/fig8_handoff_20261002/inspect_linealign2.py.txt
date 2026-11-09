@@ -1,0 +1,7 @@
+from pathlib import Path
+from ansys.aedt.core import Hfss
+P=Path(r'F:\hfss_f8x_261align2\R_tri_linealign2.aedt');app=Hfss(project=str(P),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+try:
+ for b in app.boundaries:
+  if b.type=='Wave Port': print(b.name,b.props['UseLineModeAlignment'],b.props['Modes'])
+finally:app.release_desktop(close_projects=False,close_desktop=False)

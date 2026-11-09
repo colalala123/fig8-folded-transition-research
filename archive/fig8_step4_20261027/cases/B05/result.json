@@ -1,0 +1,129 @@
+{
+  "case": "B05",
+  "case_state": "needs_review",
+  "reason": "new_geometry_needs_direct_review",
+  "operation_success": true,
+  "design_passed": true,
+  "numerical_review_passed": null,
+  "full_matrix_approved": false,
+  "selected_run": "J:\\f8_B6_261027\\B05\\g01_initial",
+  "geometry": {
+    "Wm": 1.823189,
+    "Ws": 0.349179,
+    "Lm": 6.600066165599836,
+    "Ls1": 12.632243784255383,
+    "Ls2": 1.248358,
+    "Ls3": 1.7491789999999998
+  },
+  "actual_elements": 102910,
+  "mesh_target_met": true,
+  "mesh_exception_used": false,
+  "metrics": {
+    "extraction_version": "response_pr_v1_20260920",
+    "curve_path": "J:\\f8_B6_261027\\B05\\g01_initial\\sparams.csv",
+    "curve_sha256": "f1028b8b52871ca7b70df0cb7caf72473bce359fd5185607b6d8b4609417becf",
+    "points": 1500,
+    "frequency_range_GHz": [
+      0.01,
+      15.0
+    ],
+    "f0_reference_GHz": 6.85,
+    "peak_average": "linear magnitude mean, then 20log10",
+    "R_definition": "zm/zs",
+    "max_S21_dB": -0.40175421576828135,
+    "power_excess_S11_S21": -0.0006400768298722159,
+    "formal_response_PR": {
+      "P_response": 1.5292283660780643,
+      "R_BW": 0.9370203082365884,
+      "Zm_response_ohm": 59.85227721120147,
+      "Zs_response_ohm": 63.875112081444186,
+      "f0_reference_GHz": 6.85
+    },
+    "diagnostic_response_PR": {
+      "P_response": 1.5292283660780643,
+      "R_BW": 0.9370203082365884,
+      "Zm_response_ohm": 59.85227721120147,
+      "Zs_response_ohm": 63.875112081444186,
+      "f0_reference_GHz": 6.85
+    },
+    "passband_2dB": {
+      "f_low_GHz": 3.0165704021752253,
+      "f_high_GHz": 9.948796333580113,
+      "BW_GHz": 6.932225931404887,
+      "touches_sweep_edge": false
+    },
+    "passband_joint": {
+      "f_low_GHz": 3.2605057688094425,
+      "f_high_GHz": 9.9042232962659,
+      "BW_GHz": 6.643717527456458,
+      "touches_sweep_edge": false
+    },
+    "prominent_valley_count": 3,
+    "valley_prominence_dB": 0.5,
+    "valleys": [
+      {
+        "frequency_GHz": 3.93,
+        "S11_dB": -33.75621324790196
+      },
+      {
+        "frequency_GHz": 6.72,
+        "S11_dB": -49.70760864673024
+      },
+      {
+        "frequency_GHz": 9.23,
+        "S11_dB": -30.927080679418502
+      }
+    ],
+    "peaks": [
+      {
+        "frequency_GHz": 5.2,
+        "S11_dB": -20.37580215693332,
+        "S21_dB": -0.44281127221733096
+      },
+      {
+        "frequency_GHz": 8.19,
+        "S11_dB": -20.25220277841866,
+        "S21_dB": -0.6597317057331613
+      }
+    ],
+    "signed_peak_difference_dB": -0.12359937851466185,
+    "peak_difference_dB": 0.12359937851466185,
+    "peak_level_dB": -20.313782618614532,
+    "central_valley_GHz": 6.72,
+    "band_center_GHz": 6.482683367877669,
+    "worst_S11_between_valleys_dB": -20.25220277841866,
+    "min_S21_between_valleys_dB": -0.8590964425788168,
+    "validity": {
+      "peak_difference_le_0p5": true,
+      "S11_below_minus10_between_valleys": true,
+      "S21_ge_minus2_between_valleys": true,
+      "band_not_truncated": true,
+      "nonpositive_transmission": true,
+      "equal_ripple": true,
+      "solver_convergence_verified": false
+    },
+    "bandcenter_sensitivity_PR": {
+      "P_response": 1.5292283660780643,
+      "R_BW": 0.7822167926274763,
+      "Zm_response_ohm": 54.68519241322416,
+      "Zs_response_ohm": 69.91053238519194,
+      "f0_reference_GHz": 6.482683367877669
+    },
+    "R_side_poles_diagnostic": 0.7073982728024237,
+    "unused_shape_checks": {
+      "S11_magnitude_RMSE": 0.12465258491464529,
+      "S21_dB_RMSE": 0.7754706913892145,
+      "low_edge_error_GHz": 0.3673166321223307,
+      "high_edge_error_GHz": 0.36731663212233023,
+      "central_valley_error_GHz": 0.1299999999999999,
+      "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+    }
+  },
+  "finished_at": "2026-10-27T16:05:29.158474+00:00",
+  "evidence_hashes": {
+    "J:\\f8_B6_261027\\B05\\g01_initial\\state.json": "a4d2ed37b259042fa0ff758b77b8804c693ab7d60a424a7658c1d588034f4ecd",
+    "J:\\f8_B6_261027\\B05\\g01_initial\\manifest.json": "76a6a9817b1b1ad4a886c70057a2bc39e078998a1ceeaa9797a801d96288a6ab",
+    "J:\\f8_B6_261027\\B05\\g01_initial\\sparams.csv": "f1028b8b52871ca7b70df0cb7caf72473bce359fd5185607b6d8b4609417becf",
+    "J:\\f8_B6_261027\\B05\\g01_initial\\convergence.txt": "6444b48cffb309308c1a3bbc942245b8d534ffa4311a1e9527ab0824ad0a5ea0"
+  }
+}

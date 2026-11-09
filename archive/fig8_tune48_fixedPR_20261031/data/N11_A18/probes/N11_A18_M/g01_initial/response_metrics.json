@@ -1,0 +1,115 @@
+{
+  "extraction_version": "response_pr_v1_20260920",
+  "curve_path": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A18\\probes\\N11_A18_M\\g01_initial\\sparams.csv",
+  "curve_sha256": "9a3a855bfb1486121e45bc468c0b4c3d7dc8861280f815ce0a266c05af5d8e30",
+  "points": 1500,
+  "frequency_range_GHz": [
+    0.01,
+    15.0
+  ],
+  "f0_reference_GHz": 6.85,
+  "peak_average": "linear magnitude mean, then 20log10",
+  "R_definition": "zm/zs",
+  "max_S21_dB": -0.3858315484157312,
+  "power_excess_S11_S21": -0.0006286350552059394,
+  "formal_response_PR": null,
+  "diagnostic_response_PR": {
+    "P_response": 1.5044635962430608,
+    "R_BW": 0.930519447513753,
+    "Zm_response_ohm": 59.15937445537788,
+    "Zs_response_ohm": 63.57672009268083,
+    "f0_reference_GHz": 6.85
+  },
+  "passband_2dB": {
+    "f_low_GHz": 3.0203775202412806,
+    "f_high_GHz": 9.958254712243267,
+    "BW_GHz": 6.937877192001986,
+    "touches_sweep_edge": false
+  },
+  "passband_joint": {
+    "f_low_GHz": 3.2800488413760394,
+    "f_high_GHz": 9.885839060479494,
+    "BW_GHz": 6.605790219103454,
+    "touches_sweep_edge": false
+  },
+  "prominent_valley_count": 3,
+  "valley_prominence_dB": 0.5,
+  "valleys": [
+    {
+      "frequency_GHz": 4.03,
+      "S11_dB": -35.05438005118312
+    },
+    {
+      "frequency_GHz": 6.63,
+      "S11_dB": -50.92132557742818
+    },
+    {
+      "frequency_GHz": 9.24,
+      "S11_dB": -38.74710218239311
+    }
+  ],
+  "peaks": [
+    {
+      "frequency_GHz": 5.21,
+      "S11_dB": -21.966029203347755,
+      "S21_dB": -0.41624276224915185
+    },
+    {
+      "frequency_GHz": 8.19,
+      "S11_dB": -19.758135961474355,
+      "S21_dB": -0.6319343441020263
+    }
+  ],
+  "signed_peak_difference_dB": -2.2078932418734,
+  "peak_difference_dB": 2.2078932418734,
+  "peak_level_dB": -20.792116740673485,
+  "central_valley_GHz": 6.63,
+  "band_center_GHz": 6.489316116242274,
+  "worst_S11_between_valleys_dB": -19.758135961474355,
+  "min_S21_between_valleys_dB": -0.8000511047002712,
+  "validity": {
+    "peak_difference_le_0p5": false,
+    "S11_below_minus10_between_valleys": true,
+    "S21_ge_minus2_between_valleys": true,
+    "band_not_truncated": true,
+    "nonpositive_transmission": true,
+    "equal_ripple": false,
+    "solver_convergence_verified": false
+  },
+  "bandcenter_sensitivity_PR": {
+    "P_response": 1.5044635962430608,
+    "R_BW": 0.7793531141987277,
+    "Zm_response_ohm": 54.14121325133577,
+    "Zs_response_ohm": 69.4694256877381,
+    "f0_reference_GHz": 6.489316116242274
+  },
+  "R_side_poles_diagnostic": 0.7194394318211941,
+  "unused_shape_checks": {
+    "S11_magnitude_RMSE": 0.11889566866177034,
+    "S21_dB_RMSE": 0.7364878108471048,
+    "low_edge_error_GHz": 0.360683883757726,
+    "high_edge_error_GHz": 0.3606838837577264,
+    "central_valley_error_GHz": 0.21999999999999975,
+    "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+  },
+  "full_primary": {
+    "worst_S11_dB": -19.70063685324581,
+    "min_S21_dB": -0.94621469886101,
+    "shape_valid": true,
+    "passed": false,
+    "central_valley_GHz": 6.63,
+    "peak_difference_dB": 2.2078932418734,
+    "inner_peaks": [
+      {
+        "GHz": 5.21,
+        "S11_dB": -21.966029203347755
+      },
+      {
+        "GHz": 8.19,
+        "S11_dB": -19.758135961474355
+      }
+    ],
+    "objective": 336.65176192714,
+    "nominal_buffer_satisfied": false
+  }
+}

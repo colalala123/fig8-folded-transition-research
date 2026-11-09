@@ -1,0 +1,44 @@
+"""Freeze recovered original Broadband only after direct, non-transitive checks."""
+import argparse,json,os
+from pathlib import Path
+from broadband_recovery import HERE,ROOT,read,sha,now,write_json
+from freeze_production_protocol import verify_hashes
+from pilot_queue import compare
+
+def candidate():
+    reference=ROOT/'reference_review.json';collector=ROOT/'broadband_collector_review.json'
+    ref=read(reference);col=read(collector)
+    assert ref['passed'] and ref['recommended_modes']==2 and col['passed']
+    verify_hashes(ref);verify_hashes(col)
+    for n in ['B0BC','B0BR']:
+        run=ROOT/n;case=read(run/'collector_case_review.json')
+        assert case['passed'];verify_hashes(case)
+        recovery=read(run/'normalization_recovery_review.json')
+        assert recovery['passed'];verify_hashes(recovery)
+        # Recompute from the actual candidate curves: never infer transitively.
+        direct=compare(run,HERE/'baseline/native_comparable','stable')
+        assert direct['passed'] and case['direct_three_mode_comparison']==direct
+    baseline=ROOT/'B0BC';metrics=read(baseline/'response_metrics.json')
+    old=HERE.parent/'fig8_handoff_20261002';work=HERE.parent.parent
+    files=[HERE/n for n in ['run_guarded_case.py','run_broadband_case.py','broadband_recovery.py','check_legacy_scalar_reference.py','check_external_normalization.py','guarded_pilot_queue.py','complete_reference_evidence.py','review_history_for_production.py']]
+    files += [old/n for n in ['pilot_worker.py','pilot_queue.py','pilot_supervisor.py','port_evidence.py','mcp_call.py']]
+    files += [HERE.parent/'folded_simulation_plan_20260920/response_metrics.py',HERE.parent/'folded_fig8_run_20261002/run_batch.py',HERE.parent/'folded_geometry_scope_20261002/prepare_geometry_scope.py',work/'tmp/folded_plan_review/automation/folded_transition.py',work.parent/'mcp/mcp_server.py',work.parent/'mcp/pyaedt_worker.py']
+    return {'status':'frozen_verified','protocol_id':'fig8_mode2_broadband_scalar_verified_v1_20261007','modes':2,
+      'adaptive_method':'Broadband0p1to15','sweep_method':'original_fullband_scalar_audited_v1','baseline_run':str(baseline),
+      'central_valley_target_GHz':metrics['central_valley_GHz'],'f0_reference_GHz':6.85,
+      'material':{'er':3.55,'tand':.0027,'h_mm':.813},'cores':16,'tasks':1,'port':7990,
+      'normalization':'Original native Zpi S11/S21 for metrics. Full complex matrix plus explicit scalar modal Zo converted to real 50ohm by independently calibrated traveling-wave formula; original HFSS full-Z exports/warnings retained. No passivity clipping or fitting.',
+      'source_B0_sha256':sha('F:/hfss_f8_261002/B0/B0.aedt'),'source_T_F3_sha256':sha('F:/hfss_f8_261002/T_F3/T_F3.aedt'),
+      'reference_review':{'path':str(reference),'sha256':sha(reference)},'collector_review':{'path':str(collector),'sha256':sha(collector)},
+      'implementation_hashes':{str(p):sha(p) for p in files},'pilot_matrix_sha256':sha('F:/hfss_f8x_261002/pilot_24.csv'),
+      'scope':'24 pilot only, historical phase solves included in limit 8; supervised stage required before remaining queue; width-corner mode checks still required.',
+      'production_limits':'Numerical/port evidence validated on baseline copy/rebuild and B0/T_F3. New production worker requires real supervised verification. Mode sufficiency at four width corners remains pending.'}
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--freeze',action='store_true');args=parser.parse_args()
+    p=candidate()
+    if args.freeze:
+        dst=ROOT/'production_protocol.json';assert not dst.exists(),'Existing protocol requires explicit migration review'
+        p['frozen_at_utc']=now();tmp=dst.with_suffix('.tmp');write_json(tmp,p);os.replace(tmp,dst)
+    print(json.dumps({'ready':True,'written':args.freeze,'protocol_id':p['protocol_id'],'center_GHz':p['central_valley_target_GHz']},indent=2))
+if __name__=='__main__':main()

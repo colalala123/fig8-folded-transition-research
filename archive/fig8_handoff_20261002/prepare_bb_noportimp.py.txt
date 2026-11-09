@@ -1,0 +1,35 @@
+import json, shutil
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+ROOT = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+NAME = "R_B0_rebuild_max500"
+PORT = 7393
+project = ROOT / f"{NAME}.aedt"
+snapshot = ROOT / f"{NAME}.before_bb_noportimp.aedt"
+shutil.copy2(project, snapshot)
+app = Hfss(project=str(project), design="Wideband vertical transition", version="2024.2", machine="localhost", port=PORT, non_graphical=False, new_desktop=False, close_on_exit=False)
+out = {"snapshot": str(snapshot), "cores": 16, "tasks": 1, "diagnostic_only": True}
+try:
+    setup = app.get_setup("ModalRepairBB")
+    old = setup.get_sweep("SweepRepairBB")
+    old.props["IsEnabled"] = False
+    old.update()
+    sw = setup.add_sweep("SweepRepairBBNoPortImp", "Interpolating")
+    sw.props.update({
+        "RangeType": "LinearStep", "RangeStart": "0.01GHz", "RangeEnd": "15GHz", "RangeStep": "0.01GHz",
+        "InterpTolerance": 0.5, "InterpMaxSolns": 500, "InterpMinSolns": 0, "InterpMinSubranges": 1,
+        "InterpUseS": True, "InterpUsePortImped": False, "InterpUsePropConst": True,
+        "UseFullBasis": True, "EnforcePassivity": True, "PassivityErrorTolerance": 0.0001,
+        "EnforceCausality": False, "SaveFields": True, "SaveRadFields": False,
+    })
+    sw.update()
+    out["setup"] = json.loads(json.dumps(setup.props, default=str))
+    out["sweep"] = json.loads(json.dumps(sw.props, default=str))
+    out["messages_before"] = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0))
+    app.save_project()
+    out["status"] = "prepared"
+finally:
+    (ROOT / "repair_bb_noportimp_manifest.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+    app.release_desktop(close_projects=False, close_desktop=False)
+print(json.dumps(out, indent=2))

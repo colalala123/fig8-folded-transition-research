@@ -1,0 +1,93 @@
+import asyncio
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+from completion_hook import Outbox, deliver, digest, event_id, load_event, write_json
+
+
+class HookTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.evidence = self.root/'result.json'
+        write_json(self.evidence, {'passed': True})
+        self.event = {'schema_version': 1, 'run_id': 'test-run', 'target_thread_id': 'authorized-target', 'created_at': 'test',
+                      'status': 'completed', 'verified_success': True, 'summary': 'Test only',
+                      'artifacts': [{'path': str(self.evidence), 'sha256': digest(self.evidence)}]}
+        self.path = self.root/'event.json'
+        self.db = self.root/'outbox.sqlite3'
+        write_json(self.path, self.event)
+
+    def test_success_and_dedup(self):
+        calls = []
+        async def send(e, p):
+            calls.append(e)
+            return {'queued': True}
+        first = asyncio.run(deliver(self.path, self.db, send))
+        second = asyncio.run(deliver(self.path, self.db, send))
+        self.assertEqual(first['state'], 'accepted')
+        self.assertTrue(second['duplicate_suppressed'])
+        self.assertEqual(len(calls), 1)
+
+    def test_timeout_is_not_retried(self):
+        calls = []
+        async def send(e, p):
+            calls.append(e)
+            raise TimeoutError('May have been dispatched')
+        with self.assertRaises(TimeoutError):
+            asyncio.run(deliver(self.path, self.db, send))
+        result = asyncio.run(deliver(self.path, self.db, send))
+        self.assertEqual(result['state'], 'delivery_unknown')
+        self.assertEqual(len(calls), 1)
+
+    def test_modified_artifact_rejected(self):
+        self.evidence.write_text('changed')
+        with self.assertRaises(ValueError):
+            load_event(self.path)
+
+    def test_unverified_success_rejected(self):
+        self.event['verified_success'] = False
+        write_json(self.path, self.event)
+        with self.assertRaises(ValueError):
+            load_event(self.path)
+
+    def test_nonterminal_rejected(self):
+        self.event['status'] = 'solving'
+        write_json(self.path, self.event)
+        with self.assertRaises(ValueError):
+            load_event(self.path)
+
+    def test_failure_can_notify(self):
+        self.event.update(status='failed', verified_success=False)
+        write_json(self.path, self.event)
+        self.assertEqual(load_event(self.path)['status'], 'failed')
+
+    def test_conflicting_payload_rejected(self):
+        box = Outbox(self.db)
+        box.register(self.path, self.event)
+        self.event['summary'] = 'different'
+        write_json(self.path, self.event)
+        with self.assertRaises(ValueError):
+            box.register(self.path, self.event)
+
+    def test_atomic_claim_and_crash_safe(self):
+        box = Outbox(self.db)
+        key = box.register(self.path, self.event)
+        self.assertTrue(box.claim(key))
+        self.assertFalse(Outbox(self.db).claim(key))
+        self.assertEqual(Outbox(self.db).state(key), 'sending')
+
+    def test_outside_artifact_rejected(self):
+        sub = self.root/'sub'
+        sub.mkdir()
+        other = sub/'event.json'
+        write_json(other, self.event)
+        with self.assertRaises(ValueError):
+            load_event(other)
+
+
+if __name__ == '__main__':
+    unittest.main()

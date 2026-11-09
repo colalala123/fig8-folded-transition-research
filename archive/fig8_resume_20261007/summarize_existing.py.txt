@@ -1,0 +1,48 @@
+"""Report actual archived and local pilot results without promoting provisional data."""
+import csv,json,sys,math
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from audit_existing import HERE,OLD,read,write,sha
+def save_csv(p,rows,fields=None):
+    fields=fields or list(dict.fromkeys(k for r in rows for k in r))
+    with Path(p).open('w',encoding='utf-8-sig',newline='') as h:
+        w=csv.DictWriter(h,fieldnames=fields);w.writeheader();w.writerows(rows)
+def main():
+    inv=read(HERE/'existing_inventory.json');allrows=[];configs=[];selected=[]
+    diagnostic=read(HERE/'all_legacy_normalization_diagnostic.json')['records'] if (HERE/'all_legacy_normalization_diagnostic.json').exists() else []
+    lookup={(x['case'],Path(x['run']).name):x for x in diagnostic}
+    for case in inv:
+        folder=OLD/case['case']
+        if not folder.exists():folder=Path('J:/hfss_f8x_261002_archive')/case['case']
+        res=read(folder/'design_result.json') if (folder/'design_result.json').exists() else {}
+        configs.append({'case':case['case'],'historical_status':case['historical_status'],'formal_status':case['formal_status'],'reason':case['reason'],'solve_count':len(case['iterations']),'actual_folder':str(folder) if folder.exists() else '', 'source_integrity':all(x['source_hash_matches'] for x in case['iterations']) if case['iterations'] else None})
+        for it in case['iterations']:
+            run=Path(it['run']);m=read(run/'manifest.json');mtr=read(run/'response_metrics.json') if (run/'response_metrics.json').exists() else {}
+            pb=mtr.get('passband_2dB') or {};joint=mtr.get('passband_joint') or {};pr=mtr.get('diagnostic_response_PR') or {}
+            rz=[]
+            if pr and mtr.get('valleys'):
+                for v in (mtr['valleys'][0],mtr['valleys'][-1]):
+                    u=1/math.tan(math.pi*v['frequency_GHz']/(2*mtr['central_valley_GHz']));p=pr['P_response'];rz.append((p-1)/(p*u*u))
+            final=bool(res and Path(res['selected_run']).name==run.name)
+            row={'case':case['case'],'iteration':run.name,**m['geometry'],'solver_status_recorded':m['status'],'formal_status':'pending_protocol','historical_design_status':res.get('status') if final else '', 'selected':final,'reason':res.get('reason') if final else '', 'BW_2dB_GHz':pb.get('BW_GHz'),'f_low_GHz':pb.get('f_low_GHz'),'f_high_GHz':pb.get('f_high_GHz'),'BW_joint_GHz':joint.get('BW_GHz'),'P_response':pr.get('P_response'),'R_zero_left':rz[0] if rz else None,'R_zero_right':rz[1] if rz else None,'R_zero_mean':sum(rz)/2 if rz else None,'R_BW':pr.get('R_BW'),'central_valley_GHz':mtr.get('central_valley_GHz'),'peak_difference_dB':mtr.get('peak_difference_dB'),'passes':m.get('convergence',{}).get('passes'),'final_delta_s':m.get('convergence',{}).get('final_delta_s'),'source_hash_matches':it['source_hash_matches'],'curve_hash_matches':it['curve_hash_matches'],'passivity_warning_count':len(it['passivity_warnings']),'curve':str(run/'sparams.csv'),'source_sha256':m['source_sha256'],'curve_sha256':sha(run/'sparams.csv') if (run/'sparams.csv').exists() else None}
+            allrows.append(row)
+            check=lookup.get((case['case'],run.name),{})
+            row.update(scalar_reference_max_sv=check.get('max_sv'),scalar_reference_passivity_violations=check.get('violations'),scalar_reference_reciprocity_error=check.get('max_reciprocity'),normalization_review_status=check.get('status','not_evaluated'))
+            if final:selected.append(row)
+    save_csv(HERE/'configuration_status_24.csv',configs);save_csv(HERE/'all_iterations_provisional.csv',allrows);save_csv(HERE/'selected_designs_provisional.csv',selected)
+    summary={'target':24,'attempted':sum(x['solve_count']>0 for x in configs),'iterations':len(allrows),'historically_accepted':sum(x['historical_status']=='accepted' for x in configs),'historically_failed':sum(x['historical_status']=='failed' for x in configs),'formally_accepted':0,'source_hashes_all_match':all(r['source_hash_matches'] for r in allrows),'curve_hashes_all_match':all(r['curve_hash_matches'] for r in allrows),'reason':'Port protocol pending; all historical data provisional'}
+    write(HERE/'inventory_summary.json',summary)
+    fig,ax=plt.subplots(1,2,figsize=(11,4))
+    good=[r for r in selected if r['historical_design_status']=='accepted']
+    for i,key in enumerate(['P_response','R_zero_mean']):
+        for row in good:
+            if row[key] is None:continue
+            ax[i].scatter(row[key],row['BW_2dB_GHz']);ax[i].annotate(row['case'],(row[key],row['BW_2dB_GHz']),fontsize=8,xytext=(3,3),textcoords='offset points')
+        ax[i].set(xlabel=key,ylabel='BW (-2 dB), GHz',title='Provisional only: protocol pending');ax[i].grid(alpha=.25)
+    fig.tight_layout();fig.savefig(HERE/'coverage_provisional.png',dpi=160);plt.close(fig)
+    (HERE/'当前交付说明.md').write_text('# 当前交付（非24点最终报告）\n\n'+f'历史已尝试 {summary["attempted"]}/24 配置，共 {summary["iterations"]} 次相位求解；历史形状合格 {summary["historically_accepted"]}、失败 {summary["historically_failed"]}，当前正式验收为0。所有数据等待完整端口协议复核，合格形状不等于数值结果已验收。\n\n'+'归档恢复：D01G02、D01G05、D02G05 在 J:/hfss_f8x_261002_archive，其他已尝试配置在原 F 盘目录；曲线和源工程哈希已逐一核对。\n\n'+'基准图与两种归一化指标见 baseline。历史原生模态口径应与 native 比较；50Ω 结果独立列出，不混入历史指标。B0 原生模态三模对双模比较通过既定 RMSE、最大偏差、带边及中央谷门槛。\n\n'+'configuration_status_24.csv 为24配置清单；all_iterations_provisional.csv 为所有历史迭代；selected_designs_provisional.csv 和 coverage_provisional.png 仅供诊断，不能用于正式训练。\n\n'+'下一步：完成正在运行的 T_F3 检查，并核对模式场/辅助量；通过后完成收集器验收和前3配置监督，再放行自动队列。\n',encoding='utf-8')
+    print(json.dumps(summary,indent=2))
+if __name__=='__main__':main()

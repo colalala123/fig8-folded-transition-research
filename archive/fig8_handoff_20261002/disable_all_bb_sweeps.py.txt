@@ -1,0 +1,17 @@
+import shutil
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+root = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+p = root / "R_B0_rebuild_max500.aedt"
+shutil.copy2(p, root / "R_B0_rebuild_max500.before_disable_bb_sweeps.aedt")
+app = Hfss(project=str(p), design="Wideband vertical transition", version="2024.2", machine="localhost", port=7393, non_graphical=False, new_desktop=False, close_on_exit=False)
+try:
+    setup = app.get_setup("ModalRepairBB")
+    for sw in setup.sweeps:
+        sw.props["IsEnabled"] = False
+        sw.update()
+    app.save_project()
+    print([s.name for s in setup.sweeps if s.props.get("IsEnabled")], flush=True)
+finally:
+    app.release_desktop(close_projects=False, close_desktop=False)

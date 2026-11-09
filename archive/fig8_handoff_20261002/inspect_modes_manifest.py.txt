@@ -1,0 +1,3 @@
+import json
+for f in [r'F:\hfss_f8x_261002\M_B0_3w16\manifest.json',r'F:\hfss_f8x_261002\M_B0_3g16\manifest.json']:
+ j=json.load(open(f)); print(f, {p:{k:v['CharImp'] for k,v in q['Modes'].items()} for p,q in j['port_settings']['after'].items()})

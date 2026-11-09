@@ -1,0 +1,53 @@
+"""Offline control-flow checks. No AEDT connection or solver invocation."""
+import tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import continue_d04_supervised as c
+
+class ContinuationTests(unittest.TestCase):
+    def test_first_live_recovery_gate(self):
+        with patch.object(c,'readiness',return_value={'ready':False}),patch.object(c,'execute') as execute,patch.object(c,'launch_queue') as launch:
+            with self.assertRaises(AssertionError):c.main()
+            execute.assert_not_called();launch.assert_not_called()
+
+    def test_other_width_returns_without_reading_data(self):
+        with patch.object(c,'read',side_effect=AssertionError('must not read')):
+            self.assertEqual(c.stopped_action({'active_case':'D08G02','status':'review_required'}),('other_case_requires_supervision',None))
+            self.assertEqual(c.stopped_action({'status':'supervised_review_required'}),('supervised_finished',None))
+
+    def test_classification_refuses_old_failure_and_bad_ports(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root=Path(tmp);attempt=root/'D04G05/i03';attempt.mkdir(parents=True)
+            base=root/'local_repair/D04G05_i03'
+            state={'status':'review_required','active_case':'D04G05','active_run':str(attempt)}
+            c.write_json(attempt/'manifest.json',{'status':'numerical_or_port_review_required',
+                'convergence':{'converged':True,'final_delta_s':.004},'sweep_converged':True,'source_unchanged':True})
+            c.write_json(attempt/'port_review.json',{'passed':True})
+            c.write_json(attempt/'normalization_recovery_review.json',{'passed':False})
+            with patch.object(c,'ROOT',root),patch.object(c,'resolve_attempt',side_effect=lambda x:x):
+                self.assertEqual(c.stopped_action(state),('recover_once',attempt))
+                c.write_json(attempt/'port_review.json',{'passed':False})
+                with self.assertRaises(AssertionError):c.stopped_action(state)
+                c.write_json(attempt/'port_review.json',{'passed':True})
+                base.mkdir(parents=True);c.write_json(base/'flow.json',{'status':'review_required'})
+                with self.assertRaises(AssertionError):c.stopped_action(state)
+                c.write_json(base/'flow.json',{'status':'candidate_ready_review_required'})
+                c.write_json(base/'plan.json',{'recovery_recipe_version':'unknown'})
+                with self.assertRaises(AssertionError):c.stopped_action(state)
+                c.write_json(base/'plan.json',{'recovery_recipe_version':c.VERSION})
+                self.assertEqual(c.stopped_action(state),('approve_candidate',attempt))
+                with self.assertRaises(AssertionError):c.stopped_action({**state,'status':'running'})
+
+    def test_idle_refuses_live_solver(self):
+        with patch.object(c,'solvers',return_value=[{'pid':123}]):
+            with self.assertRaises(AssertionError):c.idle()
+
+    def test_failed_subprocess_not_retried(self):
+        with tempfile.TemporaryDirectory() as tmp,patch.object(c.subprocess,'run') as run:
+            run.return_value.returncode=1
+            with self.assertRaises(AssertionError):c.execute('dummy.py',[],Path(tmp)/'failure.log')
+            self.assertEqual(run.call_count,1)
+            with self.assertRaises(FileExistsError):c.execute('dummy.py',[],Path(tmp)/'failure.log')
+            self.assertEqual(run.call_count,1)
+
+if __name__=='__main__':unittest.main(verbosity=2)

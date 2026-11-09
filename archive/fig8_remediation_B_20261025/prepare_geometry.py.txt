@@ -1,0 +1,109 @@
+"""Freeze a single independent B probe/candidate, after actual receiver review."""
+import argparse
+from pathlib import Path
+import sys
+import phase_control as pc
+from phase_geometry_context import HISTORY,STEPS
+sys.path.insert(0,str(pc.ORIGINAL))
+from geometry_worker import dc,geometry_gate,passes
+from tuning_proposal import propose_probes,propose_candidate
+from mesh_budget import design_verdict
+from phase_publish import hook
+
+def reviewed(run):
+    p=pc.read(run/'input.json');s=pc.read(run/'state.json');m=pc.read(run/'response_metrics.json')
+    a=pc.read(run/'receiver_ack.json');event=hook.load_event(run/'completion_event.json')
+    assert event['status']=='completed' and event['target_thread_id']==pc.TARGET
+    assert a['event_sha256']==pc.sha(run/'completion_event.json') and a['artifacts_verified'] and a['visual_review_completed'] and a['operation_success']
+    assert a['verification_sha256']==pc.sha(run/'receiver_verification.json')
+    for item in event['artifacts']:assert pc.sha(run/item['path'])==item['sha256']
+    for f,h in p['parent_evidence_hashes'].items():assert pc.sha(f)==h
+    assert pc.sha(p['source'])==p['source_sha256']
+    assert s['status']=='completed' and s['geometry']==p['geometry']
+    assert 100000<=s['actual_elements']<=112000 and passes(run/'convergence.txt')[-1][1]==s['actual_elements']
+    assert s['final_sweep']['InterpTolerance']==1 and not s['final_sweep']['EnforcePassivity']
+    assert p['policy_sha256']==pc.sha(pc.HERE/'policy.json')
+    assert p['mesh_addendum_sha256']==pc.sha(pc.HERE/'mesh_policy_addendum_v2.json')
+    assert m['curve_sha256']==pc.sha(run/'sparams.csv') and m['prominent_valley_count']==3
+    names=['input.json','state.json','response_metrics.json','sparams.csv','convergence.txt','receiver_verification.json','receiver_ack.json','completion_event.json']
+    return p,m,{str(run/n):pc.sha(run/n) for n in names}
+
+def prepare(case,step):
+    auth=pc.read(pc.HERE/'authorization.json');ledger=pc.read(pc.HERE/'budget_ledger.json')
+    assert not (pc.HERE/'stage_B_closure.json').exists()
+    assert auth['execution_authorized'] and auth['stage']=='B' and not auth['stage_C_released'] and case in HISTORY
+    assert not dc.solvers()
+    locks=[pc.HERE/'worker.lock',pc.HERE.parent/'fig8_remediation_A_20261025/worker.lock',pc.ORIGINAL/'worker.lock',Path('J:/f8_261007/protocol.lock'),Path('J:/f8_261007/pilot_queue.lock')]
+    assert not any(x.exists() for x in locks)
+    assert ledger['case_cumulative_geometry']==HISTORY
+    index=STEPS.index(step);ordinal=index+1
+    own=[t for t in ledger['tasks'] if t['case']==case and t.get('new_phase_geometry_ordinal')]
+    assert len(own)==index and all(t['status']=='reviewed' for t in ledger['tasks'])
+    assert ledger['new_geometry_reserved']<6 and ledger['new_cached_tasks_reserved']<=2
+    # Cross-case starts require an explicit reviewed finite disposition for the predecessor.
+    if case=='D09G05' and not own:
+        d=pc.read(pc.HERE/'cases/D04G02/disposition.json')
+        assert d['case']=='D04G02' and d['reason'] and d['state'] in ('scoped_accepted','bounded_design_failed','numerical_unresolved')
+        for f,h in d['evidence_hashes'].items():assert pc.sha(f)==h
+    previous=None
+    if (pc.HERE/'supervised_release.json').exists():
+        previous=pc.read(pc.HERE/'supervised_release.json')
+        previous_run=Path(pc.read(previous['input_path'])['run_dir'])
+        ack=pc.read(previous_run/'receiver_ack.json')
+        assert ack['event_sha256']==pc.sha(previous_run/'completion_event.json') and ack['artifacts_verified'] and ack['visual_review_completed']
+    center_run=Path('J:/f8_finish24_261023')/case/'c01_candidate'
+    center,metrics,parents=reviewed(center_run)
+    assert center['phase_solve_ordinal_including_history']==HISTORY[case]
+    row=next(x for x in pc.read(pc.HERE/'plan.json')['cases'] if x['case']==case)
+    cycle=pc.HERE/f'{case}_tuning_cycle.json'
+    if index==0:
+        assert not cycle.exists()
+        prop=propose_probes(center['geometry'],row['initial_geometry'],metrics,0)
+        assert prop['action']=='probe'
+        record=dict(at=pc.now(),center=str(center_run),historical_geometry_attempts=HISTORY[case],new_geometry_cap=3,
+                    attempts_before_this_phase=0,probe_proposal=prop,center_hashes=parents,
+                    scope='Pure proposal counter is phase-local; history separately preserved.')
+    else:
+        record=pc.read(cycle);prop=record['probe_proposal']
+        for f,h in record['center_hashes'].items():assert pc.sha(f)==h
+    probe_metrics=[]
+    for i in range(index):
+        rr=pc.BASE/case/f'g0{i+1}_{STEPS[i]}'
+        ps,pm,ph=reviewed(rr)
+        assert ps['geometry']==prop['probes'][i]['geometry'] and ps['new_phase_geometry_ordinal']==i+1
+        assert not design_verdict(pm),'Passing probe: direct-review early stop, not more geometry'
+        parents.update(ph);probe_metrics.append(pm)
+    if step=='candidate':
+        proposal=propose_candidate(center['geometry'],row['initial_geometry'],metrics,probe_metrics,[p['step_mm'] for p in prop['probes']],index)
+        assert proposal['action']=='candidate','No justified candidate; stop, no extra probes'
+    else:proposal=prop['probes'][index]
+    geometry=proposal['geometry'];assert geometry_gate(geometry,row['initial_geometry'])['passed']
+    run=pc.BASE/case/f'g0{ordinal}_{step}';assert not run.exists()
+    if index==0:pc.write(cycle,record)
+    parents[str(cycle)]=pc.sha(cycle)
+    for f in [pc.HERE/'authorization.json',pc.HERE/'geometry_implementation_provenance.json',pc.HERE/'source_review.json',
+              pc.HERE/'phase_geometry_context.py',pc.HERE/'phase_geometry_publish.py',pc.HERE/'phase_control.py',pc.HERE/'phase_heartbeat.py',
+              pc.HERE/'hook/config.json',Path(__file__).resolve(),pc.HERE.parent/'fig8_remediation_A_20261025/stage_A_closure.json']:
+        parents[str(f)]=pc.sha(f)
+    if previous:
+        for f in [previous_run/'receiver_ack.json',previous_run/'completion_event.json']:parents[str(f)]=pc.sha(f)
+    pc.write(run/'budget_before.json',ledger);parents[str(run/'budget_before.json')]=pc.sha(run/'budget_before.json')
+    pc.write(run/'proposal.json',proposal);parents[str(run/'proposal.json')]=pc.sha(run/'proposal.json')
+    spec=dict(case=case,role=step,geometry=geometry,source=center['source'],source_sha256=center['source_sha256'],
+        run_dir=str(run),input_path=str((run/'input.json').resolve()),project_name=f'{case}_RemB_g0{ordinal}',
+        policy_sha256=pc.sha(pc.HERE/'policy.json'),mesh_addendum_sha256=pc.sha(pc.HERE/'mesh_policy_addendum_v2.json'),
+        new_phase_geometry_ordinal=ordinal,historical_geometry_attempts=HISTORY[case],phase_solve_ordinal_including_history=HISTORY[case]+ordinal,
+        worker_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),controller_sha256=pc.sha(pc.ORIGINAL/'mesh_budget.py'),
+        parent_evidence_hashes=parents,created_at=pc.now(),scope='Stage B only; single supervised release, no bulk dispatch')
+    pc.write(run/'input.json',spec)
+    if previous:pc.write(pc.HERE/'supervised_releases'/f'{previous_run.parent.name}_{previous_run.name}.json',previous)
+    pc.write(pc.HERE/'supervised_release.json',dict(case=case,input_path=spec['input_path'],input_sha256=pc.sha(run/'input.json'),bulk_dispatch_released=False,at=pc.now()))
+    ledger['new_geometry_reserved']+=1
+    ledger['tasks'].append(dict(case=case,role=step,new_phase_geometry_ordinal=ordinal,lifetime_geometry_ordinal=HISTORY[case]+ordinal,
+        path=spec['input_path'],input_sha256=pc.sha(run/'input.json'),status='reserved'))
+    pc.write(pc.HERE/'budget_ledger.json',ledger)
+    print(run/'input.json')
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--case',choices=list(HISTORY),required=True);ap.add_argument('--step',choices=STEPS,required=True)
+    args=ap.parse_args();prepare(args.case,args.step)

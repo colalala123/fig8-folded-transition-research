@@ -1,0 +1,41 @@
+"""Separate documented pre-solve diagnostic messages; retain raw evidence."""
+import re, shutil
+from datetime import datetime, timezone, timedelta
+from run_broadband_case import *
+from collect_completed_exports import collect
+
+run=ROOT/'D09G05/i02'
+assert not solvers()
+archive=run/'pre_message_disposition'
+archive.mkdir(exist_ok=True)
+for name in ['manifest.json','manifest_before_review.json','state.json']:
+    if (archive/name).exists():
+        assert sha(run/name)==sha(archive/name), 'Input changed since archival'
+    else: shutil.copy2(run/name,archive/name)
+m=read(run/'manifest.json'); s=read(run/'state.json')
+start=datetime.fromisoformat(s['interruption_recovery']['started_at']).astimezone(timezone(timedelta(hours=8))).replace(tzinfo=None)
+excluded=[]; kept=[]
+for msg in m['messages']:
+    if '[error]' in msg:
+        assert 'Script macro error: No trace data for quantity: S(1:1,1:1)' in msg
+        stamp=re.search(r'\((\d\d:\d\d:\d\d [AP]M\s+Oct 13, 2026)\)',msg).group(1)
+        dt=datetime.strptime(stamp,'%I:%M:%S %p %b %d, %Y')
+        assert dt<start and dt.strftime('%H:%M:%S') in ['09:22:15','09:24:00']
+        excluded.append(msg)
+    else: kept.append(msg)
+assert len(excluded)==4
+decision={'reason':'Read-only probe requested absent sweep before resumed analysis; not solver errors. Full messages retained in archive and state.',
+    'excluded_pre_solve_probe_errors':excluded,'resume_started_at':s['interruption_recovery']['started_at'],
+    'evidence_hashes':{str(p):sha(p) for p in archive.iterdir()},'reviewed_at':now()}
+write_json(run/'message_disposition.json',decision)
+m['messages']=kept;m['message_disposition_sha256']=sha(run/'message_disposition.json')
+m['raw_manifest']=str(archive/'manifest.json');m['raw_manifest_sha256']=sha(archive/'manifest.json')
+write_json(run/'manifest.json',m)
+write_json(run/'manifest_before_review.json',m)
+protocol=read(ROOT/'production_protocol.json')
+review=collect(run,Path(protocol['baseline_run']))
+s.update(status='completed' if review['accepted'] else 'review_required',numerical_review=review['matrix'],finished_at_utc=now(),error=None)
+save(run/'state.json',s)
+import guarded_pilot_queue as g
+g.status(status='recovered_attempt_needs_phase_review' if review['accepted'] else 'review_required',active_case='D09G05',active_run=str(run),error=None)
+print(json.dumps({'accepted':review['accepted'],'matrix':review['matrix'],'ports_passed':review['ports']['passed']}))

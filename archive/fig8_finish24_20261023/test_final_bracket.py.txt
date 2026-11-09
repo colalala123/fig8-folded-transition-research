@@ -1,0 +1,34 @@
+import unittest
+from copy import deepcopy
+from final_bracket import proposal
+
+GA={'Wm':2.,'Ws':.3,'Ls2':1.15,'Ls3':2.1,'Ls1':12.042735223277479,'Lm':6.579810870546246}
+GB={**GA,'Ls1':12.094975840704812,'Lm':6.624401102081496}
+INITIAL={**GA,'Ls1':11.84066,'Lm':6.499465}
+A={'signed_peak_difference_dB':.6773868278933293,'central_valley_GHz':6.78}
+B={'signed_peak_difference_dB':-.5072533299945619,'central_valley_GHz':6.71}
+D={'numerical_review_passed':True,'direct_peaks':[{'dB':-23.78879466787675,'interior':True},{'dB':-23.265964980341284,'interior':True}],
+   'direct_central_valley':{'GHz':6.71,'interior':True}}
+
+
+class BracketTests(unittest.TestCase):
+    def test_bounded_final_candidate(self):
+        r=proposal(GA,GB,A,B,D,INITIAL,7)
+        self.assertEqual(r['action'],'candidate');self.assertAlmostEqual(r['fraction_from_left'],.7087)
+        for k in ['Ls1','Lm']:self.assertLess(GA[k],r['geometry'][k]);self.assertLess(r['geometry'][k],GB[k])
+        self.assertLess(r['predicted_max_normalized_error'],.8);self.assertTrue(r['prediction_not_validation'])
+
+    def test_budget_cannot_expand(self):
+        for used in [6,8,9]:self.assertEqual(proposal(GA,GB,A,B,D,INITIAL,used)['action'],'stop')
+
+    def test_same_sign_rejected(self):
+        self.assertEqual(proposal(GA,GB,A,{**B,'signed_peak_difference_dB':.5},D,INITIAL,7)['action'],'stop')
+
+    def test_bad_direct_audit_rejected(self):
+        self.assertEqual(proposal(GA,GB,A,B,{**D,'numerical_review_passed':False},INITIAL,7)['action'],'stop')
+
+    def test_fixed_width_not_allowed_to_change(self):
+        self.assertEqual(proposal(GA,{**GB,'Ws':.4},A,B,D,INITIAL,7)['action'],'stop')
+
+
+if __name__=='__main__':unittest.main()

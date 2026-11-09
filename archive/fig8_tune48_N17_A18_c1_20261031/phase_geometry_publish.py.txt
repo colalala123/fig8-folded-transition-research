@@ -1,0 +1,18 @@
+from phase_control import HERE,TARGET,ORDER,read,write,now
+from phase_publish import hook
+def prompt(event,path):
+    return (f'[Fig8固定P/R达标调谐终态] {path}\n{event["summary"]}\n'
+      f'先读{HERE/"CONTINUATION.md"}。这是新阶段，不重开原48。14核串行，P/R/a/g固定，仅Lm/Ls1。'
+      '先review_phase_geometry、实际view_image、acknowledge_review，再continue_tuning.py。完整−20dB固定5.6GHz目标以full_primary为准。'
+      '每原项最多4新几何，全轮172几何2236Analyze；失败先查进程/缓存，不重复Analyze、不清锁、不自动重启。正常运行静默，用户暂停优先。')
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='New fixedP/R length engineering tuning, not independent blind test')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

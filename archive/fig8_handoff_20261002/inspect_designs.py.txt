@@ -1,0 +1,5 @@
+from ansys.aedt.core import Hfss
+for p in [r'F:\hfss_f8x_261002\M_B0_2\project.aedt',r'F:\hfss_f8x_261002\M_B0_3w16\M_B0_3w16.aedt',r'F:\hfss_f8x_261002\R_B0_single_fix\R_B0_single_fix.aedt']:
+ try:
+  a=Hfss(project=p,version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False);print(p,a.project_name,a.design_name,a.design_list);a.release_desktop(close_projects=False,close_desktop=False)
+ except Exception as e:print('ERR',p,e)

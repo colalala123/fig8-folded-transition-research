@@ -1,0 +1,15 @@
+"""Ask HFSS itself for 50-ohm renormalized data; no algebraic substitute."""
+from repair_sweep_trial import attach,RUN
+from pilot_worker import write_json
+app=attach()
+try:
+    results={}
+    for norm in (False,True):
+        path=RUN/('hfss_50ohm.s6p' if norm else 'hfss_native.s6p')
+        results[str(norm)]=app.export_touchstone(setup='Setup19',sweep='Sweep1',output_file=str(path),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+    data=app.post.get_solution_data(expressions=['Passivity'],setup_sweep_name='Setup19 : Sweep1',domain='Sweep',report_category='Modal Solution Data')
+    if data:
+        results['passivity_freq']=data.primary_sweep_values
+        results['passivity']=data.data_real('Passivity')
+    write_json(RUN/'hfss_reference_export.json',results)
+finally:app.release_desktop(close_projects=False,close_desktop=False)

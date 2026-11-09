@@ -1,0 +1,3 @@
+接收审查入口使用receive_verified.py --run事件目录。它先加载recovery_control建立父级导入路径；若state缺少冗余reference_treatment字段，则直接验证事件内已哈希的reference_review.json及原始native矩阵，而不改写事件绑定的state。原科学门限、源文件哈希、频点/网格、资源和曲线审查保持不变。
+
+当前有效结果路径和额外恢复计数见CURRENT_OPERATIONS.md。V01G05已改用direct_resume1有效结果；最终运行finish_effective_report.py。

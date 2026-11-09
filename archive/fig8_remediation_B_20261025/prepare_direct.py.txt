@@ -1,0 +1,57 @@
+"""Freeze one same-mesh critical-frequency review of a genuinely reviewed design."""
+import argparse
+from pathlib import Path
+import phase_control as pc
+from phase_geometry_context import HISTORY,STEPS
+from prepare_geometry import reviewed
+from phase_geometry_worker import dc,canonical_ports
+from phase_final_direct import frequencies
+from mesh_budget import design_verdict
+
+def prepare(case,source):
+    source=source.resolve();assert source.parent==(pc.BASE/case).resolve()
+    assert not (pc.HERE/'stage_B_closure.json').exists()
+    assert not dc.solvers()
+    locks=[pc.HERE/'worker.lock',pc.HERE.parent/'fig8_remediation_A_20261025/worker.lock',pc.ORIGINAL/'worker.lock',Path('J:/f8_261007/protocol.lock'),Path('J:/f8_261007/pilot_queue.lock')]
+    assert not any(p.exists() for p in locks)
+    auth=pc.read(pc.HERE/'authorization.json');l=pc.read(pc.HERE/'budget_ledger.json')
+    assert auth['execution_authorized'] and auth['stage']=='B' and not auth['stage_C_released'] and case in HISTORY
+    assert all(t['status']=='reviewed' for t in l['tasks'])
+    assert not any(t['case']==case and t['role']=='cached_phase_direct' for t in l['tasks'])
+    assert l['new_cached_tasks_reserved']<2 and l['new_geometry_reserved']<=6
+    spec,m,parents=reviewed(source);s=pc.read(source/'state.json')
+    assert spec['case']==case and design_verdict(m) and s['design_passed']
+    assert pc.read(source/'receiver_ack.json')['design_passed']
+    assert source.name in [f'g0{i+1}_{x}' for i,x in enumerate(STEPS)]
+    project=Path(s['project']);cache=project.with_suffix('.aedtresults')
+    assert project.is_file() and cache.is_dir() and any(f.is_file() for f in cache.rglob('*'))
+    own=[t for t in l['tasks'] if t['case']==case and t.get('new_phase_geometry_ordinal')]
+    assert 1<=len(own)<=3
+    n=len(own);run=pc.BASE/case/'final_direct';assert not run.exists()
+    for file in [project,pc.HERE/'phase_final_direct.py',pc.HERE/'phase_direct_context.py',Path(__file__).resolve(),
+                 pc.HERE/'authorization.json',pc.HERE/'direct_implementation_provenance.json',pc.HERE/'direct_validation.json',
+                 pc.HERE/'phase_geometry_worker.py',pc.HERE/'phase_geometry_publish.py',pc.HERE/'phase_heartbeat.py',pc.HERE/'hook/config.json']:
+        parents[str(file)]=pc.sha(file)
+    pc.write(run/'budget_before.json',l);parents[str(run/'budget_before.json')]=pc.sha(run/'budget_before.json')
+    points=frequencies(m)
+    ports=canonical_ports(s['port_settings']['after'])
+    p=dict(case=case,role='cached_phase_direct',source=str(source),run_dir=str(run),input_path=str((run/'input.json').resolve()),
+        project_source=str(project),project_source_sha256=pc.sha(project),project_name=f'{case}_RemB_FinalDirect',
+        frequencies_GHz=points,source_geometry=spec['geometry'],expected_ports=ports,
+        cached_task_ordinal_for_case=1,geometry_budget_increment=0,adaptive_allowed=False,
+        historical_geometry_attempts=HISTORY[case],new_geometry_used=n,lifetime_geometry_attempts=HISTORY[case]+n,
+        worker_sha256=pc.sha(pc.HERE/'phase_final_direct.py'),parent_evidence_hashes=parents,created_at=pc.now(),
+        scope='One bounded critical-frequency check on identical cached mesh. No new geometry/adaptive. No automatic acceptance.')
+    previous=pc.read(pc.HERE/'supervised_release.json')
+    prev_run=Path(pc.read(previous['input_path'])['run_dir']);assert prev_run==source
+    archive=pc.HERE/'supervised_releases'/f'{case}_{source.name}.json';assert not archive.exists()
+    pc.write(run/'input.json',p);pc.write(archive,previous)
+    pc.write(pc.HERE/'supervised_release.json',dict(case=case,input_path=p['input_path'],input_sha256=pc.sha(run/'input.json'),bulk_dispatch_released=False,at=pc.now()))
+    l['new_cached_tasks_reserved']+=1
+    l['tasks'].append(dict(case=case,role='cached_phase_direct',path=p['input_path'],input_sha256=pc.sha(run/'input.json'),status='reserved',geometry_budget_increment=0))
+    pc.write(pc.HERE/'budget_ledger.json',l)
+    print(dict(input=str(run/'input.json'),points=len(points),actual_elements=s['actual_elements'],new_geometry_added=0))
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--case',choices=list(HISTORY),required=True);ap.add_argument('--source',type=Path,required=True)
+    args=ap.parse_args();prepare(args.case,args.source)

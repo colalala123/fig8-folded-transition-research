@@ -1,0 +1,45 @@
+"""Exclusive one-time release; retain marker on any error, no blind retry."""
+import json,os,subprocess,sys
+from datetime import datetime,timezone
+from pathlib import Path
+import psutil
+from effective_budget_v2 import read,sha,overlay,validate_campaign
+ROOT=Path(__file__).resolve().parent
+
+def native_gate():
+    pp=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+    assert len(pp)==1 and pp[0]['pid']==70064 and abs(pp[0]['create_time']-1793256628.5493114)<.01
+    assert pp[0]['name'].lower()=='ansysedt.exe' and '7990' in pp[0]['cmdline']
+    return pp
+
+def main():
+    d=overlay();ctx=Path(d['context']);run=Path(d['effective_run'])
+    marker=ROOT/'recovery1_release_attempt.json';assert not marker.exists()
+    handoff=read(ROOT/'resource_handoff_recovery1.json')
+    assert handoff['thread']['status']['type']=='idle' and not handoff['thread']['status'].get('activeFlags')
+    assert handoff['turns'][0]['status']=='completed'
+    at=datetime.strptime(handoff['checked_at'],'%Y-%m-%d %H:%M:%S UTC').replace(tzinfo=timezone.utc)
+    assert 0<=(datetime.now(timezone.utc)-at).total_seconds()<300,'Refresh supported read_thread handoff evidence'
+    native_gate();validate_campaign(case=d['case'],storage=True)
+    assert read(ctx/'prelaunch_audit.json')['passed'] and not (run/'state.json').exists()
+    assert not (ctx/'initial_inputs.json').exists()
+    parents=read(ctx/'parent_evidence.json');parents['hashes'][str(Path(__file__))]=sha(__file__)
+    (ctx/'parent_evidence.json').write_text(json.dumps(parents,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    with marker.open('x',encoding='utf-8') as h:json.dump(dict(case=d['case'],pid=os.getpid(),at=datetime.now(timezone.utc).isoformat(),
+        overlay_sha256=sha(ROOT/'recovery1_overlay.json'),handoff_sha256=sha(ROOT/'resource_handoff_recovery1.json'),technical_recovery_attempt=1),h,indent=2)
+    subprocess.run([sys.executable,str(ctx/'finalize_and_authorize.py')],check=True)
+    spec=read(run/'input.json');assert spec['technical_recovery_attempt']==1 and spec['geometry']==d['geometry']
+    assert spec['recovery_overlay_sha256']==sha(ROOT/'recovery1_overlay.json')
+    native_gate();subprocess.run([sys.executable,str(ROOT/'continuation_v2.py'),'launch','--case',d['case']],check=True)
+    proof=read(run/'supervised_start.json');assert proof['actual_14core_single_group_observed']
+    p=psutil.Process(proof['worker_pid'])
+    assert p.is_running() and p.cmdline()==proof['worker_command'] and abs(p.create_time()-proof['worker_created'])<.01
+    daemon=read(run/'lifecycle_observer/daemon.json');p=psutil.Process(daemon['pid'])
+    assert p.is_running() and p.cmdline()==daemon['command'] and abs(p.create_time()-daemon['created'])<.01
+    with (ROOT/'recovery1_release_success.json').open('x',encoding='utf-8') as h:
+        json.dump(dict(case=d['case'],run=str(run),actual14core=True,worker_identity_verified=True,observer_identity_verified=True,
+            proof_sha256=sha(run/'supervised_start.json'),hook_config_sha256=sha(ctx/'hook/config.json'),
+            at=datetime.now(timezone.utc).isoformat()),h,indent=2)
+    print(dict(actual14core_started=True,case=d['case'],worker_pid=proof['worker_pid'],observer_pid=daemon['pid']))
+
+if __name__=='__main__':main()

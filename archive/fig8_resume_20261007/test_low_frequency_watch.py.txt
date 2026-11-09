@@ -1,0 +1,31 @@
+import copy
+import unittest
+import low_frequency_watch as w
+
+
+class MonitorTests(unittest.TestCase):
+    def setUp(self):
+        self.base = dict(adapter_status='running', flow='direct_check',
+                         stages={'direct': {'status': 'solving', 'error': None}},
+                         controller_alive=True, observed_at_utc='old')
+
+    def test_normal_timestamp_change_is_silent(self):
+        current = {**self.base, 'observed_at_utc': 'new'}
+        self.assertEqual(w.changes(self.base, current), [])
+
+    def test_stage_change_is_an_event(self):
+        self.assertTrue(w.changes(self.base, {**self.base, 'flow': 'checking_Low'}))
+
+    def test_expected_vs_unexpected_exit(self):
+        current = {**self.base, 'controller_alive': False}
+        self.assertEqual(w.changes(self.base, current)[-1]['kind'], 'controller_unexpected_exit')
+        current['adapter_status'] = 'candidate_ready_review_required'
+        self.assertEqual(w.changes(self.base, current)[-1]['kind'], 'controller_finished')
+
+    def test_stale_timestamp_does_not_fail(self):
+        self.assertEqual(w.changes(self.base, copy.deepcopy(self.base)), [])
+        self.assertEqual(w.INTERVAL, 600)
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

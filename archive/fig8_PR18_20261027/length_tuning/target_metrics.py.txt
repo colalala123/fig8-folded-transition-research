@@ -1,0 +1,14 @@
+from pathlib import Path
+import sys
+import numpy as np
+sys.path.insert(0,str(Path(__file__).resolve().parents[2]/'fig8_inverse_PR_20261027'))
+from model import intervals,center_band,band_score
+def compute20(path,metrics):
+    d=np.genfromtxt(path,delimiter=',',names=True)
+    f=d['Freq_GHz'];s11=d['S11_dB'];s21=d['S21_dB']
+    bands=intervals(f,s11,s21)
+    return dict(joint20_intervals_GHz=bands,joint20_center_band_GHz=center_band(bands),
+        inner_peak_count=len(metrics.get('peaks',[])),
+        worse_inner_peak_dB=max((p['S11_dB'] for p in metrics.get('peaks',[])),default=None),
+        both_inner_peaks_le_minus20=len(metrics.get('peaks',[]))==2 and all(p['S11_dB']<=-20 for p in metrics['peaks']),
+        fixed_4to9=band_score(f,s11,s21,4,9),is_scientific_label_not_solver_success=True)

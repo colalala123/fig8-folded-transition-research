@@ -1,0 +1,34 @@
+"""Review a repair trial without granting production protocol acceptance."""
+import csv,json
+from pathlib import Path
+import numpy as np
+from pilot_worker import write_json,convergence
+from check_touchstone_passivity import read,check
+from response_metrics import analyze
+from modal_impedance_gate import audit
+ROOT=Path('F:/hfss_f8x_261002');RUN=ROOT/'R_B0_rebuild'
+m=json.loads((RUN/'repair_manifest.json').read_text(encoding='utf-8'))
+assert m['status']=='exported_needs_review'
+f,s=read(RUN/'hfss_native.s6p')
+assert len(f)==1500 and np.allclose(f,np.arange(1,1501)*.01,atol=1e-9)
+rows=[]
+for k,freq in enumerate(f):
+    row={'Freq_GHz':float(freq)}
+    for label,i,j in [('S11',0,0),('S21',3,0),('S12',0,3),('S22',3,3)]:
+        z=s[k,i,j];row.update({label+'_real':float(z.real),label+'_imag':float(z.imag),label+'_mag':float(abs(z)),label+'_dB':float(20*np.log10(max(abs(z),1e-300)))})
+    rows.append(row)
+with (RUN/'sparams.csv').open('w',newline='',encoding='utf-8') as out:
+    w=csv.DictWriter(out,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+metrics=analyze(RUN/'sparams.csv',f0=6.85);write_json(RUN/'response_metrics.json',metrics)
+p=check(RUN);conv=convergence(RUN/'convergence.txt')
+ref=list(csv.DictReader((ROOT/'M_B0_2/sparams.csv').open(encoding='utf-8-sig')))
+comparisons={}
+for label,i,j in [('S11',0,0),('S21',3,0)]:
+    a=np.array([float(r[label+'_mag']) for r in ref]);b=abs(s[:,i,j]);delta=a-b
+    comparisons[label]={'magnitude_RMSE':float(np.sqrt(np.mean(delta**2))),'max_magnitude_difference':float(max(abs(delta)))}
+impedance_audit=audit(RUN/(RUN.name+'.aedt'),'SweepRepair')
+write_json(RUN/'modal_impedance_gate.json',impedance_audit)
+valid=bool(m.get('sweep_converged') and not m.get('nonpassive_warning') and m.get('source_unchanged') and conv['converged'] and p['hfss_50ohm.s6p']['violations_1p0001']==0 and impedance_audit['passed'])
+result={'numerical_repair_passed':valid,'protocol_passed':False,'remaining_protocol_checks':'T_F3 repair, two-vs-three modes, field identity and auxiliary continuity; no production waiver','convergence':conv,'full_curve_points':len(f),'hfss_sweep_converged':m.get('sweep_converged'),'nonpassive_warning':m.get('nonpassive_warning'),'max_singular_50ohm':p['hfss_50ohm.s6p']['worst_singular'],'passivity_violations':p['hfss_50ohm.s6p']['violations_1p0001'],'vs_provisional_two_mode':comparisons,'response_metrics':metrics}
+write_json(RUN/'repair_review.json',result)
+print(json.dumps(result,indent=2))

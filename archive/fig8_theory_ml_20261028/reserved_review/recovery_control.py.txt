@@ -1,0 +1,17 @@
+"""B6 cached direct stage only; no references to a completed V6 runtime."""
+from pathlib import Path
+from phase_control import HERE,PARENT,BASE,OLD,ORIGINAL,ORDER,TARGET,HOOK,read,write,sha,now
+
+def release(case,path):
+    record=dict(case=case,input_path=str(path.resolve()),input_sha256=sha(path),bulk_dispatch_released=False,at=now())
+    for folder in [HERE,PARENT,PARENT/'final_review']:write(folder/'supervised_release.json',record)
+
+FINAL=HERE
+
+def active(value):
+    for folder in [HERE,PARENT,PARENT/'final_review']:
+        write(folder/'active.json',value)
+        write(folder/'status.json',dict(at=now(),stage='B6D',active=value,cases=ORDER))
+        (folder/'STATUS.md').write_text('# Fig8 18项同网格直接复核\n\n'+__import__('json').dumps(value,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+def ledger_path():return HERE/'case_work_ledger.json'

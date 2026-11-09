@@ -1,0 +1,15 @@
+import json,sys
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent))
+from run_study import app_for,read,write,BASE,ROOT
+p=BASE/'M_D05G02/M_D05G02.aedt';app=app_for(p)
+try:
+    actual={b.name:json.loads(json.dumps(b.props,default=str)) for b in app.boundaries if b.type=='Wave Port'}
+    expected=read(ROOT/'D05G02/i00/manifest.json')['port_settings']['after']
+    write(BASE/'M_D05G02/port_reload_diagnostic.json',{'actual':actual,'expected':expected})
+    def diff(a,b,path=''):
+        if isinstance(a,dict) and isinstance(b,dict):
+            for k in set(a)|set(b):diff(a.get(k),b.get(k),path+'/'+k)
+        elif a!=b: print(path,repr(a),repr(b))
+    diff(actual,expected)
+finally:app.release_desktop(close_projects=False,close_desktop=False)

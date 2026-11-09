@@ -1,0 +1,88 @@
+"""Quantify recovery effects from completed exports, with no acceptance writes."""
+import argparse,json,csv
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from recovery_selection import hashes
+from export_modal_segment import load_segment
+from check_external_normalization import transform
+
+def compare(attempt):
+    attempt=Path(attempt).resolve();assert attempt.parent in [ROOT/'D04G05',ROOT/'D08G02',ROOT/'D12G05']
+    base=ROOT/'local_repair'/(attempt.parent.name+'_'+attempt.name)
+    direct=base/'direct/explicit_modal';review=read(base/'direct/review.json')
+    assert review['passed'];hashes(review['evidence_hashes'])
+    f,s,z,_=load_segment(attempt);fixed=transform(s,z,'traveling')
+    df,ds,dz,_=load_segment(direct);d50=transform(ds,dz,'traveling')
+    plan=read(base/'plan.json');windows=plan['windows_GHz'];rows=[]
+    for i,frequency in enumerate(df):
+        j=int(np.argmin(abs(f-frequency)));assert abs(f[j]-frequency)<1e-9
+        error=abs(fixed[j]-d50[i]);a,b=np.unravel_index(np.argmax(error),error.shape)
+        label='independent_anchor'
+        names=['cutoff_window','high_Zo_window'] if len(windows)==2 else [f'direct_window_{i+1}' for i in range(len(windows))]
+        for name,(lo,hi) in zip(names,windows):
+            if lo-1e-9<=frequency<=hi+1e-9:label=name
+        rows.append({'Freq_GHz':float(frequency),'region':label,
+            'full_50ohm_complex_error':float(error.max()),'worst_matrix_row_1based':int(a+1),'worst_matrix_col_1based':int(b+1),
+            'native_S11_magnitude_error':float(abs(abs(s[j,0,0])-abs(ds[i,0,0]))),
+            'native_S21_magnitude_error':float(abs(abs(s[j,2,0])-abs(ds[i,2,0]))),
+            'original_reciprocity_error':float(abs(fixed[j]-fixed[j].T).max()),
+            'direct_reciprocity_error':float(abs(d50[i]-d50[i].T).max())})
+    out=HERE/'diagnostic_plots'/f'{attempt.parent.name}_{attempt.name}_comparison';out.mkdir(exist_ok=True)
+    with (out/'direct_comparison.csv').open('w',newline='',encoding='utf-8') as h:
+        writer=csv.DictWriter(h,fieldnames=rows[0]);writer.writeheader();writer.writerows(rows)
+    summary={'reviewed_at_utc':now(),'attempt':str(attempt),'direct_points':len(rows),
+        'worst_direct_comparison':max(rows,key=lambda x:x['full_50ohm_complex_error']),
+        'direct_points_above_0p005_matrix_error':sum(x['full_50ohm_complex_error']>.005 for x in rows),
+        'native_S11_max_magnitude_error':max(x['native_S11_magnitude_error'] for x in rows),
+        'native_S21_max_magnitude_error':max(x['native_S21_magnitude_error'] for x in rows),
+        'scope':'Independent direct comparisons at the listed frequencies only; not proof of accuracy at unsampled frequencies. No protocol, numerical gate or acceptance record is changed.'}
+    summary['regions']={}
+    for region in sorted({r['region'] for r in rows}):
+        subset=[r for r in rows if r['region']==region]
+        large=[r for r in subset if r['full_50ohm_complex_error']>.005]
+        summary['regions'][region]={'sample_count':len(subset),'samples_above_0p005':len(large),
+            'max_full_50ohm_complex_error':max(r['full_50ohm_complex_error'] for r in subset),
+            'large_error_frequency_range_GHz':[min(r['Freq_GHz'] for r in large),max(r['Freq_GHz'] for r in large)] if large else None}
+    summary['all_sampled_large_errors_inside_direct_windows']=summary['regions']['independent_anchor']['samples_above_0p005']==0
+    files=[attempt/n for n in ['all_modes_sparams.csv','mode_impedance_gamma.csv','manifest.json','response_metrics.json']]
+    files += [direct/n for n in ['all_modes_sparams.csv','mode_impedance_gamma.csv','manifest.json']]
+    files += [base/'direct/review.json',base/'plan.json']
+    candidate=attempt/'verified_recovery';recovered=None
+    if (candidate/'recovery_candidate_review.json').exists():
+        candidate_review=read(candidate/'recovery_candidate_review.json');hashes(candidate_review['evidence_hashes'])
+        assert candidate_review['numerical_and_port_passed'] and candidate_review['seams_passed']
+        ff,ss,zz,_=load_segment(candidate);assert np.allclose(ff,f,rtol=0,atol=1e-9)
+        original_metrics=read(attempt/'response_metrics.json');new_metrics=read(candidate/'response_metrics.json')
+        summary['full_curve_metric_changes']={k:{'original':original_metrics[k],'recovered':new_metrics[k],
+            'difference':new_metrics[k]-original_metrics[k]} for k in ['central_valley_GHz','peak_difference_dB']}
+        summary['full_curve_metric_changes']['BW_2dB_GHz']={'original':original_metrics['passband_2dB']['BW_GHz'],
+            'recovered':new_metrics['passband_2dB']['BW_GHz'],
+            'difference':new_metrics['passband_2dB']['BW_GHz']-original_metrics['passband_2dB']['BW_GHz']}
+        recovered=ss
+        files += [candidate/n for n in ['recovery_candidate_review.json','all_modes_sparams.csv','mode_impedance_gamma.csv','response_metrics.json']]
+    fig,axes=plt.subplots(2,1,figsize=(10,8),constrained_layout=True)
+    db=lambda x:20*np.log10(np.maximum(abs(x),1e-12))
+    for index,name,color in [(0,'S11','royalblue'),(2,'S21','red')]:
+        axes[0].plot(f,db(s[:,index,0]),color=color,ls='--',alpha=.65,label=name+' original')
+        if recovered is not None:axes[0].plot(f,db(recovered[:,index,0]),color=color,label=name+' recovered')
+        else:axes[0].scatter(df,db(ds[:,index,0]),color=color,s=9,label=name+' direct checks')
+    axes[0].axhline(-2,color='grey',ls=':');axes[0].axhline(-10,color='grey',ls=':')
+    axes[0].set(xlim=(0,15),ylim=(-60,2),ylabel='Magnitude (dB)',title=f'{attempt.parent.name} {attempt.name}: native fundamental response')
+    axes[0].legend(loc='lower right',ncol=2,fontsize=8);axes[0].grid(alpha=.25)
+    axes[1].semilogy(df,np.maximum([r['full_50ohm_complex_error'] for r in rows],1e-16),'o',ms=3,label='Full 50-ohm matrix: original vs direct')
+    for i,(lo,hi) in enumerate(windows):
+        axes[1].axvspan(lo,hi,color='orange',alpha=.14,label='Dense direct-check windows' if i==0 else None)
+    axes[1].axhline(.005,color='grey',ls=':',label='0.005 direct-comparison threshold')
+    axes[1].set(xlim=(0,15),xlabel='Frequency (GHz)',ylabel='Maximum absolute complex difference')
+    axes[1].grid(alpha=.25);axes[1].legend(fontsize=8)
+    fig.savefig(out/'comparison.png',dpi=160);plt.close(fig)
+    summary['evidence_hashes']={str(p):sha(p) for p in files}
+    write_json(out/'comparison.json',summary)
+    print(json.dumps({k:v for k,v in summary.items() if k!='evidence_hashes'},indent=2))
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('attempt');args=parser.parse_args();compare(args.attempt)

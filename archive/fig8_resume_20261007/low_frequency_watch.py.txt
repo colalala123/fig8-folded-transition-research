@@ -1,0 +1,142 @@
+"""Read-only 10-minute observer. Never calls AEDT, dispatches, or wakes agents."""
+import argparse
+import datetime as dt
+import json
+import os
+from pathlib import Path
+import time
+
+import psutil
+
+HERE = Path(__file__).resolve().parent
+ROOT = Path('J:/f8_261007')
+BASE = ROOT / 'local_repair/D04G05_i03'
+STATE = ROOT / 'low_frequency_monitor.json'
+EVENTS = ROOT / 'low_frequency_events.jsonl'
+PAGE = HERE / '低频监控.md'
+INTERVAL = 600
+TERMINAL = {'candidate_ready_review_required', 'review_required', 'completed', 'failed'}
+
+
+def now():
+    return dt.datetime.now(dt.timezone.utc).isoformat()
+
+
+def read(path):
+    return json.loads(path.read_text(encoding='utf-8-sig'))
+
+
+def atomic(path, value):
+    temp = path.with_name(path.name + f'.{os.getpid()}.tmp')
+    temp.write_text(value, encoding='utf-8')
+    os.replace(temp, path)
+
+
+def process_identity(pid, expected):
+    try:
+        p = psutil.Process(pid)
+        cmd = p.cmdline()
+        return {'pid': pid, 'created': p.create_time(), 'command': cmd,
+                'matches': any(Path(x).name == expected for x in cmd[1:])}
+    except psutil.NoSuchProcess:
+        return None
+
+
+def snapshot(identity):
+    adapter = read(BASE / 'metadata_io_adapter.json')
+    flow = read(BASE / 'flow.json')
+    current = process_identity(identity['pid'], identity.get('script', 'recover_i03_wide_window.py'))
+    alive = bool(current and current['matches'] and current['created'] == identity['created'])
+    stages = {}
+    for stage in ['direct', 'Low', 'Middle', 'Upper']:
+        file = BASE / stage / ('local_state.json' if stage == 'direct' else 'state.json')
+        if file.exists():
+            data = read(file)
+            stages[stage] = {k: data.get(k) for k in ['status', 'error']}
+    return {'observed_at_utc': now(), 'adapter_status': adapter['status'],
+            'flow': flow.get('status'), 'controller_alive': alive, 'stages': stages}
+
+
+def changes(previous, current):
+    events = []
+    if previous is None:
+        return events
+    for key in ['adapter_status', 'flow', 'stages']:
+        if previous[key] != current[key]:
+            events.append({'kind': 'state_changed', 'field': key,
+                           'before': previous[key], 'after': current[key]})
+    if previous['controller_alive'] and not current['controller_alive']:
+        events.append({'kind': 'controller_finished' if current['adapter_status'] in TERMINAL
+                       else 'controller_unexpected_exit'})
+    return events
+
+
+def save(state):
+    atomic(STATE, json.dumps(state, ensure_ascii=False, indent=2))
+    sample = state.get('sample') or {}
+    text = ('# Fig.8 低频监控\n\n'
+            f"- 本地监控 PID：{state['pid']}；间隔：600秒（10分钟）。\n"
+            f"- 最近检查 UTC：{state.get('last_check_utc', '—')}\n"
+            f"- 下次检查 UTC：{state.get('next_check_utc', '—')}\n"
+            f"- 阶段：{sample.get('flow', '观察暂不可用')}\n"
+            f"- 最近事件：{state.get('last_event', '无')}\n"
+            f"- 观察问题：{state.get('observation_issue') or '无'}\n\n"
+            '观察超时、文件暂时不可读或时间戳未更新，均不判为求解失败。\n\n'
+            '此程序只读取本地状态和控制进程身份；不调用HFSS、不重启、不批准结果。'
+            '事件写入本地文件；当前未连接可用的agent事件唤醒接口。\n\n'
+            f'[实时进度（15秒自动刷新）]({(HERE / "实时进度.md").as_posix()})\n\n'
+            f'[事件记录]({EVENTS.as_posix()})\n')
+    atomic(PAGE, text)
+
+
+def main(controller_script='recover_i03_wide_window.py'):
+    if STATE.exists():
+        prior = read(STATE)
+        p = process_identity(prior['pid'], Path(__file__).name)
+        assert not (p and p['matches']), 'Existing monitor is alive; do not duplicate'
+    adapter = read(BASE / 'metadata_io_adapter.json')
+    identity = process_identity(adapter['pid'], controller_script)
+    assert identity and identity['matches'], 'Inspect stopped controller before starting monitor'
+    identity['script'] = controller_script
+    # First observation establishes a baseline. Subsequent reads are 600s apart.
+    previous = None
+    state = {'pid': os.getpid(), 'interval_seconds': INTERVAL, 'controller': identity,
+             'started_at_utc': now(), 'status': 'watching', 'last_event': None,
+             'agent_wakeup_supported': False, 'solver_dispatches': 0}
+    while True:
+        started = time.monotonic()
+        state['last_check_utc'] = now()
+        try:
+            current = snapshot(identity)
+            events = changes(previous, current)
+            if events:
+                record = {'observed_at_utc': now(), 'events': events, 'sample': current}
+                with EVENTS.open('a', encoding='utf-8') as stream:
+                    stream.write(json.dumps(record, ensure_ascii=False) + '\n')
+                state['last_event'] = record
+            previous = current
+            state.update(sample=current, observation_issue=None)
+            if not current['controller_alive']:
+                state.update(status='event_recorded_monitor_finished', next_check_utc=None)
+                save(state)
+                return
+        except (OSError, ValueError, KeyError, psutil.Error) as exc:
+            # Observation errors are not solver failures. Retain the prior sample.
+            state['observation_issue'] = f'{type(exc).__name__}: {exc}'
+        state['next_check_utc'] = (dt.datetime.now(dt.timezone.utc) +
+                                   dt.timedelta(seconds=INTERVAL)).isoformat()
+        save(state)
+        time.sleep(max(0, INTERVAL - (time.monotonic() - started)))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--run', action='store_true')
+    parser.add_argument('--controller-script', default='recover_i03_wide_window.py',
+                        choices=['recover_i03_wide_window.py', 'resume_i03_after_timeout.py'])
+    args = parser.parse_args()
+    if args.run:
+        main(args.controller_script)
+    else:
+        print(json.dumps({'interval_seconds': INTERVAL, 'read_only': True,
+                          'agent_wakeup_supported': False}, indent=2))

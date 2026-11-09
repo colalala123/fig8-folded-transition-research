@@ -1,0 +1,20 @@
+"""Gracefully stop only our rejected Single15 collector; retain all data."""
+import json,sys
+from pathlib import Path
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'fig8_handoff_20261002'))
+from ansys.aedt.core import Hfss
+from pilot_worker import now,sha,write_json
+ROOT=Path('J:/f8_261007');RUN=ROOT/'B0R2'
+def main():
+    p=RUN/'state.json';state=json.loads(p.read_text(encoding='utf-8'))
+    assert Path(state['project']).resolve()==(RUN/'B0R2.aedt').resolve() and state['port']==7990
+    write_json(RUN/'state_before_protocol_stop.json',state)
+    app=Hfss(project=state['project'],design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+    try:
+        result=app.stop_simulations(clean_stop=True) if app.are_there_simulations_running else 'already_idle'
+        state.update(status='stopping_incompatible_protocol',stop_requested_at_utc=now(),stop_response=str(result),reason='B0M2 Single15 production candidate fails direct two-vs-three comparison: S11 RMSE .00761455, maxdiff .02176584, center .02 GHz. Preserve this trial, return to validated Broadband settings.',source_unchanged=sha(state['source'])==state['source_sha256'])
+        write_json(p,state)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    write_json(ROOT/'collector_workflow_state.json',{'status':'review_required','updated_at_utc':now(),'error':state['reason'],'further_dispatch_disabled':True})
+    write_json(ROOT/'execution_decision.json',{'current_action':'Single15候选与修复三模的直接比较未过门槛，已停止后续派发并保留试验','next_action':'恢复已通过二/三模检查的原Broadband设置，核验原收集器结果及归一化恢复流程','selected_modes':2})
+if __name__=='__main__':main()

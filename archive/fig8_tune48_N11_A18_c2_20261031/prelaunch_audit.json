@@ -1,0 +1,68 @@
+{
+  "at": "2026-10-30T17:50:58.420087+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N11_A18_c2_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 1.070s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 1.798s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 6,
+    "new_geometries_declared": 7,
+    "geometry_cap": 172,
+    "Analyze_used": 45,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 9,
+      "N11_A18_M": 7,
+      "N11_A18_C1": 1,
+      "N11_A18_C2": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 4
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "create_time": 1793355858.6193893,
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "name": "ansysedt.exe",
+      "pid": 85208
+    }
+  ],
+  "projects": [
+    {
+      "case": "N11_A18_C2",
+      "configuration_sha256": "e17ea7fde9407089d8ccc2a9d0fb6e174aa094ca382107e559dc867ed9ce1e1d",
+      "project_sha256": "ca5807697cb02584de2081896ebacf691f90a521c2cfeef803431d5f316c9a79"
+    }
+  ]
+}

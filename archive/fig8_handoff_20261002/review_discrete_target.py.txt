@@ -1,0 +1,35 @@
+import sys,json,csv,hashlib
+from pathlib import Path
+import numpy as np
+sys.path.insert(0,r'${WORKSPACE}\output\fig8_handoff_20261002')
+sys.path.insert(0,r'${WORKSPACE}\output\folded_simulation_plan_20260920')
+from check_touchstone_passivity import read
+from response_metrics import analyze
+ROOT=Path(r'F:\hfss_f8x_261002\R_B0_rebuild_max500')
+def sha(p):
+ h=hashlib.sha256();
+ with open(p,'rb') as f:
+  for b in iter(lambda:f.read(1<<20),b''):h.update(b)
+ return h.hexdigest()
+res={}
+for name in ['hfss_native_discrete_target.s6p','hfss_50ohm_discrete_target.s6p']:
+ f,s=read(ROOT/name);sv=np.linalg.svd(s,compute_uv=False)[:,0];rec=np.max(np.abs(s-s.transpose(0,2,1)),axis=(1,2))
+ res[name]={'points':int(len(f)),'f_start_GHz':float(f[0]),'f_end_GHz':float(f[-1]),'grid_step_GHz':float(np.min(np.diff(f))),'max_singular':float(sv.max()),'min_singular':float(sv.min()),'passivity_violations_gt_1p0001':int(np.sum(sv>1.0001)),'worst_singular_GHz':float(f[np.argmax(sv)]),'max_reciprocity_error':float(rec.max()),'sha256':sha(ROOT/name)}
+# fundamental csv from 50-ohm direct file
+f,s=read(ROOT/'hfss_50ohm_discrete_target.s6p'); rows=[]
+for k,fr in enumerate(f):
+ row={'Freq_GHz':float(fr)}
+ for label,i,j in [('S11',0,0),('S21',3,0),('S12',0,3),('S22',3,3)]:
+  z=s[k,i,j]; row.update({label+'_real':float(z.real),label+'_imag':float(z.imag),label+'_mag':float(abs(z)),label+'_dB':float(20*np.log10(max(abs(z),1e-300)))})
+ rows.append(row)
+with (ROOT/'sparams_discrete_target.csv').open('w',newline='',encoding='utf-8') as out:
+ w=csv.DictWriter(out,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+metrics=analyze(ROOT/'sparams_discrete_target.csv',f0=6.85); res['response_metrics']=metrics; res['discrete_target_status']='verified_fullband_discrete'
+# compare segmented stitched curve if available
+try:
+ f2,s2=read(ROOT/'bb_50ohm.s6p');
+ res['vs_stitched_bb_50ohm']={'same_grid':bool(np.allclose(f,f2,atol=1e-12)),'S11_max_abs_diff':float(np.max(np.abs(s[:,0,0]-s2[:,0,0]))),'S21_max_abs_diff':float(np.max(np.abs(s[:,3,0]-s2[:,3,0]))),'S11_rmse':float(np.sqrt(np.mean(np.abs(s[:,0,0]-s2[:,0,0])**2))),'S21_rmse':float(np.sqrt(np.mean(np.abs(s[:,3,0]-s2[:,3,0])**2)))}
+except Exception as e:res['vs_stitched_bb_50ohm']={'error':str(e)}
+(ROOT/'discrete_review_20261004.json').write_text(json.dumps(res,indent=2),encoding='utf-8')
+print(json.dumps({'native':res['hfss_native_discrete_target.s6p'],'50ohm':res['hfss_50ohm_discrete_target.s6p'],'vs_stitched':res.get('vs_stitched_bb_50ohm'),'passband':metrics['passband_2dB'],'joint':metrics['passband_joint'],'P':metrics.get('formal_response_PR'),'diagnostic_P':metrics.get('diagnostic_response_PR')},indent=2))
+

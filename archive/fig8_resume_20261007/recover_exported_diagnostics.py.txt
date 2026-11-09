@@ -1,0 +1,37 @@
+"""Recover diagnostics after completed solver exports; never approves a failed matrix."""
+import argparse,json,shutil
+from pathlib import Path
+import numpy as np
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from complete_reference_evidence import common_fields
+from pilot_supervisor import aux_compare,verify_boundaries
+from response_metrics import analyze
+
+def main(run):
+    run=Path(run);m=read(run/'manifest.json');r=read(run/'normalization_recovery_review.json')
+    for file,digest in r['evidence_hashes'].items():assert sha(file)==digest
+    assert m['convergence']['converged'] and m['sweep_converged'] and m['source_unchanged']
+    assert any('Normal completion' in x for x in m['messages'])
+    adapter=run/'mode_evidence_input';adapter.mkdir(exist_ok=True)
+    for name in ['sparams.csv','mode_impedance_gamma.csv']:shutil.copy2(run/name,adapter/name)
+    write_json(adapter/'manifest.json',{**m,'status':'completed','scope':'Solver completion only, for field archival. Numerical/production acceptance remains false until full review.',
+        'original_manifest':str(run/'manifest.json'),'original_manifest_sha256':sha(run/'manifest.json')})
+    baseline=Path(read(ROOT/'production_protocol.json')['baseline_run'])
+    ports={'fields':common_fields(baseline,adapter),'auxiliary':aux_compare(baseline,adapter),'boundaries':verify_boundaries(adapter)}
+    ports['passed']=all(x['passed'] for x in ports.values());write_json(run/'port_review.json',ports)
+    metrics=analyze(run/'sparams.csv',f0=6.85);metrics['validity']['solver_convergence_verified']=bool(r['passed'] and ports['passed'])
+    if not metrics['validity']['solver_convergence_verified']:metrics['formal_response_PR']=None
+    write_json(run/'response_metrics.json',metrics)
+    data=np.load(run/'scalar_reference_50ohm.npz');f=data['frequency_GHz'];s=data['S']
+    sv=np.linalg.svd(s,compute_uv=False)[:,0];rec=np.max(abs(s-s.transpose(0,2,1)),axis=(1,2))
+    bad=sv>1.001;groups=[]
+    ix=np.flatnonzero(bad)
+    if len(ix):
+        for g in np.split(ix,np.flatnonzero(np.diff(ix)>1)+1):groups.append({'start_GHz':float(f[g[0]]),'end_GHz':float(f[g[-1]]),'points':len(g),'max_sv':float(sv[g].max())})
+    out={'reviewed_at_utc':now(),'numerical_passed':r['passed'],'port_review_passed':ports['passed'],'passivity_regions':groups,
+      'worst_reciprocity':{'GHz':float(f[rec.argmax()]),'error':float(rec.max())},'reciprocity_max_outside_passivity_regions':float(rec[~bad].max()),
+      'design_central_valley_GHz':metrics.get('central_valley_GHz'),'peak_difference_dB':metrics.get('peak_difference_dB'),
+      'production_approved':False,'note':'Recovered completed exports and port evidence, without a repeat solve or acceptance of numerical violations.'}
+    write_json(run/'export_recovery_diagnostics.json',out);print(json.dumps(out,indent=2))
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('run');a=p.parse_args();main(a.run)

@@ -1,0 +1,86 @@
+"""Create one independent SAME-geometry recovery. No native calls, no old edits."""
+import ast,copy,shutil
+from pathlib import Path
+from build_runtime import ROOT,OUT,read,sha,new,write,now
+
+def main():
+    oldctx=OUT/'fig8_tune48_N20_A14_c2_20261031'
+    ctx=OUT/'fig8_tune48_N20_A14_c2_retry1_20261031'
+    original=ROOT/'data/N20_A14/c2/N20_A14_C2/g01_initial'
+    base=ROOT/'data/N20_A14/c2_retry1';case='N20_A14_C2_TR1'
+    assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'coordination/protocol.lock').exists()
+    assert not ctx.exists() and not base.exists()
+    diagnosis=ROOT/'diagnostics/N20_A14_C2_attempt1/native_diagnosis.json';d=read(diagnosis)
+    assert not d['setup_solved'] and any('Port refinement' in x and '-1073741819' in x for x in d['messages'])
+    assert all(sha(p)==h for p,h in d['original_hashes'].items())
+    state=read(original/'state.json')
+    assert read(original/'completion_event.json')['status']=='failed' and not (original/'receiver_ack.json').exists()
+    assert len(state['segments'])==1 and not state.get('actual_elements')
+    authpath=ROOT/'N20_C2_RECOVERY_AUTHORIZATION.json'
+    new(authpath,dict(at=now(),authorized=True,human_reply='允许一次同参数技术恢复（推荐）',
+      authorization_scope='User explicitly approved one extra technical attempt slot, same geometry, <=12 extra Analyze, physical C2<=13, global<=2236',
+      same_geometry_only=True,parent='N20_A14',original_failed_run=str(original),original_hashes=d['original_hashes'],
+      geometry=state['geometry'],max_new_Analyze=12,combined_physical_case_cap=13,max_technical_attempts=1,
+      old_design_geometry_cap=172,extra_technical_attempt_slots=1,no_second_recovery=True,
+      no_restart=True,no_lock_deletion=True,no_port_precision_or_target_change=True,diagnosis_sha256=sha(diagnosis)))
+    ctx.mkdir();base.mkdir(parents=True)
+    stage='T48_N20_A14_C2_TR1'
+    for p in oldctx.glob('*.py'):
+        text=p.read_text(encoding='utf-8').replace('N20_A14_C2',case)
+        text=text.replace('from tuning_budget import validate_campaign','from tuning_budget_recovery_v1 import validate_campaign')
+        if p.name=='phase_control.py':
+            text='\n'.join('BASE=Path('+repr(str(base))+')' if l.startswith('BASE=') else l for l in text.splitlines())+'\n'
+        if p.name=='lifecycle_watch.py':
+            text='\n'.join('ROOT=Path(__file__).resolve().parent;BASE=Path('+repr(str(base))+')' if l.startswith('ROOT=') else l for l in text.splitlines())+'\n'
+        if p.name=='phase_geometry_worker.py':
+            needle="    assert not dc.solvers(),'Another HFSS solver active'"
+            assert text.count(needle)==1
+            injection="    from technical_request_gate import check_recovery_request\n    previous=read(Path("+repr(str(original/'state.json'))+"))\n    assert sha(Path("+repr(str(original/'state.json'))+"))=="+repr(sha(original/'state.json'))+"\n    check_recovery_request(previous,state,adaptive)\n"
+            text=text.replace(needle,injection+needle)
+        if p.name=='finalize_and_authorize.py':
+            needle='        pc.write(path,spec);entries.append';assert text.count(needle)==1
+            text=text.replace(needle,"        spec.update(technical_recovery_attempt=1,original_failed_run="+repr(str(original))+",same_geometry_as_failed_C2=True,failed_requests_inherited=1,combined_request_cap=13)\n"+needle)
+        ast.parse(text);(ctx/p.name).write_text(text,encoding='utf-8')
+    plan=copy.deepcopy(read(oldctx/'plan.json'));row=plan['cases'][0]
+    source=Path(row['prepared_project']);proof=read(oldctx/'cases/N20_A14_C2/configuration.json')
+    assert proof['passed'] and not proof['solved'] and sha(source)==proof['project_sha256']
+    assert proof['geometry']==state['geometry']
+    prepared=base/case/'prepared'/f'{case}_{stage}_Prepared.aedt'
+    prepared.parent.mkdir(parents=True);shutil.copy2(source,prepared);assert sha(prepared)==sha(source)
+    row.update(case=case,context=str(ctx),run_dir=str(base/case/'g01_initial'),prepared_project=str(prepared),
+      category='unique_same_geometry_C2_technical_recovery',technical_recovery_attempt=1,original_failed_run=str(original))
+    plan.update(stage=stage,at=now());new(ctx/'plan.json',plan)
+    copied=copy.deepcopy(proof);copied.update(case=case,project=str(prepared),project_sha256=sha(prepared),
+      prepared_bytes_copied=True,original_configuration_sha256=sha(oldctx/'cases/N20_A14_C2/configuration.json'))
+    new(ctx/'cases'/case/'configuration.json',copied)
+    for name in ['aedt_identity.json','mesh_policy_addendum_v2.json','reference_validation.json','desktop_start.json']:
+        shutil.copyfile(oldctx/name,ctx/name)
+    policy=read(oldctx/'policy.json');policy.update(version=stage,technical_recovery_attempt=1,
+        user_authorization='允许一次同参数技术恢复（推荐）；额外1技术槽，本恢复<=12请求、原C2合计<=13、全轮<=2236')
+    new(ctx/'policy.json',policy)
+    new(ctx/'authorization.json',dict(stage=stage,cases=[case],configuration_authorized=True,execution_authorized=False,
+        launch_user_instruction='允许一次同参数技术恢复（推荐）',geometry_cap=1))
+    new(ctx/'execution_plan.json',dict(parent='N20_A14',new_geometry_cap=0,technical_attempt_cap=1,
+        geometry_Analyze_cap=12,combined_physical_case_Analyze_cap=13,global_Analyze_cap=2236,cores=14,serial=True))
+    new(ctx/'budget_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    cfg=read(oldctx/'hook/config.json');cfg['state_dir']=str(ctx/'hook/state');new(ctx/'hook/config.json',cfg)
+    new(ctx/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_terminal'))
+    evidence=copy.deepcopy(read(oldctx/'parent_evidence.json'))
+    for p in [authpath,diagnosis,source,original/'input.json',original/'state.json',original/'worker_error.json',original/'completion_event.json',
+              ROOT/'technical_request_gate.py',ROOT/'tuning_budget_recovery_v1.py',ROOT/'run_context_v5.py',ROOT/'continue_tuning_v2.py',Path(__file__)]:
+        evidence['hashes'][str(p)]=sha(p)
+    new(ctx/'parent_evidence.json',evidence)
+    new(ROOT/'technical_recovery_registry_v1.json',dict(contexts=[dict(context=str(ctx),base=str(base),parent='N20_A14',
+        kind='technical_recovery_c2',plan_sha256=sha(ctx/'plan.json'),authorization_sha256=sha(authpath))]))
+    doc=f'''# N20_A14_C2 唯一同参数技术恢复
+已获用户明确授权：额外1技术尝试槽，最多12次新Analyze；原失败1次永久计账，原C2合计<=13，全轮<=2236。原4个设计参数点不增加，不改P/R/a/g/材料/端口精度/目标。相同prepared源文件字节，新独立工程/路径。原失败input/state/event/error不可覆盖，不能给旧失败目录写成功ACK。不重启HFSS、不清锁。
+启动只用 {ROOT/'run_context_v5.py'} --context {ctx} --case {case}，保持调用到真实14核1组、worker/observer身份和hook证据写出；Python启动不等于HFSS启动。已有release/state不可重复派发。
+完成后先本目录review_phase_geometry.py --run RUN，实际view_image看图，然后acknowledge_review.py --run RUN --visual-reviewed --note真实观察，再 {ROOT/'continue_tuning_v2.py'} --context {ctx}。full_primary才是3.92–9.52GHz完整-20dB目标，非只看峰差/带宽。该有效恢复目录可选为结果，原失败目录永不伪造成功ACK。
+若再次技术失败：技术未解决，停止并报告，不再次恢复、不增加第三候选。若求解成功但目标不通过：本父项有限搜索未解，不证明物理不可达。正常求解静默，只终态hook到当前聊天；5分钟未有后继才检查会话。用户暂停优先。后续所有新启动用run_context_v5.py、接续用continue_tuning_v2.py，以加总真实技术恢复成本；启动后运行write_status_summary.py更新MD。
+'''
+    (ctx/'CONTINUATION.md').write_text(doc,encoding='utf-8')
+    pub=ctx/'phase_geometry_publish.py';text=pub.read_text(encoding='utf-8')
+    text=text.replace('再continue_tuning.py。','再continue_tuning_v2.py；本C2_TR1为唯一同参数技术恢复，不可再重试。')
+    pub.write_text(text,encoding='utf-8')
+    print(dict(context=str(ctx),case=case,same_prepared_bytes=True,Analyze_requested=False))
+if __name__=='__main__':main()

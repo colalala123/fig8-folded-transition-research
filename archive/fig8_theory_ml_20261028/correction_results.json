@@ -1,0 +1,814 @@
+{
+  "at": "2026-10-28T12:20:51.280137+00:00",
+  "results": [
+    {
+      "case": "B02",
+      "status": "complete_target_pass_with_finite_evidence",
+      "selection": {
+        "case": "B02",
+        "status": "selected_for_finite_direct",
+        "source": "D:\\hfss_fig8_20261028\\candidates\\B02C\\g01_initial",
+        "dense_score": {
+          "worst_S11_dB": -21.81271165471245,
+          "min_S21_dB": -0.7901874169083701,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.73,
+          "peak_difference_dB": 0.10411877269576308,
+          "inner_peaks": [
+            {
+              "GHz": 5.33,
+              "S11_dB": -21.916830427408215
+            },
+            {
+              "GHz": 8.11,
+              "S11_dB": -21.81271165471245
+            }
+          ],
+          "objective": 0.0,
+          "nominal_buffer_satisfied": true
+        },
+        "options": [
+          {
+            "run": "J:\\f8_MLP_261028\\B02S\\g01_initial",
+            "score": {
+              "worst_S11_dB": -21.173592271596092,
+              "min_S21_dB": -0.8093637841830628,
+              "shape_valid": true,
+              "passed": false,
+              "central_valley_GHz": 6.78,
+              "peak_difference_dB": 1.5694360989942702,
+              "inner_peaks": [
+                {
+                  "GHz": 5.29,
+                  "S11_dB": -21.173592271596092
+                },
+                {
+                  "GHz": 8.08,
+                  "S11_dB": -22.743028370590363
+                }
+              ],
+              "objective": 123.36935698320855,
+              "nominal_buffer_satisfied": false
+            }
+          },
+          {
+            "run": "J:\\f8_MLP_261028\\B02M\\g01_initial",
+            "score": {
+              "worst_S11_dB": -20.535621647546375,
+              "min_S21_dB": -0.8038815487786998,
+              "shape_valid": true,
+              "passed": false,
+              "central_valley_GHz": 6.59,
+              "peak_difference_dB": 2.4047693780729595,
+              "inner_peaks": [
+                {
+                  "GHz": 5.28,
+                  "S11_dB": -22.940391025619334
+                },
+                {
+                  "GHz": 8.09,
+                  "S11_dB": -20.535621647546375
+                }
+              ],
+              "objective": 462.8146383644447,
+              "nominal_buffer_satisfied": false
+            }
+          },
+          {
+            "run": "D:\\hfss_fig8_20261028\\candidates\\B02C\\g01_initial",
+            "score": {
+              "worst_S11_dB": -21.81271165471245,
+              "min_S21_dB": -0.7901874169083701,
+              "shape_valid": true,
+              "passed": true,
+              "central_valley_GHz": 6.73,
+              "peak_difference_dB": 0.10411877269576308,
+              "inner_peaks": [
+                {
+                  "GHz": 5.33,
+                  "S11_dB": -21.916830427408215
+                },
+                {
+                  "GHz": 8.11,
+                  "S11_dB": -21.81271165471245
+                }
+              ],
+              "objective": 0.0,
+              "nominal_buffer_satisfied": true
+            }
+          }
+        ]
+      },
+      "direct_run": "D:\\hfss_fig8_20261028\\direct\\B02\\direct_reserved",
+      "comparison": {
+        "points": 29,
+        "max_complex_error": 0.002303400143518575,
+        "max_nearband_S21_error_dB": 0.0013281115953578948,
+        "peak_reviews": [
+          {
+            "reference_GHz": 5.33,
+            "actual_sampled_peak_GHz": 5.34,
+            "actual_sampled_peak_dB": -21.923236220820378,
+            "interior": true,
+            "source_sampled_peak_dB": -21.916830427408208,
+            "height_error_dB": 0.006405793412170624,
+            "points": [
+              5.32,
+              5.33,
+              5.34,
+              5.35,
+              5.36,
+              5.37,
+              5.38
+            ]
+          },
+          {
+            "reference_GHz": 8.11,
+            "actual_sampled_peak_GHz": 8.1,
+            "actual_sampled_peak_dB": -21.82492816217127,
+            "interior": true,
+            "source_sampled_peak_dB": -21.81271165471245,
+            "height_error_dB": 0.01221650745881675,
+            "points": [
+              8.06,
+              8.07,
+              8.08,
+              8.09,
+              8.1,
+              8.11,
+              8.12
+            ]
+          }
+        ],
+        "edge_reviews": [
+          {
+            "kind": "S21",
+            "reference_GHz": 3.1008490700219165,
+            "points": [
+              3.08,
+              3.12
+            ],
+            "role": "f_low_GHz",
+            "direct_GHz": 3.1014269338100133,
+            "shift_GHz": 0.0005778637880968773
+          },
+          {
+            "kind": "S21",
+            "reference_GHz": 9.922121975503385,
+            "points": [
+              9.9,
+              9.94
+            ],
+            "role": "f_high_GHz",
+            "direct_GHz": 9.920938193636532,
+            "shift_GHz": 0.0011837818668531952
+          },
+          {
+            "kind": "S11",
+            "reference_GHz": 3.7851992319092127,
+            "points": [
+              3.765,
+              3.78,
+              3.79,
+              3.805
+            ],
+            "role": "f_low_GHz",
+            "direct_GHz": 3.7827374588303893,
+            "shift_GHz": 0.002461773078823448,
+            "fine_bracket_width_GHz": 0.010000000000000231,
+            "coarse_fine_shift_GHz": 0.00033159627328416263,
+            "other_condition_verified": true
+          },
+          {
+            "kind": "S11",
+            "reference_GHz": 9.420551997729124,
+            "points": [
+              9.401,
+              9.416,
+              9.426,
+              9.441
+            ],
+            "role": "f_high_GHz",
+            "direct_GHz": 9.420575944334555,
+            "shift_GHz": 2.394660543103555e-05,
+            "fine_bracket_width_GHz": 0.009999999999999787,
+            "coarse_fine_shift_GHz": 0.00031709046519523554,
+            "other_condition_verified": true
+          }
+        ],
+        "direct_bandwidths": {
+          "S21": {
+            "f_low_GHz": 3.1014269338100133,
+            "f_high_GHz": 9.920938193636532,
+            "BW_GHz": 6.819511259826519,
+            "width_shift_GHz": 0.0017616456549500725
+          },
+          "S11": {
+            "f_low_GHz": 3.7827374588303893,
+            "f_high_GHz": 9.420575944334555,
+            "BW_GHz": 5.637838485504165,
+            "width_shift_GHz": 0.0024857196842535956
+          }
+        },
+        "direct_peak_difference_dB": 0.09830805864910985,
+        "requested_band_direct_worst_S11": {
+          "GHz": 8.1,
+          "dB": -21.82492816217127
+        },
+        "requested_band_direct_min_S21": {
+          "GHz": 9.22,
+          "dB": -0.7892734418311343
+        },
+        "direct_target_violations": [],
+        "dense_target_covered": true,
+        "target_finite_direct_failure_confirmed": false,
+        "numerical_review_passed": true,
+        "sampled_design_supported": true,
+        "needs_reserved_points": false,
+        "needs_peak_expansion": false,
+        "full_matrix_approved": false,
+        "limits": {
+          "max_complex_error": 0.005,
+          "max_inband_S21_error_dB": 0.05,
+          "max_peak_error_dB": 0.1,
+          "max_edge_shift_GHz": 0.02,
+          "max_BW_shift_GHz": 0.02
+        },
+        "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+        "baseline_tuning_passed": true
+      },
+      "first_blind_result_unchanged": true
+    },
+    {
+      "case": "B05",
+      "status": "target_failure_confirmed",
+      "selection": {
+        "case": "B05",
+        "status": "selected_for_finite_direct",
+        "source": "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial",
+        "dense_score": {
+          "worst_S11_dB": -19.87570263305876,
+          "min_S21_dB": -0.9879634065670577,
+          "shape_valid": true,
+          "passed": false,
+          "central_valley_GHz": 6.71,
+          "peak_difference_dB": 0.6105759937920823,
+          "inner_peaks": [
+            {
+              "GHz": 5.19,
+              "S11_dB": -20.486278626850844
+            },
+            {
+              "GHz": 8.26,
+              "S11_dB": -19.87570263305876
+            }
+          ],
+          "objective": 2.767688583163153,
+          "nominal_buffer_satisfied": false
+        },
+        "options": [
+          {
+            "run": "D:\\hfss_fig8_20261028\\probes\\B05S\\g01_initial",
+            "score": {
+              "worst_S11_dB": -18.31735401383083,
+              "min_S21_dB": -1.0591613173868883,
+              "shape_valid": true,
+              "passed": false,
+              "central_valley_GHz": 6.77,
+              "peak_difference_dB": 0.9628907663460851,
+              "inner_peaks": [
+                {
+                  "GHz": 5.17,
+                  "S11_dB": -19.81956235351701
+                },
+                {
+                  "GHz": 8.18,
+                  "S11_dB": -20.782453119863096
+                }
+              ],
+              "objective": 308.5565376339685,
+              "nominal_buffer_satisfied": false
+            }
+          },
+          {
+            "run": "D:\\hfss_fig8_20261028\\probes\\B05M\\g01_initial",
+            "score": {
+              "worst_S11_dB": -19.174905735523737,
+              "min_S21_dB": -1.0368356470165383,
+              "shape_valid": true,
+              "passed": false,
+              "central_valley_GHz": 6.62,
+              "peak_difference_dB": 1.8844459560546056,
+              "inner_peaks": [
+                {
+                  "GHz": 5.15,
+                  "S11_dB": -21.059351691578343
+                },
+                {
+                  "GHz": 8.18,
+                  "S11_dB": -19.174905735523737
+                }
+              ],
+              "objective": 308.7471150507572,
+              "nominal_buffer_satisfied": false
+            }
+          },
+          {
+            "run": "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial",
+            "score": {
+              "worst_S11_dB": -19.87570263305876,
+              "min_S21_dB": -0.9879634065670577,
+              "shape_valid": true,
+              "passed": false,
+              "central_valley_GHz": 6.71,
+              "peak_difference_dB": 0.6105759937920823,
+              "inner_peaks": [
+                {
+                  "GHz": 5.19,
+                  "S11_dB": -20.486278626850844
+                },
+                {
+                  "GHz": 8.26,
+                  "S11_dB": -19.87570263305876
+                }
+              ],
+              "objective": 2.767688583163153,
+              "nominal_buffer_satisfied": false
+            }
+          }
+        ]
+      },
+      "direct_run": "D:\\hfss_fig8_20261028\\direct\\B05\\direct_smallbatch",
+      "comparison": {
+        "points": 21,
+        "max_complex_error": 0.00034252813829705126,
+        "max_nearband_S21_error_dB": 0.0007530763011134312,
+        "peak_reviews": [
+          {
+            "reference_GHz": 5.19,
+            "actual_sampled_peak_GHz": 5.18,
+            "actual_sampled_peak_dB": -20.473995114878832,
+            "interior": false,
+            "source_sampled_peak_dB": -20.486278626850844,
+            "height_error_dB": 0.012283511972011496,
+            "points": [
+              5.18,
+              5.19,
+              5.2
+            ]
+          },
+          {
+            "reference_GHz": 8.26,
+            "actual_sampled_peak_GHz": 8.26,
+            "actual_sampled_peak_dB": -19.87403381959185,
+            "interior": true,
+            "source_sampled_peak_dB": -19.87570263305876,
+            "height_error_dB": 0.0016688134669102794,
+            "points": [
+              8.25,
+              8.26,
+              8.27
+            ]
+          }
+        ],
+        "edge_reviews": [
+          {
+            "kind": "S21",
+            "reference_GHz": 3.0253115585268895,
+            "points": [
+              3.01,
+              3.05
+            ],
+            "role": "f_low_GHz",
+            "direct_GHz": 3.0257170025649636,
+            "shift_GHz": 0.0004054440380740765
+          },
+          {
+            "kind": "S21",
+            "reference_GHz": 9.972145555022404,
+            "points": [
+              9.95,
+              9.99
+            ],
+            "role": "f_high_GHz",
+            "direct_GHz": 9.971928604740976,
+            "shift_GHz": 0.0002169502814286517
+          },
+          {
+            "kind": "S11",
+            "reference_GHz": 3.6459355565079656,
+            "points": [
+              3.626,
+              3.641,
+              3.651,
+              3.666
+            ],
+            "role": "f_low_GHz",
+            "direct_GHz": 3.6459230364030897,
+            "shift_GHz": 1.2520104875957117e-05,
+            "fine_bracket_width_GHz": 0.009999999999999787,
+            "coarse_fine_shift_GHz": 0.0004234781372001173,
+            "other_condition_verified": true
+          },
+          {
+            "kind": "S11",
+            "reference_GHz": 8.08794947048462,
+            "points": [
+              8.068,
+              8.083,
+              8.093,
+              8.108
+            ],
+            "role": "f_high_GHz",
+            "direct_GHz": 8.08725765482329,
+            "shift_GHz": 0.0006918156613302529,
+            "fine_bracket_width_GHz": 0.009999999999999787,
+            "coarse_fine_shift_GHz": 0.001100962076481693,
+            "other_condition_verified": true
+          }
+        ],
+        "direct_bandwidths": {
+          "S21": {
+            "f_low_GHz": 3.0257170025649636,
+            "f_high_GHz": 9.971928604740976,
+            "BW_GHz": 6.946211602176012,
+            "width_shift_GHz": 0.0006223943195031723
+          },
+          "S11": {
+            "f_low_GHz": 3.6459230364030897,
+            "f_high_GHz": 8.08725765482329,
+            "BW_GHz": 4.4413346184202,
+            "width_shift_GHz": 0.0006792955564547398
+          }
+        },
+        "direct_peak_difference_dB": 0.5999612952869811,
+        "requested_band_direct_worst_S11": {
+          "GHz": 8.26,
+          "dB": -19.87403381959185
+        },
+        "requested_band_direct_min_S21": {
+          "GHz": 9.52,
+          "dB": -0.9887164828681712
+        },
+        "direct_target_violations": [
+          {
+            "GHz": 8.093,
+            "S11_dB": -19.991548265651655,
+            "S21_dB": -0.6361628893701837
+          },
+          {
+            "GHz": 8.108,
+            "S11_dB": -19.971089874140223,
+            "S21_dB": -0.6395236760342272
+          },
+          {
+            "GHz": 8.25,
+            "S11_dB": -19.874148302904164,
+            "S21_dB": -0.6711635077330081
+          },
+          {
+            "GHz": 8.26,
+            "S11_dB": -19.87403381959185,
+            "S21_dB": -0.6733692421775079
+          },
+          {
+            "GHz": 8.27,
+            "S11_dB": -19.874829085069756,
+            "S21_dB": -0.6755706346112593
+          }
+        ],
+        "dense_target_covered": false,
+        "target_finite_direct_failure_confirmed": true,
+        "numerical_review_passed": false,
+        "sampled_design_supported": false,
+        "needs_reserved_points": false,
+        "needs_peak_expansion": true,
+        "full_matrix_approved": false,
+        "limits": {
+          "max_complex_error": 0.005,
+          "max_inband_S21_error_dB": 0.05,
+          "max_peak_error_dB": 0.1,
+          "max_edge_shift_GHz": 0.02,
+          "max_BW_shift_GHz": 0.02
+        },
+        "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+        "baseline_tuning_passed": false
+      },
+      "first_blind_result_unchanged": true
+    },
+    {
+      "case": "B06",
+      "status": "complete_target_pass_with_finite_evidence",
+      "selection": {
+        "case": "B06",
+        "status": "selected_for_finite_direct",
+        "source": "D:\\hfss_fig8_20261028\\candidates\\B06C\\g01_initial",
+        "dense_score": {
+          "worst_S11_dB": -20.278214779031995,
+          "min_S21_dB": -0.9169085227198609,
+          "shape_valid": true,
+          "passed": true,
+          "central_valley_GHz": 6.73,
+          "peak_difference_dB": 0.1918330678888367,
+          "inner_peaks": [
+            {
+              "GHz": 5.23,
+              "S11_dB": -20.493405740086615
+            },
+            {
+              "GHz": 8.2,
+              "S11_dB": -20.30157267219778
+            }
+          ],
+          "objective": 0.0,
+          "nominal_buffer_satisfied": true
+        },
+        "options": [
+          {
+            "run": "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial",
+            "score": {
+              "worst_S11_dB": -18.65664856997328,
+              "min_S21_dB": -0.9637945525708782,
+              "shape_valid": true,
+              "passed": false,
+              "central_valley_GHz": 6.77,
+              "peak_difference_dB": 0.8662395775495177,
+              "inner_peaks": [
+                {
+                  "GHz": 5.2,
+                  "S11_dB": -19.961707019444347
+                },
+                {
+                  "GHz": 8.22,
+                  "S11_dB": -20.827946596993865
+                }
+              ],
+              "objective": 197.87244927184778,
+              "nominal_buffer_satisfied": false
+            }
+          },
+          {
+            "run": "D:\\hfss_fig8_20261028\\probes\\B06M\\g01_initial",
+            "score": {
+              "worst_S11_dB": -19.20100143158175,
+              "min_S21_dB": -0.947565632686405,
+              "shape_valid": true,
+              "passed": false,
+              "central_valley_GHz": 6.6,
+              "peak_difference_dB": 1.948768535222186,
+              "inner_peaks": [
+                {
+                  "GHz": 5.18,
+                  "S11_dB": -21.149769966803937
+                },
+                {
+                  "GHz": 8.19,
+                  "S11_dB": -19.20100143158175
+                }
+              ],
+              "objective": 354.7328980984251,
+              "nominal_buffer_satisfied": false
+            }
+          },
+          {
+            "run": "D:\\hfss_fig8_20261028\\candidates\\B06C\\g01_initial",
+            "score": {
+              "worst_S11_dB": -20.278214779031995,
+              "min_S21_dB": -0.9169085227198609,
+              "shape_valid": true,
+              "passed": true,
+              "central_valley_GHz": 6.73,
+              "peak_difference_dB": 0.1918330678888367,
+              "inner_peaks": [
+                {
+                  "GHz": 5.23,
+                  "S11_dB": -20.493405740086615
+                },
+                {
+                  "GHz": 8.2,
+                  "S11_dB": -20.30157267219778
+                }
+              ],
+              "objective": 0.0,
+              "nominal_buffer_satisfied": true
+            }
+          }
+        ]
+      },
+      "direct_run": "D:\\hfss_fig8_20261028\\direct\\B06\\direct_reserved",
+      "comparison": {
+        "points": 25,
+        "max_complex_error": 0.0006865906180824504,
+        "max_nearband_S21_error_dB": 0.0016431294353870252,
+        "peak_reviews": [
+          {
+            "reference_GHz": 5.23,
+            "actual_sampled_peak_GHz": 5.23,
+            "actual_sampled_peak_dB": -20.49250145876332,
+            "interior": true,
+            "source_sampled_peak_dB": -20.493405740086615,
+            "height_error_dB": 0.0009042813232937874,
+            "points": [
+              5.22,
+              5.23,
+              5.24
+            ]
+          },
+          {
+            "reference_GHz": 8.2,
+            "actual_sampled_peak_GHz": 8.19,
+            "actual_sampled_peak_dB": -20.339235760853853,
+            "interior": true,
+            "source_sampled_peak_dB": -20.30157267219778,
+            "height_error_dB": 0.037663088656074706,
+            "points": [
+              8.15,
+              8.16,
+              8.17,
+              8.18,
+              8.19,
+              8.2,
+              8.21
+            ]
+          }
+        ],
+        "edge_reviews": [
+          {
+            "kind": "S21",
+            "reference_GHz": 3.0595302609588133,
+            "points": [
+              3.04,
+              3.08
+            ],
+            "role": "f_low_GHz",
+            "direct_GHz": 3.0602143898648757,
+            "shift_GHz": 0.0006841289060623978
+          },
+          {
+            "kind": "S21",
+            "reference_GHz": 9.991783026393184,
+            "points": [
+              9.97,
+              10.01
+            ],
+            "role": "f_high_GHz",
+            "direct_GHz": 9.990673145767175,
+            "shift_GHz": 0.00110988062600903
+          },
+          {
+            "kind": "S11",
+            "reference_GHz": 3.6867808151204637,
+            "points": [
+              3.667,
+              3.682,
+              3.692,
+              3.707
+            ],
+            "role": "f_low_GHz",
+            "direct_GHz": 3.686445225900685,
+            "shift_GHz": 0.0003355892197789423,
+            "fine_bracket_width_GHz": 0.010000000000000231,
+            "coarse_fine_shift_GHz": 0.00040294238873883614,
+            "other_condition_verified": true
+          },
+          {
+            "kind": "S11",
+            "reference_GHz": 9.527292424558178,
+            "points": [
+              9.507,
+              9.522,
+              9.532,
+              9.547
+            ],
+            "role": "f_high_GHz",
+            "direct_GHz": 9.527238073407045,
+            "shift_GHz": 5.435115113350264e-05,
+            "fine_bracket_width_GHz": 0.009999999999999787,
+            "coarse_fine_shift_GHz": 0.0005694034041088258,
+            "other_condition_verified": true
+          }
+        ],
+        "direct_bandwidths": {
+          "S21": {
+            "f_low_GHz": 3.0602143898648757,
+            "f_high_GHz": 9.990673145767175,
+            "BW_GHz": 6.9304587559023,
+            "width_shift_GHz": 0.0017940095320714278
+          },
+          "S11": {
+            "f_low_GHz": 3.686445225900685,
+            "f_high_GHz": 9.527238073407045,
+            "BW_GHz": 5.84079284750636,
+            "width_shift_GHz": 0.00028123806864588374
+          }
+        },
+        "direct_peak_difference_dB": 0.1532656979094682,
+        "requested_band_direct_worst_S11": {
+          "GHz": 9.52,
+          "dB": -20.27156550281891
+        },
+        "requested_band_direct_min_S21": {
+          "GHz": 9.52,
+          "dB": -0.916657851005751
+        },
+        "direct_target_violations": [],
+        "dense_target_covered": true,
+        "target_finite_direct_failure_confirmed": false,
+        "numerical_review_passed": true,
+        "sampled_design_supported": true,
+        "needs_reserved_points": false,
+        "needs_peak_expansion": false,
+        "full_matrix_approved": false,
+        "limits": {
+          "max_complex_error": 0.005,
+          "max_inband_S21_error_dB": 0.05,
+          "max_peak_error_dB": 0.1,
+          "max_edge_shift_GHz": 0.02,
+          "max_BW_shift_GHz": 0.02
+        },
+        "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+        "baseline_tuning_passed": true
+      },
+      "first_blind_result_unchanged": true
+    }
+  ],
+  "counts": {
+    "complete_target_pass_with_finite_evidence": 2,
+    "target_failure_confirmed": 1
+  },
+  "actual_new_geometries": 9,
+  "actual_Analyze_launches": 91,
+  "source_hashes": {
+    "J:\\f8_MLP_261028\\B02S\\g01_initial\\input.json": "883664e64e6f3faa666a979d49765d3cdebbab01a6f1f64c0c7b68b2a2b721b6",
+    "J:\\f8_MLP_261028\\B02S\\g01_initial\\state.json": "d473e0694ec090c24bec0c56ceb048303148c76517d0595c6158bfe53d381fa4",
+    "J:\\f8_MLP_261028\\B02S\\g01_initial\\completion_event.json": "7a879ec1514ededef7afc477ab016e2c3ab44a50e206485aa842c0772978f0f8",
+    "J:\\f8_MLP_261028\\B02S\\g01_initial\\receiver_ack.json": "cef9eef8dd781db349da7fcb58df08f56d0d5a7da8a9a6bc30a11f9ca4fa5cf0",
+    "J:\\f8_MLP_261028\\B02M\\g01_initial\\input.json": "fcb25775d4d91a51d8b199d556042f9e03af92172d3028addfae2c8702e87f39",
+    "J:\\f8_MLP_261028\\B02M\\g01_initial\\state.json": "824aba9c87ce25ce88dc9f28f0d2b3ec0b4f6aec2f96abee85964149e123cbdc",
+    "J:\\f8_MLP_261028\\B02M\\g01_initial\\completion_event.json": "6e859de31449800571ea9ae458f3e65f00ed7392a7f325c78662c3173de8ce8b",
+    "J:\\f8_MLP_261028\\B02M\\g01_initial\\receiver_ack.json": "39258c96bf794c30620d6b5c1d74598f4f62dac81feb1fe955a17e7ce17cc229",
+    "D:\\hfss_fig8_20261028\\probes\\B05S\\g01_initial\\input.json": "9287e14c5085a92da0899929eea03f8c167ffd59f7fd463fd695431b48399436",
+    "D:\\hfss_fig8_20261028\\probes\\B05S\\g01_initial\\state.json": "55b34ecfddce3c7c6fd92461a4f0eee3829e6967f0eaa54fa9dc8548dd1d140b",
+    "D:\\hfss_fig8_20261028\\probes\\B05S\\g01_initial\\completion_event.json": "f6ba451655eb4e62450505cd8528e02cb623611441588eda8cc9fbd4c18e3617",
+    "D:\\hfss_fig8_20261028\\probes\\B05S\\g01_initial\\receiver_ack.json": "1000a37ccf0681bd975b860163466efbe908b433ce83f70085069fef324f6d89",
+    "D:\\hfss_fig8_20261028\\probes\\B05M\\g01_initial\\input.json": "afe75114014ee9a6103cbb426c7f1407c7c38c3c799428208069cb6c378bd8e5",
+    "D:\\hfss_fig8_20261028\\probes\\B05M\\g01_initial\\state.json": "3728068cddabbcfbc63b0e91b6d1e8b2edcb6fecf0b2f7eb444e68ef8de1b2e8",
+    "D:\\hfss_fig8_20261028\\probes\\B05M\\g01_initial\\completion_event.json": "c723fe01a297f424ad157e428b94d3c6d9ac3535242317ff88bb7af55a1468e8",
+    "D:\\hfss_fig8_20261028\\probes\\B05M\\g01_initial\\receiver_ack.json": "0d13770fa27ca1bbb151dba14d9cf4e965302b423fa4b7f3aa44b087f6c496fd",
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\input.json": "22f1e0e2c93f05232d560bb169f3926964c25ecc6764f1255be245837e1083ab",
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\state.json": "e818a1f463d88bb2916d96435d81a0917aefad4313cae18b6c2c4517666090a6",
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\completion_event.json": "a66d2289ac472ef64a69ba65f541ef0153bfed90089a06802f04d6ae853094be",
+    "D:\\hfss_fig8_20261028\\probes\\B06S\\g01_initial\\receiver_ack.json": "02311a339207fed99d875f7f6ff103bca49f9acbd54aae5b1a48691298fc709a",
+    "D:\\hfss_fig8_20261028\\probes\\B06M\\g01_initial\\input.json": "8372aea9cc0c68180dd841b2bcf18ed9a26be69826ad3ce043e42d1a012b23f9",
+    "D:\\hfss_fig8_20261028\\probes\\B06M\\g01_initial\\state.json": "807289780956ff7a79a8cea7783f333e6413ef4d494279cd3b792e00babd5160",
+    "D:\\hfss_fig8_20261028\\probes\\B06M\\g01_initial\\completion_event.json": "e2dd03e28fac5c9818ef1ad666e037efd9e8fa7b877fdb69f870aa54f118e791",
+    "D:\\hfss_fig8_20261028\\probes\\B06M\\g01_initial\\receiver_ack.json": "f8c49b22e821807fb0f596967be40aabe69f279f91fdb6e34259dd271399c677",
+    "D:\\hfss_fig8_20261028\\candidates\\B02C\\g01_initial\\input.json": "30de0e29a754999f1cb69881f48752019599848ad918c456571b2dd07b688cef",
+    "D:\\hfss_fig8_20261028\\candidates\\B02C\\g01_initial\\state.json": "d1e408bef6913aa65a3975142e6f910d27c6f5138cd587dd30831a875efd066e",
+    "D:\\hfss_fig8_20261028\\candidates\\B02C\\g01_initial\\completion_event.json": "b0d0e7f4a8434d747d4b2fabb5af78b02b1df05dcd0e1599b60ad13d78570e13",
+    "D:\\hfss_fig8_20261028\\candidates\\B02C\\g01_initial\\receiver_ack.json": "39ba19b7de121bb2b5bdd06bac69ff6458667e2fba4a064f54500ab1fcc5a37e",
+    "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial\\input.json": "58646a6bbff0fbaad358934b962533fd6427197cc1742bb186f385cdbbfcf4f3",
+    "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial\\state.json": "ea1c2381443a9d15cd6507e10aa925b61dfbbc9635442be2dbbd9c926790bc55",
+    "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial\\completion_event.json": "aad45901d651816757d35ad6e709804f56510e7620b7d811eb8368ffd1414c36",
+    "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial\\receiver_ack.json": "1613121c1a2eeaf29b5800c569d12cd07dfdb2da8cf147073e4c06c4713c85f6",
+    "D:\\hfss_fig8_20261028\\candidates\\B06C\\g01_initial\\input.json": "11b74f3bc63bf5aae6100fbc32898c26a1719129c11fc6a551c7a6cc6cc05c73",
+    "D:\\hfss_fig8_20261028\\candidates\\B06C\\g01_initial\\state.json": "bf68030a5059285166494cb492916cc0bcc2690c5421c41f98d3a23d052f990b",
+    "D:\\hfss_fig8_20261028\\candidates\\B06C\\g01_initial\\completion_event.json": "dfc37e29625b29cb83c121047fef9aa06078083a8e38de59454a406d11286f59",
+    "D:\\hfss_fig8_20261028\\candidates\\B06C\\g01_initial\\receiver_ack.json": "eb4fe69390f6b61c0f7b18b5a6e8e908d1603aed4612508d6596f0ebc2e2b2be",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_smallbatch\\input.json": "effd94270fce96c4aad71a7106051bbab3c905b1d087a0021f3708b679c06736",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_smallbatch\\state.json": "53627a585dbe63948174ee717f2448ecdf4acd0cb6df12cae155b3b892a1dc19",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_smallbatch\\completion_event.json": "5c0254cc7a1b794b5f76574ec3cf59e9b44c9c26ef6d4c971372110b02efbd39",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_smallbatch\\receiver_ack.json": "3b2804dde4845e56a84ecffa12d944ae818788338b1bca58d778946fe46090d8",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_smallbatch\\comparison.json": "948ea0ab5718249d1e22d4ecf94a57077901f94b9a5993624d6a1282c0e0ba6a",
+    "D:\\hfss_fig8_20261028\\direct\\B05\\direct_smallbatch\\input.json": "ab61dd5ec1d141a69e3eac34eb305874c6310878b06ae17a2fca4d3e26b3ed31",
+    "D:\\hfss_fig8_20261028\\direct\\B05\\direct_smallbatch\\state.json": "7df90a6eb2b2067a3fba975ef9c9591ab95e4a95d1082e9e8d9fe5c1e0f5dfb2",
+    "D:\\hfss_fig8_20261028\\direct\\B05\\direct_smallbatch\\completion_event.json": "4713646de95c005b22dc90f71fc79feac7c5958484464194e1e882f6739f3205",
+    "D:\\hfss_fig8_20261028\\direct\\B05\\direct_smallbatch\\receiver_ack.json": "5356e06978ef144c9f707bd2ae53cec74b45cc25082d2666dbfb911733249f61",
+    "D:\\hfss_fig8_20261028\\direct\\B05\\direct_smallbatch\\comparison.json": "950033c5519d9a27beb8bafb18fe6c2e5eaaceb371b0c02563c44e19c5f6cc55",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_smallbatch\\input.json": "e5cedfcf54caa32c1a33abf80e9ca1b9ac0c8e2528f0dbf1b2c6c8ebfa5b6676",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_smallbatch\\state.json": "e2982996d11474cebab71eea5b125c47bbea081c0d872761dd2bdf9d75c43333",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_smallbatch\\completion_event.json": "6f608bb36bdac34aa06fd6b17050284106387b87ebf7bae1b0f3638580517fde",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_smallbatch\\receiver_ack.json": "18fca53715ef4e030ca8cf2433dcd4d99d93499f54fc8f274db4b59c578efffa",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_smallbatch\\comparison.json": "37f8b40cfc0ee47f29054ccc7c6559091429efa462058bc2c66e70c0cfb5a299",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_reserved\\input.json": "fb64bbab0a49804dd016916237ec5e16685b2e3f0d5b13b8f684da1bdc71ec5d",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_reserved\\state.json": "34efb3f5556c43c85c53e37b7e03d4e2f56189de603929df7a5fc334a38bb924",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_reserved\\completion_event.json": "6937b5130ae49348112e1af35c390724129747dc3abfce15815371ec53984acb",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_reserved\\receiver_ack.json": "06bb726b07be6572cf47d02f44d02aeebb47ac6f560dc098a9b1fef6b755c344",
+    "D:\\hfss_fig8_20261028\\direct\\B02\\direct_reserved\\comparison.json": "d766cf04d7a00524406c1e1dd24f052519a36213cc90495438e1c9d9c7289afb",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_reserved\\input.json": "3615e3df1622c5753cf0b9890ff67feb948a8f717ceca96189ef57217cf46992",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_reserved\\state.json": "ce7a8bf90c71927ca83c503df413f4379903a40960df4fd6a371e763c0f20cee",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_reserved\\completion_event.json": "d573eec302cf1f581bfcf0929503548b1f514930f068d1cdefece5b5bd121a74",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_reserved\\receiver_ack.json": "333bdce65a52655b670894f2b1fd6d557cfa56d2193239f5c0780df6da383a70",
+    "D:\\hfss_fig8_20261028\\direct\\B06\\direct_reserved\\comparison.json": "fae32e4b59706d81d1267e558077d3586e8b8139b9b165f81e0c8fa4561fb71d",
+    "J:\\f8_B6_261027\\B02\\g01_initial\\sparams.csv": "9933c8732ceaa709fc75a55eb262cf78e9118ddfcca39308c8f38a0d43651ce4",
+    "D:\\hfss_fig8_20261028\\candidates\\B02C\\g01_initial\\sparams.csv": "e7cb23b0f818529be4709302170fc00c893adad6103c3e7d9a1c7024db6e46d2",
+    "J:\\f8_B6_261027\\B05\\g01_initial\\sparams.csv": "f1028b8b52871ca7b70df0cb7caf72473bce359fd5185607b6d8b4609417becf",
+    "D:\\hfss_fig8_20261028\\candidates\\B05C\\g01_initial\\sparams.csv": "bba70b0be066f6e1d2037a9f4c55e1a1ced16d0221f63b6a0c1d2383cd8cde8e",
+    "J:\\f8_B6_261027\\B06\\g01_initial\\sparams.csv": "94f12934c01ab192bf7327234dd36d3fa79eb578b251ef3e48b91950a7aea9af",
+    "D:\\hfss_fig8_20261028\\candidates\\B06C\\g01_initial\\sparams.csv": "afcb3246a1587349c652d07e7e0ad9cd6cd9e99fcb232dfdf3ef89d659c60d9a"
+  },
+  "old_blind_results_unchanged": true,
+  "uniform_equivalent_effect_established": false,
+  "note": "This is a three-family development correction test, not prospective inverse-design generalization"
+}

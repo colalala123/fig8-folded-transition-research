@@ -1,0 +1,52 @@
+{
+  "at": "2026-10-30T15:29:49.318906+00:00",
+  "human_instruction": "Only verify N19_A14 and N22_A18; one authorized desktop recovery; old campaign paused",
+  "baseline_index": "${WORKSPACE}\\output\\fig8_next48_20261029\\DATASET48_EFFECTIVE_INDEX_V4.json",
+  "baseline_index_sha256": "fa1ea87787641411acd66fd2b24555d792e09df9db24cc347fb19bf27b23ac48",
+  "baseline_passed": [
+    "N10_A14",
+    "N19_A18",
+    "N21_A14",
+    "N21_A18",
+    "N04_A18"
+  ],
+  "tuning_order": [
+    "N19_A14",
+    "N22_A18"
+  ],
+  "target": {
+    "f_low_GHz": 3.92,
+    "f_high_GHz": 9.52,
+    "BW_GHz": 5.6,
+    "S11_max_dB": -20,
+    "S21_min_dB": -2
+  },
+  "width_changes_authorized": false,
+  "fixed": [
+    "Wm",
+    "Ws",
+    "Ls2",
+    "Ls3",
+    "a",
+    "g",
+    "material"
+  ],
+  "allowed": [
+    "Lm",
+    "Ls1"
+  ],
+  "trust_region_mm": {
+    "Lm": 0.1,
+    "Ls1": 0.2
+  },
+  "per_parent_geometry_cap": 4,
+  "new_geometry_cap": 172,
+  "Analyze_cap": 2236,
+  "per_geometry_Analyze_cap": 13,
+  "temp": "D:\\hfss_fig8_tune48_20261031\\solver_temp",
+  "cores_per_task": 14,
+  "concurrent_tasks": 1,
+  "pilot_parent": "N19_A14",
+  "old_blind_results_preserved": true,
+  "new_curves_are_engineering_not_independent_blind": true
+}

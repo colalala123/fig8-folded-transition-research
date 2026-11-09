@@ -1,0 +1,49 @@
+from pathlib import Path
+
+report = r'''# Fig.8 三模 HFSS 修复报告
+
+日期：2026-10-04  
+工程：`F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt`  
+AEDT：2024 R2；MCP gRPC 7990；可见 HFSS；单任务 16 核。
+
+## 修复结论
+
+原来的单个 0.01–15 GHz 三模插值扫频虽然能在 `EnforcePassivity=false` 下显示收敛，但在 6.98–7.00 GHz 跨过模态分支切换，50 Ω 六端口 S 矩阵出现 3 个无源性违规点。开启 HFSS 内部 passivity enforcement 的局部扫频仍不收敛。
+
+修复采用分段频率策略，避免插值器跨越该模态分支：
+
+1. `SweepSplitLowNoPass`：0.01–6.97 GHz，697 点，插值扫频，HFSS 报告 converged。
+2. `SweepBandDirect`：6.96–7.01 GHz，6 点，离散 HFSS 直接求解，作为分段桥接区。
+3. `SweepSplitHighNoFields`：7.01–15 GHz，800 点，插值扫频，关闭场保存以避免无关场文件占满磁盘，HFSS 报告 converged。
+4. `SweepEndpointDirect`：15 GHz，1 点，离散 HFSS 直接复核端点。
+
+最终的 1500 点文件由上述真实 HFSS 扫频结果按频率拼接得到。独立逐频 SVD 检查显示：
+
+- 频率点数：1500，范围 0.01–15 GHz；
+- 50 Ω S6P 最大奇异值：`0.999957685`；
+- 无源性违规点：`0`；
+- 最大互易误差：`1.51e-8`；
+- 所有数值有限。
+
+这组结果是当前可复现的三模正式结果。原始未修复全带扫频、失败的 passivity enforcement、端口对齐试验和磁盘空间导致的失败迭代均保留；分段扫频产生的中间结果目录已移到 `D:\hfss_archive_fig8_20261004` 保存。
+
+## 建议使用的文件
+
+- `50ohm_segmented_repaired.s6p`：后续分析和绘图使用的完整 6×6 50 Ω S 参数。
+- `native_segmented_repaired.s6p`：未重归一化结果；其奇异值不用于简单的欧氏无源性判断。
+- `metrics_segmented_repaired.json`：逐频 SVD、互易性、完整性检查。
+- `segmented_repair_provenance.json`：每个频点来自 low/high/bridge/endpoint 哪个 HFSS 扫频的记录。
+- `convergence_split_low.txt`、`convergence_split_high.txt`：两段自适应收敛记录。
+- `50ohm_full_no_pass.s6p`：原单段扫频原始结果，仅作对照，不能直接使用。
+
+## 关键设置
+
+- 两端各 3 个模式，共 6 个端口模式；原工程模式阻抗设置保持不变（Mode 1/2 为 Zpi，Mode 3 为 Zwave）。
+- `TriDiagE` 自适应：Driven/Broadband，Direct Solver，16 核串行，6 passes，最终 ΔS=`0.0029899`，目标=`0.005`。
+- 分段插值：`InterpUseS=true`，`InterpUsePortImped=false`，`InterpUsePropConst=false`，`UseFullBasis=true`，`SMatrixOnlySolveMode=Auto`，`EnforcePassivity=false`。
+- 离散桥接和端点扫频均由 HFSS 直接求解，不使用插值器结果替代。
+
+关闭 `EnforcePassivity` 只是为了让 HFSS 插值器在多模分段范围内完成计算；最终无源性由导出的 50 Ω 6×6 S 矩阵逐频独立验证，并由离散 HFSS 点跨越已知模态分支区。
+'''
+Path(r"F:\hfss_f8x_261002\R_tri_diagC\tri_mode_repair_report.md").write_text(report, encoding="utf-8")
+print("updated")

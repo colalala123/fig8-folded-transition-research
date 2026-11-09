@@ -1,0 +1,184 @@
+"""Read-only scientific verification + new final deliverables; never solves."""
+import json,hashlib,sys
+from pathlib import Path
+from datetime import datetime,timezone
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+ROOT=Path(__file__).resolve().parent;OUT=ROOT.parent
+BASE=Path('D:/hfss_fig8_B05_20261029')
+PROBES=OUT/'fig8_B05_fix14_probes_20261029'
+CAND=OUT/'fig8_B05_fix14_candidate1_20261029'
+DIRECT=ROOT/'direct_review'
+RUNS=[BASE/'probes'/c/'g01_initial' for c in ['B05N_S','B05N_M']]+[BASE/'candidate1/B05N_C1/g01_initial']
+DRUN=BASE/'direct/B05/direct_smallbatch'
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,d):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+ p.write_text(json.dumps(d,indent=2,ensure_ascii=False,allow_nan=False),encoding='utf-8')
+def now():return datetime.now(timezone.utc).isoformat()
+
+def main():
+ assert not (ROOT/'final_results.json').exists(),'Final scientific snapshot exists; inspect, never regenerate'
+ sys.path.insert(0,str(OUT/'fig8_theory_ml_20261028'));sys.path.insert(0,str(ROOT))
+ from b05_corrector import load_curve,assess
+ from b05_budget import validate_development
+ b=read(ROOT/'baseline.json');ev={};cost=[];intervals=[]
+ def verify_hashes(mapping):
+  for f,h in mapping.items():
+   assert sha(f)==h,f
+   if f in ev:assert ev[f]==h
+   ev[f]=h
+ verify_hashes(b['evidence_hashes'])
+ for ctx in [PROBES,CAND]:
+  ledger=read(ctx/'budget_ledger.json');assert all(t['status']=='reviewed' for t in ledger['tasks'])
+ assert read(DIRECT/'case_work_ledger.json')['tasks'][0]['status']=='reviewed'
+ verify_hashes(read(DIRECT/'implementation_hashes.json'))
+ for run in [*RUNS,DRUN]:
+  p=read(run/'input.json');s=read(run/'state.json');e=read(run/'completion_event.json');a=read(run/'receiver_ack.json')
+  assert e['status']=='completed' and e['verified_success'] and s['status']=='completed'
+  assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed']
+  assert a['event_sha256']==sha(run/'completion_event.json') and a['verification_sha256']==sha(run/'receiver_verification.json')
+  verify_hashes({str(run/x['path']):x['sha256'] for x in e['artifacts']})
+  verify_hashes(p.get('parent_evidence_hashes',p.get('input_parent_hashes',{})))
+  assert read(run/'supervised_start.json')['actual_14core_single_group_observed']
+  assert read(run/'notification_receipt.json')['state']=='accepted'
+  assert s['source_unchanged'] and 100000<=s['actual_elements']<=110000
+  adaptive=0;duration=0
+  for seg in s['segments']:
+   req=seg['mcp_request'];rp=seg['mcp_response']['resource_plan']
+   assert req['cores_per_task']==14 and req['concurrent_tasks']==1
+   assert rp['cores_per_task']==14 and rp['concurrent_tasks']==1 and rp['total_cores']==14
+   assert seg['observed_14core_process']
+   adaptive+=int(seg['adaptive_requested'])
+   t0=datetime.fromisoformat(seg['started_at']);t1=datetime.fromisoformat(seg['finished_at'])
+   assert t0<t1;duration+=(t1-t0).total_seconds();intervals.append((t0,t1,s['case'],seg['label']))
+   assert bool(seg['observed_adaptive_process'])==bool(seg['adaptive_requested'])
+  cost.append(dict(case=s['case'],run=str(run),Analyze=len(s['segments']),adaptive_Analyze=adaptive,
+      sweep_Analyze=len(s['segments'])-adaptive,actual_elements=s['actual_elements'],
+      supervised_Analyze_wall_seconds=duration))
+  for n in ['input.json','completion_event.json','receiver_verification.json','receiver_ack.json','notification_receipt.json','supervised_start.json']:
+   ev[str(run/n)]=sha(run/n)
+ ordered=sorted(intervals)
+ for before,after in zip(ordered,ordered[1:]):assert before[1]<=after[0],(before,after)
+ native=read(DRUN/'comparison.json');ack=read(DRUN/'receiver_ack.json')
+ assert ack['scoped_accepted'] and native['numerical_review_passed'] and native['sampled_design_supported']
+ assert not native['needs_reserved_points'] and not native['direct_target_violations']
+ assert native['points']==23 and len(read(DRUN/'state.json')['segments'])==6
+ freqs=[f for c in read(DRUN/'input.json')['chunks'] for f in c];assert len(freqs)==len(set(freqs))==23
+ assert not (ROOT/'reserved_review').exists() and not (OUT/'fig8_B05_fix14_candidate2_20261029').exists()
+ budget=validate_development();assert budget['new_geometries_started']==3 and budget['Analyze_used']==32
+ metrics=[]
+ for run in [Path(b['run']),*RUNS]:
+  state=read(run/'state.json');curve=load_curve(run/'sparams.csv')
+  metrics.append(dict(case=state['case'],run=str(run),geometry=state['geometry'],mesh=state['actual_elements'],
+    score=assess(*curve,b['target']),S21_BW_GHz=read(run/'response_metrics.json')['passband_2dB']['BW_GHz']))
+ geometry=metrics[-1]['geometry'];dense=metrics[-1]['score'];prediction=read(ROOT/'candidate1_decision.json')['proposal']
+ result=dict(at=now(),stage='B05_second_cycle_finite_protocol_complete',scoped_accepted=True,
+  target=b['target'],selected_case='B05N_C1',geometry_mm=geometry,fixed_geometry_mm=dict(a=1.4,g=.55),
+  nominal_PR_unchanged=True,widths_unchanged=True,material=dict(er=3.55,h_mm=.813,t_mm=.035,tand=.0027),
+  dense=dense,native_direct=native,actual_elements=103496,
+  reflection_margin_direct_dB=-20-native['requested_band_direct_worst_S11']['dB'],
+  upper_target_edge_margin_GHz=native['direct_bandwidths']['S11']['f_high_GHz']-b['target']['f_high_GHz'],
+  dense_nominal_buffer_satisfied=assess(*load_curve(RUNS[-1]/'sparams.csv'),b['target'],True)['nominal_buffer_satisfied'],
+  prediction=prediction['predicted'],length_delta_mm_from_B05C=dict(Ls1=geometry['Ls1']-b['geometry']['Ls1'],Lm=geometry['Lm']-b['geometry']['Lm']),
+  comparison_rows=metrics,budget=budget,costs=cost,total_supervised_Analyze_wall_seconds=sum(c['supervised_Analyze_wall_seconds'] for c in cost),
+  new_geometries=3,native_direct_points=23,direct_Analyze=6,reserved_points_used=0,backup_geometry_used=False,
+  configuration_failures_before_Analyze=2,post_diagnostic_solve_failures=0,all_actual_14core_single_group=True,all_Analyze_intervals_serial=True,
+  old_study_and_first_blind_results_unchanged=True,overall_inverse_design_research_complete=False,next48_not_started=True,
+  scope='Dense target support plus finite native same-mesh critical-point review. Not a proof of all continuous extrema, fabrication robustness, full4x4 suitability, global laws, or 1000-point-equivalent inverse design.')
+ write(ROOT/'final_results.json',result)
+ # Fresh human-facing figure. This does not edit any event-bound source plot.
+ original=np.genfromtxt(RUNS[-1]/'sparams.csv',delimiter=',',names=True)
+ direct=np.genfromtxt(DRUN/'sparams.csv',delimiter=',',names=True)
+ baseline=np.genfromtxt(Path(b['run'])/'sparams.csv',delimiter=',',names=True)
+ fig,axes=plt.subplots(1,2,figsize=(12.5,4.2))
+ axes[0].plot(baseline['Freq_GHz'],baseline['S11_dB'],ls='--',color='gray',label='Previous B05C S11')
+ for key,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+  axes[0].plot(original['Freq_GHz'],original[key],color=color,label='Selected '+key[:-3])
+  axes[0].scatter(direct['Freq_GHz'],direct[key],s=18,facecolors='none',edgecolors=color)
+ axes[1].plot(baseline['Freq_GHz'],baseline['S11_dB'],ls='--',color='gray',label='Previous B05C')
+ axes[1].plot(original['Freq_GHz'],original['S11_dB'],color='tab:blue',label='Selected C1 dense')
+ axes[1].scatter(direct['Freq_GHz'],direct['S11_dB'],s=22,facecolors='none',edgecolors='tab:blue',label='C1 native direct')
+ for ax in axes:
+  ax.axvspan(3.92,9.52,color='green',alpha=.08);ax.axhline(-20,color='red',ls='--',lw=.8)
+  ax.grid(alpha=.25);ax.set(xlabel='Frequency (GHz)',ylabel='dB');ax.legend(fontsize=8)
+ axes[0].set(xlim=(2.8,10.1),ylim=(-60,1),title='B05N_C1: 103,496 elements, 14 cores')
+ axes[1].set(xlim=(3.92,9.54),ylim=(-22,-19),title='Target-band reflection: previous vs corrected')
+ fig.tight_layout();fig.savefig(ROOT/'final_response.png',dpi=160);plt.close(fig)
+ rows='\n'.join(f"| {x['case']} | {x['mesh']:,} | {x['score']['worst_S11_dB']:.6f} | {x['score']['central_valley_GHz']:.2f} | {x['score']['peak_difference_dB']:.6f} | {'通过' if x['score']['passed'] else '未通过'} |" for x in metrics)
+ param='\n'.join(f'| {k} | {v:.9f} |' for k,v in geometry.items())
+ report=f'''# B05二轮14核有限修正：验收总结
+
+结论：**选中参数B05N_C1通过原3.92–9.52 GHz目标的密集曲线检查与23个同网格原生直接频点有限复核。本轮收尾，不再补点。**
+
+日期：2026-10-29，Asia/Tokyo。机器证据时间戳保留UTC。
+
+## 1. 最终指标
+
+| 项目 | 结果 | 要求 |
+|---|---:|---:|
+| 目标频段 | 3.92–9.52 GHz，5.60 GHz | 不改变 |
+| 目标带内最差直接S11 | {native['requested_band_direct_worst_S11']['dB']:.6f} dB，8.23 GHz | ≤−20 dB |
+| 目标带内最低直接S21 | {native['requested_band_direct_min_S21']['dB']:.6f} dB，9.52 GHz | ≥−2 dB |
+| 中心谷 | 6.74 GHz，6.73/6.75两侧取样验证为内部最小 | 6.72±0.03 GHz |
+| 双内峰差 | {native['direct_peak_difference_dB']:.6f} dB | ≤0.5 dB |
+| 显著谷数 | 密集曲线3个 | 3个 |
+| 网格 | 103,496 | 100,000–110,000 |
+
+- −20 dB反射且S21≥−2 dB的中心联合带边界估计：**3.633894–9.529960 GHz，宽5.896065 GHz**。边界由实际直接点包围后局部线性求交，不是所有连续频率的严格证明。
+- 仅S21≥−2 dB通带：3.020286–9.962038 GHz，宽6.941753 GHz。**不要把这6.94 GHz误写成联合−20 dB带宽。**
+- 最坏复数S误差0.00035024（限0.005）；带内S21误差0.001582 dB（限0.05）；最大内峰高差误差0.013109 dB（限0.1）。全部有限数值标准通过。
+- 反射余量约0.179285 dB，联合通带上边界高于目标上边界约9.960 MHz。达到了硬要求，但**未实现预期0.4 dB名义优化余量，也未验证加工/材料公差鲁棒性**。
+
+## 2. 可复现参数（mm）
+
+| 参数 | 数值 |
+|---|---:|
+{param}
+| a | 1.400000000 |
+| g | 0.550000000 |
+
+相对旧B05C：Ls1增加{result['length_delta_mm_from_B05C']['Ls1']:.9f} mm，Lm改变{result['length_delta_mm_from_B05C']['Lm']:.9f} mm。Wm/Ws/Ls2/Ls3/a/g不变，名义P/R不变。材料εr=3.55，h=0.813 mm，t=0.035 mm，tanδ=0.0027。
+
+最终工程：`{read(RUNS[-1]/'state.json')['project']}`。
+直接复核工程：`{read(DRUN/'state.json')['project']}`。
+完整1500频点曲线：`{RUNS[-1]/'sparams.csv'}`；原生直接数据：`{DRUN/'sparams.csv'}`。各自同目录保留完整4×4原始S矩阵、模态阻抗/传播常数及收敛记录；保留数据不等于批准全4×4网络/级联。
+
+## 3. 这轮怎么改出来的
+
+以旧B05C为固定宽度基准，分别实测Ls1+0.10 mm、Lm+0.05 mm，利用原生复数S11/S21的局部有限差分，联合搜索两长度。模型预测最差S11=−20.206277 dB，候选密集实测−20.181996 dB，直接点−20.179285 dB。本轮模型预测不作HFSS替代。
+
+| 配置 | 网格 | 密集目标最差S11/dB | 中心/GHz | 双峰差/dB | 密集目标 |
+|---|---:|---:|---:|---:|---|
+{rows}
+
+这支持“名义P/R给出宽度/阻抗层面的初值后，还需要长度联合校正三谷位置与峰高”的本地可行性；不能据一个家族推出整个弯折模型全域规律。基准16核、新点14核且网格不同，有限差分也不是排除了数值差异的纯物理导数。
+
+## 4. 成本与故障处理
+
+- 本轮3个新几何（两个探针+一个候选），26次几何相关Analyze；23个直接点分6批，共**32次Analyze**，低于60次上限。
+- 备用几何C2和8个预留直接点均未使用。旧轮91次Analyze及所有旧结果只读保留，不混为本轮成本。
+- 32段实际MCP资源计划与hf3d进程证据均为14核、1组；所有Analyze时间区间串行不重叠。网格为103290、102606、103496。
+- 起初两次准备工程崩溃均发生在Analyze前，保留诊断和原工程/锁。先清新副本旧报表、再改几何端口，并通过零Analyze重开/关闭检查后才继续。此后3几何+6批直接复核均正常；未删工程锁，也未重复Analyze。该处理避开了已观察触发路径，不宣称证明AEDT内部崩溃根因。
+- 冻结候选策略JSON遗留resources.cores=16元数据；不可回写历史冻结文件。实际请求、MCP资源回执和hf3d命令均逐段验证为14；本次新直接阶段元数据已显式改为14。证据以实际执行为准。
+- 同网格阶段启动前33项测试通过，另有明确标记的合成比较器测试；**合成测试不计作原生直接证据**。
+
+## 5. 本轮之外还有什么
+
+本轮是B05局部修正闭环完成，不是“均匀模型1000点同等规模的弯折逆设计”全部完成。更宽P/R覆盖、独立几何家族测试、模型泛化/逆设计成功率及公差评估仍需另行有界计划；不自动启动48点计划，不改写旧首次盲测结果。均匀与弯折数据继续分开。
+
+![实际曲线与原生点](${WORKSPACE}/output/fig8_B05_fix14_20261029/final_response.png)
+'''
+ (ROOT/'FINAL_SUMMARY.md').write_text(report,encoding='utf-8')
+ ev.update({str(ROOT/n):sha(ROOT/n) for n in ['final_results.json','FINAL_SUMMARY.md','final_response.png']})
+ write(ROOT/'final_integrity_audit.json',dict(at=now(),passed=True,verified_hashes=ev,verified_count=len(ev),
+    budget=budget,all_actual14core=True,all_serial=True,all4_events_and_actual_visual_ACKs_verified=True,
+    old_evidence_unchanged=True,closure_pending_visual_summary_and_hook_shutdown=True))
+ print(json.dumps(dict(scoped_accepted=True,budget=budget,verified_count=len(ev),report=str(ROOT/'FINAL_SUMMARY.md'),plot=str(ROOT/'final_response.png')),indent=2))
+
+if __name__=='__main__':main()

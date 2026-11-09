@@ -1,0 +1,15 @@
+import numpy as np
+from pathlib import Path
+p=Path(r'F:\hfss_f8x_261002\R_tri_diagC\50ohm_split_high.s6p');vals=[];u=1;fmt='RI'
+for ln in p.read_text(errors='ignore').splitlines():
+ ln=ln.strip()
+ if not ln or ln.startswith('!'):continue
+ if ln.startswith('#'):
+  t=ln.upper().split();u={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+ vals += [float(x.replace('D','E')) for x in ln.split()]
+ch=[vals[i:i+73] for i in range(0,len(vals)-72,73)];f=np.array([c[0]*u/1e9 for c in ch]);s=np.zeros((len(ch),6,6),complex)
+for k,c in enumerate(ch):
+ x=np.array(c[1:]).reshape(36,2);z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1]));s[k]=z.reshape(6,6)
+sv=np.linalg.svd(s,compute_uv=False).max(1)
+for ff in [9.44,9.45,9.46,9.47,9.48,9.49,9.50,9.51,14.98,14.99,15.0]:
+ i=np.argmin(abs(f-ff));print(f[i],sv[i])

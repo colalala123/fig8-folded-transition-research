@@ -1,0 +1,106 @@
+"""Assemble measured/cached segments without smoothing or fitting any value.
+
+Writes a separate candidate under i00/verified_recovery. It never changes the
+original failed exports, phase count, queue, frozen protocol, or release gates.
+"""
+import csv,json
+from pathlib import Path
+import numpy as np
+from broadband_recovery import ROOT,read,sha,write_json,now
+from export_modal_segment import load_segment
+from check_external_normalization import transform
+from collect_completed_exports import collect
+
+BASE=ROOT/'local_repair/D04G05';ORIGINAL=ROOT/'D04G05/i00'
+OUT=ORIGINAL/'verified_recovery'
+
+def validate_review(path,keys):
+    r=read(path)
+    for key in keys:assert r[key],(str(path),key)
+    for f,h in r.get('evidence_hashes',{}).items():assert sha(f)==h, f
+    return r
+
+def main():
+    original=read(ORIGINAL/'manifest.json')
+    assert original['convergence']['converged'] and original['source_unchanged']
+    assert sha(original['source'])==original['source_sha256']
+    high=BASE/'high_segment';upper=BASE/'upper_segment';fill=BASE/'recovery_fill'
+    reviews={
+        BASE/'direct_comparison.json':['direct_matrix_checks_passed','normalization_calibration_passed'],
+        BASE/'cutoff_check/direct_comparison.json':['direct_matrix_checks_passed','normalization_calibration_passed'],
+        high/'high_review.json':['matrix_passed','all_sample_full_matrix_errors_le_0p005','mesh_reuse_verified'],
+        upper/'upper_review.json':['matrix_passed','all_sample_full_matrix_errors_le_0p005','mesh_reuse_verified'],
+        fill/'fill_review.json':['passed','mesh_reuse_verified'],
+    }
+    for p,keys in reviews.items():validate_review(p,keys)
+    zo_state=read(BASE/'zo_fullband/state.json')
+    assert zo_state['mesh_reuse_verified'] and zo_state['segments']['Zo']['sweep_converged']
+    assert zo_state['segments']['Zo']['convergence']==original['convergence']
+    sources={'low':BASE/'zo_fullband','middle':high,'upper':upper,
+             'direct_v1':BASE/'explicit_modal','direct_v2':BASE/'cutoff_check/explicit_modal',
+             'direct_fill':fill/'explicit_modal'}
+    tables={};modal={};input_files=[ORIGINAL/'manifest.json',ORIGINAL/'prediction_frozen.json',BASE/'zo_fullband/state.json',*reviews]
+    for name,path in sources.items():
+        f,s,z,modes=load_segment(path);modal[name]=(f,s,z,transform(s,z,'traveling'))
+        tables[name]={}
+        for filename in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+            with (path/filename).open(encoding='utf-8-sig') as h:rows=list(csv.DictReader(h))
+            table={round(float(r['Freq_GHz'])*100):r for r in rows}
+            assert len(table)==len(rows)==len(f)
+            tables[name][filename]=table;input_files.append(path/filename)
+        input_files.extend([path/'mode_map.json',path/'manifest.json'])
+    direct_lookup={}
+    for name in ['direct_v1','direct_v2','direct_fill']:
+        for key in tables[name]['sparams.csv']:
+            assert key not in direct_lookup,'Repeated direct frequency must be reviewed, not silently overwritten'
+            direct_lookup[key]=name
+    selections={}
+    for key in range(1,1501):
+        if key<930:name='low'
+        elif key<=965:name=direct_lookup[key]
+        elif key<1420:name='middle'
+        elif key<=1460:name=direct_lookup[key]
+        else:name='upper'
+        assert key in tables[name]['sparams.csv'];selections[key]=name
+    assert len(selections)==1500
+    seams=[]
+    for key,interpolated in [(930,'low'),(965,'middle'),(1420,'middle'),(1460,'upper')]:
+        direct=direct_lookup[key]
+        def item(name):
+            f,s,z,fixed=modal[name];i=int(np.argmin(abs(f-key/100)))
+            assert abs(f[i]-key/100)<1e-9
+            return s[i],fixed[i]
+        a,aa=item(interpolated);b,bb=item(direct)
+        seams.append({'GHz':key/100,'interpolated_source':interpolated,'direct_source':direct,
+            'full_50ohm_complex_error':float(abs(aa-bb).max()),
+            'S11_magnitude_error':float(abs(abs(a[0,0])-abs(b[0,0]))),
+            'S21_magnitude_error':float(abs(abs(a[2,0])-abs(b[2,0])))})
+    assert all(x['full_50ohm_complex_error']<=.005 for x in seams),'Seam disagreement requires review'
+    assert not OUT.exists(),'Inspect existing assembled candidate; do not overwrite it'
+    OUT.mkdir()
+    for filename in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        rows=[tables[selections[k]][filename][k] for k in range(1,1501)]
+        with (OUT/filename).open('w',newline='',encoding='utf-8') as h:
+            w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    write_json(OUT/'mode_map.json',read(BASE/'zo_fullband/mode_map.json'))
+    recipe={'scope':'Same phase geometry and adaptive mesh; rows copied exactly from complete retained exports, no interpolation or numerical correction in assembly.',
+        'source_run':str(ORIGINAL),'phase_solve_ordinal_including_history':1,
+        'per_frequency_source':{str(k/100):{'name':v,'path':str(sources[v])} for k,v in selections.items()},
+        'source_point_counts':{name:sum(v==name for v in selections.values()) for name in sources},
+        'seams':seams,'input_hashes':{str(p):sha(p) for p in input_files},'created_at_utc':now()}
+    write_json(OUT/'assembly_recipe.json',recipe)
+    manifest={**original,'project':str(BASE/'D04G05_repair.aedt'),'status':'exported_review_required',
+        'curve_sha256':sha(OUT/'sparams.csv'),'diagnostic_only':True,
+        'recovered_from':str(ORIGINAL),'assembly_recipe_sha256':sha(OUT/'assembly_recipe.json'),
+        'scope':'Numerically reviewed candidate only; original attempt and production protocol remain untouched.'}
+    write_json(OUT/'manifest.json',manifest)
+    reviewed=collect(OUT,Path(read(ROOT/'production_protocol.json')['baseline_run']))
+    result={'numerical_and_port_passed':reviewed['accepted'],'seams_passed':True,
+        'phase_geometry_unchanged':True,'source_run':str(ORIGINAL),'candidate_run':str(OUT),
+        'phase_solves_added':0,'production_approved':False,'reviewed_at_utc':now(),
+        'matrix':{k:reviewed['matrix'][k] for k in ['passed','max_sv','passivity_violations','reciprocity_error']},
+        'evidence_hashes':{str(OUT/n):sha(OUT/n) for n in ['manifest.json','assembly_recipe.json','normalization_recovery_review.json','port_review.json','response_metrics.json']}}
+    write_json(OUT/'recovery_candidate_review.json',result)
+    print(json.dumps(result,indent=2))
+
+if __name__=='__main__':main()

@@ -1,0 +1,63 @@
+"""Configure and release only a selected authorized diagnostic; no automatic retries."""
+import argparse,ast,subprocess,sys,time
+from pathlib import Path
+import psutil
+from build_runtime import ROOT,read,write,new,sha,now
+from tuning_budget import validate_campaign
+ORDER=['N19_A14','N22_A18']
+def run(p,*a):
+ result=subprocess.run([sys.executable,str(p),*map(str,a)],cwd=str(p.parent))
+ if result.returncode:raise RuntimeError(f'Stopped at {p}; inspect existing state; no blind retry')
+def gate(ctx):
+ validate_campaign(storage=True)
+ assert not (ROOT/'coordination/protocol.lock').exists(), 'Whole worker lease exists'
+ ident=read(ctx/'aedt_identity.json');p=psutil.Process(ident['pid'])
+ assert p.is_running() and abs(p.create_time()-ident['created'])<.01 and p.cmdline()==ident['command']
+ native=[q.info for q in psutil.process_iter(['pid','name']) if (q.info['name'] or '').lower() in ['ansysedt.exe','hf3d.exe']]
+ assert len(native)==1 and native[0]['pid']==p.pid
+ return ident
+
+def main(parent,prepare_only=False):
+ reg=read(ROOT/'runtime_registry.json')['contexts'];entry=next(e for e in reg if e['parent']==parent);ctx=Path(entry['context']);row=read(ctx/'plan.json')['cases'][0]
+ case=row['case'];run_dir=Path(row['run_dir']);gate(ctx)
+ if not (ctx/'initial_inputs.json').exists():
+  assert not (run_dir/'state.json').exists()
+  run(ctx/'desktop_preflight.py');run(ctx/'verify_live_hook.py')
+  tests=subprocess.run([sys.executable,'-m','unittest','test_phase_heartbeat','test_lifecycle_watch'],cwd=str(ctx),capture_output=True,text=True)
+  write(ctx/'offline_tests.json',dict(returncode=tests.returncode,stdout=tests.stdout,stderr=tests.stderr))
+  assert tests.returncode==0,tests.stdout+tests.stderr
+  run(ctx/'configure_projects.py','--all');run(ctx/'prepared_reopen.py')
+  proof=read(ctx/'cases'/case/'configuration.json')
+  assert proof['passed'] and not proof['solved'] and not proof['analyze_requested']
+  assert proof['geometry']==row['geometry'] and sha(row['prepared_project'])==proof['project_sha256']
+  assert proof['material']['er']==3.55 and proof['material']['tand']==.0027
+  for p in ctx.glob('*.py'):ast.parse(p.read_text(encoding='utf-8-sig'))
+  gate(ctx)
+  ev=read(ctx/'parent_evidence.json')
+  for p in [ROOT/'launch_verified.py',ROOT/'finish_start_and_monitor_v2.py',ROOT/'observer_retry_v2.py']:
+   ev['hashes'][str(p)]=sha(p)
+  write(ctx/'parent_evidence.json',ev)
+  run(ctx/'finalize_and_authorize.py')
+ if prepare_only:print('PREPARED_ONLY',case);return
+ if parent==ORDER[1]:
+  prior=Path(read(Path(reg[0]['context'])/'plan.json')['cases'][0]['run_dir'])
+  state=read(prior/'state.json');a=read(prior/'receiver_ack.json');rv=read(prior/'receiver_verification.json')
+  assert state['status']=='completed' and a['visual_review_completed'] and a['operation_success'] and a['artifacts_verified']
+  assert a['event_sha256']==sha(prior/'completion_event.json') and a['verification_sha256']==sha(prior/'receiver_verification.json') and a['plot_sha256']==sha(rv['plot'])
+ gate(ctx);assert not (run_dir/'state.json').exists()
+ marker=ROOT/'releases'/f'{case}.json';assert not marker.exists()
+ spec=read(run_dir/'input.json')
+ for p,h in spec['parent_evidence_hashes'].items():assert sha(p)==h,p
+ new(marker,dict(at=now(),case=case,input_sha256=sha(run_dir/'input.json'),desktop=gate(ctx),scope='two-point-only'))
+ run(ctx/'launch_one.py','--case',case)
+ proof=read(run_dir/'supervised_start.json');assert proof['actual_14core_single_group_observed']
+ worker=psutil.Process(proof['worker_pid']);assert abs(worker.create_time()-proof['worker_created'])<.01 and worker.cmdline()==proof['worker_command']
+ time.sleep(1)
+ from finish_start_and_monitor_v2 import ensure_observer
+ ob=ensure_observer(ctx,run_dir);q=psutil.Process(ob['pid']);assert abs(q.create_time()-ob['created'])<.01 and q.cmdline()==ob['command']
+ write(ROOT/'CURRENT_STATUS.json',dict(at=now(),phase='actual14core_solving',current_case=case,current_run=str(run_dir),current_context=str(ctx),worker_pid=worker.pid,observer=ob,actual14core=True,hook_current_chat=True,budget=validate_campaign(),old_campaign_paused=True))
+ (ROOT/'STATUS.md').write_text(f'# N19/N22有限验证\n\n{case}真实14核1组已启动；worker {worker.pid}，observer {ob["pid"]}。完成hook本聊天，正常运行静默。仅两点，旧整批仍暂停。\n',encoding='utf8')
+ if parent==ORDER[1]:run(Path(reg[0]['context'])/'phase_heartbeat.py','stop')
+ print(dict(actual14core_started=True,case=case,worker_pid=worker.pid,observer_pid=ob['pid']))
+if __name__=='__main__':
+ p=argparse.ArgumentParser();p.add_argument('--parent',choices=ORDER,required=True);p.add_argument('--prepare-only',action='store_true');a=p.parse_args();main(a.parent,a.prepare_only)

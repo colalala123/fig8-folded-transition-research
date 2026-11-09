@@ -1,0 +1,62 @@
+{
+  "approved": true,
+  "approved_scope": "native_fundamental_response_for_geometry_tuning_and_exploratory_metrics",
+  "full_matrix_approved": false,
+  "equal_ripple_design_approved": false,
+  "case": "D05G02",
+  "run": "J:\\f8_261007\\D05G02\\i00",
+  "created_at": "2026-10-21T17:09:11+09:00",
+  "frequency_grid_GHz": [
+    0.01,
+    15,
+    0.01
+  ],
+  "direct_frequencies_GHz": [
+    0.1,
+    3.0,
+    3.12,
+    3.14,
+    3.16,
+    3.71,
+    4.8,
+    4.82,
+    4.84,
+    6.0,
+    6.82,
+    8.47,
+    8.49,
+    8.51,
+    9.46,
+    9.48,
+    9.5,
+    9.93,
+    9.95,
+    9.97,
+    12.0,
+    15.0
+  ],
+  "direct_check_same_mesh": true,
+  "source_evidence_hashes": {
+    "J:\\f8_261007\\D05G02\\i00\\all_modes_sparams.csv": "cb224acd7997124736cb6287c318510734f3fa679df4de681af75fcc382d1c8e",
+    "J:\\f8_261007\\D05G02\\i00\\mode_impedance_gamma.csv": "d17c21527b4d77b6f9a624690f7cc3b6da84a6b6a4922a24e9e249f4694834dd",
+    "J:\\f8_261007\\D05G02\\i00\\manifest.json": "da550f7929366b0f9257f4d6c0bb22024708984994f6c7fe82552170863b3235",
+    "J:\\f8_261007\\acceptance_audit_20261021\\D05G02\\all_modes_sparams.csv": "676b9f98902f742352326d81a33907829ac97fba4a239ace2fdb5ab20df27740",
+    "J:\\f8_261007\\acceptance_audit_20261021\\D05G02\\mode_impedance_gamma.csv": "6b3e720c8eb05610596c67bd5d9b35be03cd30232b11f55caae0652ffe7d5ec7",
+    "J:\\f8_261007\\acceptance_audit_20261021\\D05G02\\manifest.json": "31ab09012ab521d4091f71d540f77b674df0c0a41da0ff1c77154f49de42f786",
+    "J:\\f8_261007\\acceptance_audit_20261021\\D05G02\\state.json": "f5d92de0399b968dba21441e7ad6949bff5161ed0c1d523d51f6f416b188cd1d",
+    "J:\\f8_261007\\acceptance_audit_20261021\\D05G02\\plan.json": "ae5e521c4049cb01562792457000d1aa27384d67812d5fa77b8a93ba7fd95cf4",
+    "J:\\f8_261007\\acceptance_audit_20261021\\D05G02\\convergence_before.txt": "3d708eaae6a72202d6738738795000986492c8c54cd5a15182328c17894b9afd",
+    "J:\\f8_261007\\acceptance_audit_20261021\\D05G02\\convergence_after.txt": "3d708eaae6a72202d6738738795000986492c8c54cd5a15182328c17894b9afd"
+  },
+  "policy_path": "${WORKSPACE}\\output\\fig8_acceptance_audit_20261021\\scoped_review_policy.json",
+  "policy_sha256": "e84ec8331e8241d074e65c8a98247a0f860db74ec3e56072e7f0e399d9b00ede",
+  "report_path": "${WORKSPACE}\\output\\fig8_acceptance_audit_20261021\\direct_comparison.json",
+  "report_sha256": "c23408dd5ffd43b9323026d19198676cd47bf1bc5ca6cef221c90e295e9f9504",
+  "limitations": [
+    "Sparse direct checks do not certify every unsampled frequency.",
+    "Same-mesh checks test interpolation, not mesh independence.",
+    "Width-corner mode sufficiency remains pending.",
+    "No full 4x4 network or power/radiation analysis is approved by fundamental-only evidence."
+  ],
+  "original_production_status_retained": true
+}

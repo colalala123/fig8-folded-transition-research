@@ -1,0 +1,66 @@
+param([switch]$Once)
+$root = 'J:/f8_261007'
+$plan = '${WORKSPACE}/output/fig8_resume_20261007/resume_queue_plan.json'
+$out = '${WORKSPACE}/output/fig8_resume_20261007/FIG8_STATUS.md'
+while ($true) {
+  $now = [TimeZoneInfo]::ConvertTimeBySystemTimeZoneId([DateTimeOffset]::UtcNow, 'Tokyo Standard Time').ToString('yyyy-MM-dd HH:mm:ss zzz')
+  $cases = @()
+  try {
+    $q = Get-Content -LiteralPath $plan -Raw | ConvertFrom-Json
+    $cases = @($q.cases | ForEach-Object { [string]$_.case })
+  } catch { $cases = @() }
+  $rows = @(); $done = 0; $accepted = 0; $failed = 0; $review = 0; $running = @()
+  foreach ($c in $cases) {
+    $d = Join-Path $root $c; $r = Join-Path $d 'design_result.json'
+    $s = Get-ChildItem $d -Filter state.json -Recurse -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
+    $state = ''
+    if ($s) { try { $state = (Get-Content $s.FullName -Raw | ConvertFrom-Json).status } catch {} }
+    if (Test-Path $r) { try { $x = Get-Content $r -Raw | ConvertFrom-Json; if ($x.status -in @('accepted','failed')) {$done++}; if ($x.status -eq 'accepted') {$accepted++}; if ($x.status -eq 'failed') {$failed++}; if ($x.status -eq 'review_required') {$review++}; $state=$x.status } catch {} }
+    elseif ($state -eq 'review_required') { $review++ }
+    if ($state -match 'solv|running|active') { $running += $c }
+    $rows += "| $c | $state |"
+  }
+  $procs = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue | Where-Object {$_.Name -eq 'hf3d.exe'} | ForEach-Object { "PID $($_.ProcessId): $($_.CommandLine -replace '\s+',' ')" })
+  if ($procs.Count -eq 0 -and $running.Count -gt 0) { $running = @('No live solver; archived solving states require collection') }
+  $audit = @()
+  foreach ($caseId in @('D05G02','D08G05')) {
+    $auditState = Join-Path $root "acceptance_audit_20261021/$caseId/state.json"
+    if (Test-Path -LiteralPath $auditState) {
+      try { $a = Get-Content -LiteralPath $auditState -Raw | ConvertFrom-Json; $audit += "$caseId : $($a.status)" } catch {}
+    }
+  }
+  $body = @('# Fig8 simulation monitor', '', ('Updated: {0}' -f $now), '', ('Final design results: {0} / {1}' -f $done,$cases.Count), ('Design accepted: {0}' -f $accepted), ('Design failed: {0}' -f $failed), ('Numerical/mode review required (not final): {0}' -f $review), ('Active solve: {0}' -f ($running -join ', ')), ('HFSS processes: {0}' -f ($procs -join ' || ')), '', 'Blank status means no current result/state; historical solves may exist. Review-required cases are not completed configurations.', '', '| Case | Status |', '|---|---|') + $rows
+  $body += @('', 'Acceptance audit (separate from production design acceptance):', ($audit -join '; '), '', 'Audit report: ../fig8_acceptance_audit_20261021/验收复核报告.md')
+  $decisionFile = '${WORKSPACE}/output/fig8_acceptance_audit_20261021/backlog_decisions.json'
+  if (Test-Path -LiteralPath $decisionFile) {
+    try {
+      $decisionSummary = Get-Content -LiteralPath $decisionFile -Raw | ConvertFrom-Json
+      $body += @('', 'Original full-matrix status above is retained. New scoped review decisions:', ($decisionSummary.counts | ConvertTo-Json -Compress))
+    } catch {}
+  }
+  $speedRoot = 'J:/f8_speed_261021'
+  if (Test-Path -LiteralPath $speedRoot) {
+    $body += @('', 'Precision/time study (isolated, not production design acceptance):', '| Trial | Status |', '|---|---|')
+    foreach ($trial in @('M_D05G02','M_D08G05','I_D05G02','I_D08G05','F_D05G02')) {
+      $sf = Join-Path $speedRoot "$trial/state.json"
+      if (Test-Path -LiteralPath $sf) {
+        try { $ss = Get-Content -LiteralPath $sf -Raw | ConvertFrom-Json; $body += "| $trial | $($ss.status) |" } catch {}
+      }
+    }
+    $body += @('', 'Speed study report: ../fig8_speed_study_20261021/精度放宽测试报告.md')
+  }
+  $meshRoot = 'J:/f8_mesh100k_261022'
+  if (Test-Path -LiteralPath $meshRoot) {
+    $body += @('', '100k mesh bracket study (fixed passes; adaptive nonconvergence is recorded, not auto-repaired):', '| Trial | Status |', '|---|---|')
+    foreach ($trial in @('N112_D05G02','N090_D05G02','N090_D08G05')) {
+      $sf = Join-Path $meshRoot "$trial/state.json"
+      if (Test-Path -LiteralPath $sf) {
+        try { $ss = Get-Content -LiteralPath $sf -Raw | ConvertFrom-Json; $body += "| $trial | $($ss.status) |" } catch {}
+      }
+    }
+    $body += @('| N112_D08G05 | Reused completed M_D08G05 |', '', 'Mesh study progress: ../fig8_mesh100k_20261022/实时进度.md', 'Mesh study report: ../fig8_mesh100k_20261022/约10万网格测试报告.md')
+  }
+  Set-Content -LiteralPath $out -Value ($body -join [Environment]::NewLine) -Encoding UTF8
+  if ($Once) { break }
+  Start-Sleep -Seconds 1800
+}

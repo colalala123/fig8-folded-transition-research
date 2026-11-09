@@ -1,0 +1,9 @@
+"""Load the established parent runtime before the frozen receiver module."""
+import argparse
+from pathlib import Path
+import recovery_control  # Initializes the explicit final_review import path.
+import review_smallbatch
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--run',type=Path,required=True)
+    review_smallbatch.review(p.parse_args().run)

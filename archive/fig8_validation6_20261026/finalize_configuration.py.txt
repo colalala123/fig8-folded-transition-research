@@ -1,0 +1,96 @@
+"""Freeze launch inputs from actual verified unsolved projects; never launch."""
+import ast,json,sys
+from pathlib import Path
+import phase_control as pc
+
+def finalize():
+    plan=pc.read(pc.HERE/'plan.json');auth=pc.read(pc.HERE/'authorization.json')
+    assert auth['configuration_authorized'] and not auth['execution_authorized']
+    assert pc.sha(plan['seed'])==plan['seed_sha256']
+    assert pc.sha(plan['prediction_source'])==plan['prediction_source_sha256']
+    assert pc.sha(plan['training_source'])==plan['training_source_sha256']
+    assert pc.read(pc.HERE/'hook/heartbeat/monitor.json')['enabled'] is False
+    assert pc.read(pc.HERE/'budget_ledger.json')['tasks']==[]
+    assert len(plan['cases'])==6
+    common=['plan.json','policy.json','mesh_policy_addendum_v2.json','reference_validation.json','case_reference.py',
+            'phase_control.py','phase_geometry_context.py','phase_geometry_worker.py','prepared_settings.py',
+            'phase_geometry_publish.py','phase_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py',
+            'hook/config.json','implementation_provenance.json','predictions_frozen.json','CONTINUATION.md','execution_plan.json']
+    common_hashes={str(pc.HERE/f):pc.sha(pc.HERE/f) for f in common}
+    common_hashes[str(pc.ORIGINAL/'mesh_budget.py')]=pc.sha(pc.ORIGINAL/'mesh_budget.py')
+    entries=[]
+    for row in plan['cases']:
+        case=row['case'];proofpath=pc.HERE/'cases'/case/'configuration.json';proof=pc.read(proofpath)
+        project=Path(row['prepared_project']);assert proof['passed'] and not proof['analyze_requested'] and not proof['solved']
+        assert pc.sha(project)==proof['project_sha256'] and proof['geometry']==row['geometry']
+        assert not project.with_suffix('.aedt.lock').exists(),'New project still locked'
+        run=pc.BASE/case/'g01_initial';path=run/'input.json'
+        parents={**common_hashes,str(proofpath):pc.sha(proofpath)}
+        spec=dict(case=case,role='initial',geometry=row['geometry'],source=str(project),source_sha256=pc.sha(project),
+                  source_seed=plan['seed'],source_seed_sha256=plan['seed_sha256'],
+                  run_dir=str(run),input_path=str(path),project_name=f'{case}_V6_g01',
+                  policy_sha256=pc.sha(pc.HERE/'policy.json'),mesh_addendum_sha256=pc.sha(pc.HERE/'mesh_policy_addendum_v2.json'),
+                  new_phase_geometry_ordinal=1,historical_geometry_attempts=0,phase_solve_ordinal_including_history=1,
+                  worker_sha256=pc.sha(pc.HERE/'phase_geometry_worker.py'),controller_sha256=pc.sha(pc.ORIGINAL/'mesh_budget.py'),
+                  parent_evidence_hashes=parents,created_at=pc.now(),scope='V6 initial geometry only; prepared, not launched')
+        assert not path.exists() and not (run/'state.json').exists()
+        pc.write(path,spec)
+        request=dict(project_name=spec['project_name'],design_name='Wideband vertical transition',setup_name='Setup19',port=7990,
+                     concurrent_tasks=1,cores_per_task=16,blocking=False,timeout=120)
+        pc.write(pc.HERE/'cases'/case/'mcp_solve_request.json',dict(not_sent=True,tool='start_analysis',arguments=request))
+        entries.append(dict(case=case,project=str(project),input_path=str(path),input_sha256=pc.sha(path),project_sha256=pc.sha(project),
+                            prepared=True,launched=False,geometry=row['geometry'],predicted_BW_GHz=row['predicted_BW_GHz']))
+    # A syntax check does not execute worker/solver/notification code.
+    for f in pc.HERE.glob('*.py'):ast.parse(f.read_text(encoding='utf-8'),filename=str(f))
+    pc.write(pc.HERE/'initial_inputs.json',dict(stage='V6',entries=entries))
+    pc.write(pc.HERE/'active.json',dict(stage='prepared_not_started',prepared_count=6,solver_started=False,hook_armed=False,at=pc.now()));pc.status()
+    proof=dict(at=pc.now(),prepared_projects=6,input_specs=6,predictions_unchanged=True,training_source_unchanged=True,
+               seed_unchanged=True,geometry_and_settings_checked=True,source_hashes_verified=True,
+               execution_authorized=False,new_simulations_started=0,actual_mesh_counts_available=False,hook_armed=False,
+               mcp_catalog_verified=pc.read(pc.HERE/'mcp_preflight.json'),
+               review_scope='Six real CAD/settings checks. No EM acceptance, solver completion, or live notification claimed.')
+    pc.write(pc.HERE/'configuration_readiness.json',proof)
+    table=['| 配置 | Wm | Ws | a | Lm初值 | Ls1初值 | Ls2 | Ls3 | 预测BW/GHz |','|---|---:|---:|---:|---:|---:|---:|---:|---:|']
+    for r in plan['cases']:
+        g=r['geometry'];table.append(f'| {r["case"]} | {g["Wm"]:.2f} | {g["Ws"]:.2f} | {r["a_mm"]:.1f} | {g["Lm"]:.6f} | {g["Ls1"]:.6f} | {g["Ls2"]:.2f} | {g["Ls3"]:.2f} | {r["predicted_BW_GHz"]:.6f} |')
+    report='''# Fig8 六项独立验证：配置完成
+
+2026-10-26（Asia/Tokyo）。已建立并保存6个真实HFSS工程，均完成CAD尺寸、材料、双模端口、Setup19和Sweep1设置检查。**没有启动求解，当前没有网格结果，也没有通过设计验收的声明。**
+
+所有长度单位mm，净间隔g=0.55。Lm/Ls1由相邻已通过配置的同折臂二维插值得到，未使用预测带宽来调尺寸。每个初值保留4个父配置及插值权重。
+
+'''+ '\n'.join(table)+'''
+
+## 求解设置
+
+- 可见AEDT/HFSS2024R2，gRPC7990；MCP的start_analysis/get_analysis_status接口已通过只读目录检查。
+- 正式派发请求固定16核、1任务，逐项串行；真实资源使用须启动后核对hf3d命令。
+- 材料εr=3.55、tanδ=0.0027，h=0.813mm；每端口2个模式，设计评价仍看基模S11/S21。
+- Broadband自适应0.1–15GHz；ΔS=0.005；首段16轮、30%细化。后续由已验证的mesh_budget控制器按实际网格逐轮调整，目标100000–110000，按已采用规则记录≤112000的轻微超限。不能预先保证实际网格数。
+- Sweep1插值扫频0.01–15GHz，步长0.01GHz，共1500输出点，容差1%，EnforcePassivity关闭。
+- 准备工程中的Sweep1暂禁用，网格达到目标后worker启用。不要手动AnalyzeAll绕过分阶段控制器。
+- 原验收不变：中央谷6.72±0.03GHz、S11两内峰差≤0.5dB、三谷、谷间S11<−10dB且S21≥−2dB。
+- 初始几何完成后先复核响应。需要时只调Lm/Ls1；最终同网格直接频点按实际峰、谷和带边生成，沿用20MHz等数值核验限。
+
+## 执行边界与hook
+
+首轮仅配置6次初始几何，尚未预订或运行任何求解。不是承诺6次就能全部达标。调谐迭代和最终直接点按真实结果另行准备并记录，不静默增加预算。原24项数据、预测公式和已关闭批次均保持不变。
+
+dispatch.py默认只检查。未来收到启动指令后，记录该指令并将本批execution_authorized置true，再按顺序派发。前两个V01G02/V01G05需监督检查；通过后才放行后四项。每次派发只启动一个worker，已存在state的任务不能重复启动。
+
+完成hook已配置到当前聊天01a0fbcf-3411-76f0-b776-08ded1ecd6f8，带完成/失败状态和证据路径。当前心跳未启用、没有实际发消息。正式仿真完成并且完成通知送达后，等待5分钟仍未启动新仿真才检查AI状态；AI继续工作则等待下一次，中断则去重唤醒。正常仿真期间不周期发消息。
+
+## 文件
+
+- 工程根目录：J:/f8_V6_261026，各配置的prepared子目录。
+- plan.json/configurations.csv：尺寸、插值来源、顺序和未修改的预测值。
+- initial_inputs.json：6个准备工程及首轮运行输入路径与哈希。
+- configuration_readiness.json：实际配置检查结果。
+- cases/*/configuration.json：逐项CAD/端口/材料/Setup/Sweep证据。
+- hook/config.json：通知目标，hook/heartbeat/monitor.json当前为disabled。
+- dispatch.py：默认只读空跑；phase_geometry_worker.py是后续16核串行求解入口。
+'''
+    (pc.HERE/'README.md').write_text(report,encoding='utf-8')
+    print(dict(prepared=6,started=0,hook_armed=False))
+
+if __name__=='__main__':finalize()

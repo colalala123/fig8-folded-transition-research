@@ -1,0 +1,56 @@
+import tempfile
+import unittest
+from pathlib import Path
+import numpy as np
+from control import write
+from candidate_direct import frequencies, compare
+
+
+def metrics():
+    return {'peaks':[{'frequency_GHz':5.5},{'frequency_GHz':8.0}],
+      'valleys':[{'frequency_GHz':4.3},{'frequency_GHz':6.72},{'frequency_GHz':9.0}],
+      'central_valley_GHz':6.72,'passband_2dB':{'f_low_GHz':3.,'f_high_GHz':10.,'BW_GHz':7.},
+      'prominent_valley_count':3,'validity':dict(S11_below_minus10_between_valleys=True,
+       S21_ge_minus2_between_valleys=True,band_not_truncated=True,nonpositive_transmission=True)}
+
+
+class DirectTests(unittest.TestCase):
+    def test_frequency_windows_and_grid(self):
+        f=frequencies(metrics())
+        self.assertEqual(len(f),len(set(f)));self.assertLessEqual(len(f),70)
+        self.assertTrue(np.allclose(np.array(f)*100,np.rint(np.array(f)*100)))
+        for x in [5.45,5.55,7.95,8.05,6.69,6.75,2.97,3.03,9.97,10.03]:self.assertIn(x,f)
+
+    def make_data(self,folder,f,gap):
+        y=np.full(len(f),-40.)
+        for center,height in [(5.5,-20.),(8.,-20.-gap)]:
+            win=abs(f-center)<.1;y[win]=height-100*(f[win]-center)**2
+        win=abs(f-6.72)<.1;y[win]=-50+100*(f[win]-6.72)**2
+        s21=np.minimum(-1.,-2+np.minimum(f-3.,10.-f))
+        data=np.column_stack([f,10**(y/20),f*0,y,10**(s21/20),f*0,s21])
+        np.savetxt(folder/'sparams.csv',data,delimiter=',',comments='',
+          header='Freq_GHz,S11_real,S11_imag,S11_dB,S21_real,S21_imag,S21_dB')
+
+    def check_gap(self,gap):
+        with tempfile.TemporaryDirectory() as t:
+            src=Path(t)/'source';run=Path(t)/'direct';src.mkdir();run.mkdir()
+            write(src/'response_metrics.json',metrics())
+            self.make_data(src,np.arange(1,1501)/100,.5073)
+            self.make_data(run,np.array(frequencies(metrics())),gap)
+            return compare(src,run)
+
+    def test_direct_below_threshold_can_be_supported(self):
+        r=self.check_gap(.49)
+        self.assertTrue(r['numerical_review_passed']);self.assertTrue(r['sampled_design_supported'])
+        self.assertAlmostEqual(r['direct_BW_GHz'],7.)
+
+    def test_direct_above_threshold_not_rounded_into_pass(self):
+        r=self.check_gap(.5073)
+        self.assertTrue(r['numerical_review_passed']);self.assertFalse(r['sampled_design_supported'])
+
+    def test_large_disagreement_not_numerically_accepted(self):
+        r=self.check_gap(1.)
+        self.assertFalse(r['numerical_review_passed'])
+
+
+if __name__=='__main__':unittest.main()

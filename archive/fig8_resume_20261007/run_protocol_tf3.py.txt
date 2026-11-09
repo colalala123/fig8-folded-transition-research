@@ -1,0 +1,153 @@
+"""Visible MCP serial T_F3 verification. Never dispatches pilot configurations."""
+import asyncio, json, shutil, sys, time, traceback, os, re
+from pathlib import Path
+import psutil
+HERE=Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+from pilot_worker import now,sha,write_json,set_modes,convergence
+from mcp_call import connected_client,session_call
+from ansys.aedt.core import Hfss
+ROOT=Path('J:/f8_261007');RUN=ROOT/'TF3M3';PROJECT=RUN/'TF3M3.aedt'
+SOURCE=Path('F:/hfss_f8_261002/T_F3/T_F3.aedt')
+SEED=Path('F:/hfss_f8x_261002/M_T_F3_3g16/M_T_F3_3g16.aedt')
+PORT=7990;SETUP='PilotVerify';STATE=RUN/'state.json';MODE_COUNT=3;REBUILD_GEOMETRY=None;RUN_SCOPE=None
+SEGMENTS=[('Low','Interpolating',.01,6.97),('Bridge','Discrete',6.96,7.01),('High','Interpolating',7.01,15.),('Endpoint','Discrete',15.,15.)]
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+def save(s):
+    s['updated_at_utc']=now()
+    temporary=STATE.with_suffix('.json.tmp')
+    temporary.write_text(json.dumps(s,indent=2,default=str),encoding='utf-8')
+    os.replace(temporary,STATE)
+def attach():return Hfss(project=str(PROJECT),design='Wideband vertical transition',version='2024.2',machine='localhost',port=PORT,non_graphical=False,new_desktop=False,close_on_exit=False)
+def active_solvers():
+    return [p.info for p in psutil.process_iter(['pid','name','cmdline']) if (p.info['name'] or '').lower()=='hf3d.exe']
+
+def persisted_sweeps():
+    """Read saved AEDT text, bypassing SweepHFSS's default-Type reload bug."""
+    text=PROJECT.read_text(encoding='utf-8',errors='replace')
+    blocks=re.findall(r"\$begin '"+re.escape(SETUP)+r"'\s*(.*?)\$end '"+re.escape(SETUP)+r"'",text,re.S)
+    assert len(blocks)==1,'Setup must have one unambiguous saved block'
+    result={}
+    for name in re.findall(r"\$begin '([^']+)'",blocks[0]):
+        if name=='Sweeps':continue
+        m=re.search(r"\$begin '"+re.escape(name)+r"'\s*(.*?)\$end '"+re.escape(name)+r"'",blocks[0],re.S)
+        props=dict(re.findall(r"^\s*(\w+)=(.*?)\s*$",m.group(1),re.M))
+        if props.get('Type','').strip("'") in ['Discrete','Interpolating','Fast']:
+            result[name]={k:v.strip("'") for k,v in props.items()}
+    return result
+
+def verify_saved_segment(name,s):
+    actual=s.get('sweep_names',{}).get(name,name)
+    props=persisted_sweeps()[actual]
+    _,typ,lo,hi=next(x for x in SEGMENTS if x[0]==name)
+    assert props['Type']==typ,(actual,props['Type'],typ)
+    assert abs(float(props['RangeStart'].replace('GHz',''))-lo)<1e-9
+    assert abs(float(props['RangeEnd'].replace('GHz',''))-hi)<1e-9
+    assert props['IsEnabled']=='true'
+    return {'sweep_name':actual,'expected_type':typ,'actual_type':props['Type'],'saved_properties':props,'project_sha256':sha(PROJECT),'verified_at_utc':now()}
+def prepare():
+    if active_solvers():raise RuntimeError('An HFSS solver is already active')
+    if shutil.disk_usage(ROOT).free<25*1024**3:raise RuntimeError('Insufficient space')
+    if STATE.exists():return read(STATE)
+    if PROJECT.exists():raise RuntimeError('Existing project without state; inspect manually')
+    shutil.copy2(SOURCE,PROJECT)
+    s={'status':'preparing','source':str(SOURCE),'source_sha256':sha(SOURCE),'project':str(PROJECT),'cores':16,'tasks':1,'port':PORT,'setup':SETUP,'modes_per_port':MODE_COUNT,'segments':{},'started_at_utc':now(),'scope':RUN_SCOPE or f'{SOURCE.parent.name} {MODE_COUNT}-mode protocol verification only; no pilot dispatch'};save(s)
+    app=attach()
+    try:
+        if REBUILD_GEOMETRY is not None:
+            from folded_transition import apply_folded_geometry
+            from pilot_worker import inspect_rebuilt_geometry
+            g=REBUILD_GEOMETRY
+            s['geometry']=g
+            s['build']=apply_folded_geometry(app,wm=g['Wm'],lm=g['Lm'],ws=g['Ws'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3'])
+            s['cad_verification']=inspect_rebuilt_geometry(app,g)
+            s['microstrip_boxes']={n:list(app.modeler[n].bounding_box) for n in ['Substrate_3','Substrate_18']}
+            for box in s['microstrip_boxes'].values():
+                assert abs(box[3]-box[0]-g['Wm'])<1e-7 and abs(box[4]-box[1]-g['Lm'])<1e-7
+        s['port_settings']=set_modes(app,MODE_COUNT,{'3':'Zwave'} if MODE_COUNT==3 else {})
+        setup=app.create_setup(name=SETUP,setup_type='HFSSDriven');setup.auto_update=False
+        setup.props.update({'SolveType':'Single','Frequency':'15GHz','MaxDeltaS':.005,'MaximumPasses':40,'MinimumPasses':6,'MinimumConvergedPasses':2,'PercentRefinement':30,'PortAccuracy':2,'BasisOrder':1,'DrivenSolverType':'Direct Solver','SaveAnyFields':True})
+        assert setup.update();setup.auto_update=True
+        if SEED.exists() and SEED.with_suffix('.aedtresults').exists():
+            assert setup.add_mesh_link(design=app.design_name,solution='Setup19 : LastAdaptive',project=str(SEED),force_source_to_solve=False,preserve_partner_solution=True,adapt_port=True)
+            s['mesh_seed']={'project':str(SEED),'sha256':sha(SEED),'note':'Mesh only; fresh solutions; source solve forbidden'}
+        for name,typ,lo,hi in SEGMENTS:
+            sw=setup.add_sweep(name,typ);sw.props.update({'IsEnabled':False,'RangeType':'SinglePoints' if lo==hi else 'LinearStep','RangeStart':f'{lo:g}GHz','RangeEnd':f'{hi:g}GHz','RangeStep':'0.01GHz','SaveFields':False,'SaveRadFields':False})
+            if typ=='Interpolating':sw.props.update({'InterpTolerance':.5,'InterpMaxSolns':500,'InterpMinSolns':0,'InterpMinSubranges':1,'InterpUseS':True,'InterpUsePortImped':False,'InterpUsePropConst':False,'UseDerivativeConvergence':False,'UseFullBasis':True,'EnforcePassivity':False,'PassivityErrorTolerance':.0001,'EnforceCausality':False,'SMatrixOnlySolveMode':'Auto','SMatrixOnlySolveAbove':'15GHz'})
+            assert sw.update()
+        mat=app.materials['rogers ro4003 (tm)'];s['material']={'er':float(mat.permittivity.value),'tand':float(mat.dielectric_loss_tangent.value)}
+        assert s['material']=={'er':3.55,'tand':.0027}
+        s['setup_props']=json.loads(json.dumps(setup.props,default=str));app.save_project();s['status']='prepared';save(s)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    return s
+def configure(name,s):
+    app=attach()
+    try:
+        setup=app.get_setup(SETUP)
+        actual=s.get('sweep_names',{}).get(name,name)
+        before=persisted_sweeps()
+        for sw in setup.sweeps:
+            # Reloaded SweepHFSS props always claim Interpolating: restore disk Type.
+            enabled=sw.name==actual
+            if (before[sw.name]['IsEnabled']=='true')==enabled:continue
+            sw.props['Type']=before[sw.name]['Type']
+            sw.props['IsEnabled']=enabled
+            assert sw.update()
+        # Preserve historical messages in state before clearing only this new design.
+        s['messages_before_'+name]=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3)
+        app.save_project()
+        s.setdefault('segment_settings',{})[name]=verify_saved_segment(name,s)
+        evidence=RUN/f'settings_before_{name}.json'
+        write_json(evidence,s['segment_settings'][name])
+        save(s)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+def collect(name,typ,s):
+    app=attach()
+    try:
+        app.save_project();rec=s['segments'][name]
+        rec['settings_evidence']=verify_saved_segment(name,s)
+        rec['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        app.export_convergence(SETUP,output_file=str(RUN/f'convergence_{name}.txt'));rec['convergence']=convergence(RUN/f'convergence_{name}.txt')
+        rec['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in rec['messages']) if typ=='Interpolating' else any('Discrete frequency sweep complete.' in x for x in rec['messages'])
+        errors=[x for x in rec['messages'] if any(k in x.lower() for k in ['[error]','did not converge','execution error'])]
+        rec['errors']=errors
+        for norm,label in [(False,'native'),(True,'50ohm')]:
+            dest=RUN/f'{label}_{name}.s{2*MODE_COUNT}p'
+            assert app.export_touchstone(setup=SETUP,sweep=s.get('sweep_names',{}).get(name,name),output_file=str(dest),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+            rec[label]={'file':str(dest),'sha256':sha(dest)}
+        rec['status']='exported' if rec['convergence']['converged'] and rec['sweep_converged'] and not errors else 'review_required'
+        rec['finished_at_utc']=now();s['source_unchanged']=sha(SOURCE)==s['source_sha256'];save(s)
+        if rec['status']!='exported' or not s['source_unchanged']:raise RuntimeError(f'{name} failed convergence/source gate')
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+async def main():
+    ROOT.mkdir(exist_ok=True);RUN.mkdir(exist_ok=True)
+    lock=ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:
+        s=prepare()
+        async with connected_client() as client:
+            for name,typ,lo,hi in SEGMENTS:
+                rec=s['segments'].get(name,{})
+                if rec.get('status')=='exported':continue
+                if rec:raise RuntimeError(f'Existing incomplete {name}; recover exports or inspect before re-solving')
+                if active_solvers():raise RuntimeError('Serial solver gate failed')
+                if shutil.disk_usage(ROOT).free<25*1024**3:raise RuntimeError('Insufficient space')
+                configure(name,s)
+                args={'project_name':PROJECT.stem,'design_name':'Wideband vertical transition','setup_name':SETUP,'port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+                result=await session_call(client,'start_analysis',args)
+                if not result.get('started'):raise RuntimeError(result)
+                s['segments'][name]={'status':'solving','mcp_request':args,'mcp_response':result,'started_at_utc':now()};s.update(status='solving',active_segment=name);save(s)
+                start=time.monotonic()
+                while True:
+                    await asyncio.sleep(30)
+                    st=await session_call(client,'get_analysis_status',{'project_name':PROJECT.stem,'design_name':'Wideband vertical transition','setup_name':SETUP,'port':PORT,'timeout':120})
+                    s['last_mcp_status']=st;s['solver_processes']=active_solvers();save(s)
+                    if not st.get('running') and not s['solver_processes']:break
+                    if time.monotonic()-start>7200:raise RuntimeError('Two-hour review trigger: solver retained, no further dispatch')
+                collect(name,typ,s)
+        s.update(status='segments_exported_review_required',active_segment=None);save(s)
+    except Exception:
+        s=read(STATE) if STATE.exists() else {};s.update(status='review_required',error=traceback.format_exc());save(s);raise
+    finally:lock.unlink(missing_ok=True)
+if __name__=='__main__':asyncio.run(main())

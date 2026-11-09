@@ -1,0 +1,12 @@
+"""Continue the independent authorized T_F3 checks while B0 three-mode is reviewed."""
+import traceback
+from pilot_queue import ROOT,solve,status
+
+try:
+    for modes in (2,3):
+        solve(ROOT/f'M_T_F3_{modes}')
+    status(status='review_required',error='T_F3 mode checks completed. B0 three-mode sweep remains unconverged; resolve before freezing protocol.')
+except Exception:
+    status(status='review_required',error=traceback.format_exc())
+    print(traceback.format_exc(),flush=True)
+    raise

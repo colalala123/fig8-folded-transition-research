@@ -1,0 +1,120 @@
+"""Effective-path review, real-ACK adoption and future batch controller (no auto-ACK)."""
+import argparse,copy,importlib.util,json,subprocess,sys
+from pathlib import Path
+import effective_budget_v2 as budget
+ROOT=Path(__file__).resolve().parent
+read=budget.read;sha=budget.sha
+
+def write_new(p,d):
+    with Path(p).open('x',encoding='utf-8') as h:json.dump(d,h,ensure_ascii=False,indent=2);h.write('\n')
+
+def module(name,path):
+    s=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(s);s.loader.exec_module(m);return m
+
+def rows():return read(ROOT/'campaign_frozen.json')['cases']
+
+def verified_ack(row):
+    return module('_original_prepare',ROOT/'prepare_batch.py').verified_ack(budget.effective(row))
+
+def review(case):
+    budget.validate_campaign(case=case)
+    m=module('_original_review',ROOT/'review48.py');original=m.read
+    def routed(p):
+        d=original(p)
+        if Path(p).resolve()==(ROOT/'campaign_frozen.json').resolve():
+            d=copy.deepcopy(d);d['cases']=[budget.effective(r) for r in d['cases']]
+        return d
+    m.read=routed;m.main(case)
+
+def pilot():
+    evidence={str(ROOT/'recovery1_overlay.json'):sha(ROOT/'recovery1_overlay.json')}
+    for row in rows()[:2]:
+        evidence.update(verified_ack(row));label=ROOT/'labels'/f"{row['case']}.json"
+        assert read(label)['primary']['shape_valid']
+        assert Path(read(label)['source']).resolve()==Path(budget.effective(row)['run_dir']).resolve()
+        evidence[str(label)]=sha(label)
+    out=dict(passed=True,actual_visual_ACKs=2,cases=['N02_A14','N02_A18'],evidence_hashes=evidence,
+        recovery_routing=True,scope='Actual visual ACK/native/mesh/resource chain; negative designs retained, not final direct certification')
+    dest=ROOT/'pilot_gate.json'
+    if dest.exists():assert read(dest)==out
+    else:write_new(dest,out)
+    return out
+
+def adopt():
+    """Only after successful real recovery review/ACK; original failed run untouched."""
+    d=budget.overlay();case=d['case'];row=next(r for r in rows() if r['case']==case)
+    verified_ack(row);pilot();budget.validate_campaign()
+    ctx=Path(row['context']);ledgerpath=ctx/'budget_ledger.json';ledger=read(ledgerpath)
+    marker=ROOT/'recovery1_adoption.json'
+    if marker.exists():
+        record=read(marker)
+        assert record['overlay_sha256']==sha(ROOT/'recovery1_overlay.json')
+        assert record['effective_ACK_sha256']==sha(Path(d['effective_run'])/'receiver_ack.json')
+        # Complete a recorded atomic adoption if interrupted, never invent a new ACK.
+        if ledger==record['before']:
+            tmp=ledgerpath.with_suffix('.json.tmp');tmp.write_text(json.dumps(record['after'],ensure_ascii=False,indent=2)+'\n',encoding='utf-8');tmp.replace(ledgerpath)
+            ledger=record['after']
+        task=next(t for t in ledger['tasks'] if t['case']==case)
+        assert Path(task['path']).resolve()==Path(d['effective_run'],'input.json').resolve() and task['status']=='reviewed'
+        ensure_local_gate(ctx)
+        return
+    assert len(ledger['tasks'])==ledger['new_geometry_reserved']==2
+    task=next(t for t in ledger['tasks'] if t['case']==case)
+    assert task['status']=='reserved' and Path(task['path']).parent.resolve()==Path(d['original_run']).resolve()
+    snapshot=ROOT/'b01_ledger_before_recovery1.json';write_new(snapshot,ledger)
+    run=Path(d['effective_run']);ack=read(run/'receiver_ack.json')
+    replacement={**task,'path':str(run/'input.json'),'input_sha256':sha(run/'input.json'),
+        'status':'reviewed','ack_sha256':sha(run/'receiver_ack.json'),'design_passed':ack['design_passed'],
+        'technical_recovery_attempt':1,'superseded_original_path':task['path']}
+    ledger['tasks']=[replacement if t['case']==case else t for t in ledger['tasks']]
+    # Record complete before/after intent BEFORE atomic mutable ledger replacement.
+    record=dict(case=case,overlay_sha256=sha(ROOT/'recovery1_overlay.json'),
+        original_ledger_sha256=sha(snapshot),before=read(snapshot),after=ledger,
+        effective_ACK_sha256=sha(run/'receiver_ack.json'))
+    write_new(marker,record)
+    tmp=ledgerpath.with_suffix('.json.tmp');tmp.write_text(json.dumps(ledger,ensure_ascii=False,indent=2)+'\n',encoding='utf-8');tmp.replace(ledgerpath)
+    ensure_local_gate(ctx)
+
+def ensure_local_gate(ctx):
+    gate=ctx/'supervised_first_review.json'
+    evidence={}
+    for r in rows()[:2]:evidence.update(verified_ack(r))
+    out=dict(passed=True,cases=['N02_A14','N02_A18'],evidence_hashes=evidence,
+        meaning='Effective original+recovery real reviews; not full design/direct acceptance',recovery_adoption=str(ROOT/'recovery1_adoption.json'))
+    if gate.exists():assert read(gate)==out
+    else:write_new(gate,out)
+
+def launch(case):
+    budget.validate_campaign(case=case,storage=True)
+    row=budget.effective(next(r for r in rows() if r['case']==case))
+    if row['ordinal']>2:adopt()
+    subprocess.run([sys.executable,str(Path(row['context'])/'launch_one.py'),'--case',case],check=True)
+    print(json.dumps(budget.validate_campaign(),ensure_ascii=False))
+
+def prepare_batch(number):
+    """Reuse frozen factory through in-memory ACK adaptation, version new code BEFORE freeze."""
+    assert 2<=number<=8;adopt();budget.validate_campaign(storage=True)
+    m=module('_prepare_v1',ROOT/'prepare_batch.py');m.verified_ack=verified_ack
+    import campaign_budget
+    old=campaign_budget.validate_campaign;campaign_budget.validate_campaign=budget.validate_campaign
+    try:m.prepare(number)
+    finally:campaign_budget.validate_campaign=old
+    ctx=Path(next(r for r in rows() if r['batch']==number)['context'])
+    assert not (ctx/'initial_inputs.json').exists()
+    for name in ['phase_geometry_context.py','phase_geometry_worker.py','launch_one.py']:
+        p=ctx/name;s=p.read_text(encoding='utf-8');assert 'from campaign_budget import validate_campaign' in s
+        p.write_text(s.replace('from campaign_budget import validate_campaign','from effective_budget_v2 import validate_campaign'),encoding='utf-8')
+    ev=ctx/'parent_evidence.json';data=read(ev)
+    for p in [ROOT/'recovery1_overlay.json',Path(__file__),Path(budget.__file__),ROOT/'pilot_gate.json',ROOT/'recovery1_adoption.json']:
+        data['hashes'][str(p)]=sha(p)
+    ev.write_text(json.dumps(data,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    p=ctx/'CONTINUATION.md';p.write_text(p.read_text(encoding='utf-8')+'\n恢复覆盖与后续命令以 '+str(ROOT/'CONTINUATION_V2.md')+' 为准；不得调用旧prepare_batch处理恢复路径。\n',encoding='utf-8')
+    write_new(ctx/'recovery_routing_v2.json',dict(source_prepare_sha256=sha(ROOT/'prepare_batch.py'),
+        controller_sha256=sha(__file__),overlay_sha256=sha(ROOT/'recovery1_overlay.json'),effective_budget_sha256=sha(budget.__file__),
+        all_changes_before_input_freeze=True))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('action',choices=['review','pilot','adopt','launch','prepare-batch']);p.add_argument('--case');p.add_argument('--batch',type=int);a=p.parse_args()
+    if a.action in ('review','launch'):assert a.case;globals()[a.action](a.case)
+    elif a.action=='prepare-batch':prepare_batch(a.batch)
+    else:globals()[a.action]()

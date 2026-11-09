@@ -1,0 +1,76 @@
+"""Freeze48 exact old-plan geometries, splits and model predictions. No AEDT."""
+import sys,json,hashlib,shutil
+from pathlib import Path
+from datetime import datetime,timezone
+import numpy as np
+ROOT=Path(__file__).resolve().parent;OUT=ROOT.parent;OLD=OUT/'fig8_theory_ml_20261028'
+BASE=Path('D:/hfss_fig8_next48_20261029')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def write(p,d):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+ p.write_text(json.dumps(d,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+def main():
+ assert not (ROOT/'campaign_frozen.json').exists(),'Existing freeze: inspect, never regenerate'
+ raw=OLD/'next48_sampling_plan.json';d=read(raw)
+ assert d['new_geometry_count']==48 and len(d['families'])==24
+ assert read(OUT/'fig8_B05_fix14_20261029/closure.json')['scoped_accepted']
+ assert read(OLD/'closure.json')['hook_shutdown_verified']
+ for f,h in d['source_hashes'].items():assert sha(f)==h,f
+ manifest=read(OLD/'benchmark_v1/manifest.json')
+ for f,h in manifest.items():assert sha(f)==h,f
+ sys.path.insert(0,str(OLD));from common import features,pr,fold_coordinates
+ from design import load_verified_model,candidate_geometry
+ import joblib
+ length=load_verified_model();forward=joblib.load(OLD/'benchmark_v1/forward_performance_deployment52.joblib')
+ families=sorted(d['families'],key=lambda f:(f['role']=='prospective_test_family',f['family_id']))
+ primary=dict(f_low_GHz=3.92,f_high_GHz=9.52,BW_GHz=5.6,S11_max_dB=-20,S21_min_dB=-2)
+ secondary=dict(f_low_GHz=4.22,f_high_GHz=9.22,BW_GHz=5.,S11_max_dB=-20,S21_min_dB=-2)
+ cases=[];predictions=[]
+ known=read(OUT/'fig8_PR18_delivery_20261027/dataset52.json')['rows']
+ known_pairs={(round(r['geometry_mm']['Wm'],6),round(r['geometry_mm']['Ws'],6)) for r in known}
+ for family in families:
+  for item in family['geometries']:
+   g=item['geometry_mm'];a=item['a_mm'];case=family['family_id']+('_A14' if a==1.4 else '_A18')
+   assert a in [1.4,1.8] and (g['Wm'],g['Ws']) not in known_pairs
+   pp,rr=pr(g['Wm'],g['Ws']);assert abs(pp-item['P'])<1e-8 and abs(rr-item['R'])<1e-8
+   _,_,again,_=candidate_geometry(family['P_requested'],family['R_requested'],a,length)
+   assert all(abs(g[k]-again[k])<1e-9 for k in g),'Old plan/model reproduction failed'
+   c=fold_coordinates(g);assert c['g_mm']>=.35 and g['Ls1']-2*g['Ls3']>=.35 and c['rho_nominal']<.5
+   ordinal=len(cases)+1;batch=(ordinal-1)//6+1;folder=OUT/f'fig8_next48_b{batch:02d}_20261029'
+   row=dict(case=case,group=family['family_id'],family_id=family['family_id'],role=family['role'],ordinal=ordinal,batch=batch,
+     context=str(folder),D_batch=str(BASE/f'b{batch:02d}'),run_dir=str(BASE/f'b{batch:02d}'/case/'g01_initial'),
+     target_P=item['P'],target_R=item['R'],P_nominal=item['P'],R_nominal=item['R'],a_mm=a,g_mm=.55,
+     geometry=g,initial_geometry=g,category='next48_frozen_initial_no_retuning',target=primary,secondary_target=secondary,
+     nominal_fold_coordinates=c)
+   cases.append(row)
+   x=np.array([features(dict(P=pp,R=rr,a=a,geometry_mm=g))]);values=forward.predict(x)[0]
+   predictions.append(dict(case=case,family_id=family['family_id'],role=family['role'],input_features=x[0].tolist(),
+       forward_S21_minus2_BW_GHz=float(values[0]),forward_worse_inner_peak_dB=float(values[1]),
+       source='quadratic_ridge_deployment52_frozen_before_new_HFSS',prediction_not_HFSS=True))
+ assert len(cases)==48 and sum(c['role']=='prospective_test_family' for c in cases)==10
+ split=dict(training_families=[f['family_id'] for f in families if f['role']=='training_acquisition_family'],
+     prospective_test_families=[f['family_id'] for f in families if f['role']=='prospective_test_family'],
+     training_cases=[r['case'] for r in cases if r['role']=='training_acquisition_family'],
+     prospective_test_cases=[r['case'] for r in cases if r['role']=='prospective_test_family'])
+ assert set(split['training_families']).isdisjoint(split['prospective_test_families'])
+ source={str(raw):sha(raw),str(OLD/'benchmark_v1/manifest.json'):sha(OLD/'benchmark_v1/manifest.json'),
+   str(OLD/'benchmark_v1/length_residual_deployment52.joblib'):sha(OLD/'benchmark_v1/length_residual_deployment52.joblib'),
+   str(OLD/'benchmark_v1/forward_performance_deployment52.joblib'):sha(OLD/'benchmark_v1/forward_performance_deployment52.joblib'),
+   str(OUT/'fig8_B05_fix14_20261029/closure.json'):sha(OUT/'fig8_B05_fix14_20261029/closure.json'),
+   str(OLD/'closure.json'):sha(OLD/'closure.json'),str(OLD/'common.py'):sha(OLD/'common.py'),str(OLD/'design.py'):sha(OLD/'design.py')}
+ write(ROOT/'predictions_frozen.json',dict(at=datetime.now(timezone.utc).isoformat(),rows=predictions,model_source_hashes=source,HFSS_new_results_seen=False,no_refitting=True))
+ (ROOT/'coordination').mkdir(exist_ok=True)
+ protocol=Path('J:/f8_261007/production_protocol.json');shutil.copyfile(protocol,ROOT/'coordination/production_protocol.json')
+ source[str(protocol)]=sha(protocol)
+ for name in ['EXECUTION_PLAN.md','campaign_budget.py','prepare_campaign.py','prepare_batch.py','review48.py']:
+  source[str(ROOT/name)]=sha(ROOT/name)
+ source[str(ROOT/'predictions_frozen.json')]=sha(ROOT/'predictions_frozen.json')
+ frozen=dict(at=datetime.now(timezone.utc).isoformat(),human_instruction='你现在继续跑48点的计划',D_base=str(BASE),
+  cases=cases,split=split,primary_target=primary,secondary_target=secondary,model_version='quadratic_ridge_deployment52_20261028_unchanged',
+  new_geometry_cap=48,Analyze_cap=624,cores_per_task=14,concurrent_tasks=1,storage_admission=dict(per_remaining_geometry_GiB=.75,safety_GiB=15,scratch_growth_GiB=4),
+  source_hashes=source,uniform_data_used=False,initial_labels_not_optimized_length_targets=True,old_results_unchanged=True)
+ write(ROOT/'campaign_frozen.json',frozen)
+ write(ROOT/'active.json',dict(stage='frozen_not_started',geometry_count=48,train=38,test=10))
+ print(dict(frozen=True,geometries=48,training=38,test=10,Analyze_started=False))
+if __name__=='__main__':main()

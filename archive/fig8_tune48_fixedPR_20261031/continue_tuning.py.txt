@@ -1,0 +1,108 @@
+"""After real visual ACKs only: offline finite-difference proposals and the unique next context. NO HFSS calls."""
+import argparse,copy,json,math,sys
+from pathlib import Path
+import numpy as np
+from scipy.optimize import minimize
+from build_runtime import ROOT,OUT,read,sha,new,write,now,make,probes
+from tuning_budget import validate_campaign
+from b05_corrector import load_curve,assess,propose
+def entries():return read(ROOT/'runtime_registry.json')['contexts']
+def baseline(parent):return next(r for r in read(read(ROOT/'campaign.json')['baseline_index'])['rows'] if r['case']==parent)
+def checked(run):
+    e=read(run/'completion_event.json');a=read(run/'receiver_ack.json');s=read(run/'state.json');rv=read(run/'receiver_verification.json')
+    assert e['status']=='completed' and e['verified_success'] and s['status']=='completed'
+    assert a['artifacts_verified'] and a['visual_review_completed'] and a['operation_success']
+    assert a['event_sha256']==sha(run/'completion_event.json') and a['verification_sha256']==sha(run/'receiver_verification.json')
+    assert rv['plot_sha256']==sha(rv['plot'])==a['plot_sha256']
+    for item in e['artifacts']:assert sha(run/item['path'])==item['sha256']
+    metric=read(run/'response_metrics.json');score=assess(*load_curve(run/'sparams.csv'),read(ROOT/'campaign.json')['target'])
+    assert score==metric['full_primary'] and score['passed']==s['design_passed']
+    return score
+def refresh():
+    c=read(ROOT/'campaign.json');selections=[];unresolved=[]
+    for p in (ROOT/'decisions').glob('*_selected.json'):selections.append(read(p))
+    for p in (ROOT/'decisions').glob('*_unresolved.json'):unresolved.append(read(p))
+    complete={d['parent'] for d in selections+unresolved}
+    status=dict(at=now(),baseline_passed=len(c['baseline_passed']),newly_passed=len(selections),total_current_passed=len(c['baseline_passed'])+len(selections),
+       bounded_unresolved=len(unresolved),awaiting_tuning=43-len(complete),selected=selections,unresolved=unresolved,budget=validate_campaign(),
+       all48_passed=len(selections)==43,old_blind_results_unchanged=True)
+    write(ROOT/'CURRENT_STATUS.json',status)
+    (ROOT/'CURRENT_STATUS.md').write_text('# 固定P/R达标调谐进度\n\n'
+        f'原先通过{len(c["baseline_passed"])}项；新调谐通过{len(selections)}项；局部预算内未解{len(unresolved)}项；尚待{43-len(complete)}项。\n\n'
+        f'已用Analyze {status["budget"]["Analyze_used"]}/2236。原48首次判定/模型预测不覆盖；新结果不是独立盲测。\n',encoding='utf-8')
+    return status
+def next_parent():
+    c=read(ROOT/'campaign.json');status=refresh()
+    if not (ROOT/'pilot_success_gate.json').exists():return dict(action='pilot_hold_no_bulk_release',reason='Pilot has not actually passed original joint target')
+    for parent in c['tuning_order']:
+        if (ROOT/'decisions'/f'{parent}_selected.json').exists() or (ROOT/'decisions'/f'{parent}_unresolved.json').exists():continue
+        existing=next((e for e in entries() if e['parent']==parent and e['kind']=='probes'),None)
+        if existing:return dict(action='inspect_existing_context_no_duplicate',context=existing['context'])
+        return dict(action='new_probe_context_prepared',context=str(probes(parent)))
+    return dict(action='bounded_round_terminal',all48_passed=status['all48_passed'],total_passed=status['total_current_passed'],unresolved=status['bounded_unresolved'])
+def c2_proposal(parent,c1run):
+    e=next(e for e in entries() if e['parent']==parent and e['kind']=='probes');p=read(Path(e['context'])/'plan.json')['cases'];base=baseline(parent)
+    f,s=load_curve(Path(base['effective_run'])/'sparams.csv');fs,ss=load_curve(Path(p[0]['run_dir'])/'sparams.csv');fm,sm=load_curve(Path(p[1]['run_dir'])/'sparams.csv')
+    fc,sc=load_curve(c1run/'sparams.csv');assert np.array_equal(f,fs) and np.array_equal(f,fm) and np.array_equal(f,fc)
+    scales=np.array([.20,.10]);g0=base['geometry_mm'];gc=read(c1run/'state.json')['geometry']
+    u=np.array([(gc['Ls1']-g0['Ls1'])/.20,(gc['Lm']-g0['Lm'])/.10]);assert u@u>1e-10
+    j=np.stack([(ss-s)/.1*.20,(sm-s)/.05*.10],axis=-1)
+    residual=sc-(s+np.einsum('nkd,d->nk',j,u));jc=j+residual[:,:,None]*(u/(u@u))[None,None,:]
+    bounds=[(max(-1,x-.5),min(1,x+.5)) for x in u];target=read(ROOT/'campaign.json')['target']
+    def prediction(v):return sc+np.einsum('nkd,d->nk',jc,v-u)
+    def objective(v):return assess(f,prediction(v),target,True)['objective']+.02*float((v-u)@(v-u))
+    grid=sorted((objective(np.array([a,b])),[float(a),float(b)]) for a in np.linspace(*bounds[0],21) for b in np.linspace(*bounds[1],21))
+    best=(grid[0][0],np.array(grid[0][1]))
+    for _,v in grid[:5]:
+        fit=minimize(objective,np.array(v),method='Powell',bounds=bounds,options=dict(maxiter=80,xtol=1e-4,ftol=1e-5))
+        if np.isfinite(fit.fun) and fit.fun<best[0]:best=(float(fit.fun),fit.x)
+    g=copy.deepcopy(g0);g['Ls1']+=float(best[1][0]*.20);g['Lm']+=float(best[1][1]*.10)
+    score=assess(f,prediction(best[1]),target,True)
+    return dict(action='candidate' if score['shape_valid'] and score['passed'] else 'no_supported_length_candidate',geometry=g,predicted=score,
+        method='Scaled-coordinate rank1 Broyden, half trust region around actualC1',prediction_is_HFSS=False,global_bounds_unchanged=True)
+def unsupported(parent,context,reason):
+    dest=ROOT/'decisions'/f'{parent}_unresolved.json'
+    if not dest.exists():new(dest,dict(at=now(),parent=parent,reason=reason,fixed_PR=True,not_proof_of_physical_impossibility=True))
+    c=read(ROOT/'campaign.json');refresh()
+    if parent==c['pilot_parent']:
+        ctx=Path(context);last=Path(read(ctx/'plan.json')['cases'][-1]['run_dir'])
+        resolution=last/'continuation_resolution.json'
+        if not resolution.exists():new(resolution,dict(at=now(),event_sha256=sha(last/'completion_event.json'),disposition='blocked',reason='Pilot local bounded search found no supported full-target pass; no bulk release. Need methodology or wider-length-range decision, not width/window changes.'))
+        import subprocess
+        subprocess.run([sys.executable,str(ctx/'phase_heartbeat.py'),'stop'],check=True,capture_output=True)
+        return dict(action='pilot_hold_no_bulk_release',parent=parent,reason=reason)
+    return next_parent()
+def main(context):
+    validate_campaign();ctx=Path(context).resolve();entry=next(e for e in entries() if Path(e['context']).resolve()==ctx)
+    rows=read(ctx/'plan.json')['cases'];parent=entry['parent'];results=[]
+    for row in rows:
+        run=Path(row['run_dir'])
+        if not (run/'state.json').exists():return dict(action='launch_unique_next_case',case=row['case'],context=str(ctx),command=f'{ctx/"launch_one.py"} --case {row["case"]}')
+        if not (run/'receiver_ack.json').exists():return dict(action='review_and_actual_visual_ACK_required',case=row['case'],run=str(run))
+        results.append((row,checked(run)))
+    good=[(r,s) for r,s in results if s['passed']]
+    if good:
+        row,score=min(good,key=lambda t:t[1]['worst_S11_dB']);run=Path(row['run_dir']);dest=ROOT/'decisions'/f'{parent}_selected.json'
+        if not dest.exists():new(dest,dict(at=now(),parent=parent,selected_case=row['case'],selected_run=str(run),geometry=row['geometry'],
+            P_nominal=row['P_nominal'],R_nominal=row['R_nominal'],score=score,ACK_sha256=sha(run/'receiver_ack.json'),nominal_interpolated_target_pass=True,not_final_direct_certification=True))
+        if parent==read(ROOT/'campaign.json')['pilot_parent'] and not (ROOT/'pilot_success_gate.json').exists():
+            new(ROOT/'pilot_success_gate.json',dict(at=now(),passed=True,parent=parent,selected_sha256=sha(dest),actual_visual_ACK_sha256=sha(run/'receiver_ack.json')))
+        return next_parent()
+    if entry['kind']=='c2':return unsupported(parent,ctx,'Two probes and two actual candidates exhausted; original full target not passed')
+    kind='c1' if entry['kind']=='probes' else 'c2';decision=ROOT/'decisions'/f'{parent}_{kind}_decision.json'
+    if decision.exists():proposal=read(decision)['proposal']
+    else:
+        if kind=='c1':
+            b=baseline(parent)
+            proposal=propose(load_curve(Path(b['effective_run'])/'sparams.csv'),load_curve(Path(rows[0]['run_dir'])/'sparams.csv'),load_curve(Path(rows[1]['run_dir'])/'sparams.csv'),b['geometry_mm'],read(ROOT/'campaign.json')['target'])
+        else:proposal=c2_proposal(parent,Path(rows[0]['run_dir']))
+        new(decision,dict(at=now(),parent=parent,proposal=proposal,original_target_preserved=True,not_HFSS_prediction=True,
+            source_ACKs={str(Path(r['run_dir'])/'receiver_ack.json'):sha(Path(r['run_dir'])/'receiver_ack.json') for r in rows}))
+    if proposal['action']!='candidate':return unsupported(parent,ctx,'No model-supported original-target candidate within fixed length trust region')
+    existing=next((e for e in entries() if e['parent']==parent and e['kind']==kind),None)
+    if existing:return dict(action='inspect_existing_candidate_context_no_duplicate',context=existing['context'])
+    candidate=make(parent,kind,[proposal['geometry']],decision);refresh()
+    return dict(action='new_candidate_context_prepared',context=str(candidate),prediction_is_HFSS=False)
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',required=True);a=p.parse_args();(ROOT/'decisions').mkdir(exist_ok=True)
+    print(json.dumps(main(a.context),ensure_ascii=False,indent=2))

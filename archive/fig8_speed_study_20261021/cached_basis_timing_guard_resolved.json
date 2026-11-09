@@ -1,0 +1,4 @@
+{
+  "at_utc": "2026-10-21T09:14:16.403391+00:00",
+  "error": "Traceback (most recent call last):\n  File \"${WORKSPACE}\\output\\fig8_speed_study_20261021\\sweep_only_study.py\", line 129, in main\n    try:write(HERE/'sweep_only_results.json',[await execute(c) for c in plan['cases']])\n                                              ^^^^^^^^^^^^^^^^\n  File \"${WORKSPACE}\\output\\fig8_speed_study_20261021\\sweep_only_study.py\", line 112, in execute\n    assert any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nAssertionError\n"
+}

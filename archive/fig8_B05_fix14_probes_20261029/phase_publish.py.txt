@@ -1,0 +1,5 @@
+"""Separate stage B event store; current-chat messages only."""
+import sys
+from phase_control import HERE,HOOK,TARGET
+sys.path.insert(0,str(HOOK))
+import completion_hook as hook

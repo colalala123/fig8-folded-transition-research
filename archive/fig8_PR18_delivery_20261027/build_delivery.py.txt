@@ -1,0 +1,107 @@
+"""Assemble original34+new18 with per-label qualification, not invented acceptance."""
+import json,hashlib,sys,datetime
+from pathlib import Path
+import numpy as np
+HERE=Path(__file__).resolve().parent;OUTPUT=HERE.parent
+P=OUTPUT/'fig8_PR18_20261027';OLD=OUTPUT/'fig8_inverse_PR_20261027'
+sys.path.insert(0,str(OLD))
+from model import Forward,pr,intervals,center_band,band_score
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def write(p,d):Path(p).write_text(json.dumps(d,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf-8')
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def error_stats(values):
+    a=np.array(values,dtype=float)
+    return dict(MAE=float(np.mean(abs(a))),maximum_absolute_error=float(max(abs(a))),signed_bias=float(np.mean(a)))
+def X(rows):return np.array([[1,np.log(r['P']),np.log(r['R']),r['a']-1.6] for r in rows])
+def fit(rows,key):
+    x=X(rows);y=np.array([r['fit_labels'][key] for r in rows]);b=np.linalg.lstsq(x,y,rcond=None)[0];held=[]
+    for group in sorted({r['group'] for r in rows}):
+        test=np.array([r['group']==group for r in rows]);bb=np.linalg.lstsq(x[~test],y[~test],rcond=None)[0]
+        for r,pred,actual in zip(np.array(rows,dtype=object)[test],x[test]@bb,y[test]):
+            held.append(dict(case=r['case'],heldout_group=group,predicted=float(pred),actual=float(actual),error=float(pred-actual)))
+    return dict(terms=['1','lnP','lnR','a-1.6'],coefficients=b.tolist(),training_error=error_stats(x@b-y),
+        leave_width_pair_out=error_stats([r['error'] for r in held]),heldout_predictions=held,
+        validation='Both arms of each width/P-R group held out together; not independent inverse-design blind validation')
+
+def main():
+    closure=read(P/'execution_summary.json');assert closure['direct_reviewed']==18 and closure['direct_accepted']==16
+    ledger=read(P/'final_review/case_work_ledger.json');assert all(t['status']=='reviewed' for t in ledger['tasks'])
+    old=read(OLD/'dataset.json');rows=old['rows'];hashes={str(OLD/'dataset.json'):sha(OLD/'dataset.json')}
+    for file,h in old['source_hashes'].items():assert sha(file)==h,file
+    for row in rows:
+        assert sha(row['source_curve'])==row['source_curve_sha256']
+        row.update(full_curve_proxy_eligible=True,evidence=dict(tier=row['acceptance_tier'],current_direct_review=False,all_new_minus20_edges_reviewed=False,scientific_caveat='Historical finite native fundamental review; not every new -20dB edge was directly sampled'))
+        row['fit_labels']=dict(S21_BW_GHz=row['metrics20']['transmission2_center_band_GHz'][2],worse_inner_peak_dB=row['metrics20']['worse_inner_peak_dB'])
+    selected=read(P/'final_review/selected_sources.json')['cases'];frozen={r['case']:r for r in read(P/'predictions_frozen.json')['cases']}
+    curves={r['case']:r for r in read(OLD/'predicted_curves18.json')['curves']};new=[];comparison=[]
+    for sel in selected:
+        case=sel['case'];src=Path(sel['source']);run=Path('J:/f8_PR18_261027')/case/'direct_smallbatch'
+        spec=read(src/'input.json');m=read(src/'response_metrics.json');t=read(src/'target20_metrics.json');c=read(run/'comparison.json');ack=read(run/'receiver_ack.json');v=read(run/'receiver_verification.json')
+        assert ack['visual_review_completed'] and ack['artifacts_verified'] and v['same_mesh_verified']
+        for item in read(run/'completion_event.json')['artifacts']:assert sha(run/item['path'])==item['sha256']
+        assert c['sampled_design_supported'] and c['max_complex_error']<=.005 and c['max_nearband_S21_error_dB']<=.05
+        assert max(c['peak_height_errors_dB'])<=.1 and c['BW_shift_GHz']<=.02
+        center_review=next(b for b in c['joint20_band_reviews'] if b['edges'][0]['reference_GHz']<=6.72<=b['edges'][1]['reference_GHz'])
+        center_qualified=(center_review['width_shift_GHz'] is not None and center_review['width_shift_GHz']<=.02 and all(e['shift_GHz'] is not None and e['shift_GHz']<=.02 for e in center_review['edges']))
+        assert center_qualified
+        data=np.genfromtxt(src/'sparams.csv',delimiter=',',names=True);g=spec['geometry'];p,r=pr(g['Wm'],g['Ws']);arm=round(g['Ls3']-g['Ws'],8)
+        assert abs(p-frozen[case]['target_P'])<1e-5 and abs(r-frozen[case]['target_R'])<1e-5
+        evidence=dict(current_direct_review=True,overall_scoped_accepted=ack['scoped_accepted'],S21_bandwidth_finite_consistency=True,inner_peak_finite_consistency=True,center_joint20_finite_consistency=center_qualified,all_joint20_edges_passed=c['joint20_edges_passed'],full_matrix_approved=False,direct_run=str(run),ack_sha256=sha(run/'receiver_ack.json'))
+        row=dict(case=case,group=frozen[case]['group'],geometry_mm=g,frequency_GHz=data['Freq_GHz'].tolist(),S11_dB=data['S11_dB'].tolist(),S21_dB=data['S21_dB'].tolist(),mesh=sel['actual_elements'],a=arm,P=p,R=r,peaks=[q['S11_dB'] for q in m['peaks']],metrics20=t,source_curve=str(src/'sparams.csv'),source_curve_sha256=sha(src/'sparams.csv'),acceptance_tier='finite_native_all_joint_edges_passed' if ack['scoped_accepted'] else 'finite_partial_S21_peak_centerband_only',original_role='PR18_fixed_PR_training_addition',evidence=evidence,full_curve_proxy_eligible=bool(ack['scoped_accepted']),fit_labels=dict(S21_BW_GHz=c['direct_BW_GHz'],worse_inner_peak_dB=max(q['dB'] for q in c['direct_peaks'])),direct_center_joint20_GHz=[center_review['edges'][0]['direct_GHz'],center_review['edges'][1]['direct_GHz'],center_review['direct_width_GHz']])
+        rows.append(row);new.append(row)
+        for file in [src/'input.json',src/'sparams.csv',src/'target20_metrics.json',run/'completion_event.json',run/'comparison.json',run/'receiver_ack.json',run/'receiver_verification.json']:hashes[str(file)]=sha(file)
+        pred=frozen[case];q=curves[case]
+        initial=Path('J:/f8_PR18_261027')/case/'g01_initial';mi=read(initial/'response_metrics.json');ti=read(initial/'target20_metrics.json')
+        record=dict(case=case,nominal_P=p,nominal_R=r,a_mm=arm,retuned=src!=initial,predicted_widthlaw_BW_GHz=pred['predicted_BW_GHz'],predicted_proxy_joint20_BW_GHz=pred['predicted_joint20_center_band_GHz'][2],predicted_proxy_peak_dB=pred['predicted_max_S11_4p5to8p8_dB'],initial_BW_GHz=mi['passband_2dB']['BW_GHz'],initial_joint20_BW_GHz=ti['joint20_center_band_GHz'][2],selected_BW_GHz=m['passband_2dB']['BW_GHz'],selected_joint20_BW_GHz=t['joint20_center_band_GHz'][2],direct_BW_GHz=c['direct_BW_GHz'],direct_joint20_center_BW_GHz=center_review['direct_width_GHz'],direct_sampled_worse_peak_dB=row['fit_labels']['worse_inner_peak_dB'],overall_numerical_passed=ack['scoped_accepted'],S21_peak_center_band_qualified=True)
+        actual=np.array(row['S11_dB']);pred11=np.array(q['S11_dB']);mask=(data['Freq_GHz']>=3.5)&(data['Freq_GHz']<=10)&(actual>=-25)&(actual<=-15)
+        record['frozen_curve_optimism_near_minus20_dB']=float(max(np.r_[0,(actual-pred11)[mask]]))
+        for which,bw,joint,peak in [('initial',record['initial_BW_GHz'],record['initial_joint20_BW_GHz'],ti['worse_inner_peak_dB']),('selected',record['selected_BW_GHz'],record['selected_joint20_BW_GHz'],t['worse_inner_peak_dB']),('direct',record['direct_BW_GHz'],record['direct_joint20_center_BW_GHz'],record['direct_sampled_worse_peak_dB'])]:
+            record[which+'_widthlaw_BW_error_GHz']=pred['predicted_BW_GHz']-bw
+            record[which+'_proxy_joint20_BW_error_GHz']=pred['predicted_joint20_center_band_GHz'][2]-joint
+            record[which+'_proxy_peak_error_dB']=pred['predicted_max_S11_4p5to8p8_dB']-peak
+        comparison.append(record)
+    assert len(rows)==52 and len({(x['geometry_mm']['Wm'],x['geometry_mm']['Ws']) for x in rows})==26
+    assert len([r for r in rows if r['full_curve_proxy_eligible']])==50
+    write(HERE/'dataset52.json',dict(rows=rows,source_hashes=hashes,uniform_data_used=False,width_pairs=26,full_curve_proxy_rows=50,partial_rows=['P04G05','P05G05'],new18_are_training_additions_not_inverse_blind_tests=True,nominal_impedance='er3.55,6.72GHz independent straight-line models, TXLINE checked; not response-derived effective bent impedances'))
+    trends=[]
+    for arm in [1.4,1.8]:
+        for pp in [2.04,2.16,2.28]:
+            rr=sorted([x for x in new if x['a']==arm and abs(x['P']-pp)<1e-5],key=lambda x:x['R'])
+            trends.append(dict(a_mm=arm,fixed_P=pp,R=[x['R'] for x in rr],cases=[x['case'] for x in rr],S21_BW_GHz=[x['fit_labels']['S21_BW_GHz'] for x in rr],joint20_center_BW_GHz=[x['direct_center_joint20_GHz'][2] for x in rr],worse_sampled_peak_dB=[x['fit_labels']['worse_inner_peak_dB'] for x in rr],S21_strictly_decreasing=all(a['fit_labels']['S21_BW_GHz']>b['fit_labels']['S21_BW_GHz'] for a,b in zip(rr,rr[1:]))))
+    assert all(x['S21_strictly_decreasing'] for x in trends)
+    p_trends=[]
+    for arm in [1.4,1.8]:
+        for rr in [.43,.455,.475]:
+            ss=sorted([x for x in new if x['a']==arm and abs(x['R']-rr)<1e-5],key=lambda x:x['P'])
+            assert all(a['fit_labels']['S21_BW_GHz']<b['fit_labels']['S21_BW_GHz'] for a,b in zip(ss,ss[1:]))
+            p_trends.append(dict(a_mm=arm,fixed_R=rr,P=[x['P'] for x in ss],S21_BW_GHz=[x['fit_labels']['S21_BW_GHz'] for x in ss]))
+    pairs=[]
+    for group in sorted({x['group'] for x in new}):
+        pair=sorted([x for x in new if x['group']==group],key=lambda x:x['a'])
+        pairs.append(dict(group=group,BW_long_minus_short_MHz=(pair[1]['fit_labels']['S21_BW_GHz']-pair[0]['fit_labels']['S21_BW_GHz'])*1000))
+    validation=dict(local_PR18_formulas={key:fit(new,key) for key in ['S21_BW_GHz','worse_inner_peak_dB']},all52_descriptive_formulas={key:fit(rows,key) for key in ['S21_BW_GHz','worse_inner_peak_dB']},fixed_P_trends=trends,fixed_R_trends=p_trends,arm_pairs=pairs,arm_effect_MHz=dict(mean=float(np.mean([x['BW_long_minus_short_MHz'] for x in pairs])),minimum=min(x['BW_long_minus_short_MHz'] for x in pairs),maximum=max(x['BW_long_minus_short_MHz'] for x in pairs)),independent_inverse_blind_test_completed=False)
+    summaries={}
+    for which in ['initial','selected','direct']:
+        summaries[which]={name:error_stats([x[which+'_'+name] for x in comparison]) for name in ['widthlaw_BW_error_GHz','proxy_joint20_BW_error_GHz','proxy_peak_error_dB']}
+    validation['frozen_before_solve_prediction_errors']=summaries
+    validation['frozen_proxy_joint20_worst_cases']=sorted(comparison,key=lambda r:abs(r['direct_proxy_joint20_BW_error_GHz']),reverse=True)[:4]
+    # Group-holdout full-curve proxy; both arms withheld, no hull extrapolation.
+    eligible=[x for x in rows if x['full_curve_proxy_eligible']];held=[]
+    for group in sorted({x['group'] for x in eligible}):
+        model=Forward([x for x in eligible if x['group']!=group])
+        for row in [x for x in eligible if x['group']==group]:
+            g=row['geometry_mm']
+            try:q=model.predict(g['Wm'],g['Ws'],row['a'])
+            except ValueError:held.append(dict(case=row['case'],group=group,predictable=False,reason='Outside heldout-training convex hull; no extrapolation'));continue
+            actual=np.array(row['S11_dB']);mask=(q['f']>=3.5)&(q['f']<=10)&(actual>=-25)&(actual<=-15)
+            held.append(dict(case=row['case'],group=group,predictable=True,max_S11_optimism_near_threshold_dB=float(max(np.r_[0,(actual-q['s11'])[mask]])),joint20_center_BW_error_GHz=center_band(intervals(q['f'],q['s11'],q['s21']))[2]-row['metrics20']['joint20_center_band_GHz'][2]))
+    optimism=max([x['max_S11_optimism_near_threshold_dB'] for x in held if x['predictable']]+[x['frozen_curve_optimism_near_minus20_dB'] for x in comparison])
+    validation.update(full_curve_leave_width_pair_out=held,screening_margin_S11_dB=max(.5,optimism+.1),margin_is_guarantee=False,full_curve_proxy_excludes_partial_rows=True)
+    write(HERE/'model_validation.json',validation)
+    write(HERE/'new18_metrics.json',dict(cases=comparison,prediction_error_summaries=summaries,true_inverse_blind_validation=False))
+    write(HERE/'execution_results.json',closure)
+    write(HERE/'build_summary.json',dict(at=datetime.datetime.now(datetime.timezone.utc).isoformat(),rows=52,width_pairs=26,full_curve_proxy_rows=50,old34_preserved=True,new_direct_reviewed=18,new_overall_passed=16,new_partial=2,uniform_data_used=False))
+    print(dict(local_BW_formula=validation['local_PR18_formulas']['S21_BW_GHz']['coefficients'],local_BW_groupCV=validation['local_PR18_formulas']['S21_BW_GHz']['leave_width_pair_out'],local_peak_groupCV=validation['local_PR18_formulas']['worse_inner_peak_dB']['leave_width_pair_out'],proxy_screening_margin_dB=validation['screening_margin_S11_dB'],frozen_prediction_errors=summaries,arm_effect_MHz=validation['arm_effect_MHz']))
+
+if __name__=='__main__':main()

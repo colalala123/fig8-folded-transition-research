@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-26T08:29:23.716996+00:00",
+  "input_sha256": "c07fda507d65bfe8792a7cad252454c9e2c84d8ca0b0cef272e60f5e59e16ee1",
+  "worker_pid": 33916,
+  "worker_created": 1793003315.6326022,
+  "worker_command": [
+    "D:\\uv\\python\\cpython-3.12.13-windows-x86_64-none\\python.exe",
+    "${WORKSPACE}\\output\\fig8_iso4_20261026\\phase_geometry_worker.py",
+    "--spec",
+    "J:\\f8_I4_261026\\I01G02\\g01_initial\\input.json"
+  ],
+  "actual_hf3d": [
+    {
+      "cmdline": [
+        "25608_6",
+        "25608_7",
+        "J:\\f8_finish24_261023\\solver_temp\\hfss_DESKTOP-94969B0_25608.pjt/",
+        "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 1 8000000000 -freq 550000000 -max_processors 16 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+      ],
+      "pid": 16612,
+      "name": "hf3d.exe"
+    }
+  ],
+  "active_stage": "supervised_geometry_adaptive",
+  "actual_elements": null,
+  "mcp_requests": [
+    {
+      "project_name": "I01G02_I4_g01",
+      "design_name": "Wideband vertical transition",
+      "setup_name": "Setup19",
+      "port": 7990,
+      "concurrent_tasks": 1,
+      "cores_per_task": 16,
+      "blocking": false,
+      "timeout": 120
+    }
+  ],
+  "geometry": {
+    "Wm": 1.25,
+    "Ws": 0.543938,
+    "Lm": 6.498642059528055,
+    "Ls1": 12.281375981472593,
+    "Ls2": 1.637876,
+    "Ls3": 1.943938
+  },
+  "actual_16core_single_group_observed": true
+}

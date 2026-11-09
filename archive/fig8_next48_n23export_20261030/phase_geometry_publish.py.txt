@@ -1,0 +1,23 @@
+"""Actual terminal-only B6 notifications; completion+5min state-aware recovery."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+
+def prompt(event,path):
+    return (f'[Fig8 N23_A18零新增Analyze导出恢复终态] {path}\n{event["summary"]}\n'
+      f'先读{HERE/"CONTINUATION.md"}。原失败事件保留不改；本路径只恢复导出，已按授权重启一次、未新增Analyze。'
+      '仅运行${WORKSPACE}/output/fig8_next48_20261029/continuation_export_v4.py review；实际view_image后用本上下文acknowledge_review.py。'
+      '核验训练38与测试10分别统计、原预测/模型哈希未变、真实成本和晚到扫频来源不确定性。'
+      '这是第48项，无后继，不创建第9段，不调参、不重训、不重复Analyze。失败只诊断，唯一恢复已经使用。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Next48 frozen acquisition;14cores serial;no retuning')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

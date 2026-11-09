@@ -1,0 +1,78 @@
+"""Audited scalar-reference recovery; never edits native curves or solver data."""
+import json,sys,shutil
+from pathlib import Path
+import numpy as np
+HERE=Path(__file__).resolve().parent;ROOT=Path('J:/f8_261007')
+sys.path.insert(0,str(HERE.parent/'fig8_handoff_20261002'))
+from pilot_worker import sha,write_json,now
+from check_legacy_scalar_reference import load_modal,transform
+from complete_reference_evidence import common_fields
+from pilot_supervisor import aux_compare,verify_boundaries
+from pilot_queue import compare
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8'))
+
+def audit_matrix(run,out=None):
+    run=Path(run);out=Path(out or run);out.mkdir(exist_ok=True,parents=True)
+    m=read(run/'manifest.json')
+    assert sha(m['source'])==m['source_sha256']
+    assert sha(run/'sparams.csv')==m['curve_sha256']
+    assert m['convergence']['converged'] and m['convergence']['final_delta_s']<=.005 and m['sweep_converged']
+    errors=[x for x in m.get('messages',[]) if any(k in x.lower() for k in ['[error]','did not converge','execution error'])]
+    assert not errors,errors
+    c2=read(HERE/'normalization_2mode_confirmation.json')['calibration_2mode']
+    c3=read(HERE/'external_normalization_diagnostic.json')['comparisons']
+    assert max(x['max_complex_error'] for x in c2.values())<1e-10
+    assert max(x['traveling']['max_complex_error'] for x in c3.values())<1e-10
+    f,s,z,modes=load_modal(run)
+    assert len(f)==1500 and np.allclose(f,np.arange(1,1501)*.01,rtol=0,atol=1e-9)
+    assert np.isfinite(s).all() and np.isfinite(z).all() and np.all(abs(z)>0)
+    fixed=transform(s,z,'traveling');sv=np.linalg.svd(fixed,compute_uv=False)[:,0]
+    reciprocity=float(abs(fixed-fixed.transpose(0,2,1)).max())
+    np.savez_compressed(out/'scalar_reference_50ohm.npz',frequency_GHz=f,S=fixed,modal_Zo=z,mode_labels=modes)
+    warnings=[x for x in m.get('messages',[]) if 'passiv' in x.lower()]
+    passed=bool(np.isfinite(fixed).all() and max(sv)<=1.001 and reciprocity<=1e-6)
+    result={'passed':passed,'max_sv':float(max(sv)),'passivity_violations':int(sum(sv>1.001)),
+      'reciprocity_error':reciprocity,'reciprocity_gate_note':'1e-6 is a conservative review trigger; exceeding it requires explicit numerical review, not a declaration of physical failure.',
+      'points':len(f),'original_HFSS_passivity_messages':warnings,
+      'warning_disposition':'Explicit modal scalar Zo and full complex S used for calibrated traveling-wave reference conversion. Original HFSS full-Z export/warnings retained. Recovery is accepted only when convergence, matrix, port identity and independent reference comparisons pass.',
+      'method':'S50 = B A^-1, D=sqrt(Zo/50), A=(D+D^-1)I+(D-D^-1)S, B=(D-D^-1)I+(D+D^-1)S. No clipping, projection, symmetrization, interpolation or fitted correction.',
+      'reviewed_at_utc':now()}
+    files=[run/x for x in ['manifest.json','all_modes_sparams.csv','mode_impedance_gamma.csv','sparams.csv','mode_map.json']]
+    files += [HERE/'normalization_2mode_confirmation.json',HERE/'external_normalization_diagnostic.json',Path('F:/hfss_f8x_261002/modal_seed_transfer_audit.json'),out/'scalar_reference_50ohm.npz']
+    result['evidence_hashes']={str(p):sha(p) for p in files}
+    write_json(out/'normalization_recovery_review.json',result)
+    return result
+
+def recover_collectors():
+    old=Path('F:/hfss_f8x_261002');ref=HERE/'baseline/native_comparable';results={}
+    for name,dest in [('V_copy','B0BC'),('V_rebuild','B0BR')]:
+        run=old/name;out=ROOT/dest;out.mkdir(exist_ok=True)
+        m=read(run/'manifest.json');setup=m['settings']['setup'];sweep=m['settings']['sweep']
+        assert setup['SolveType']=='Broadband' and setup['MultipleAdaptiveFreqsSetup']=={'Low':'0.1GHz','High':'15GHz'}
+        for k,v in {'MaxDeltaS':.005,'MaximumPasses':40,'MinimumPasses':6,'MinimumConvergedPasses':2,'PercentRefinement':30,'PortAccuracy':2}.items():assert setup[k]==v
+        for k,v in {'Type':'Interpolating','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz','InterpTolerance':.5}.items():assert sweep[k]==v
+        assert m['cores']==16 and m['tasks']==1 and m['modes']==2
+        assert m['mcp_analysis_start']['resource_plan']['cores_per_task']==16
+        if name=='V_rebuild':assert m['cad_verification']['passed']
+        for filename in ['sparams.csv','response_metrics.json','mode_impedance_gamma.csv','mode_map.json']:
+            shutil.copy2(run/filename,out/filename)
+        write_json(out/'manifest.json',{**m,'recovered_from':str(run),'original_manifest_sha256':sha(run/'manifest.json')})
+        review={'numerical':audit_matrix(run,out),'direct_three_mode_comparison':compare(out,ref,'stable'),
+                'original_protocol_comparison':compare(old/'M_B0_2',out,'collector'),
+                'fields':common_fields(old/'M_B0_2',out),'auxiliary':aux_compare(old/'M_B0_2',out),'boundaries':verify_boundaries(out)}
+        review['passed']=all(x['passed'] for x in review.values())
+        files=[out/x for x in ['sparams.csv','response_metrics.json','mode_impedance_gamma.csv','manifest.json','normalization_recovery_review.json']]
+        files += [ref/'sparams.csv',ref/'response_metrics.json',ref/'manifest.json',run/'manifest.json']
+        review['evidence_hashes']={str(p):sha(p) for p in files}
+        write_json(out/'collector_case_review.json',review);results[dest]=review
+    match=compare(ROOT/'B0BC',ROOT/'B0BR','collector')
+    result={'copy':results['B0BC'],'rebuild':results['B0BR'],'copy_vs_rebuild':match,
+        'passed':all(x['passed'] for x in results.values()) and match['passed'],
+        'method':'Original Broadband Setup19/Sweep1, native fundamental response retained; independently calibrated scalar-reference recovery for matrix audit.',
+        'reused_successful_solves':True,'new_solves':0,'reviewed_at_utc':now(),
+        'evidence_hashes':{str(ROOT/n/'collector_case_review.json'):sha(ROOT/n/'collector_case_review.json') for n in results}}
+    write_json(ROOT/'broadband_collector_review.json',result)
+    print(json.dumps({n:r['passed'] for n,r in results.items()}))
+
+if __name__=='__main__':recover_collectors()

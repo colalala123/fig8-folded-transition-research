@@ -1,0 +1,41 @@
+{
+  "checked_at_utc": "2026-10-08T03:37:01.851360+00:00",
+  "classification": "verified_wait",
+  "previous_turn_classification": "verified_wait",
+  "controller_pid": 21352,
+  "controller_alive": true,
+  "adapter_status": "running",
+  "flow": {
+    "status": "direct_check",
+    "updated_at_utc": "2026-10-08T02:00:20+00:00"
+  },
+  "direct_status": "solving",
+  "updated_at_utc": "2026-10-08T03:37:00+00:00",
+  "actual_solvers": [
+    {
+      "name": "hf3d.exe",
+      "pid": 3188,
+      "cmdline": [
+        "D:\\Program Files\\AnsysEM\\v242\\Win64\\hf3d.exe",
+        "-standalonesolve",
+        "9610000000.000000",
+        "${USER_HOME}\\AppData\\Local\\Temp\\hfss_DESKTOP-94969B0_52760.pjt/",
+        "-1"
+      ]
+    },
+    {
+      "name": "hf3d.exe",
+      "pid": 69432,
+      "cmdline": [
+        "52760_0",
+        "52760_1",
+        "${USER_HOME}\\AppData\\Local\\Temp\\hfss_DESKTOP-94969B0_52760.pjt/",
+        "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 10000000000 -max_processors 16 -DonotRestartOnEachFreqGroup -UseSolverWrapper -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+      ]
+    }
+  ],
+  "stderr_has_traceback": false,
+  "wait_seconds": 45,
+  "restarted": false,
+  "md_age_seconds": 9.199382305145264
+}

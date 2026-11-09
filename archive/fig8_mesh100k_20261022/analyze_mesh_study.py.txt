@@ -1,0 +1,135 @@
+"""Compare matching mesh-count brackets on identical response extraction/sweep settings."""
+import json,sys
+from pathlib import Path
+from datetime import datetime,timezone,timedelta
+import numpy as np
+from run_mesh_study import HERE,BASE,ROOT,PREV,RUNS,REFERENCES,REUSE,read,write,sha,curve,compare,canonical_ports
+from analyze_study import profiles,passes
+def main():
+    plan=read(HERE/'frozen_plan.json');rows=[]
+    choices=[(label,case,BASE/label,False) for label,case,_,_ in RUNS]+[('N112_D08G05','D08G05',REUSE,True)]
+    for label,case,folder,reused in choices:
+        if not (folder/'state.json').exists():continue
+        s=read(folder/'state.json')
+        if s['status']!='completed':continue
+        r=compare(folder,REFERENCES[case],case);ref=read(REFERENCES[case]/'state.json');sw=s['sweep_after'];rsw=ref['sweep_after']
+        for k in ['RangeStart','RangeEnd','RangeStep','InterpTolerance','EnforcePassivity','InterpMaxSolns','InterpUseS','InterpUsePortImped','InterpUsePropConst','UseFullBasis']:
+            assert sw[k]==rsw[k],(label,k)
+        assert canonical_ports(s['ports'])==canonical_ports(ref['ports'])
+        assert s['geometry']==ref['geometry'] and s['cad_verification']['passed']
+        assert sha(Path(s['source']))==s['source_sha256']==plan['source_sha256'][case]
+        assert s['fresh_mesh_verified'] and not s['cache_copied']
+        assert s['mcp_request']['cores_per_task']==16 and s['mcp_request']['concurrent_tasks']==1
+        commands=[' '.join(p['cmdline'] or []) for obs in s['observations'] for p in obs]
+        assert any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+        if not reused:
+            assert s['target_count_met'],label+' mesh count missed planned bracket; report explicitly, do not claim 100k'
+            cap=next(t[2] for t in RUNS if t[0]==label);assert s['setup_after']['MinimumPasses']==s['setup_after']['MaximumPasses']==cap
+            before=s['setup_before'];after=s['setup_after']
+            diff={k:[v,after.get(k)] for k,v in before.items() if k!='Sweeps' and after.get(k)!=v}
+            assert diff=={'MaximumPasses':[40,cap],'MinimumPasses':[6,cap]},diff
+        h=passes(folder/'convergence.txt');count=h[-1][1];timing=profiles(folder)
+        refhistory=passes(REFERENCES[case]/'convergence.txt')
+        prefix=refhistory[:len(h)]
+        history_counts_match=bool(len(prefix)==len(h) and all(x[:2]==y[:2] for x,y in zip(h,prefix)))
+        history_delta_match=bool(history_counts_match and np.allclose([x[2] for x in h],[x[2] for x in prefix],atol=1e-7,rtol=1e-4))
+        assert history_counts_match and history_delta_match,'Adaptive history unexpectedly changed before stopping'
+        assert s['sweep_converged'],label+' interpolation did not converge; retain evidence without automatic repair'
+        record={'label':label,'case':case,'folder':str(folder),'reused':reused,'actual_elements':count,'adaptive_converged':s['convergence']['converged'],
+          'final_delta_s':s['convergence']['final_delta_s'],'max_delta_s_setting':s['setup_after']['MaxDeltaS'],'passes':h[-1][0],'sweep_converged':s['sweep_converged'],'timing':timing,'comparison':r,
+          'BW_relative_error_percent':r['BW_error_MHz']/10/r['reference_metrics']['passband_2dB']['BW_GHz'],
+          'hashes':{str(folder/n):sha(folder/n) for n in ['state.json','manifest.json','convergence.txt','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']},
+          'checks_passed':True,'design_accepted':False,'adaptive_prefix_counts_match':history_counts_match,'adaptive_prefix_delta_s_match':history_delta_match}
+        rows.append(record)
+    pairs=[]
+    for case in REFERENCES:
+        a=next((x for x in rows if x['case']==case and x['label'].startswith('N090')),None)
+        b=next((x for x in rows if x['case']==case and x['label'].startswith('N112')),None)
+        if a and b:pairs.append({'case':case,'lower_elements':a['actual_elements'],'upper_elements':b['actual_elements'],'comparison':compare(Path(a['folder']),Path(b['folder']),case)})
+    assert sha(ROOT/'production_protocol.json')==plan['protocol_sha256']
+    out={'completed_or_reused':len(rows),'new_solves_completed':sum(not x['reused'] for x in rows),'rows':rows,'lower_upper_comparisons':pairs,
+      'production_protocol_unchanged':True,'exact_100000_cells_tested':False,'automatic_precision_repairs':0}
+    write(HERE/'summary.json',out)
+    print(json.dumps([{'label':x['label'],'cells':x['actual_elements'],'BW_MHz':x['comparison']['BW_error_MHz'],'peak_dB':x['comparison']['max_peak_error_dB'],'minutes':x['timing']['sum_seconds']/60} for x in rows],indent=2))
+    if not rows:return
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    fig,axes=plt.subplots(2,2,figsize=(12,7))
+    for i,case in enumerate(REFERENCES):
+        specs=[('Strict mesh, 1%',REFERENCES[case])]+[(f"{r['actual_elements']:,} cells",Path(r['folder'])) for r in sorted(rows,key=lambda r:r['actual_elements']) if r['case']==case]
+        for label,path in specs:
+            f,v=curve(path)
+            for j,k in enumerate(['S11','S21']):axes[i,j].plot(f,20*np.log10(np.maximum(abs(v[k]),1e-300)),label=label,lw=1.2)
+        for j in range(2):
+            axes[i,j].set(title=case+' '+['S11','S21'][j],xlim=(2.5,11),ylim=(-45,0) if j==0 else (-4,0),xlabel='Frequency (GHz)',ylabel='dB')
+            axes[i,j].grid(alpha=.2);axes[i,j].legend(fontsize=8)
+    fig.tight_layout();fig.savefig(HERE/'mesh_count_curves.png',dpi=170);plt.close(fig)
+    fig,axes=plt.subplots(1,2,figsize=(11,4))
+    for case in REFERENCES:
+        subset=sorted([r for r in rows if r['case']==case],key=lambda r:r['actual_elements'])
+        for ax,key,ylabel in [(axes[0],'BW_error_MHz','Bandwidth difference from strict mesh (MHz)'),(axes[1],'max_peak_error_dB','Max S11 peak-height difference (dB)')]:
+            ax.plot([r['actual_elements']/1000 for r in subset],[r['comparison'][key] for r in subset],'o--',label=case)
+            ax.set(xlabel='Solved tetrahedra (thousands)',ylabel=ylabel);ax.grid(alpha=.2);ax.legend()
+    fig.tight_layout();fig.savefig(HERE/'mesh_count_errors.png',dpi=170);plt.close(fig)
+    if len(rows)!=4:return
+    stamp=datetime.now(timezone(timedelta(hours=9))).isoformat(timespec='seconds')
+    lines=['# 约10万网格：固定网格档位对照',f'\n完成时间：{stamp}（日本时间）\n',
+      '## 结论与建议\n',
+      '**这两种几何的实测支持把约10万网格作为带宽粗筛档，不再仅因ΔS标记不满足而自动返工；不支持把相近总网格数视作所有响应都同等准确的保证。**',
+      '- 约9万网格的带宽相对偏差为0.17%–0.24%；约11.2万为0.08%–0.10%。相对同一扫频高密度参考，四组带宽偏差为6.02–16.67MHz。',
+      '- D05G02实测节省18.1%–34.3%的网格＋扫频时间；D08G05不使用缓存参考的耗时计算加速比。',
+      '- S11峰高仍有0.13–0.31dB偏差，D08G05中央谷仍偏40MHz。因此约10万网格适合初筛，不作为精细等波纹或最终频点的无条件验收档。',
+      '- 后续建议保留相同局部加密策略，记录实际单元数，在约9万–11.2万档先找趋势；仅对最终候选、接近判据边界或只有约10MHz带宽差异的点加密复核。此范围只经两种几何验证，不是所有尺寸的误差上界。',
+      '- 本轮新增3次求解、复用1次已完成结果，无自动精度修复；没有修改生产协议或已验收工程。\n',
+      '## 试验回答什么\n',
+      '上次同时改变ΔS、最终网格数与扫频容差，不能把响应偏差简单归因于ΔS本身。本次固定同样的几何、端口、材料、1%扫频和强制无源性关闭设置，在同一自适应加密路径上选取相近单元数，比较网格规模对主响应的影响。',
+      '采用约9万与11.2万单元两个档位夹住10万；没有声称精确求解100000单元。新增3次完整求解，复用1次已有112136单元结果。每次实际使用16核、单任务；已验收工程没有重算。',
+      '新增三组的MaxDeltaS保持0.005，最低/最高轮数设为相同值，以固定最终网格档位。复用的D08G05/112136单元旧例使用MaxDeltaS=0.01、连续2轮停止；其实际网格历史、端口、几何及扫频设置经过核对，作为已完成的网格档位证据，不伪装成四次同ΔS新求解。\n',
+      '## 实际结果：相对相同1%扫频的严格网格\n',
+      '参考网格：D05G02为132015单元（F冷启动）；D08G05为179560单元（I同网格插值，不能用其秒级时间比较性能）。\n',
+      '| 配置 | 单元数 | ΔS记录 | HFSS自适应收敛标记 | 带宽偏差/MHz | 带宽相对偏差 | 中央谷偏差/MHz | 最大峰高偏差/dB | 双峰差偏差/dB |',
+      '|---|---:|---:|---|---:|---:|---:|---:|---:|']
+    for t in sorted(rows,key=lambda x:(x['case'],x['actual_elements'])):
+        r=t['comparison'];lines.append(f"| {t['case']} | {t['actual_elements']} | {t['final_delta_s']:.7f} | {'是' if t['adaptive_converged'] else '否（按固定轮数停止）'} | {r['BW_error_MHz']:.3f} | {t['BW_relative_error_percent']:.4f}% | {r['center_error_MHz']:.1f} | {r['max_peak_error_dB']:.4f} | {r['peak_difference_error_dB']:.4f} |")
+    lines += ['\n所有已列试验扫频均收敛、数据网格完整。固定轮数试验中即便未达到原ΔS连续收敛门槛，也不会自动判作无效或反复重算；上表给出真实响应偏差，供按用途选取网格档位。',
+      '沿用上轮粗调/严格响应误差预算仅作参考，明细在summary.json；不是把这些预算变成新的无限返工条件。',
+      f'\n![主曲线]({(HERE/"mesh_count_curves.png").as_posix()})\n',
+      '## 9万到11.2万是否形成稳定区间\n','| 配置 | 单元数变化 | 带宽变化/MHz | 中央谷变化/MHz | 最大峰高变化/dB |','|---|---|---:|---:|---:|']
+    for p in pairs:
+        r=p['comparison'];lines.append(f"| {p['case']} | {p['lower_elements']} → {p['upper_elements']} | {r['BW_error_MHz']:.3f} | {r['center_error_MHz']:.1f} | {r['max_peak_error_dB']:.4f} |")
+    lines += [f'\n![网格数与响应偏差]({(HERE/"mesh_count_errors.png").as_posix()})\n',
+      '图中虚线仅连接已求解档位，不表示中间恰好100000单元也已求解，更不假设误差随单元数严格线性变化。',
+      '两种几何分别与各自高密度参考比较，不把不同几何的曲线直接互比。总单元数也没有描述槽口、折角、端口附近的单元分布；本次保留原自适应加密方式，避免靠增加无关区域单元数凑数。',
+      '## 真实耗时\n','| 配置 | 单元数 | 本次网格＋扫频/min | 数据来源 |','|---|---:|---:|---|']
+    for t in sorted(rows,key=lambda x:(x['case'],x['actual_elements'])):lines.append(f"| {t['case']} | {t['actual_elements']} | {t['timing']['sum_seconds']/60:.2f} | {'复用昨日冷启动记录' if t['reused'] else '本次冷启动实测'} |")
+    ftime=profiles(REFERENCES['D05G02'])['sum_seconds']
+    lines.append(f'\nD05G02的相同扫频严格网格参考为{ftime/60:.2f}分钟；可直接比较：')
+    for t in rows:
+        if t['case']=='D05G02':lines.append(f"- {t['actual_elements']}单元：相对参考节省{100*(1-t['timing']['sum_seconds']/ftime):.1f}%。")
+    lines += ['D08G05的严格网格1%结果是缓存重建，因此不据此宣称端到端加速；原0.5%严格求解耗时仅为背景，不能把全部差异归于网格数。',
+      '## 用途与边界\n',
+      '- 带宽粗筛、曲线大致形状和精细等波纹判断是不同用途，应分别看带宽偏差、中心偏差及双峰差偏差，不能只用一个“通过/失败”标签。',
+      '- 若要判定双峰差是否小于0.5dB，需把表中的双峰差数值偏差留作判据余量；接近边界时只复核候选点。',
+      '- 网格数量不是跨所有几何的精度保证。这两例若某些指标未稳定，也不会启动自动加密；先报告结果，再选后续用途。',
+      '- 本次固定轮数只用于这两种几何的网格档位标定。更改尺寸后必须检查实际Solved Elements，不能把18/22/23轮当作所有配置都等于10万网格的规则。',
+      '- 比较仍是相对当前严格参考，不是相对真实电磁解的绝对误差上界；带宽交点使用10MHz采样后的线性插值，中心谷按采样点提取。',
+      '- 相同插值容差不代表每个网格的插值误差完全相同。本次未给所有新网格另做离散扫频，不能声称已经把网格误差与插值误差数学上完全分离。',
+      '- 未修改原生产验收状态，未批准完整4×4网络级联；原生基模S11/S21之外的模式充分性和完整矩阵问题保持独立。\n',
+      '## 方法与证据\n',
+      '[HFSS 2024 R2自适应设置说明](https://ansyshelp.ansys.com/public/Views/Secured/Electronics/v242/en/Subsystems/HFSS/Content/HFSS/SettingAdaptiveAnalysisParametersforHFSS.htm)把最大轮数、ΔS和网格加密设置列为不同控制项。本试验保留30%加密比例，以历史单元数标定固定轮数；ΔS记录不再是本试验的自动返工开关。',
+      f'- 计划、逐项对比、哈希、计时路径：{(HERE/"frozen_plan.json").as_posix()} 与 {(HERE/"summary.json").as_posix()}。',
+      f'- 新试验工程：{BASE.as_posix()}；复用工程：{REUSE.as_posix()}。',
+      '- 三个新试验的CAD/端口一致性、原工程哈希、16核实际命令、扫频一致性均检查通过。原生产协议哈希未改变。']
+    (HERE/'约10万网格测试报告.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    progress=['# 约10万网格对照试验：已完成',f'\n更新：{stamp}（日本时间）\n',
+      '新增3次求解全部完成，另复用1次已完成结果；4组统一分析已完成。16核单任务，无自动精度修复，生产协议未修改。',
+      '实际测试约9万与11.2万两个档位，未精确求解100000单元。偏差均相对同样1%扫频的高密度参考。\n',
+      '| 试验 | 状态 | 实际单元数 | 带宽偏差/MHz | 最大S11峰高偏差/dB |',
+      '|---|---|---:|---:|---:|']
+    for t in sorted(rows,key=lambda x:(x['case'],x['actual_elements'])):
+        r=t['comparison'];progress.append(f"| {t['label']} | {'复用并验证完成' if t['reused'] else '新求解及验证完成'} | {t['actual_elements']} | {r['BW_error_MHz']:.3f} | {r['max_peak_error_dB']:.4f} |")
+    progress += ['\n结论：支持约10万网格用于带宽粗筛；峰高和中央谷不保证完全稳定，仅对关键候选加密复核。',
+      f'\n[完整报告]({(HERE/"约10万网格测试报告.md").as_posix()})']
+    (HERE/'实时进度.md').write_text('\n'.join(progress)+'\n',encoding='utf-8')
+if __name__=='__main__':main()

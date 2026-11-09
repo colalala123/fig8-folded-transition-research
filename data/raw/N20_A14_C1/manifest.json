@@ -1,0 +1,3563 @@
+{
+  "case": "N20_A14_C1",
+  "status": "completed",
+  "project": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N20_A14\\c1\\N20_A14_C1\\g01_initial\\N20_A14_C1_T48_N20_A14_C1_g01.aedt",
+  "geometry": {
+    "Wm": 1.913179,
+    "Ws": 0.345082,
+    "Lm": 6.589698605611728,
+    "Ls1": 12.64767661432842,
+    "Ls2": 1.240164,
+    "Ls3": 1.745082
+  },
+  "source": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N20_A14\\c1\\N20_A14_C1\\prepared\\N20_A14_C1_T48_N20_A14_C1_Prepared.aedt",
+  "source_sha256": "1fae0820f988676f8e438db72adf063b6a0d7b6b4829f607051b386d6c277e5f",
+  "started_at": "2026-10-31T00:38:05.446916+00:00",
+  "segments": [
+    {
+      "label": "adaptive_00",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T00:38:30.048700+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 90708,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_3",
+              "100016_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 1 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100968,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_9",
+              "100016_10",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 1 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 64812,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_15",
+              "100016_16",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 2 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100756,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_21",
+              "100016_22",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 3 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101560,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_27",
+              "100016_28",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 3 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 71476,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_33",
+              "100016_34",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 4 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 92684,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_39",
+              "100016_40",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 5 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 96284,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_45",
+              "100016_46",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 5 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 96444,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_51",
+              "100016_52",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 6 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 9572,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_63",
+              "100016_64",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 7 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 81800,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_69",
+              "100016_70",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 8 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 92724,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_75",
+              "100016_76",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 9 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101236,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_78",
+              "100016_79",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 9 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 90876,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_81",
+              "100016_82",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 9 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 97692,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_84",
+              "100016_85",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 10 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 94732,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_87",
+              "100016_88",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 10 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 97760,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_90",
+              "100016_91",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 10 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101228,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_93",
+              "100016_94",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 11 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 95188,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_96",
+              "100016_97",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 11 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 92356,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_99",
+              "100016_100",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 11 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 97704,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_102",
+              "100016_103",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 12 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 82516,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_105",
+              "100016_106",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 12 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 84232,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_108",
+              "100016_109",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 12 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100684,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_111",
+              "100016_112",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 13 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 64324,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_114",
+              "100016_115",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 13 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100276,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_117",
+              "100016_118",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 13 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 96028,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_120",
+              "100016_121",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 14 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 91320,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_123",
+              "100016_124",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 14 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 73804,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_126",
+              "100016_127",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 14 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 98332,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_129",
+              "100016_130",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 15 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 83676,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_132",
+              "100016_133",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 15 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101492,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_135",
+              "100016_136",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 15 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 43076,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_138",
+              "100016_139",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 16 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 95584,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_141",
+              "100016_142",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 16 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 98436,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100016_144",
+              "100016_145",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100016.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 16 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 258.26600000000326,
+      "finished_at": "2026-10-31T00:42:48.567575+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [warning] Adaptive Passes did not converge based on specified criteria. (01:42:45 AM  Oct 31, 2026)\r\n",
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:42:46 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_01",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T00:43:00.118745+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 100656,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "98100_0",
+              "98100_1",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_98100.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 17 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101316,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "98100_3",
+              "98100_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_98100.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 17 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 75816,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "98100_6",
+              "98100_7",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_98100.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 17 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 57.56300000002375,
+      "finished_at": "2026-10-31T00:43:57.927990+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [warning] Adaptive Passes did not converge based on specified criteria. (01:43:53 AM  Oct 31, 2026)\r\n",
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:43:53 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_02",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T00:44:09.896106+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 96024,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "98024_0",
+              "98024_1",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_98024.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 18 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101632,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "98024_3",
+              "98024_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_98024.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 18 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 94376,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "98024_6",
+              "98024_7",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_98024.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 18 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 62.70299999997951,
+      "finished_at": "2026-10-31T00:45:12.834275+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [warning] Adaptive Passes did not converge based on specified criteria. (01:45:09 AM  Oct 31, 2026)\r\n",
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:45:09 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_03",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T00:45:26.095489+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 97336,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "99932_0",
+              "99932_1",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_99932.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 19 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 95696,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "99932_3",
+              "99932_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_99932.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 19 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 102388,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "99932_6",
+              "99932_7",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_99932.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 19 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 62.45300000003772,
+      "finished_at": "2026-10-31T00:46:28.804431+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:46:25 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_04",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T00:46:40.844256+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 91348,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100756_0",
+              "100756_1",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100756.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 20 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 102248,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100756_3",
+              "100756_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100756.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 20 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 90400,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "100756_6",
+              "100756_7",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_100756.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 20 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 62.67200000002049,
+      "finished_at": "2026-10-31T00:47:43.746039+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:47:42 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_05",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T00:47:56.301426+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 95716,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "89800_0",
+              "89800_1",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_89800.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 21 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 97092,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "89800_3",
+              "89800_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_89800.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 21 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100824,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "89800_6",
+              "89800_7",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_89800.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 21 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 68.38999999995576,
+      "finished_at": "2026-10-31T00:49:04.946344+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:49:03 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "adaptive_06",
+      "adaptive_requested": true,
+      "started_at": "2026-10-31T00:49:18.244775+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 91072,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "85988_0",
+              "85988_1",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_85988.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 22 8000000000 -freq 8000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100084,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "85988_3",
+              "85988_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_85988.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 22 8000000000 -freq 550000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 92684,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "85988_6",
+              "85988_7",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_85988.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 22 8000000000 -freq 15000000000 -max_processors 14 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 67.75,
+      "finished_at": "2026-10-31T00:50:26.258667+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": true,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:50:23 AM  Oct 31, 2026)\r\n"
+      ]
+    },
+    {
+      "label": "final_sweep",
+      "adaptive_requested": false,
+      "started_at": "2026-10-31T00:50:39.023647+00:00",
+      "mcp_request": {
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "port": 7990,
+        "concurrent_tasks": 1,
+        "cores_per_task": 14,
+        "blocking": false,
+        "timeout": 120
+      },
+      "observations": [
+        [
+          {
+            "pid": 100872,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_0",
+              "27256_1",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 100000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100476,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_3",
+              "27256_4",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 55000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 95412,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_6",
+              "27256_7",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 10000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100772,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_9",
+              "27256_10",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 1000000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100716,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_12",
+              "27256_13",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 11500000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100472,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_15",
+              "27256_16",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 9750000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 91320,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_18",
+              "27256_19",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 13250000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 88968,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_21",
+              "27256_22",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 12375000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 90504,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_24",
+              "27256_25",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 4499999999.999999 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100968,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_27",
+              "27256_28",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 6249999999.999999 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100544,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_30",
+              "27256_31",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 5374999999.999999 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 95984,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_33",
+              "27256_34",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 14125000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 87188,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_36",
+              "27256_37",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 10625000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 97084,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_39",
+              "27256_40",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 11062500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 69712,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_42",
+              "27256_43",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 8875000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100508,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_45",
+              "27256_46",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 7124999999.999999 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 86260,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_48",
+              "27256_49",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 774999999.9999999 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 100544,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_51",
+              "27256_52",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 2750000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 98388,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_54",
+              "27256_55",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 1875000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 98416,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_57",
+              "27256_58",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 1437500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 97464,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_60",
+              "27256_61",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 2312500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 98720,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_63",
+              "27256_64",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 3625000000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 96552,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_66",
+              "27256_67",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 14562500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 93320,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_69",
+              "27256_70",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 14781250000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 93084,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_72",
+              "27256_73",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 9312500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 73716,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_75",
+              "27256_76",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 9531250000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101280,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_78",
+              "27256_79",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 9421875000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 101664,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_81",
+              "27256_82",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 887499999.9999999 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 98552,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_84",
+              "27256_85",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 10187500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 102080,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_87",
+              "27256_88",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 77500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ],
+        [
+          {
+            "pid": 102328,
+            "name": "hf3d.exe",
+            "cmdline": [
+              "27256_90",
+              "27256_91",
+              "D:\\hfss_fig8_tune48_20261031\\solver_temp\\hfss_DESKTOP-94969B0_27256.pjt/",
+              "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve -freq 12812500000 -max_processors 14 -numParallelGroups 1 -do_smatrix_only_solve -solve_frequency_sweep"
+            ]
+          }
+        ]
+      ],
+      "mcp_response": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "setup_name": "Setup19",
+        "blocking": false,
+        "resource_plan": {
+          "mode": "custom",
+          "concurrent_tasks": 1,
+          "cores_per_task": 14,
+          "total_cores": 14
+        },
+        "started": true
+      },
+      "last_status": {
+        "target": {
+          "kind": "port",
+          "value": 7990
+        },
+        "project_name": "N20_A14_C1_T48_N20_A14_C1_g01",
+        "design_name": "Wideband vertical transition",
+        "running": false,
+        "setups": [
+          "Setup18",
+          "Setup19"
+        ]
+      },
+      "elapsed_seconds": 403.28100000001723,
+      "finished_at": "2026-10-31T00:57:22.662384+00:00",
+      "observed_14core_process": true,
+      "observed_adaptive_process": false,
+      "messages": [
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [warning] For broadband frequency models it is recommended to set 'Automatically use causal materials' in the HFSS Design Settings for Lossy Dielectrics.  See 'Design Settings for HFSS' in the help for more information. (01:50:44 AM  Oct 31, 2026)\r\n",
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] An interpolating frequency sweep with 1500 points has been started using HFSS. (01:57:19 AM  Oct 31, 2026)\r\n",
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Interpolating frequency sweep complete. Converged. (01:57:19 AM  Oct 31, 2026)\r\n",
+        "Project: N20_A14_C1_T48_N20_A14_C1_g01, Design: Wideband vertical transition, [info] Normal completion of simulation on server: Local Machine. (01:57:20 AM  Oct 31, 2026)\r\n"
+      ]
+    }
+  ],
+  "mesh_stages": [
+    {
+      "index": 0,
+      "requested": {
+        "action": "initial_adaptive",
+        "maximum_passes": 16,
+        "minimum_passes": 16,
+        "percent_refinement": 30,
+        "sweep_enabled": false,
+        "scope": "supervised only"
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 16,
+        "MinimumPasses": 16,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 30,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 16,
+      "actual_elements": 58110,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 1,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 17,
+        "minimum_passes": 17,
+        "percent_refinement": 10,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 17,
+        "MinimumPasses": 17,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 10,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 17,
+      "actual_elements": 73506,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 2,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 18,
+        "minimum_passes": 18,
+        "percent_refinement": 10,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 18,
+        "MinimumPasses": 18,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 10,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 18,
+      "actual_elements": 80318,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 3,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 19,
+        "minimum_passes": 19,
+        "percent_refinement": 5,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 19,
+        "MinimumPasses": 19,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 5,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 19,
+      "actual_elements": 87672,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 4,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 20,
+        "minimum_passes": 20,
+        "percent_refinement": 5,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 20,
+        "MinimumPasses": 20,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 5,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 20,
+      "actual_elements": 91709,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 5,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 21,
+        "minimum_passes": 21,
+        "percent_refinement": 5,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 21,
+        "MinimumPasses": 21,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 5,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 21,
+      "actual_elements": 95886,
+      "history_prefix_verified": true
+    },
+    {
+      "index": 6,
+      "requested": {
+        "action": "continue_adaptive",
+        "maximum_passes": 22,
+        "minimum_passes": 22,
+        "percent_refinement": 5,
+        "sweep_enabled": false,
+        "use_max_tet_increase": false,
+        "expected_history_prefix_unchanged": true,
+        "maximum_new_passes": 1,
+        "count_not_guaranteed": true
+      },
+      "settings": {
+        "ID": 55,
+        "SetupType": "HfssDriven",
+        "SolveType": "Broadband",
+        "MultipleAdaptiveFreqsSetup": {
+          "Low": "0.1GHz",
+          "High": "15GHz"
+        },
+        "MaxDeltaS": 0.005,
+        "MaximumPasses": 22,
+        "MinimumPasses": 22,
+        "MinimumConvergedPasses": 2,
+        "PercentRefinement": 5,
+        "IsEnabled": true,
+        "MeshLink": {
+          "ImportMesh": false
+        },
+        "BasisOrder": 1,
+        "DoLambdaRefine": true,
+        "DoMaterialLambda": true,
+        "SetLambdaTarget": false,
+        "Target": 0.3333,
+        "UseMaxTetIncrease": false,
+        "PortAccuracy": 2,
+        "UseABCOnPort": false,
+        "SetPortMinMaxTri": false,
+        "PortMinTri": 100,
+        "PortMaxTri": 500,
+        "DrivenSolverType": "Direct Solver",
+        "EnhancedLowFreqAccuracy": false,
+        "SaveRadFieldsOnly": false,
+        "SaveAnyFields": true,
+        "IESolverType": "Auto",
+        "LambdaTargetForIESolver": 0.15,
+        "UseDefaultLambdaTgtForIESolver": true,
+        "IE Solver Accuracy": "Balanced",
+        "InfiniteSphereSetup": -1,
+        "MaxPass": 10,
+        "MinPass": 1,
+        "MinConvPass": 1,
+        "PerError": 1,
+        "PerRefine": 30,
+        "Sweeps": {
+          "NextUniqueID": 1,
+          "MoveBackwards": false,
+          "Sweep1": {
+            "ID": 0,
+            "IsEnabled": false,
+            "RangeType": "LinearStep",
+            "RangeStart": "0.01GHz",
+            "RangeEnd": "15GHz",
+            "RangeStep": "0.01GHz",
+            "Type": "Interpolating",
+            "SaveFields": false,
+            "SaveRadFields": false,
+            "InterpTolerance": 1,
+            "InterpMaxSolns": 250,
+            "InterpMinSolns": 0,
+            "InterpMinSubranges": 1,
+            "InterpUseS": true,
+            "InterpUsePortImped": false,
+            "InterpUsePropConst": true,
+            "UseDerivativeConvergence": false,
+            "InterpDerivTolerance": 0.2,
+            "UseFullBasis": true,
+            "EnforcePassivity": false,
+            "SMatrixOnlySolveMode": "Auto"
+          }
+        }
+      },
+      "actual_passes": 22,
+      "actual_elements": 100254,
+      "history_prefix_verified": true
+    }
+  ],
+  "input_sha256": "df1b14d6ca04482fcbb659034264a37685b4ad2a98fd4814ddc07f9c91fae731",
+  "cache_copied": false,
+  "full_matrix_approved": false,
+  "resource_recovery_attempt": 0,
+  "new_phase_geometry_ordinal": 1,
+  "historical_geometry_attempts": 0,
+  "cumulative_geometry_ordinal": 1,
+  "build": {
+    "prepared_geometry_reused": true,
+    "configuration_sha256": "374bca6673f6f3214a97b26c0e4c3ca85afe39ce985711782c47de6a419fde04"
+  },
+  "cad_verification": {
+    "passed": true,
+    "slot_area_mm2": 5.948468514873679,
+    "expected_aperture_corners_xy_mm": [
+      [
+        -6.32383830716421,
+        -1.067623
+      ],
+      [
+        -6.32383830716421,
+        0.172541
+      ],
+      [
+        -5.97875630716421,
+        -0.722541
+      ],
+      [
+        -5.97875630716421,
+        -0.172541
+      ],
+      [
+        -5.97875630716421,
+        -0.17254099999999994
+      ],
+      [
+        -4.578756307164211,
+        -1.067623
+      ],
+      [
+        -4.578756307164211,
+        -0.722541
+      ],
+      [
+        4.57875630716421,
+        -1.067623
+      ],
+      [
+        4.57875630716421,
+        -0.722541
+      ],
+      [
+        5.978756307164209,
+        -0.722541
+      ],
+      [
+        5.978756307164209,
+        -0.172541
+      ],
+      [
+        5.978756307164209,
+        -0.17254099999999994
+      ],
+      [
+        5.97875630716421,
+        -0.722541
+      ],
+      [
+        5.97875630716421,
+        -0.172541
+      ],
+      [
+        5.97875630716421,
+        -0.17254099999999994
+      ],
+      [
+        6.32383830716421,
+        -1.067623
+      ],
+      [
+        6.32383830716421,
+        0.172541
+      ]
+    ],
+    "layers": {
+      "Substrate_7": {
+        "vertices_mm": [
+          [
+            -4.57875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            0.035
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            0.035
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            0.035
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            0.035
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            0.035
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            0.035
+          ],
+          [
+            6.32383829,
+            0.172541,
+            0.035
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            0.0
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            0.035
+          ],
+          [
+            15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            25.0,
+            0.0
+          ],
+          [
+            15.0,
+            25.0,
+            0.0
+          ],
+          [
+            15.0,
+            -25.0,
+            0.035
+          ],
+          [
+            15.0,
+            25.0,
+            0.035
+          ],
+          [
+            -15.0,
+            25.0,
+            0.035
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.035
+          ],
+          [
+            6.32383829,
+            0.172541,
+            0.0
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            -4.57875631,
+            -0.722541,
+            0.0
+          ]
+        ],
+        "actual_volume_mm3": 52.291803602385244,
+        "expected_volume_mm3": 52.291803601979424,
+        "missing_aperture_corners": [],
+        "passed": true
+      },
+      "Substrate_9": {
+        "vertices_mm": [
+          [
+            -4.57875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            -0.035
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            -0.035
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            -0.035
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            -0.035
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            -0.035
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            -0.035
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            -0.035
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            6.32383829,
+            0.172541,
+            0.0
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            -0.035
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            0.0
+          ],
+          [
+            15.0,
+            -25.0,
+            -0.035
+          ],
+          [
+            -15.0,
+            -25.0,
+            -0.035
+          ],
+          [
+            -15.0,
+            25.0,
+            -0.035
+          ],
+          [
+            15.0,
+            25.0,
+            -0.035
+          ],
+          [
+            15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            15.0,
+            25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            6.32383829,
+            0.172541,
+            -0.035
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            -0.035
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            -0.035
+          ],
+          [
+            -4.57875631,
+            -0.722541,
+            -0.035
+          ]
+        ],
+        "actual_volume_mm3": 52.291803602385244,
+        "expected_volume_mm3": 52.291803601979424,
+        "missing_aperture_corners": [],
+        "passed": true
+      }
+    },
+    "clearance": {
+      "slot_branch_metal_web_mm": 0.55,
+      "opposing_arm_tip_separation_mm": 9.15751261432842,
+      "microstrip_stub_layer_separation_mm": 1.696,
+      "intentional_connections": "Each stub joins its own feed at y=0; top and bottom stubs are on distinct layers.",
+      "intentional_slot_width_mm": 0.345082,
+      "note": "Slot width is a specified aperture, not an unintended spacing. CAD aperture verified by vertices and volume."
+    }
+  },
+  "microstrip_boxes": {
+    "Substrate_3": [
+      -0.9565895,
+      0.0,
+      0.848,
+      0.9565895,
+      6.58969861,
+      0.883
+    ],
+    "Substrate_18": [
+      -0.9565895,
+      -6.58969861,
+      -0.883,
+      0.9565895,
+      0.0,
+      -0.848
+    ]
+  },
+  "port_settings": {
+    "before": {
+      "1": {
+        "ID": 43,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          12391
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12113,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12395,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      },
+      "2": {
+        "ID": 48,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          19891
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12152,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 19895,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      }
+    },
+    "after": {
+      "1": {
+        "ID": 43,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          12391
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12113,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12395,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      },
+      "2": {
+        "ID": 48,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          19891
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12152,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 19895,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "original_settings": {
+    "setup": {
+      "ID": 55,
+      "SetupType": "HfssDriven",
+      "SolveType": "Broadband",
+      "MultipleAdaptiveFreqsSetup": {
+        "Low": "0.1GHz",
+        "High": "15GHz"
+      },
+      "MaxDeltaS": 0.005,
+      "MaximumPasses": 16,
+      "MinimumPasses": 16,
+      "MinimumConvergedPasses": 2,
+      "PercentRefinement": 30,
+      "IsEnabled": true,
+      "MeshLink": {
+        "ImportMesh": false
+      },
+      "BasisOrder": 1,
+      "DoLambdaRefine": true,
+      "DoMaterialLambda": true,
+      "SetLambdaTarget": false,
+      "Target": 0.3333,
+      "UseMaxTetIncrease": false,
+      "PortAccuracy": 2,
+      "UseABCOnPort": false,
+      "SetPortMinMaxTri": false,
+      "PortMinTri": 100,
+      "PortMaxTri": 500,
+      "DrivenSolverType": "Direct Solver",
+      "EnhancedLowFreqAccuracy": false,
+      "SaveRadFieldsOnly": false,
+      "SaveAnyFields": true,
+      "IESolverType": "Auto",
+      "LambdaTargetForIESolver": 0.15,
+      "UseDefaultLambdaTgtForIESolver": true,
+      "IE Solver Accuracy": "Balanced",
+      "InfiniteSphereSetup": -1,
+      "MaxPass": 10,
+      "MinPass": 1,
+      "MinConvPass": 1,
+      "PerError": 1,
+      "PerRefine": 30,
+      "Sweeps": {
+        "NextUniqueID": 1,
+        "MoveBackwards": false,
+        "Sweep1": {
+          "ID": 0,
+          "IsEnabled": false,
+          "RangeType": "LinearStep",
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "SaveFields": false,
+          "SaveRadFields": false,
+          "InterpTolerance": 1,
+          "InterpMaxSolns": 250,
+          "InterpMinSolns": 0,
+          "InterpMinSubranges": 1,
+          "InterpUseS": true,
+          "InterpUsePortImped": false,
+          "InterpUsePropConst": true,
+          "UseDerivativeConvergence": false,
+          "InterpDerivTolerance": 0.2,
+          "UseFullBasis": true,
+          "EnforcePassivity": false,
+          "SMatrixOnlySolveMode": "Auto"
+        }
+      }
+    },
+    "sweep": {
+      "Type": "Interpolating",
+      "IsEnabled": false,
+      "RangeType": "LinearStep",
+      "RangeStart": "0.01GHz",
+      "RangeEnd": "15GHz",
+      "SaveSingleField": false,
+      "RangeCount": 401,
+      "RangeStep": "0.01GHz",
+      "RangeSamples": 11,
+      "SaveFields": false,
+      "SaveRadFields": false,
+      "GenerateFieldsForAllFreqs": false,
+      "InterpTolerance": 1,
+      "InterpMaxSolns": 250,
+      "InterpMinSolns": 0,
+      "InterpMinSubranges": 1,
+      "InterpUseS": true,
+      "InterpUsePortImped": false,
+      "InterpUsePropConst": true,
+      "UseDerivativeConvergence": false,
+      "InterpDerivTolerance": 0.2,
+      "EnforcePassivity": false,
+      "UseFullBasis": true,
+      "PassivityErrorTolerance": 0.0001,
+      "EnforceCausality": false,
+      "UseQ3DForDCSolve": false,
+      "SMatrixOnlySolveMode": "Auto",
+      "SMatrixOnlySolveAbove": "1MHz"
+    }
+  },
+  "material": {
+    "er": 3.55,
+    "tand": 0.0027,
+    "h_mm": 0.813
+  },
+  "boundaries_before": {
+    "Rad1": {
+      "type": "Radiation",
+      "props": {
+        "ID": 31,
+        "BoundType": "Radiation",
+        "IsComponent": false,
+        "Objects": [
+          627
+        ],
+        "ParentBndID": -1,
+        "UseAdaptiveIE": false,
+        "IsFssReference": false,
+        "IsForPML": false
+      }
+    },
+    "1": {
+      "type": "Wave Port",
+      "props": {
+        "ID": 43,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          12391
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12113,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12395,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "-25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      }
+    },
+    "2": {
+      "type": "Wave Port",
+      "props": {
+        "ID": 48,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          19891
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "GeometryPosition": [
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 12152,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-0.883"
+                },
+                {
+                  "IsAttachedToEntity": true,
+                  "EntityID": 19895,
+                  "FacetedBodyTriangleIndex": -1,
+                  "TriangleVertexIndex": -1,
+                  "hasXYZ": true,
+                  "PositionType": "EdgeCenter",
+                  "UParam": 0,
+                  "VParam": 0,
+                  "XPosition": "0",
+                  "YPosition": "25",
+                  "ZPosition": "-1.38140158943821e-15"
+                }
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "actual_elements": 100254,
+  "actual_passes": 22,
+  "mesh_target_met": true,
+  "mesh_exception_used": false,
+  "final_setup": {
+    "ID": 55,
+    "SetupType": "HfssDriven",
+    "SolveType": "Broadband",
+    "MultipleAdaptiveFreqsSetup": {
+      "Low": "0.1GHz",
+      "High": "15GHz"
+    },
+    "MaxDeltaS": 0.005,
+    "MaximumPasses": 22,
+    "MinimumPasses": 22,
+    "MinimumConvergedPasses": 2,
+    "PercentRefinement": 5,
+    "IsEnabled": true,
+    "MeshLink": {
+      "ImportMesh": false
+    },
+    "BasisOrder": 1,
+    "DoLambdaRefine": true,
+    "DoMaterialLambda": true,
+    "SetLambdaTarget": false,
+    "Target": 0.3333,
+    "UseMaxTetIncrease": false,
+    "PortAccuracy": 2,
+    "UseABCOnPort": false,
+    "SetPortMinMaxTri": false,
+    "PortMinTri": 100,
+    "PortMaxTri": 500,
+    "DrivenSolverType": "Direct Solver",
+    "EnhancedLowFreqAccuracy": false,
+    "SaveRadFieldsOnly": false,
+    "SaveAnyFields": true,
+    "IESolverType": "Auto",
+    "LambdaTargetForIESolver": 0.15,
+    "UseDefaultLambdaTgtForIESolver": true,
+    "IE Solver Accuracy": "Balanced",
+    "InfiniteSphereSetup": -1,
+    "MaxPass": 10,
+    "MinPass": 1,
+    "MinConvPass": 1,
+    "PerError": 1,
+    "PerRefine": 30
+  },
+  "final_sweep": {
+    "Type": "Interpolating",
+    "IsEnabled": true,
+    "RangeType": "LinearStep",
+    "RangeStart": "0.01GHz",
+    "RangeEnd": "15GHz",
+    "SaveSingleField": false,
+    "RangeCount": 401,
+    "RangeStep": "0.01GHz",
+    "RangeSamples": 11,
+    "SaveFields": false,
+    "SaveRadFields": false,
+    "GenerateFieldsForAllFreqs": false,
+    "InterpTolerance": 1.0,
+    "InterpMaxSolns": 250,
+    "InterpMinSolns": 0,
+    "InterpMinSubranges": 1,
+    "InterpUseS": true,
+    "InterpUsePortImped": false,
+    "InterpUsePropConst": true,
+    "UseDerivativeConvergence": false,
+    "InterpDerivTolerance": 0.2,
+    "EnforcePassivity": false,
+    "UseFullBasis": true,
+    "PassivityErrorTolerance": 0.0001,
+    "EnforceCausality": false,
+    "UseQ3DForDCSolve": false,
+    "SMatrixOnlySolveMode": "Auto",
+    "SMatrixOnlySolveAbove": "1MHz"
+  },
+  "sweep_converged": true,
+  "reference_treatment": {
+    "case": "N20_A14_C1",
+    "treatment": "native_fundamental",
+    "sparams_sha256": "01cd8b190758d6fb7a1866b9a35c4c3b2dd179e3a6513b5fd0ba35c301341edb",
+    "adapter_sha256": "1882036a14bb1e8c6207a06ef463426710d2ff66f9592ada127cd711aafbdd5a",
+    "validation_sha256": "7742be4ca5ac39b218a2cb8f58ca9306f19720e3b5ae70595aa35de6a665fed7",
+    "raw_matrix_sha256": "51476e7183afc66b0a75c36c4fae9d560ba8c2cd0808960eaeea7914051e4e2d",
+    "Zo_sha256": "b811076da0efce28daf796105aa9d842204430b0aa93ec8204f46411d5285041",
+    "no_conversion": true,
+    "points": 1500,
+    "full_matrix_approved": false,
+    "note": "PR18 native fundamental entries checked directly against exported4x4; no renormalization or response fitting."
+  },
+  "convergence": {
+    "converged": true,
+    "passes": 22.0,
+    "final_delta_s": 0.0020775
+  },
+  "cad_after": {
+    "passed": true,
+    "slot_area_mm2": 5.948468514873679,
+    "expected_aperture_corners_xy_mm": [
+      [
+        -6.32383830716421,
+        -1.067623
+      ],
+      [
+        -6.32383830716421,
+        0.172541
+      ],
+      [
+        -5.97875630716421,
+        -0.722541
+      ],
+      [
+        -5.97875630716421,
+        -0.172541
+      ],
+      [
+        -5.97875630716421,
+        -0.17254099999999994
+      ],
+      [
+        -4.578756307164211,
+        -1.067623
+      ],
+      [
+        -4.578756307164211,
+        -0.722541
+      ],
+      [
+        4.57875630716421,
+        -1.067623
+      ],
+      [
+        4.57875630716421,
+        -0.722541
+      ],
+      [
+        5.978756307164209,
+        -0.722541
+      ],
+      [
+        5.978756307164209,
+        -0.172541
+      ],
+      [
+        5.978756307164209,
+        -0.17254099999999994
+      ],
+      [
+        5.97875630716421,
+        -0.722541
+      ],
+      [
+        5.97875630716421,
+        -0.172541
+      ],
+      [
+        5.97875630716421,
+        -0.17254099999999994
+      ],
+      [
+        6.32383830716421,
+        -1.067623
+      ],
+      [
+        6.32383830716421,
+        0.172541
+      ]
+    ],
+    "layers": {
+      "Substrate_7": {
+        "vertices_mm": [
+          [
+            -4.57875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            0.035
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            0.035
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            0.035
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            0.035
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            0.035
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            0.035
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            0.035
+          ],
+          [
+            6.32383829,
+            0.172541,
+            0.035
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            0.0
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            0.035
+          ],
+          [
+            15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            25.0,
+            0.0
+          ],
+          [
+            15.0,
+            25.0,
+            0.0
+          ],
+          [
+            15.0,
+            -25.0,
+            0.035
+          ],
+          [
+            15.0,
+            25.0,
+            0.035
+          ],
+          [
+            -15.0,
+            25.0,
+            0.035
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.035
+          ],
+          [
+            6.32383829,
+            0.172541,
+            0.0
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            -4.57875631,
+            -0.722541,
+            0.0
+          ]
+        ],
+        "actual_volume_mm3": 52.291803602385244,
+        "expected_volume_mm3": 52.291803601979424,
+        "missing_aperture_corners": [],
+        "passed": true
+      },
+      "Substrate_9": {
+        "vertices_mm": [
+          [
+            -4.57875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            -0.035
+          ],
+          [
+            -4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            -0.035
+          ],
+          [
+            -5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            -0.035
+          ],
+          [
+            -6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            -0.035
+          ],
+          [
+            5.97875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            0.0
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            -0.035
+          ],
+          [
+            4.57875631,
+            -1.067623,
+            0.0
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            -0.035
+          ],
+          [
+            6.32383831,
+            -1.067623,
+            0.0
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            -0.035
+          ],
+          [
+            5.97875631,
+            -0.172541,
+            0.0
+          ],
+          [
+            6.32383829,
+            0.172541,
+            0.0
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            -0.035
+          ],
+          [
+            -6.32383831,
+            0.172541,
+            0.0
+          ],
+          [
+            15.0,
+            -25.0,
+            -0.035
+          ],
+          [
+            -15.0,
+            -25.0,
+            -0.035
+          ],
+          [
+            -15.0,
+            25.0,
+            -0.035
+          ],
+          [
+            15.0,
+            25.0,
+            -0.035
+          ],
+          [
+            15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            15.0,
+            25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            25.0,
+            0.0
+          ],
+          [
+            -15.0,
+            -25.0,
+            0.0
+          ],
+          [
+            6.32383829,
+            0.172541,
+            -0.035
+          ],
+          [
+            4.57875631,
+            -0.722541,
+            -0.035
+          ],
+          [
+            -5.97875631,
+            -0.172541,
+            -0.035
+          ],
+          [
+            -4.57875631,
+            -0.722541,
+            -0.035
+          ]
+        ],
+        "actual_volume_mm3": 52.291803602385244,
+        "expected_volume_mm3": 52.291803601979424,
+        "missing_aperture_corners": [],
+        "passed": true
+      }
+    },
+    "clearance": {
+      "slot_branch_metal_web_mm": 0.55,
+      "opposing_arm_tip_separation_mm": 9.15751261432842,
+      "microstrip_stub_layer_separation_mm": 1.696,
+      "intentional_connections": "Each stub joins its own feed at y=0; top and bottom stubs are on distinct layers.",
+      "intentional_slot_width_mm": 0.345082,
+      "note": "Slot width is a specified aperture, not an unintended spacing. CAD aperture verified by vertices and volume."
+    }
+  },
+  "source_unchanged": true,
+  "design_passed": false,
+  "finished_at": "2026-10-31T00:57:29.962692+00:00",
+  "modes": 2,
+  "curve_sha256": "01cd8b190758d6fb7a1866b9a35c4c3b2dd179e3a6513b5fd0ba35c301341edb",
+  "mesh_addendum_sha256": "82d868312449e7c373c6be5cc6b6ce61e8cc53c3ed413bcf64d90919a0c90278"
+}

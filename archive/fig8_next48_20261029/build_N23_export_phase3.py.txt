@@ -1,0 +1,75 @@
+"""Generate the continuation of SAME export recovery, retaining prior scripts byte-for-byte."""
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+source=(ROOT/'recover_N23_existing_export_v4.py').read_text(encoding='utf-8')
+tail=source[source.index('    for i in range(6):'):source.index("\nif __name__=='__main__':")]
+tail=tail.replace("ROOT/'N23_A18_replacement_authorization_v4.json',ROOT/'campaign_frozen.json'", "ROOT/'N23_A18_replacement_authorization_v4.json',ROOT/'desktop_epoch3_N23_20261030.json',CTX/'aedt_identity.json',CTX/'native_cache_reopen_proof.json',ROOT/'finish_N23_export_phase3.py',ROOT/'campaign_frozen.json'")
+tail=tail.replace('new_HFSS_launched=False','new_solver_launched=False,desktop_restarted_once=True')
+tail=tail.replace('agent_Analyze_added=0,\n      late_sweep_origin_uncertain=True','agent_Analyze_added=0,desktop_restarted_once=True,\n      late_sweep_origin_uncertain=True')
+tail=tail.replace('original_predictions_unchanged=True,completed_export=True','original_predictions_unchanged=True,completed_export=True,desktop_restarted_once=True')
+tail=tail.replace('零新增Analyze恢复完成','零新增Analyze恢复完成（已按授权重启一次）')
+tail=tail.replace('restart=False,hook_state','restart=True,hook_state')
+header='''"""Phase3 of same technical recovery: reopen saved snapshot, export, compare against pre-restart native CSV. NO Analyze/save."""
+from recover_N23_existing_export_v4 import *
+import numpy as np
+async def finish():
+    assert not (ROOT/'PAUSE.json').exists() and not (RUN/'input.json').exists()
+    assert not (RUN/'state.json').exists() and not (ROOT/'session_export_recovery_v4.json').exists()
+    assert read(ROOT/'N23_A18_replacement_authorization_v4.json')['approved']
+    identity=read(ROOT/'desktop_epoch3_N23_20261030.json')
+    p=psutil.Process(identity['pid']);assert abs(p.create_time()-identity['created'])<.01 and p.cmdline()==identity['command']
+    live=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+    assert len(live)==1 and live[0]['pid']==identity['pid']
+    old=read(OLD/'state.json');evidence=read(ROOT/'N23_A18_replacement_authorization_v4.json')['original_failed_hashes']
+    assert all(sha(p)==h for p,h in evidence.items())
+    snapshot=read(CTX/'snapshot_manifest.json');snap=Path(snapshot['snapshot'])
+    assert all(sha(snap/rel)==h for rel,h in snapshot['hashes'].items())
+    for rel,h in snapshot['hashes'].items():
+        src=snap/rel;dst=RUN/rel;assert not dst.exists();dst.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(src,dst);assert sha(dst)==h
+    project=RUN/Path(old['project']).name;project_before=sha(project)
+    # Correct new, NOT YET FROZEN receiver context before binding its files to input.
+    continuation=(CTX/'CONTINUATION.md').read_text(encoding='utf-8')
+    continuation=continuation.replace('实际没有重启或新增Analyze','随后保存现有结果再次无响应，已备份全部缓存并按授权重启一次；没有新增Analyze')
+    (CTX/'CONTINUATION.md').write_text(continuation,encoding='utf-8')
+    publisher=(CTX/'phase_geometry_publish.py').read_text(encoding='utf-8').replace('未重启、未新增Analyze','已按授权重启一次、未新增Analyze')
+    (CTX/'phase_geometry_publish.py').write_text(publisher,encoding='utf-8')
+    sys.path.insert(0,str(ROOT));from effective_budget_v3 import validate_campaign
+    budget=validate_campaign();assert budget['Analyze_used']==365
+    sys.path.insert(0,str(OLDCTX));import phase_geometry_worker as w
+    from ansys.aedt.core import Hfss
+    # Explicit epoch3 gate above; no old epoch guard bypass for Analyze, because no Analyze call exists here.
+    app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,
+             non_graphical=False,new_desktop=False,close_on_exit=False)
+    try:
+        assert Path(app.project_file).resolve()==project.resolve() and not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');sw=next(s for s in setup.sweeps if s.name=='Sweep1')
+        assert setup.is_solved and sw.is_solved,'Snapshot has no valid Sweep1; stop, no automatic extra solve'
+        assert w.snapshot(setup.props)==old['final_setup'] and w.snapshot(sw.props)==old['final_sweep']
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence.txt'))
+        assert w.passes(RUN/'convergence.txt')==w.passes(OLD/'convergence_stage_05.txt')
+        cad=w.inspect_rebuilt_geometry(app,old['geometry']);assert cad['passed']
+        ports={b.name:w.snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'}
+        assert w.canonical_ports(ports)==w.canonical_ports(old['port_settings']['after'])
+        material=app.materials['rogers ro4003 (tm)'];assert abs(float(material.permittivity.value)-3.55)<1e-9 and abs(float(material.dielectric_loss_tangent.value)-.0027)<1e-9
+        w.dc.SWEEP='Sweep1';w.dc.export(app,RUN,np.arange(1,1501)/100)
+        for n in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+            a=np.genfromtxt(RUN/n,delimiter=',',skip_header=1);b=np.genfromtxt(ROOT/'N23_A18_cache_inspection3'/n,delimiter=',',skip_header=1)
+            assert a.shape==b.shape and np.allclose(a,b,atol=1e-11,rtol=1e-11),n
+        reference=w.apply_reference(RUN,CASE)
+        write(CTX/'native_cache_reopen_proof.json',dict(at=now(),passed=True,Analyze_added=0,desktop_epoch3_sha256=sha(ROOT/'desktop_epoch3_N23_20261030.json'),
+            project=str(project),sweep_solved=True,full_history_identical=True,passes=21,elements=102038,CAD=cad,ports=ports,
+            pre_restart_native_export_identical=True,original_native_inspection_sha256=sha(ROOT/'N23_A18_cache_inspection3/inspection.json')))
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(project)==project_before and all(sha(p)==h for p,h in evidence.items())
+'''
+trailer='''
+if __name__=='__main__':
+    try:asyncio.run(finish())
+    except BaseException:
+        write(ROOT/'N23_export_phase3_error.json',dict(at=now(),error=traceback.format_exc(),Analyze_added=0,no_automatic_retry=True))
+        raise
+'''
+p=ROOT/'finish_N23_export_phase3.py';assert not p.exists();p.write_text(header+tail+trailer,encoding='utf-8')
+import ast
+ast.parse(p.read_text(encoding='utf-8'))
+print(p)

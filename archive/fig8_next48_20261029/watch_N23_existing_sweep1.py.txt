@@ -1,0 +1,39 @@
+"""Observe existing native sweep only. NEVER Analyze/restart or touch original state."""
+import json,psutil,time,hashlib
+from pathlib import Path
+from datetime import datetime,timezone
+ROOT=Path(__file__).resolve().parent
+DEST=ROOT/'N23_existing_sweep_observation1.json'
+ASOL=Path('D:/hfss_fig8_next48_20261029/b08/N23_A18/g01_initial/N23_A18_N48B08_g01.aedtresults/Wideband vertical transition.asol')
+def now():return datetime.now(timezone.utc).isoformat()
+def main():
+    assert not DEST.exists()
+    d=dict(at=now(),agent_Analyze_added=0,agent_restart_performed=False,
+           restart_gate_refused_due_to_live_hf3d=True,origin_of_late_sweep='not yet established: delayed original call versus external manual action',
+           expected_engine_pid=11676,expected_engine_created=1793352720.5208201,
+           initial_ASOL_mtime=ASOL.stat().st_mtime,observations=[])
+    engine=psutil.Process(11676);assert abs(engine.create_time()-d['expected_engine_created'])<.01
+    assert engine.parent().pid==50712
+    start=time.monotonic();last_live=time.monotonic();seen=set()
+    while time.monotonic()-start<600:
+        assert not (ROOT/'PAUSE.json').exists()
+        desktop=psutil.Process(50712);assert abs(desktop.create_time()-1793286319.113606)<.01
+        current=[]
+        for p in psutil.process_iter(['pid','name','cmdline','create_time']):
+            if (p.info['name'] or '').lower()!='hf3d.exe':continue
+            cmd=' '.join(p.info['cmdline'] or [])
+            assert 'hfss_DESKTOP-94969B0_11676.pjt' in cmd,'Foreign solver: wait, do not act'
+            assert '-max_processors 14' in cmd and '-numParallelGroups 1' in cmd
+            assert '-solve_frequency_sweep' in cmd and '-solve_broadband_adapt' not in cmd and '-solve_adapt ' not in cmd
+            current.append(p.info)
+            if p.pid not in seen:seen.add(p.pid);d['observations'].append(dict(at=now(),process=p.info))
+        if current:last_live=time.monotonic()
+        d.update(last_check=now(),live=current,current_ASOL_mtime=ASOL.stat().st_mtime)
+        DEST.write_text(json.dumps(d,indent=2),encoding='utf-8')
+        if not current and time.monotonic()-last_live>=20 and ASOL.stat().st_mtime>d['initial_ASOL_mtime']:
+            d.update(status='cache_updated_and_native_quiet_candidate',Analyze_added=0)
+            DEST.write_text(json.dumps(d,indent=2),encoding='utf-8');print(json.dumps(dict(status=d['status'],observed_processes=len(seen))),flush=True);return
+        time.sleep(.5)
+    d['status']='bounded_wait_expired_no_new_action';DEST.write_text(json.dumps(d,indent=2),encoding='utf-8')
+    print(json.dumps(dict(status=d['status'],observed_processes=len(seen))),flush=True)
+if __name__=='__main__':main()

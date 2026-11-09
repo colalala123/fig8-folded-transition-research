@@ -1,0 +1,6 @@
+import json,glob,os
+for f in glob.glob(r'F:\hfss_f8x_261002\**\*manifest*.json',recursive=True):
+ try:
+  j=json.load(open(f,encoding='utf-8')); s=j.get('sweep_props') or j.get('sweep') or {}
+  if s: print(os.path.basename(f),j.get('status'),{k:s.get(k) for k in ('InterpUseS','InterpUsePortImped','InterpUsePropConst','UseFullBasis','SMatrixOnlySolveMode','SMatrixOnlySolveAbove','InterpTolerance','InterpMaxSolns')})
+ except: pass

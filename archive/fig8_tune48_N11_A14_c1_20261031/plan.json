@@ -1,0 +1,96 @@
+{
+  "stage": "T48_N11_A14_C1",
+  "at": "2026-10-30T19:01:52.309710+00:00",
+  "seed": "F:\\hfss_f8_261002\\B0\\B0.aedt",
+  "seed_sha256": "95ab17f8078e39ad35884a824360e7b5dd3f26afa404089077c3b0d65b9bf06b",
+  "prediction_source": "${WORKSPACE}\\output\\fig8_step4_20261027\\predictions_frozen.json",
+  "prediction_source_sha256": "2eec23c2ed103b888a0a6a5a31d1504ce562bfc269f42cb95c9507363ff72e5f",
+  "training_source": "${WORKSPACE}\\output\\fig8_remediation_C3_20261025\\deliverables\\effective_all24_results.json",
+  "training_source_sha256": "a49c3c09168b202e1ee1f9b67b1a91d28c0b69ce14fdaefc1f548409d2ac8a28",
+  "source_validation_result": "${WORKSPACE}\\output\\fig8_validation6_20261026\\deliverables\\validation6_results.json",
+  "source_validation_sha256": "3878d960de4227adaf63bad642b0736128628692886ee0153d7462280d3a27bf",
+  "initial_geometry_cap": 1,
+  "overall_geometry_cap_per_case": 1,
+  "overall_geometry_cap": 1,
+  "predictions_refitted": false,
+  "cases": [
+    {
+      "case": "N11_A14_C1",
+      "group": "N11",
+      "family_id": "N11",
+      "role": "engineering_tuning_not_blind",
+      "ordinal": 15,
+      "batch": 3,
+      "context": "${WORKSPACE}\\output\\fig8_tune48_N11_A14_c1_20261031",
+      "D_batch": null,
+      "run_dir": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A14\\c1\\N11_A14_C1\\g01_initial",
+      "target_P": 2.090432794777202,
+      "target_R": 0.45170739799579973,
+      "P_nominal": 2.090432794777202,
+      "R_nominal": 0.45170739799579973,
+      "a_mm": 1.4,
+      "g_mm": 0.55,
+      "geometry": {
+        "Wm": 1.868639,
+        "Ws": 0.353497,
+        "Lm": 6.586226978578006,
+        "Ls1": 12.637445102864609,
+        "Ls2": 1.2569940000000002,
+        "Ls3": 1.7534969999999999
+      },
+      "initial_geometry": {
+        "Wm": 1.868639,
+        "Ws": 0.353497,
+        "Lm": 6.586226978578006,
+        "Ls1": 12.637445102864609,
+        "Ls2": 1.2569940000000002,
+        "Ls3": 1.7534969999999999
+      },
+      "category": "fixed_PR_length_tuning_not_independent_test",
+      "target": {
+        "f_low_GHz": 3.92,
+        "f_high_GHz": 9.52,
+        "BW_GHz": 5.6,
+        "S11_max_dB": -20,
+        "S21_min_dB": -2
+      },
+      "secondary_target": {
+        "f_low_GHz": 4.22,
+        "f_high_GHz": 9.22,
+        "BW_GHz": 5.0,
+        "S11_max_dB": -20,
+        "S21_min_dB": -2
+      },
+      "nominal_fold_coordinates": {
+        "Lpath_nominal_mm": 18.687835770230976,
+        "rho_nominal": 0.3221872277790026,
+        "eta_nominal": 0.41753787006837095,
+        "arm_overlap_ratio_legacy": 0.27686385771989935,
+        "g_mm": 0.5500000000000002,
+        "a_mm": 1.4
+      },
+      "parent_case": "N11_A14",
+      "original_role": "training_acquisition_family",
+      "parent_evidence_hashes": {
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\input.json": "f0aaf0dac9a592c65d4c0d34c22fbfd5a0885a23631535f50491c147f2583071",
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\state.json": "32f4f661c78f1a591dc6447420a5324d5d3711db0c5c52f00db1c894402ca5c0",
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\manifest.json": "211ef42bb928a0c592e8e241ac8f3e2c2a0c7858a5dfd3b3ae41468c64871e6e",
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\sparams.csv": "f55dcf2ec83f11b900ed38615766cd9574a514533baf66611176796a2bc0ddc5",
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\convergence.txt": "b4b491fc5daec4533733a6a5ce1d69fb07d6e253ecb242220b0b83f39a350604",
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\completion_event.json": "10fd65c846406d2c8bcae824677050e7cc5f0612a1a88da022cc3e8ba5b983e3",
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\receiver_ack.json": "0fc317c2c57f87c8064bcb17f43158694d4d1b1a54afffe44a083d5c607eb26d",
+        "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial\\receiver_verification.json": "fb651260791966091ccb3e234da7385a520c486e098f4e104d08e444fe164042",
+        "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\decisions\\N11_A14_c1_decision.json": "883a93f4a444faeecb3015db3d52c4a1db468127b31ede5fdbd1ce547587910a"
+      },
+      "original_source": "D:\\hfss_fig8_next48_20261029\\b03\\N11_A14\\g01_initial",
+      "probe_stage": "c1",
+      "prepared_project": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N11_A14\\c1\\N11_A14_C1\\prepared\\N11_A14_C1_T48_N11_A14_C1_Prepared.aedt",
+      "correction_decision": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\decisions\\N11_A14_c1_decision.json"
+    }
+  ],
+  "original_blind_results_unchanged": true,
+  "study_plan": "${WORKSPACE}\\output\\fig8_next48_20261029\\EXECUTION_PLAN.md",
+  "study_plan_sha256": "231354296d6630e8908fbf76878020dc9e763d0739af85fbb1651b33aa15dbd3",
+  "scope": "New fixedP/R engineering tuning, not original48blind",
+  "old_blind_results_unchanged": true
+}

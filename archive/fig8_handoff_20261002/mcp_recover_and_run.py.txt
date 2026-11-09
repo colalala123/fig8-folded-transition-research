@@ -1,0 +1,14 @@
+import asyncio,json,traceback
+from pathlib import Path
+from mcp_call import connected_client,session_call
+ROOT=Path('F:/hfss_f8x_261002/R_B0_rebuild_max500');NAME='R_B0_rebuild_max500';PORT=12704
+async def main():
+ async with connected_client() as s:
+  print('open',await session_call(s,'open_project',{'project_path':str(ROOT/(NAME+'.aedt')),'design_name':'Wideband vertical transition','port':PORT,'timeout':120}),flush=True)
+  print('start',await session_call(s,'start_analysis',{'project_name':NAME,'design_name':'Wideband vertical transition','setup_name':'ModalRepair','port':PORT,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}),flush=True)
+  for i in range(120):
+   await asyncio.sleep(30)
+   try: st=await session_call(s,'get_analysis_status',{'project_name':NAME,'design_name':'Wideband vertical transition','port':PORT,'timeout':120});print('status',i,st,flush=True)
+   except Exception: print(traceback.format_exc(),flush=True);continue
+   if not st.get('running'):break
+if __name__=='__main__':asyncio.run(main())

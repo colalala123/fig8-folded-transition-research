@@ -1,0 +1,133 @@
+"""D11 stage-A second/last cached task:0.5% interpolation, no mesh change."""
+import argparse
+import asyncio
+import os
+from pathlib import Path
+import shutil
+import sys
+import traceback
+import numpy as np
+import phase_control as pc
+sys.path.insert(0,str(pc.ORIGINAL))
+from geometry_worker import dc,solve_stage,passes,snapshot,canonical_ports,analyze,design_verdict
+from candidate_direct import compare as compare_reference
+from phase_publish import publish
+
+def local_compare(source, direct):
+    a=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+    b=np.genfromtxt(direct/'sparams.csv',delimiter=',',names=True)
+    assert len(a)==1500 and len(b)==5
+    idx=np.rint(b['Freq_GHz']*100).astype(int)-1
+    assert np.allclose(a['Freq_GHz'][idx],b['Freq_GHz'])
+    assert np.isfinite(np.array(a.tolist(),dtype=float)).all() and np.isfinite(np.array(b.tolist(),dtype=float)).all()
+    errors={k:np.abs(a[k+'_real'][idx]+1j*a[k+'_imag'][idx]-b[k+'_real']-1j*b[k+'_imag']) for k in ['S11','S21']}
+    maximum=max(float(v.max()) for v in errors.values())
+    return dict(points=5,frequencies_GHz=b['Freq_GHz'].tolist(),
+        complex_errors={k:v.tolist() for k,v in errors.items()},max_complex_error=maximum,
+        complex_check_passed=bool(maximum<=.005))
+
+def validate(path):
+    p=pc.read(path);a=pc.read(pc.HERE/'authorization.json');release=pc.read(pc.HERE/'supervised_release.json')
+    assert a['execution_authorized'] and a['stage']=='A' and not a['stage_B_C_released']
+    assert p['case']=='D11G05' and p['role']=='cached_interpolation_diagnostic'
+    assert p['interp_tolerance_percent']==.5 and p['cached_task_ordinal_for_case']==2
+    assert not p['adaptive_allowed'] and p['new_geometry_increment']==0
+    assert Path(p['run_dir']).resolve().is_relative_to(pc.BASE.resolve())
+    assert Path(release['input_path']).resolve()==Path(path).resolve() and release['input_sha256']==pc.sha(path)
+    assert not release['bulk_dispatch_released'] and p['worker_sha256']==pc.sha(__file__)
+    for f,h in p['parent_evidence_hashes'].items():assert pc.sha(f)==h,f
+    return p
+
+async def execute(path):
+    p=validate(path);r=Path(p['run_dir']);src=Path(p['source']);project=r/(p['project_name']+'.aedt')
+    assert not (r/'state.json').exists() and not project.exists()
+    original_project=Path(p['project_source']);cache=original_project.with_suffix('.aedtresults')
+    files=[f for f in cache.rglob('*') if f.is_file() and not f.name.endswith(('.lock','.semaphore'))]
+    assert files and shutil.disk_usage(pc.BASE).free>sum(f.stat().st_size for f in files)+15*1024**3
+    shutil.copy2(original_project,project)
+    for f in files:
+        dest=project.with_suffix('.aedtresults')/f.relative_to(cache)
+        dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(f,dest)
+    state=dict(case='D11G05',status='copied',project=str(project),segments=[],input_sha256=pc.sha(path),actual_elements=101715)
+    pc.write(r/'state.json',state)
+    app=dc.app_for(project)
+    try:
+        assert Path(app.project_file).resolve()==project.resolve() and not app.are_there_simulations_running
+        assert Path(app.temp_directory).resolve()==Path(p['solver_temp']).resolve()
+        setup=app.get_setup('Setup19');assert setup.is_solved and len(setup.sweeps)==1
+        app.export_convergence('Setup19',output_file=str(r/'convergence_before.txt'))
+        assert passes(r/'convergence_before.txt')==passes(src/'convergence.txt')
+        f,data,_,_=dc.get_data(app,'Sweep1');orig=np.genfromtxt(src/'sparams.csv',delimiter=',',names=True)
+        assert len(f)==1500 and np.allclose(f,orig['Freq_GHz'])
+        for k,e in [('S11','S(1:1,1:1)'),('S21','S(2:1,1:1)')]:
+            assert max(abs(data[e]-orig[k+'_real']-1j*orig[k+'_imag']))<1e-10
+        state['ports_before']=canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        assert state['ports_before']==p['expected_ports']
+        sw=setup.sweeps[0];assert sw.name=='Sweep1'
+        before=snapshot(sw.props)
+        assert before['Type']=='Interpolating' and before['InterpTolerance']==1 and not before['EnforcePassivity']
+        assert before['IsEnabled'] and before['RangeStart']=='0.01GHz' and before['RangeEnd']=='15GHz' and before['RangeStep']=='0.01GHz'
+        sw.auto_update=False;sw.props['InterpTolerance']=.5;assert sw.update()
+        after=snapshot(sw.props)
+        assert {k for k in set(before)|set(after) if before.get(k)!=after.get(k)}=={'InterpTolerance'}
+        state.update(original_sweep=before,final_sweep=after,original_curve_verified=True)
+        app.export_convergence('Setup19',output_file=str(r/'convergence_after_setup.txt'))
+        assert passes(r/'convergence_after_setup.txt')==passes(r/'convergence_before.txt')
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+        pc.write(r/'state.json',state)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    seg=await solve_stage(project,r,state,'same_mesh_interpolation_0p5percent',False)
+    app=dc.app_for(project)
+    try:
+        messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));state['messages']=messages
+        state['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in m for m in messages)
+        assert state['sweep_converged'] and not any('[error]' in m.lower() for m in messages)
+        app.export_convergence('Setup19',output_file=str(r/'convergence.txt'))
+        assert passes(r/'convergence.txt')==passes(r/'convergence_before.txt')
+        assert state['ports_before']==canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        dc.SWEEP='Sweep1';dc.export(app,r,np.arange(1,1501)/100)
+        app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert not seg['observed_adaptive_process']
+    for f,h in p['parent_evidence_hashes'].items():assert pc.sha(f)==h
+    metrics=analyze(r/'sparams.csv',f0=6.85);pc.write(r/'response_metrics.json',metrics)
+    reference=compare_reference(r,Path(p['previous_direct']));local=local_compare(r,Path(p['local_direct']))
+    result=dict(case='D11G05',reference62=reference,local5=local,
+        numerical_review_passed=bool(reference['numerical_review_passed'] and local['complex_check_passed']),
+        design_passed=bool(design_verdict(metrics) and reference['sampled_design_supported']),
+        full_matrix_approved=False,accepted=False,receiver_review_required=True,
+        note='Second/last D11 cached task; no adaptive or new geometry. Original62direct and new5points reused only after exact mesh/port/source binding. Not automatic acceptance; do not tighten further.')
+    pc.write(r/'comparison.json',result)
+    state.update(status='completed',same_mesh_verified=True,source_unchanged=True,finished_at=pc.now())
+    pc.write(r/'state.json',state)
+    return result
+
+async def main(path):
+    p=validate(path);r=Path(p['run_dir']);assert not dc.solvers()
+    locks=[pc.HERE/'worker.lock',pc.ORIGINAL/'worker.lock',Path('J:/f8_261007/protocol.lock')]
+    assert not Path('J:/f8_261007/pilot_queue.lock').exists()
+    held=[]
+    try:
+        for lock in locks:
+            with lock.open('x') as f:f.write(str(os.getpid()))
+            held.append(lock)
+        pc.write(pc.HERE/'active.json',dict(case='D11G05',stage='supervised_geometry_sweep',pid=os.getpid(),run_dir=str(r),started_at=pc.now()));pc.status()
+        status='failed'
+        try:
+            result=await execute(path);status='completed'
+            summary=f"D11G05第二且最后同网格0.5%插值任务完成；数值={result['numerical_review_passed']}，设计={result['design_passed']}。需核验曲线/ACK后决定接受或保留未解决；随后继续A阶段D09G02。"
+            artifacts=['input.json','state.json','comparison.json','response_metrics.json','manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence_before.txt','convergence_after_setup.txt','convergence.txt']
+        except BaseException:
+            pc.write(r/'worker_error.json',dict(at=pc.now(),error=traceback.format_exc(),live_solvers=dc.solvers()))
+            summary='D11G05第二次同网格插值任务异常；先核验现有产物，不能自动第三次或加密网格。';artifacts=['input.json','worker_error.json']
+    finally:
+        for lock in held:
+            if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+    pc.write(pc.HERE/'active.json',dict(case='D11G05',stage='awaiting_interpolation_review',operation_status=status,run_dir=str(r),finished_at=pc.now()));pc.status()
+    try:pc.write(r/'notification_receipt.json',await publish(r,status,summary,artifacts))
+    except Exception:
+        pc.write(r/'notification_error.json',dict(at=pc.now(),error=traceback.format_exc(),note='Inspect outbox; no blind resend.'));raise
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--spec',type=Path,required=True)
+    asyncio.run(main(ap.parse_args().spec.resolve()))

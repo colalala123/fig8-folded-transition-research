@@ -1,0 +1,30 @@
+"""Read-only audit of actual solver commands for the first supervised cases."""
+import json,os,time
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+ROOT=Path('J:/f8_261007')
+def read(p):return json.loads(p.read_text(encoding='utf-8'))
+def main():
+    while True:
+        qp=ROOT/'pilot_queue_state.json'
+        if not qp.exists():return
+        q=read(qp)
+        if q['status'] not in ['running']:return
+        run=Path(q['active_run']);sp=run/'state.json'
+        if sp.exists():
+            state=read(sp)
+            if state['status']=='solving':
+                live=[]
+                for p in psutil.process_iter(['pid','name','cmdline']):
+                    if (p.info['name'] or '').lower()=='hf3d.exe':live.append(p.info)
+                if live:
+                    path=run/'observed_solver_commands.json'
+                    record=read(path) if path.exists() else {'scope':'Read-only external observations during supervised solves','case':q['active_case'],'run':str(run),'observations':[]}
+                    fingerprint=[(x['pid'],x['cmdline']) for x in live]
+                    old=record['observations'][-1]['processes'] if record['observations'] else []
+                    if fingerprint!=[(x['pid'],x['cmdline']) for x in old]:
+                        record['observations'].append({'observed_at_utc':datetime.now(timezone.utc).isoformat(),'state_updated_at_utc':state['updated_at_utc'],'project':state['project'],'processes':live,'mcp_status':state.get('last_mcp_status')})
+                        tmp=path.with_suffix('.tmp');tmp.write_text(json.dumps(record,indent=2),encoding='utf-8');os.replace(tmp,path)
+        time.sleep(15)
+if __name__=='__main__':main()

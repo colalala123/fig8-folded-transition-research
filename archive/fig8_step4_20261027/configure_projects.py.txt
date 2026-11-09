@@ -1,0 +1,93 @@
+"""Create and verify 6 unsolved AEDT projects. Contains no Analyze call.
+
+Only the named new J:/f8_B6_261027 directory is written outside the workspace.
+Source projects and all previous results remain unchanged.
+"""
+import argparse,asyncio,json,shutil,sys
+from pathlib import Path
+import phase_control as pc
+from phase_geometry_worker import dc,apply_folded_geometry,set_modes,inspect_rebuilt_geometry,snapshot
+from prepared_settings import check_settings
+
+async def mcp_probe():
+    async with dc.connected_client() as client:
+        cat=await client.list_tools()
+        found={t.name:t.inputSchema for t in cat.tools if t.name in ['start_analysis','get_analysis_status']}
+        assert set(found)=={'start_analysis','get_analysis_status'}
+        assert {'cores_per_task','concurrent_tasks'}<=set(found['start_analysis'].get('properties',{}))
+        pc.write(pc.HERE/'mcp_preflight.json',dict(at=pc.now(),tools=found,analyze_requested=False))
+
+def configure(case):
+    plan=pc.read(pc.HERE/'plan.json');r=next(r for r in plan['cases'] if r['case']==case)
+    auth=pc.read(pc.HERE/'authorization.json');assert auth['configuration_authorized'] and not auth['execution_authorized']
+    assert not dc.solvers(),'Do not configure while a solver is active'
+    source=Path(plan['seed']);assert pc.sha(source)==plan['seed_sha256']
+    project=Path(r['prepared_project']);assert project.resolve().is_relative_to(pc.BASE.resolve())
+    record=pc.HERE/'cases'/case/'configuration.json'
+    if record.exists():
+        previous=pc.read(record);assert previous['passed'] and pc.sha(project)==previous['project_sha256']
+        print(case+' already configured, hash verified',flush=True);return
+    assert not project.exists(),'Interrupted preparation needs inspection; never overwrite blindly'
+    project.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(source,project)
+    print('CONFIGURING '+case,flush=True)
+    app=dc.app_for(project)
+    try:
+        assert Path(app.project_file).resolve()==project.resolve()
+        assert not app.are_there_simulations_running
+        g=r['geometry']
+        build=apply_folded_geometry(app,wm=g['Wm'],ws=g['Ws'],lm=g['Lm'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3'])
+        cad=inspect_rebuilt_geometry(app,g)
+        boxes={n:list(app.modeler[n].bounding_box) for n in ['Substrate_3','Substrate_18']}
+        for b in boxes.values():assert abs(b[3]-b[0]-g['Wm'])<1e-7 and abs(b[4]-b[1]-g['Lm'])<1e-7
+        ports=set_modes(app,2)
+        material=app.materials['rogers ro4003 (tm)']
+        mat=dict(er=float(material.permittivity.value),tand=float(material.dielectric_loss_tangent.value),h_mm=.813)
+        assert abs(mat['er']-3.55)<1e-9 and abs(mat['tand']-.0027)<1e-9
+        setup=app.get_setup('Setup19');assert not setup.is_solved
+        setup.auto_update=False
+        setup.props.update({'MinimumPasses':16,'MaximumPasses':16,'PercentRefinement':30,'UseMaxTetIncrease':False,'MaxDeltaS':.005,'MinimumConvergedPasses':2})
+        assert setup.update();setup.auto_update=True
+        assert len(setup.sweeps)==1 and setup.sweeps[0].name=='Sweep1'
+        sw=setup.sweeps[0];sw.auto_update=False
+        sw.props.update({'Type':'Interpolating','IsEnabled':False,'InterpTolerance':1.0,'EnforcePassivity':False})
+        assert sw.update();sw.auto_update=True
+        settings=check_settings(app)
+        # Remove copied display-only reports which still refer to the seed's
+        # one-mode names. Fresh two-mode S11/S21 report has no solved trace yet.
+        reports_before=list(app.post.all_report_names)
+        if reports_before:app.post.delete_report()
+        report_created=app.post.create_report(expressions=['dB(S(1:1,1:1))','dB(S(2:1,1:1))'],
+            setup_sweep_name='Setup19 : Sweep1',domain='Sweep',report_category='Modal Solution Data',
+            plot_type='Rectangular Plot',plot_name='B6_S11_S21')
+        # Some AEDT builds refuse a report before any solution. This does not
+        # invalidate geometry; preserve the exact report template either way.
+        report_template=dict(expressions=['dB(S(1:1,1:1))','dB(S(2:1,1:1))'],setup_sweep='Setup19 : Sweep1',
+                             created_before_solve=bool(report_created))
+        app.save_project();assert not setup.is_solved
+        temp=Path(app.temp_directory)
+        assert shutil.disk_usage(temp).free>15*1024**3
+        pc.write(pc.HERE/'desktop_start.json',dict(at=pc.now(),port=7990,visible_requested=True,
+                 temp_directory=str(temp),temp_free_bytes=shutil.disk_usage(temp).free,analyze_requested=False))
+        proof=dict(case=case,at=pc.now(),passed=True,project=str(project),geometry=g,build=build,
+                   cad_verification=cad,microstrip_boxes=boxes,ports=ports,material=mat,settings=settings,
+                   boundaries=snapshot({b.name:dict(type=b.type,props=b.props) for b in app.boundaries}),
+                   report_template=report_template,source=str(source),source_sha256=pc.sha(source),
+                   analyze_requested=False,solved=False,solver_processes_after=dc.solvers())
+        assert not proof['solver_processes_after']
+        # Close only this newly created project, so all6 saves release their locks.
+        assert app.close_project(save=True)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    proof['project_sha256']=pc.sha(project);pc.write(record,proof)
+    pc.write(project.parent/'configuration.json',proof)
+    assert pc.sha(source)==plan['seed_sha256']
+    print('CONFIGURED '+case+' (unsolved)',flush=True)
+
+def main():
+    parser=argparse.ArgumentParser();parser.add_argument('--case',choices=pc.ORDER);parser.add_argument('--all',action='store_true');args=parser.parse_args()
+    assert bool(args.case)!=args.all
+    pc.BASE.mkdir(exist_ok=True);assert shutil.disk_usage(pc.BASE).free>15*1024**3
+    if not (pc.HERE/'mcp_preflight.json').exists():asyncio.run(mcp_probe())
+    for case in ([args.case] if args.case else pc.ORDER):configure(case)
+    print('Configuration complete; Analyze was never requested.',flush=True)
+
+if __name__=='__main__':main()

@@ -1,0 +1,20 @@
+from run_broadband_case import *
+
+run=ROOT/'D09G05/i02'
+s=read(run/'state.json')
+assert not solvers()
+app=connect(Path(s['project']),7990)
+try:
+    from pilot_worker import plain
+    write_json(run/'reopened_ports.json',{b.name:plain(b.props) for b in app.boundaries if b.type=='Wave Port'})
+    report={'messages':list(app.odesktop.GetMessages(app.project_name,app.design_name,0)),
+            'settings_match':check_settings(app)==s['settings'],
+            'geometry':inspect_rebuilt_geometry(app,s['geometry']),
+            'setups':[{ 'name':x.name,'is_solved':x.is_solved} for x in app.setups]}
+    app.export_convergence('Setup19',output_file=str(run/'interruption_convergence.txt'))
+    data=app.post.get_solution_data(expressions=['S(1:1,1:1)'],setup_sweep_name='Setup19 : Sweep1')
+    report['sweep_points']=len(data.primary_sweep_values) if data else 0
+    write_json(run/'interruption_probe.json',report)
+    print(json.dumps(report,default=str))
+finally:
+    app.release_desktop(close_projects=False,close_desktop=False)

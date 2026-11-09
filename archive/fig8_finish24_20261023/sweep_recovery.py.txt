@@ -1,0 +1,149 @@
+"""One bounded cached-mesh sweep recovery; never automatic adaptive re-solve."""
+import asyncio
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+import time
+import traceback
+import numpy as np
+from control import HERE, BASE, OLD, read, write, sha, now, status_report
+from direct_worker import dc
+from publish_event import publish
+sys.path.insert(0,str(HERE.parent/'fig8_speed_study_20261021'))
+from run_study import canonical_ports, inspect_rebuilt_geometry, analyze
+
+CASE='D04G02'
+
+async def execute(folder):
+    plan=read(HERE/'plan.json');policy=read(HERE/'policy.json')
+    assert sha(HERE/'policy.json')==plan['policy_sha256']
+    assert sha(OLD/'production_protocol.json')==policy['old_protocol_sha256']
+    c=next(x for x in plan['cases'] if x['case']==CASE)
+    assert c['action']=='repair_unconverged_sweep'
+    src=Path(c['selected_source']);m=read(src/'manifest.json')
+    assert m['convergence']['converged'] and not m['sweep_converged']
+    source=Path(m['project']);project=folder/(CASE+'_sweep_recovery.aedt')
+    assert not (folder/'state.json').exists(),'Existing attempt requires explicit recovery, not rerun'
+    source_hash=sha(source);cached=source.with_suffix('.aedtresults')
+    assert cached.is_dir() and not project.exists()
+    files=[p for p in cached.rglob('*') if p.is_file() and not p.name.endswith('.semaphore')]
+    assert shutil.disk_usage(BASE).free>sum(p.stat().st_size for p in files)+10*1024**3
+    frozen={'case':CASE,'source':str(src),'project_source':str(source),'source_sha256':source_hash,
+            'source_manifest_sha256':sha(src/'manifest.json'),'policy_sha256':sha(HERE/'policy.json'),
+            'scope':'Same geometry and cached adaptive mesh; one changed interpolation sweep, not design acceptance',
+            'InterpTolerance':1.0,'EnforcePassivity':False,'cores':16,'tasks':1}
+    write(folder/'plan.json',frozen)
+    shutil.copy2(source,project)
+    for file in files:
+        dest=project.with_suffix('.aedtresults')/file.relative_to(cached)
+        dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(file,dest)
+    s={'case':CASE,'status':'copied','project':str(project),'source':str(source),'source_sha256':source_hash,
+       'cache_files':len(files),'geometry':m['geometry'],'started_at':now()}
+    write(folder/'state.json',s)
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        app.export_convergence('Setup19',output_file=str(folder/'convergence_before.txt'))
+        assert dc.convergence(folder/'convergence_before.txt')==m['convergence']
+        s['cad_verification']=inspect_rebuilt_geometry(app,m['geometry']);assert s['cad_verification']['passed']
+        ports={b.name:json.loads(json.dumps(b.props,default=str)) for b in app.boundaries if b.type=='Wave Port'}
+        assert canonical_ports(ports)==canonical_ports(m['port_settings']['after'])
+        s['ports']=ports;s['settings_before']=json.loads(json.dumps(setup.props,default=str))
+        sw=next(w for w in setup.sweeps if w.name=='Sweep1');sw.auto_update=False
+        sw.props.update({'Type':'Interpolating','IsEnabled':True,'InterpTolerance':1.0,'EnforcePassivity':False})
+        assert sw.update();sw.auto_update=True
+        assert sw.props['RangeStart']=='0.01GHz' and sw.props['RangeEnd']=='15GHz' and sw.props['RangeStep']=='0.01GHz'
+        s['sweep_after']=json.loads(json.dumps(sw.props,default=str))
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19',
+          'port':7990,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+    started=time.monotonic();s.update(status='prepared',mcp_request=args,observations=[]);write(folder/'state.json',s)
+    async with dc.connected_client() as client:
+        s['mcp_response']=await dc.session_call(client,'start_analysis',args)
+        assert s['mcp_response'].get('started');s['status']='solving';write(folder/'state.json',s)
+        while True:
+            await asyncio.sleep(10);live=dc.solvers()
+            if any('-solve_broadband_adapt' in ' '.join(p['cmdline'] or []) or '-solve_adapt ' in ' '.join(p['cmdline'] or []) for p in live):
+                app=dc.app_for(project)
+                try:app.stop_simulations(clean_stop=True)
+                finally:app.release_desktop(close_projects=False,close_desktop=False)
+                raise RuntimeError('Unexpected adaptive solve, clean stop requested; inspect without rerun')
+            if live and (not s['observations'] or s['observations'][-1]!=live):s['observations'].append(live)
+            status=await dc.session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+            s.update(last_status=status,elapsed_seconds=time.monotonic()-started,updated_at=now());write(folder/'state.json',s)
+            if not live and not status.get('running'):break
+            if time.monotonic()-started>3600:raise TimeoutError('Supervision limit; preserve live solver for explicit inspection')
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        s['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in s['messages'])
+        write(folder/'state.json',s)
+        dc.SWEEP='Sweep1';dc.export(app,folder,np.arange(1,1501)/100)
+        app.export_convergence('Setup19',output_file=str(folder/'convergence_after.txt'))
+        assert dc.convergence(folder/'convergence_after.txt')==m['convergence']
+        assert sha(folder/'convergence_before.txt')==sha(folder/'convergence_after.txt')
+        app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(source)==source_hash
+    commands=[' '.join(p['cmdline'] or []) for obs in s['observations'] for p in obs]
+    s['observed_16core_process']=any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    if commands:
+        assert s['observed_16core_process']
+    else:
+        assert s['sweep_converged'] and any('Normal completion' in x for x in s['messages'])
+        s['resource_observation_note']='No solver process captured between polls; cached sweep completed. 16 cores requested via MCP, actual core usage not observed.'
+    s.update(status='exported',same_mesh_verified=True,source_unchanged=True);write(folder/'state.json',s)
+    assert s['sweep_converged'],'Sweep still nonconvergent; retain exported data, no automatic retries'
+    assert not any('[error]' in x.lower() for x in s['messages']), 'Solver errors require inspection'
+    metrics=analyze(folder/'sparams.csv',f0=6.85);write(folder/'response_metrics.json',metrics)
+    design=bool(metrics.get('prominent_valley_count')==3 and metrics['validity']['equal_ripple'] and abs(metrics['central_valley_GHz']-6.72)<=.03+1e-10)
+    s.update(status='completed',design_passed=design,finished_at=now());write(folder/'state.json',s)
+    write(folder/'manifest.json',{'case':CASE,'project':str(project),'geometry':m['geometry'],'source':str(source),
+          'source_sha256':source_hash,'convergence':m['convergence'],'sweep_converged':True,'modes':2,
+          'port_settings':{'after':ports},'curve_sha256':sha(folder/'sparams.csv'),'full_matrix_approved':False,
+          'same_mesh_verified':True,'sweep_settings':s['sweep_after']})
+    result={'case':CASE,'case_state':'needs_review','reason':'sweep_recovered_needs_direct_review' if design else 'sweep_recovered_needs_bounded_tuning',
+            'operation_success':True,'design_passed':design,'numerical_review_passed':None,'full_matrix_approved':False,
+            'selected_run':str(folder),'geometry':m['geometry'],'metrics':metrics,'finished_at':now(),
+            'evidence_hashes':{str(p):sha(p) for p in [folder/'state.json',folder/'manifest.json',folder/'sparams.csv',folder/'convergence_after.txt']}}
+    write(folder/'finish24_result.json',result);write(HERE/'cases'/CASE/'result.json',result)
+    return result
+
+async def main():
+    assert not dc.solvers()
+    locks=[HERE/'worker.lock',OLD/'protocol.lock']
+    assert not (OLD/'pilot_queue.lock').exists() and all(not p.exists() for p in locks)
+    acquired=[]
+    try:
+        for lock in locks:
+            with lock.open('x') as h:h.write(str(os.getpid()))
+            acquired.append(lock)
+    except BaseException:
+        for lock in acquired:lock.unlink()
+        raise
+    folder=BASE/'D04G02_sweep_recovery';folder.mkdir(parents=True,exist_ok=True)
+    job=HERE/'cases'/CASE;job.mkdir(parents=True,exist_ok=True)
+    status='failed';artifacts=[];summary=''
+    try:
+        write(HERE/'active.json',{'case':CASE,'stage':'cached_sweep_recovery','pid':os.getpid(),'run_dir':str(folder),'started_at':now()});status_report()
+        r=await execute(folder);status='completed'
+        summary=f"{CASE}同网格扫频恢复完成，扫频已收敛；设计指标={'通过、待关键频点复核' if r['design_passed'] else '未通过、需有界调参'}，BW={r['metrics']['passband_2dB']['BW_GHz']:.6f}GHz；不是完整验收。"
+        artifacts=['finish24_result.json','state.json','manifest.json','plan.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','response_metrics.json','convergence_before.txt','convergence_after.txt']
+    except BaseException:
+        write(folder/'worker_error.json',{'at':now(),'error':traceback.format_exc(),'live_solvers':dc.solvers()})
+        write(job/'attention.json',{'at':now(),'error_file':str(folder/'worker_error.json')})
+        summary=f'{CASE}扫频恢复工作项出错；保留缓存和导出数据，请检查worker_error.json，不盲目重算。';artifacts=['worker_error.json']
+    finally:
+        for lock in acquired:
+            if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+        write(HERE/'active.json',{'case':CASE,'stage':'awaiting_hook_review','run_dir':str(folder),'operation_status':status,'finished_at':now()});status_report()
+    try:write(job/'notification.json',await publish(folder,CASE,status,summary,artifacts))
+    except Exception:
+        write(job/'notification_error.json',{'at':now(),'error':traceback.format_exc(),'rule':'Do not rerun solver for notification failure'});raise
+
+if __name__=='__main__':asyncio.run(main())

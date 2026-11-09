@@ -1,0 +1,45 @@
+"""After both real14-core probes are ACKed, create one bounded candidate offline."""
+import sys,copy
+from pathlib import Path
+from build_runtime import MASTER,OUT,BASE,PROBES,make_context
+from common import read,write,sha,now
+from b05_corrector import load_curve,assess,propose
+
+def reviewed(run,cores):
+    e=read(run/'completion_event.json');a=read(run/'receiver_ack.json');s=read(run/'state.json')
+    assert e['status']=='completed' and e['verified_success'] and s['status']=='completed'
+    assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed']
+    assert a['event_sha256']==sha(run/'completion_event.json') and a['verification_sha256']==sha(run/'receiver_verification.json')
+    for item in e['artifacts']:assert sha(run/item['path'])==item['sha256']
+    proof=read(run/'supervised_start.json');assert proof[f'actual_{cores}core_single_group_observed']
+    assert all(seg['mcp_request']['cores_per_task']==cores for seg in s['segments'])
+    return {str(run/n):sha(run/n) for n in ['input.json','state.json','manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt','completion_event.json','receiver_ack.json','receiver_verification.json','supervised_start.json']}
+
+def main():
+    path=MASTER/'candidate1_decision.json';assert not path.exists(),'Already frozen: inspect only, do not regenerate'
+    ledger=read(PROBES/'budget_ledger.json')
+    assert [r['case'] for r in ledger['tasks']]==['B05N_S','B05N_M'] and all(r['status']=='reviewed' for r in ledger['tasks'])
+    b=read(MASTER/'baseline.json');base=Path(b['run']);rs=BASE/'probes/B05N_S/g01_initial';rm=BASE/'probes/B05N_M/g01_initial'
+    ev={**reviewed(base,16),**reviewed(rs,14),**reviewed(rm,14)}
+    for run,key,h in [(rs,'Ls1',.1),(rm,'Lm',.05)]:
+        g=read(run/'state.json')['geometry'];assert all(abs(g[k]-b['geometry'][k]-(h if k==key else 0))<1e-9 for k in g)
+    scores=[dict(run=str(run),score=assess(*load_curve(run/'sparams.csv'),b['target'])) for run in [rs,rm]]
+    proposal=propose(load_curve(base/'sparams.csv'),load_curve(rs/'sparams.csv'),load_curve(rm/'sparams.csv'),b['geometry'],b['target'])
+    decision=dict(at=now(),base=str(base),base_cores=16,probe_cores=14,probe_scores=scores,proposal=proposal,not_independent_blind=True,not_a_guarantee=True)
+    write(path,decision)
+    if proposal['action']!='candidate':
+        print(dict(candidate_prepared=False,reason='No predicted hard-target pass within frozen trust region; do not relax target. Review model before using optional final slot.'));return
+    row=copy.deepcopy(read(PROBES/'plan.json')['cases'][0]);g=proposal['geometry']
+    for key in ['probe','prepared_project']:row.pop(key,None)
+    row.update(case='B05N_C1',geometry=g,initial_geometry=g,category='B05_second_cycle_candidate_not_blind',parent_evidence_hashes={**ev,str(path):sha(path),str(MASTER/'b05_corrector.py'):sha(MASTER/'b05_corrector.py')},correction=proposal)
+    context=OUT/'fig8_B05_fix14_candidate1_20261029'
+    continuation=f'''# B05第二轮候选C1：14核串行
+先读{MASTER/'EXECUTION_PLAN.md'}。本上下文只派发B05N_C1。旧队列已闭账，不重开。
+完成后review_phase_geometry.py --run RUN，实际view_image看PNG，必须调用主目录b05_corrector.assess检查原3.92–9.52GHz全部硬目标；design_passed仅中心/峰差，不代表联合目标。然后acknowledge_review.py --run RUN --visual-reviewed --note真实结论。
+如完整密集目标通过，只给最终选中项建立新的14核同网格direct上下文，最多24首轮+8预留频点/最多8次Analyze；复用旧已验证smallbatch代码但必须修改14核请求、观测、ACK/心跳检测字段和本轮路径/预算，静态/只读检查后派发。不得调用旧C9多家族prepare_final_review_D或旧队列。
+如C1未通过，本轮尚有唯一备用B05N_C2名额。用C1真实复数残差对两探针Jacobian作缩放坐标下秩1校正，围绕C1缩小信赖步长(Ls1<=0.10,Lm<=0.05mm)，同时保持相对本轮基准全局|ΔLs1|<=0.20、|ΔLm|<=0.10mm。冻结预测/参数/来源后用build_runtime.make_context建立候选2独立上下文；无受支持硬目标通过候选则停，不强行派发、不扩宽度、不放宽门限。总上限4新几何/60Analyze。
+技术失败先看真实进程和缓存，最多一次技术恢复、不清工程锁、不重复Analyze。正常运行静默，终态hook发当前聊天，通知后5分钟无新仿真才检测聊天。用户暂停立即停止心跳。最终报告原结果不改写，不启动48点。
+'''
+    result=make_context(context,BASE/'candidate1',[row],'B05N14C1',continuation)
+    write(MASTER/'candidate1_runtime.json',result);print(result)
+if __name__=='__main__':main()

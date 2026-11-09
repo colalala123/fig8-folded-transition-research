@@ -1,0 +1,54 @@
+{
+  "status": "frozen_verified",
+  "protocol_id": "fig8_mode2_broadband_scalar_verified_v1_20261007",
+  "modes": 2,
+  "adaptive_method": "Broadband0p1to15",
+  "sweep_method": "original_fullband_scalar_audited_v1",
+  "baseline_run": "J:\\f8_261007\\B0BC",
+  "central_valley_target_GHz": 6.72,
+  "f0_reference_GHz": 6.85,
+  "material": {
+    "er": 3.55,
+    "tand": 0.0027,
+    "h_mm": 0.813
+  },
+  "cores": 16,
+  "tasks": 1,
+  "port": 7990,
+  "normalization": "Original native Zpi S11/S21 for metrics. Full complex matrix plus explicit scalar modal Zo converted to real 50ohm by independently calibrated traveling-wave formula; original HFSS full-Z exports/warnings retained. No passivity clipping or fitting.",
+  "source_B0_sha256": "95ab17f8078e39ad35884a824360e7b5dd3f26afa404089077c3b0d65b9bf06b",
+  "source_T_F3_sha256": "3d7ede1c6f6af59b4c9a9abc567acc6637150c2bfa5dc77dcd5db3fb8347ab44",
+  "reference_review": {
+    "path": "J:\\f8_261007\\reference_review.json",
+    "sha256": "f287a2fb0f2db04df2ba342d02ff6570b71c0803f073596182df69729b6d1cf0"
+  },
+  "collector_review": {
+    "path": "J:\\f8_261007\\broadband_collector_review.json",
+    "sha256": "d1ae07e01d17827d12a05f0619b3f7ec4397e8825d4fbcf80f94f6f77386a651"
+  },
+  "implementation_hashes": {
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\run_guarded_case.py": "39ad90e5e92e49f2822e561313e283d159760297a4ee1866718a7d5b20bbff28",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\run_broadband_case.py": "13625ba15767a07648702b5a4c4f6434585a38fbe3756c156c1e4e8f42f9c6af",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\broadband_recovery.py": "0f0aaa89cfde7f6333232bf3b0e5cb537cf0841524f0c451b11bc14a60b58a89",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\check_legacy_scalar_reference.py": "a6a58f4b70dd60e52027b2be026c29d96673fc1551dfe7fde9ec16a67a8a11a6",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\check_external_normalization.py": "549c2da7b69f54e9e3e3d5d520aad039f24915cfb7190f77cc640d5b3ac86d2a",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\guarded_pilot_queue.py": "24d1e62875b76d6e57e86702e44eca8637b125a5b67e82194a174d983ff81b4c",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\complete_reference_evidence.py": "79aa0cc7a39bb1207e3818acec96a1cb80afe333b3d1b3309fe59b104b38d190",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\review_history_for_production.py": "8a723a2a7b7099f0e88dd126de58e02542b17a4d34a5bf4befa506ad4741c350",
+    "${WORKSPACE}\\output\\fig8_handoff_20261002\\pilot_worker.py": "cdae15ee8ee62e554700969f640816cbc7738078fc71757d9d0a68c21d75712a",
+    "${WORKSPACE}\\output\\fig8_handoff_20261002\\pilot_queue.py": "8f73dd99f90001da8ed24bd9a3da8958fa228e675f62efe1a61df10de7c696a1",
+    "${WORKSPACE}\\output\\fig8_handoff_20261002\\pilot_supervisor.py": "3c7a792d214623208de156cab101ae65c51eed8848e000cf9fc688b17fe31399",
+    "${WORKSPACE}\\output\\fig8_handoff_20261002\\port_evidence.py": "af012b46b8856f21637f74e9cca59c7992f08551834ec84b43204ecb3ce3ec35",
+    "${WORKSPACE}\\output\\fig8_handoff_20261002\\mcp_call.py": "85f656258212b4462f08d13b4f89553954d7a7557732420cd157b91ea7a5af0e",
+    "${WORKSPACE}\\output\\folded_simulation_plan_20260920\\response_metrics.py": "6f219f5d643ae954500aac105e6aa22c00b55978c4bd4764d060fca2249884b7",
+    "${WORKSPACE}\\output\\folded_fig8_run_20261002\\run_batch.py": "494e89ad4fd120428410720cff81917b83ccf2436c445471c761d012d8d06ae6",
+    "${WORKSPACE}\\output\\folded_geometry_scope_20261002\\prepare_geometry_scope.py": "e07348c29b61406f4ef315954530120fdbb3fe00a39be25d6799bd004c73fe91",
+    "${WORKSPACE}\\tmp\\folded_plan_review\\automation\\folded_transition.py": "66c6f116954687f5a9473ec8c9c58375a2a71e1cdc9583b43796c11a978f3763",
+    "F:\\2026-1\\circuit\\mcp\\mcp_server.py": "22af3990ce1171b7c460d8c4f566e9eb3961486f335ee7275b15844952bd3201",
+    "F:\\2026-1\\circuit\\mcp\\pyaedt_worker.py": "a2c60ea585401dcc687b1d0b936c651a6cc4c01d6907b1ace2c0941616884a78"
+  },
+  "pilot_matrix_sha256": "ec1f55c9d18edd4bff5c9965af5c69f72667a67bc51dcd3ba2d424665df6c001",
+  "scope": "24 pilot only, historical phase solves included in limit 8; supervised stage required before remaining queue; width-corner mode checks still required.",
+  "production_limits": "Numerical/port evidence validated on baseline copy/rebuild and B0/T_F3. New production worker requires real supervised verification. Mode sufficiency at four width corners remains pending.",
+  "frozen_at_utc": "2026-10-07T11:38:55+00:00"
+}

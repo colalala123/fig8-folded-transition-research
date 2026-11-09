@@ -1,0 +1,30 @@
+"""Apply the already-received human instruction after configuration; no Analyze."""
+import psutil
+import phase_control as pc
+from dispatch import check
+
+def main():
+    assert not (pc.HERE/'launch_authorization_applied.json').exists()
+    plan=pc.read(pc.HERE/'execution_plan.json');a=pc.read(pc.HERE/'authorization.json')
+    assert plan['launch_user_instruction']=='你还是接着用hook，把这6个按照我一直以来的要求跑完'
+    assert a['configuration_authorized'] and not a['execution_authorized']
+    assert pc.read(pc.HERE/'configuration_readiness.json')['prepared_projects']==6
+    assert pc.read(pc.HERE/'budget_ledger.json')['tasks']==[]
+    assert pc.read(pc.HERE/'hook_live_read_preflight.json')['supported_read_thread_verified']
+    for p in psutil.process_iter(['name','cmdline']):
+        assert (p.info['name'] or '').lower()!='hf3d.exe','Existing solver; inspect first'
+        assert not any(str(x).endswith('configure_projects.py') for x in p.info.get('cmdline') or []),'Configuration still active'
+    for case in pc.ORDER:check(case)
+    a.update(execution_authorized=True,launch_user_instruction=plan['launch_user_instruction'],
+        launch_authorized_at=pc.now(),execution_plan_sha256=pc.sha(pc.HERE/'execution_plan.json'),
+        current_segment='initial_six_only',overall_geometry_cap_per_case=7,overall_geometry_cap=42,overall_cached_direct_cap=6,
+        budget_note='Existing dispatcher releases only initial6. Subsequent V6-only phases need frozen inputs and cumulative accounting, not additional human launch confirmation.')
+    pc.write(pc.HERE/'authorization.json',a)
+    proof=dict(at=pc.now(),human_instruction=a['launch_user_instruction'],authorization_sha256=pc.sha(pc.HERE/'authorization.json'),
+        actual_solve_started=False,initial_specs_checked=6)
+    pc.write(pc.HERE/'launch_authorization_applied.json',proof)
+    text=(pc.HERE/'README.md').read_text(encoding='utf-8')
+    (pc.HERE/'README.md').write_text('# 最新执行说明\n\n用户随后已明确要求用hook跑完六项；执行授权已登记。下面是配置完成时的历史快照，最新运行状态见STATUS.md/active.json，后续步骤见CONTINUATION.md及execution_plan.json。\n\n'+text,encoding='utf-8')
+    print(proof)
+
+if __name__=='__main__':main()

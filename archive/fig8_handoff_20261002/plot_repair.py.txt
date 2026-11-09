@@ -1,0 +1,24 @@
+import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
+R=Path(r'F:\hfss_f8x_261002\R_tri_diagC')
+def parse(p):
+ vals=[];u=1;fmt='RI'
+ for ln in Path(p).read_text(errors='ignore').splitlines():
+  ln=ln.strip()
+  if not ln or ln.startswith('!'): continue
+  if ln.startswith('#'):
+   t=ln.upper().split();u={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+  vals.extend(float(x.replace('D','E')) for x in ln.split())
+ st=73;ch=[vals[i:i+st] for i in range(0,len(vals)-st+1,st)];f=np.array([c[0]*u/1e9 for c in ch]);s=np.zeros((len(ch),6,6),complex)
+ for k,c in enumerate(ch):
+  x=np.array(c[1:]).reshape(36,2);z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1])) if fmt=='MA' else x[:,0]+1j*x[:,1];s[k]=z.reshape(6,6)
+ return f,s
+f,s0=parse(R/'50ohm_full_no_pass.s6p');_,s1=parse(R/'50ohm_full_repaired.s6p');
+sv0=np.linalg.svd(s0,compute_uv=False).max(1);sv1=np.linalg.svd(s1,compute_uv=False).max(1)
+plt.figure(figsize=(10,4.8),dpi=180)
+plt.plot(f,sv0,label='raw full interpolation',lw=1.2,color='#c23b3b')
+plt.plot(f,sv1,label='repaired (6 direct HFSS points)',lw=1.2,color='#1464a0')
+plt.axhline(1,color='k',ls='--',lw=.8,label='passivity limit')
+plt.axvspan(6.96,7.01,color='#f2c94c',alpha=.18,label='direct discrete replacement')
+plt.xlim(0,15);plt.ylim(0.5,1.4);plt.xlabel('Frequency (GHz)');plt.ylabel('max singular value of 50 Ω S₆×₆');plt.grid(alpha=.25);plt.legend(frameon=False,ncol=2,fontsize=8);plt.tight_layout();plt.savefig(R/'tri_mode_repair_validation.png',bbox_inches='tight');plt.close()

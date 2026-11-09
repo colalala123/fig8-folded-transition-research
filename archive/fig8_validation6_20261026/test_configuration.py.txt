@@ -1,0 +1,52 @@
+"""Offline guards for new V6 preparation. No solver or real messages."""
+import ast,asyncio,copy,unittest
+from pathlib import Path
+from unittest.mock import patch
+import phase_control as pc
+import phase_geometry_context as ctx
+import phase_geometry_publish as pub
+from make_package import interpolate
+
+class ConfigurationTests(unittest.TestCase):
+    def test_six_exact_unseen_width_arm_combinations_and_no_target_leakage(self):
+        p=pc.read(pc.HERE/'plan.json');training=pc.read(p['training_source'])['rows']
+        source=pc.read(p['prediction_source'])['rows']
+        self.assertEqual([r['case'] for r in p['cases']],pc.ORDER)
+        self.assertEqual([r['predicted_BW_GHz'] for r in p['cases']],[r['predicted_BW_GHz'] for r in source])
+        for r in p['cases']:
+            g=r['geometry']
+            self.assertFalse(any(x['geometry_mm']['Wm']==g['Wm'] and x['geometry_mm']['Ws']==g['Ws'] for x in training))
+            self.assertAlmostEqual(g['Ls2']-2*g['Ws'],.55)
+            self.assertAlmostEqual(g['Ls3']-g['Ws'],r['a_mm'])
+            self.assertGreaterEqual((g['Ls1']-2*g['Ls3']-g['Wm'])/2,.813)
+            self.assertLessEqual(2*g['Ls3']/g['Ls1'],.5)
+            # Response metrics entirely removed: starting lengths must not change.
+            stripped=[{'case':x['case'],'geometry_mm':x['geometry_mm'],'result_sha256':x['result_sha256']} for x in training]
+            lengths,_=interpolate(stripped,g['Wm'],g['Ws'],r['a_mm'])
+            self.assertEqual(lengths,{k:g[k] for k in ['Lm','Ls1']})
+
+    def test_configuration_authorization_blocks_budget_and_hook(self):
+        auth=pc.read(pc.HERE/'authorization.json')
+        self.assertFalse(auth['execution_authorized'])
+        with self.assertRaisesRegex(AssertionError,'Configuration-only'):
+            ctx.validate_budget({}, {}, auth)
+        with patch.object(pub.hook,'deliver') as send:
+            with self.assertRaises(AssertionError):asyncio.run(pub.publish(pc.HERE,'V01G02','completed','synthetic',[]))
+        send.assert_not_called()
+
+    def test_no_analyze_or_notification_calls_in_preparation_entrypoints(self):
+        denied={'start_analysis','analyze','analyze_setup','Analyze','AnalyzeAll','deliver','arm','start_simulations'}
+        for name in ['configure_projects.py','finalize_configuration.py','make_package.py']:
+            tree=ast.parse((pc.HERE/name).read_text(encoding='utf-8'))
+            called={n.func.attr if isinstance(n.func,ast.Attribute) else n.func.id for n in ast.walk(tree)
+                    if isinstance(n,ast.Call) and isinstance(n.func,(ast.Attribute,ast.Name))}
+            self.assertFalse(called&denied,(name,called&denied))
+
+    def test_notifications_target_only_current_chat_and_watch_disabled(self):
+        cfg=pub.hook.load_config(pc.HERE/'hook/config.json')
+        self.assertEqual(cfg['authorized_threads'],[pc.TARGET])
+        self.assertEqual(cfg['default_thread_id'],pc.TARGET)
+        self.assertFalse(pc.read(pc.HERE/'hook/heartbeat/monitor.json')['enabled'])
+        self.assertEqual(pc.read(pc.HERE/'budget_ledger.json')['tasks'],[])
+
+if __name__=='__main__':unittest.main()

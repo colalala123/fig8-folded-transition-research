@@ -1,0 +1,75 @@
+"""Independent receiver review of original62 plus recovered1; no Analyze."""
+from pathlib import Path
+import csv
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import phase_control as pc
+from phase_geometry_worker import passes
+from phase_final_direct import compare
+from case_reference import verify_reference
+from phase_publish import hook
+
+
+def main():
+    run = pc.BASE/'D12G05/recover_single_10p19'; merged = run/'assembled_review'
+    p=pc.read(run/'input.json');state=pc.read(run/'state.json');event=pc.read(run/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']==pc.TARGET
+    assert pc.read(run/'notification_receipt.json')['state']=='accepted'
+    verified={}
+    for a in event['artifacts']:
+        file=run/a['path']; assert file.resolve().is_relative_to(run.resolve())
+        assert pc.sha(file)==a['sha256'];verified[str(file)]=a['sha256']
+    for file,digest in p['parent_evidence_hashes'].items():assert pc.sha(file)==digest,file
+    assert state['input_sha256']==pc.sha(run/'input.json') and state['status']=='completed'
+    assert state['same_mesh_verified'] and state['source_unchanged'] and state['actual_elements']==100013
+    assert len(state['segments'])==1
+    seg=state['segments'][0];assert not seg['observed_adaptive_process'] and seg['observed_16core_process']
+    src=Path(p['source']);prev=Path(p['previous_direct'])
+    history=passes(src/'convergence.txt')
+    assert history==passes(run/'convergence_before.txt')==passes(run/'convergence_after.txt')
+    assert history==passes(prev/'convergence_before.txt')==passes(prev/'recovery_readonly/convergence_after_existing.txt')
+    assert pc.read(prev/'completion_event.json')['status']=='failed'
+    assert verify_reference(src)['treatment']=='native_fundamental'
+    verify_reference(run);verify_reference(merged)
+    provenance=pc.read(merged/'assembly_provenance.json')
+    for file,digest in provenance['source_files_sha256'].items():assert pc.sha(file)==digest
+    for name in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        def rows(root):
+            with (root/name).open(encoding='utf-8-sig',newline='') as f:return list(csv.DictReader(f))
+        old=rows(prev/'recovery_readonly');new=rows(run);union=rows(merged)
+        assert union==sorted(old+new,key=lambda x:float(x['Freq_GHz']))
+        assert len(union)==63 and len(new)==1 and float(new[0]['Freq_GHz'])==10.19
+        assert np.isfinite([[float(v) for v in row.values()] for row in union]).all()
+    result=compare(src,merged);assert result==pc.read(merged/'comparison.json')
+    original=np.genfromtxt(src/'sparams.csv',delimiter=',',names=True)
+    direct=np.genfromtxt(merged/'sparams.csv',delimiter=',',names=True)
+    fig,axes=plt.subplots(2,2,figsize=(13,8))
+    ax=axes[0,0]
+    for key,color in [('S11_dB','tab:blue'),('S21_dB','tab:orange')]:
+        ax.plot(original['Freq_GHz'],original[key],label=key+' interpolated',color=color)
+        ax.scatter(direct['Freq_GHz'],direct[key],facecolors='none',edgecolors=color,s=16)
+    ax.set(xlim=(2.5,11),ylim=(-75,1),title='D12G05: original62 + recovered1, same100013mesh')
+    for ax,peak in zip([axes[0,1],axes[1,0]],result['direct_peaks']):
+        f=peak['GHz'];win=abs(direct['Freq_GHz']-f)<.07
+        ax.plot(original['Freq_GHz'],original['S11_dB'],label='Interpolation')
+        ax.scatter(direct['Freq_GHz'][win],direct['S11_dB'][win],color='tab:orange',label='Direct')
+        y=direct['S11_dB'][win];ax.set(xlim=(f-.065,f+.065),ylim=(y.min()-.02,y.max()+.02),title=f'Actual S11 peak {f:.2f} GHz')
+    ax=axes[1,1];win=abs(direct['Freq_GHz']-6.74)<.04
+    ax.plot(original['Freq_GHz'],original['S11_dB'],label='Interpolation')
+    ax.plot(direct['Freq_GHz'][win],direct['S11_dB'][win],'o-',label='Direct')
+    ax.axvline(6.75,color='red',linestyle='--',label='Allowed upper6.75')
+    ax.set(xlim=(6.70,6.78),ylim=(-80,-35),title='Actual central minimum, no fitted correction')
+    for ax in axes.flat:ax.grid(alpha=.2);ax.set_xlabel('GHz');ax.set_ylabel('dB');ax.legend(fontsize=7)
+    fig.tight_layout();plot=pc.HERE/'cases/D12G05/recovered_direct_review.png'
+    fig.savefig(plot,dpi=150);plt.close(fig)
+    pc.write(run/'receiver_verification.json',dict(at=pc.now(),event_id=hook.event_id(event),
+        event_sha256=pc.sha(run/'completion_event.json'),artifacts_verified=verified,
+        comparison=result,source_row_union_verified=True,actual_elements=100013,
+        same_mesh_verified=True,observed_16core_process=True,reference='native_fundamental',
+        original_failed_event_preserved=True,visual_review_pending=True,plot=str(plot),plot_sha256=pc.sha(plot),full_matrix_approved=False))
+    print(dict(plot=str(plot),comparison=result))
+
+
+if __name__=='__main__':main()

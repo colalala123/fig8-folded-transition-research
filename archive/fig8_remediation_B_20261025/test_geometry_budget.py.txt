@@ -1,0 +1,45 @@
+import copy
+import tempfile
+import unittest
+from pathlib import Path
+from phase_geometry_context import validate_budget,sha
+
+class BudgetTests(unittest.TestCase):
+    def setUp(self):
+        t=tempfile.TemporaryDirectory();self.addCleanup(t.cleanup)
+        f=Path(t.name)/'input.json';f.write_text('{}')
+        self.s=dict(case='D04G02',role='probe_Ls1',new_phase_geometry_ordinal=1,historical_geometry_attempts=6,
+            phase_solve_ordinal_including_history=7,input_path=str(f))
+        self.a=dict(execution_authorized=True,stage='B',stage_C_released=False,geometry_cap=6,cached_task_cap=2)
+        self.l=dict(new_geometry_reserved=1,new_cached_tasks_reserved=0,case_cumulative_geometry={'D04G02':6,'D09G05':7},
+            tasks=[dict(case='D04G02',new_phase_geometry_ordinal=1,path=str(f),input_sha256=sha(f))])
+    def test_allowed(self):validate_budget(self.s,self.l,self.a)
+    def test_history(self):
+        self.s['historical_geometry_attempts']=0
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_case_C(self):
+        self.s['case']='D01G02'
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_more_than_three(self):
+        self.s['new_phase_geometry_ordinal']=4
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_wrong_role(self):
+        self.s['role']='candidate'
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_cache_cap(self):
+        self.l['new_cached_tasks_reserved']=3
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_duplicate(self):
+        self.l['tasks'].append(copy.deepcopy(self.l['tasks'][0]));self.l['new_geometry_reserved']=2
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_count_mismatch(self):
+        self.l['new_geometry_reserved']=0
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_skipped_slot(self):
+        self.l['tasks'][0]['new_phase_geometry_ordinal']=2
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+    def test_resume_not_implicit(self):
+        self.s['resume_checkpoint']='some-path'
+        with self.assertRaises(AssertionError):validate_budget(self.s,self.l,self.a)
+
+if __name__=='__main__':unittest.main()

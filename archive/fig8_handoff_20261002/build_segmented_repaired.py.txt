@@ -1,0 +1,84 @@
+import json
+from pathlib import Path
+import numpy as np
+
+R = Path(r"F:\hfss_f8x_261002\R_tri_diagC")
+
+def parse(path):
+    vals = []
+    unit = 1.0
+    fmt = "RI"
+    for line in Path(path).read_text(errors="ignore").splitlines():
+        line = line.strip()
+        if not line or line.startswith("!"):
+            continue
+        if line.startswith("#"):
+            tokens = line.upper().split()
+            unit = {"HZ": 1, "KHZ": 1e3, "MHZ": 1e6, "GHZ": 1e9}.get(next((x for x in tokens if x in {"HZ", "KHZ", "MHZ", "GHZ"}), "GHZ"), 1e9)
+            fmt = next((x for x in ("RI", "MA", "DB") if x in tokens), "RI")
+            continue
+        vals.extend(float(x.replace("D", "E")) for x in line.split())
+    n = 6
+    stride = 1 + 2 * n * n
+    chunks = [vals[i : i + stride] for i in range(0, len(vals) - stride + 1, stride)]
+    f = np.array([c[0] * unit / 1e9 for c in chunks])
+    s = np.zeros((len(chunks), n, n), complex)
+    for k, chunk in enumerate(chunks):
+        x = np.array(chunk[1:]).reshape(n * n, 2)
+        if fmt == "MA":
+            z = x[:, 0] * np.exp(1j * np.deg2rad(x[:, 1]))
+        elif fmt == "DB":
+            z = 10 ** (x[:, 0] / 20) * np.exp(1j * np.deg2rad(x[:, 1]))
+        else:
+            z = x[:, 0] + 1j * x[:, 1]
+        s[k] = z.reshape(n, n)
+    return f, s
+
+def write(path, f, s, renorm):
+    lines = [
+        "! Segmented HFSS tri-mode repair: split interpolating sweeps plus direct bridge and endpoint",
+        "! Low: SweepSplitLowNoPass 0.01-6.97 GHz; bridge: SweepBandDirect 6.96-7.01 GHz discrete",
+        "! High: SweepSplitHighNoFields 7.01-15 GHz; endpoint: SweepEndpointDirect 15 GHz discrete",
+        "# GHz S MA" + (" R 50.000000" if renorm else ""),
+    ]
+    for ff, mat in zip(f, s):
+        pairs = []
+        for z in mat.ravel(order="C"):
+            pairs.extend((abs(z), np.rad2deg(np.angle(z))))
+        lines.append(" ".join([f"{ff:.12g}"] + [f"{x:.12g}" for x in pairs]))
+    Path(path).write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+sources = {
+    "low": ("50ohm_split_low.s6p", "native_split_low.s6p"),
+    "high": ("50ohm_split_high.s6p", "native_split_high.s6p"),
+    "bridge": ("50ohm_band_direct.s6p", "native_band_direct.s6p"),
+    "endpoint": ("50ohm_endpoint_direct.s6p", "native_endpoint_direct.s6p"),
+}
+out = {}
+for key, use_native, outname, renorm in [("50ohm", False, "50ohm_segmented_repaired.s6p", True), ("native", True, "native_segmented_repaired.s6p", False)]:
+    datasets = {}
+    for name, pair in sources.items():
+        f, s = parse(R / pair[1 if use_native else 0])
+        datasets[name] = (f, s)
+    target = np.round(np.arange(1500) * 0.01 + 0.01, 2)
+    result = np.zeros((1500, 6, 6), complex)
+    provenance = []
+    for i, ff in enumerate(target):
+        if 6.96 - 1e-9 <= ff <= 7.01 + 1e-9:
+            srcname = "bridge"
+        elif abs(ff - 15.0) < 1e-9:
+            srcname = "endpoint"
+        elif ff < 6.98:
+            srcname = "low"
+        else:
+            srcname = "high"
+        sf, ss = datasets[srcname]
+        j = int(np.argmin(abs(sf - ff)))
+        if abs(sf[j] - ff) > 1e-8:
+            raise RuntimeError((srcname, ff, sf[j]))
+        result[i] = ss[j]
+        provenance.append({"index": i, "freq_GHz": float(ff), "source": srcname})
+    write(R / outname, target, result, renorm)
+    out[outname] = {"points": 1500, "sources": {k: sum(p["source"] == k for p in provenance) for k in sources}}
+(R / "segmented_repair_provenance.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+print(json.dumps(out, indent=2))

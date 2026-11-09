@@ -1,0 +1,43 @@
+"""Native zero-Analyze proof of cache/geometry/ports before the only allowed replacement sweep."""
+import sys,json
+from pathlib import Path
+from datetime import datetime,timezone
+from effective_budget_v3 import manifest,read,sha,validate_campaign
+ROOT=Path(__file__).resolve().parent
+
+def main():
+    m=manifest();r=m['routes']['N07_A18'];ctx=Path(r['context']);run=Path(r['effective_run'])
+    dest=ctx/'cache_reopen_proof.json';assert not dest.exists() and not (run/'state.json').exists()
+    sys.path.insert(0,str(ctx));import phase_geometry_worker as w
+    assert not w.dc.solvers();validate_campaign(case='N07_A18',storage=True)
+    state=read(run/'resume_checkpoint.json');g=state['geometry'];project=Path(state['project']);before=sha(project)
+    history=w.passes(run/'resume_convergence.txt');assert history[-1][:2]==[21,102882]
+    app=w.dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running and Path(app.project_file).resolve()==project.resolve()
+        assert app.set_temporary_directory(Path('D:/hfss_fig8_next48_20261029/solver_temp'))
+        setup=app.get_setup('Setup19');sw=next(x for x in setup.sweeps if x.name=='Sweep1')
+        assert setup.is_solved and not sw.is_solved
+        assert setup.props['MaximumPasses']==21 and setup.props['MinimumPasses']==21
+        assert sw.props['Type']=='Interpolating' and sw.props['IsEnabled']
+        assert sw.props['RangeStart']=='0.01GHz' and sw.props['RangeEnd']=='15GHz' and sw.props['RangeStep']=='0.01GHz'
+        assert float(sw.props['InterpTolerance'])==1 and not sw.props['EnforcePassivity']
+        app.export_convergence('Setup19',output_file=str(run/'cached_reopen_convergence.txt'))
+        assert w.passes(run/'cached_reopen_convergence.txt')==history
+        cad=w.inspect_rebuilt_geometry(app,g);assert cad['passed']
+        ports={b.name:w.snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'}
+        assert w.canonical_ports(ports)==w.canonical_ports(state['port_settings']['after'])
+        material=app.materials['rogers ro4003 (tm)'];assert abs(float(material.permittivity.value)-3.55)<1e-9
+        assert abs(float(material.dielectric_loss_tangent.value)-.0027)<1e-9
+        assert app.close_project(save=False)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(project)==before,'Read-only reopening modified project bytes'
+    hashes={str(p.relative_to(run)):sha(p) for p in run.rglob('*') if p.is_file() and not p.name.endswith(('.semaphore','.lock','.lck'))}
+    result=dict(at=datetime.now(timezone.utc).isoformat(),passed=True,Analyze_requested=False,
+        actual_passes=21,actual_elements=102882,full_history_identical=True,source_project_sha256=before,
+        geometry=g,CAD=cad,ports=ports,sweep_solved=False,cache_hashes_after=hashes,
+        desktop_epoch2_sha256=sha(ROOT/'desktop_epoch2_20261030.json'),new_adaptive_authorized=False)
+    dest.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    print(dict(cache_reopen_passed=True,actual_passes=21,actual_elements=102882,new_Analyze=0,files_bound=len(hashes)))
+
+if __name__=='__main__':main()

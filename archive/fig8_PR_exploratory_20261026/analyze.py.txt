@@ -1,0 +1,113 @@
+"""Offline, explicitly OLD-MATERIAL impedance proxies; no HFSS/UI/network calls.
+
+Never use response-derived P_response or R_BW as independent regressors.
+"""
+from pathlib import Path
+import hashlib
+import itertools
+import json
+import math
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+ROOT = Path(__file__).resolve().parents[2]
+OUT = Path(__file__).resolve().parent
+paths = {
+ 'analysis24': ROOT/'output/fig8_law_analysis_20261026/analysis.json',
+ 'v6': ROOT/'output/fig8_validation6_20261026/deliverables/validation6_results.json',
+ 'i4': ROOT/'output/fig8_iso4_20261026/deliverables/results.json',
+ 'microstrip_old': ROOT/'txline_microstrip_calibration.json',
+ 'slotline_old': ROOT/'txline_slotline_calibration.json',
+}
+src = {k:json.loads(p.read_text(encoding='utf-8-sig')) for k,p in paths.items()}
+ms,sl = src['microstrip_old'],src['slotline_old']
+assert ms['er']==sl['er']==3.38 and ms['height_um']==sl['height_um']==813
+rows=[]
+for c in src['analysis24']['rows']:
+ rows.append({k:c[k] for k in ['case','Wm','Ws','a','BW_GHz','mesh','near_100k_native','peak_level_dB']})
+for batch in ['v6','i4']:
+ for c in src[batch]['cases']:
+  g=c.get('geometry_mm',c.get('geometry'))
+  peak=20*math.log10(np.mean([10**(p['dB']/20) for p in c['comparison']['direct_peaks']]))
+  rows.append(dict(case=c['case'],Wm=g['Wm'],Ws=g['Ws'],a=c['a_mm'],BW_GHz=c['BW_GHz'],
+   direct_BW_GHz=c['direct_BW_GHz'],mesh=c['actual_elements'],near_100k_native=True,peak_level_dB=peak))
+for r in rows:
+ r['a']=round(r['a'],8)
+ zm=float(np.polyval(ms['z0_poly_log_width_over_h'],math.log(r['Wm']/.813)))
+ zs=float(np.polyval(sl['z0_poly_log_gap_over_h'],math.log(r['Ws']/.813)))
+ r.update(Zm_old_ohm=zm,Zs_old_ohm=zs,P_old_proxy=zm*zs/2500,R_old_proxy=zm/zs,group=r['case'][:-3])
+ assert .9<=r['Wm']<=2 and .30<=r['Ws']<=.58
+
+def pairs_for(items,tol):
+ pairs=[]
+ for x,y in itertools.combinations(items,2):
+  if x['a']!=y['a']: continue
+  dp=abs(x['P_old_proxy']-y['P_old_proxy'])/np.mean([x['P_old_proxy'],y['P_old_proxy']])
+  if dp>tol: continue
+  lo,hi=sorted([x,y],key=lambda r:r['R_old_proxy'])
+  if hi['R_old_proxy']/lo['R_old_proxy']<1.1: continue
+  db=hi['BW_GHz']-lo['BW_GHz']
+  pairs.append(dict(low_R_case=lo['case'],high_R_case=hi['case'],a=lo['a'],
+   relative_P_mismatch=float(dp),R_ratio=hi['R_old_proxy']/lo['R_old_proxy'],
+   BW_highR_minus_lowR_MHz=db*1000,supports_decrease=db<0,
+   both_near_100k_native=lo['near_100k_native'] and hi['near_100k_native'],
+   both_new=not lo['case'].startswith('D') and not hi['case'].startswith('D')))
+ return sorted(pairs,key=lambda p:(p['relative_P_mismatch'],-p['R_ratio']))
+
+def matrix(items,p_only=False):
+ return np.array([[1,math.log(r['P_old_proxy'])]+([] if p_only else [math.log(r['R_old_proxy'])])+[r['a']-1.6] for r in items])
+def errors(true,pred):
+ e=np.array(pred)-true
+ return dict(MAE_MHz=float(np.mean(abs(e))*1000),RMSE_MHz=float(np.sqrt(np.mean(e*e))*1000),max_abs_MHz=float(max(abs(e))*1000))
+def fit(items,p_only=False):
+ X=matrix(items,p_only);y=np.array([r['BW_GHz'] for r in items]);b=np.linalg.lstsq(X,y,rcond=None)[0]
+ return b,errors(y,X@b)
+train=rows[:24];new=rows[24:]
+models={}
+for label,only in [('P_only',True),('P_and_R',False)]:
+ b,ins=fit(train,only);pred=[];truth=[];slopes=[]
+ for group in sorted(set(r['group'] for r in train)):
+  tr=[r for r in train if r['group']!=group];te=[r for r in train if r['group']==group]
+  bb,_=fit(tr,only);pred.extend(matrix(te,only)@bb);truth.extend(r['BW_GHz'] for r in te)
+  if not only: slopes.append(float(bb[2]))
+ models[label]=dict(coefficients=b.tolist(),fit=ins,leave_width_pair_out=errors(truth,pred),
+  heldout10=errors([r['BW_GHz'] for r in new],matrix(new,only)@b),leave_group_R_slopes=slopes)
+clean=[r for r in train if r['near_100k_native']]
+bclean,eclean=fit(clean)
+summary=dict(status='exploratory_old_material_proxy_NOT_current_physical_P_R',
+ calibration_er=3.38,simulation_er=3.55,calibration_frequency_GHz=6.85,
+ source_hashes={k:hashlib.sha256(p.read_bytes()).hexdigest() for k,p in paths.items()},
+ source_paths={k:str(p) for k,p in paths.items()},
+ rows=rows,models=models,clean16_coefficients=bclean.tolist(),clean16_fit=eclean,
+ matching_definition='same arm; symmetric relative P mismatch <= threshold; R ratio >= 1.10; no bandwidth used in pair selection',
+ matching={str(t):pairs_for(rows,t) for t in [.005,.01,.02,.05]},
+ no_simulation_started=True,no_response_inverse_used=True,
+ caveats=['Old material/frequency mapping is not the current physical impedance.',
+ 'Pairs reuse cases and the two arm levels are paired, not independent samples.',
+ 'No exactly fixed physical P intervention; matching P within a tolerance is observational.',
+ 'Proxy regression is a coordinate transformation of widths, not a new physical law.',
+ 'Line impedances are nominal straight-line quantities, not extracted folded-network effective impedances.'])
+(OUT/'analysis.json').write_text(json.dumps(summary,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+fig,axs=plt.subplots(1,2,figsize=(12,4.6),layout='constrained')
+for arm,marker in [(1.4,'o'),(1.8,'^')]:
+ rr=[r for r in rows if r['a']==arm]
+ sc=axs[0].scatter([r['R_old_proxy'] for r in rr],[r['BW_GHz'] for r in rr],c=[r['P_old_proxy'] for r in rr],vmin=min(r['P_old_proxy'] for r in rows),vmax=max(r['P_old_proxy'] for r in rows),cmap='viridis',marker=marker,s=45,label=f'a={arm} mm')
+axs[0].set(xlabel='R_old proxy (Zm/Zs)',ylabel='Measured -2 dB BW / GHz',title='34 completed cases; colors show P_old')
+axs[0].legend();fig.colorbar(sc,ax=axs[0],label='P_old proxy (Zm Zs / 2500)')
+b=np.array(models['P_and_R']['coefficients'])
+for rr,label,color in [(train,'24 training','#496d89'),(new,'10 held out','#e9812b')]:
+ pred=matrix(rr)@b
+ axs[1].scatter([r['BW_GHz'] for r in rr],pred,label=label,color=color,s=40)
+axs[1].plot([6.1,7.55],[6.1,7.55],'k--',lw=1)
+axs[1].set(xlabel='Measured -2 dB BW / GHz',ylabel='Proxy-regression prediction / GHz',title='ln(P_old), ln(R_old), arm; fit on 24 only')
+axs[1].legend()
+for ax in axs:ax.grid(alpha=.2)
+fig.suptitle('Exploratory only: impedance calibration er=3.38; HFSS cases er=3.55',fontsize=12)
+fig.savefig(OUT/'proxy_analysis.png',dpi=170);plt.close(fig)
+print(json.dumps({k:summary[k] for k in ['models','clean16_coefficients']},indent=2))
+for t,pairs in summary['matching'].items():
+ print('THRESHOLD',t,'pairs',len(pairs),'decrease',sum(p['supports_decrease'] for p in pairs),'clean',sum(p['both_near_100k_native'] for p in pairs),'new',sum(p['both_new'] for p in pairs))
+print('CLOSEST PAIRS',json.dumps(summary['matching']['0.01'][:10],indent=2))

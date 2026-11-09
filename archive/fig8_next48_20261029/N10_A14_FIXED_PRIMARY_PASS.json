@@ -1,0 +1,83 @@
+{
+  "at": "2026-10-29T20:06:59.394879+00:00",
+  "case": "N10_A14",
+  "family": "N10",
+  "role": "training_acquisition_family",
+  "actual_elements": 104067,
+  "primary_window_GHz": [
+    3.92,
+    9.52
+  ],
+  "primary": {
+    "worst_S11_dB": -20.12898941760374,
+    "min_S21_dB": -1.0028605489693707,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.73,
+    "peak_difference_dB": 0.1643195797224628,
+    "inner_peaks": [
+      {
+        "GHz": 5.26,
+        "S11_dB": -21.11326691411728
+      },
+      {
+        "GHz": 8.17,
+        "S11_dB": -20.948947334394816
+      }
+    ],
+    "objective": 0.0,
+    "nominal_buffer_satisfied": true
+  },
+  "secondary_window_GHz": [
+    4.22,
+    9.22
+  ],
+  "secondary": {
+    "worst_S11_dB": -20.948947334394816,
+    "min_S21_dB": -0.8445541468337004,
+    "shape_valid": true,
+    "passed": true,
+    "central_valley_GHz": 6.73,
+    "peak_difference_dB": 0.1643195797224628,
+    "inner_peaks": [
+      {
+        "GHz": 5.26,
+        "S11_dB": -21.11326691411728
+      },
+      {
+        "GHz": 8.17,
+        "S11_dB": -20.948947334394816
+      }
+    ],
+    "objective": 0.0,
+    "nominal_buffer_satisfied": true
+  },
+  "joint20": {
+    "joint20_intervals_GHz": [
+      [
+        3.6115323400314616,
+        9.523658635164256
+      ]
+    ],
+    "joint20_center_band_GHz": [
+      3.6115323400314616,
+      9.523658635164256,
+      5.912126295132795
+    ],
+    "inner_peak_count": 2,
+    "worse_inner_peak_dB": -20.948947334394816,
+    "both_inner_peaks_le_minus20": true,
+    "fixed_4to9": {
+      "worst_S11_dB": -20.948947334394816,
+      "min_S21_dB": -0.8086588785618597
+    },
+    "is_scientific_label_not_solver_success": true
+  },
+  "S21_minus2_BW_GHz": 6.995069257371858,
+  "forward_BW_error_GHz": 0.008232440984490275,
+  "S11_primary_margin_dB": 0.12898941760374072,
+  "primary_upper_edge_extra_MHz": 3.658635164256907,
+  "source_label_sha256": "68317349af910d142117da9cfd747d67631555f561666af9e1fbea32c5522231",
+  "ACK_sha256": "a90196a2914b35eb10c0e21214561d08d33bdba8d2316e83d3e04d0bdc60d417",
+  "note": "First fixed5.6GHz primary pass in this frozen48 training-acquisition prefix; only0.129dB S11 margin, no robustness/direct-certification claim. Not a prospective-test or optimized-inverse success."
+}

@@ -1,0 +1,23 @@
+import numpy as np
+from pathlib import Path
+R=Path(r'F:\hfss_f8x_261002')/'R_tri_diagC'
+def parse(p):
+ vals=[];unit=1;fmt='RI'
+ for ln in Path(p).read_text(errors='ignore').splitlines():
+  ln=ln.strip()
+  if not ln or ln.startswith('!'):continue
+  if ln.startswith('#'):
+   t=ln.upper().split(); unit={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9); fmt=next((x for x in ('RI','MA','DB') if x in t),'RI'); continue
+  vals += [float(x.replace('D','E')) for x in ln.split()]
+ n=6;stride=1+2*n*n; chunks=[vals[i:i+stride] for i in range(0,len(vals)-stride+1,stride)]
+ f=np.array([c[0]*unit/1e9 for c in chunks]);s=np.zeros((len(chunks),n,n),complex)
+ for k,c in enumerate(chunks):
+  x=np.array(c[1:]).reshape(n*n,2)
+  if fmt=='MA':z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1]))
+  elif fmt=='DB':z=10**(x[:,0]/20)*np.exp(1j*np.deg2rad(x[:,1]))
+  else:z=x[:,0]+1j*x[:,1]
+  s[k]=z.reshape(n,n)
+ return f,s
+for fn in ['50ohm_full_no_pass.s6p','native_full_no_pass.s6p']:
+ f,s=parse(R/fn);sv=np.linalg.svd(s,compute_uv=False);print(fn,'points',len(f),'maxsv',float(sv.max()),'viol',int((sv>1+1e-9).sum()),'maxsv freq',float(f[np.argmax(sv)]),'minsv',float(sv.min()))
+

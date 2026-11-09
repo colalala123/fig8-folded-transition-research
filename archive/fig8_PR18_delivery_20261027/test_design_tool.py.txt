@@ -1,0 +1,46 @@
+import unittest,json,hashlib
+from pathlib import Path
+import numpy as np
+import design_tool as tool
+
+class DesignToolTests(unittest.TestCase):
+    def test_data_and_qualified_rows(self):
+        data=tool.read(tool.HERE/'dataset52.json');self.assertEqual(len(data['rows']),52);self.assertEqual(data['width_pairs'],26);self.assertFalse(data['uniform_data_used'])
+        rows,_,_=tool.load();self.assertEqual(len(rows),50)
+        self.assertNotIn('P04G05',[x['case'] for x in rows]);self.assertNotIn('P05G05',[x['case'] for x in rows])
+        for file,h in data['source_hashes'].items():self.assertEqual(hashlib.sha256(Path(file).read_bytes()).hexdigest(),h,file)
+    def test_theoretical_pr_roundtrip(self):
+        wm,ws=tool.widths(2.16,.455);p,r=tool.pr(wm,ws)
+        self.assertAlmostEqual(p,2.16,places=9);self.assertAlmostEqual(r,.455,places=9)
+    def test_joint_intervals_are_not_bridged(self):
+        bands=tool.intervals(np.array([1,2,3]),np.array([-25,-15,-25]),np.array([-1,-1,-1]))
+        self.assertEqual(bands,[[1.,1.5],[2.5,3.]])
+        # Opposite endpoints fail different constraints; interior still valid.
+        bands=tool.intervals(np.array([1,2]),np.array([-21,-19]),np.array([-3,1]))
+        self.assertEqual(bands,[[1.25,1.5]])
+    def test_existing_matches_and_uncertainty_are_separate(self):
+        d=tool.band_search(4.22,9.22,grid=7,top=2)
+        self.assertGreaterEqual(d['existing_curve_match_count'],6)
+        current=[x for x in d['existing_curve_matches'] if x['current_direct_edge_review']]
+        self.assertEqual(len(current),6)
+        for x in current:self.assertLessEqual(x['dense_HFSS_curve_score']['worst_S11_dB'],-20)
+        for x in d['exploratory_candidates']:self.assertFalse(x['HFSS_verified'])
+        self.assertFalse(d['margin_is_certified_bound'])
+    def test_formula_is_not_joint_bandwidth(self):
+        d=tool.formula_inverse(-20.5,7,1.8)
+        self.assertFalse(d['HFSS_verified']);self.assertTrue(d['not_joint20_bandwidth']);self.assertTrue(d['dimension_screen']['nominal_dimensions_passed'])
+        self.assertGreater(abs(d['predicted_joint20_center_band_GHz'][2]-7),.1)
+        v=tool.read(tool.HERE/'model_validation.json')['local_PR18_formulas'];x=np.array([1,np.log(d['P']),np.log(d['R']),.2])
+        self.assertAlmostEqual(float(x@v['S21_BW_GHz']['coefficients']),7,places=10)
+        self.assertAlmostEqual(float(x@v['worse_inner_peak_dB']['coefficients']),-20.5,places=10)
+    def test_no_extrapolation_or_invalid_targets(self):
+        with self.assertRaises(ValueError):tool.formula_inverse(-30,10,1.8)
+        with self.assertRaises(ValueError):tool.formula_inverse(-20.5,7,1.6)
+        with self.assertRaises(ValueError):tool.band_search(9,4)
+        with self.assertRaises(ValueError):tool.band_search(4,9,margin=-1)
+    def test_grouped_cv_holds_both_arms_together(self):
+        v=tool.read(tool.HERE/'model_validation.json')['local_PR18_formulas']['S21_BW_GHz']['heldout_predictions']
+        self.assertEqual(len(v),18);groups={x['heldout_group'] for x in v};self.assertEqual(len(groups),9)
+        for group in groups:self.assertEqual(len([x for x in v if x['heldout_group']==group]),2)
+
+if __name__=='__main__':unittest.main()

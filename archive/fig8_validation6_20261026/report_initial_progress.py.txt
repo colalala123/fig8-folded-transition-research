@@ -1,0 +1,56 @@
+"""Report reviewed initial responses against frozen, prospective predictions.
+
+No fitting, geometry changes, acceptance updates, solver calls or notifications.
+Only receiver-acknowledged initial cases enter the provisional comparison.
+"""
+from pathlib import Path
+import phase_control as pc
+
+def main():
+    plan=pc.read(pc.HERE/'plan.json');auth=pc.read(pc.HERE/'authorization.json')
+    assert pc.sha(pc.HERE/'execution_plan.json')==auth['execution_plan_sha256']
+    assert pc.sha(plan['prediction_source'])==plan['prediction_source_sha256']
+    rows=[]
+    for row in plan['cases']:
+        run=pc.BASE/row['case']/'g01_initial';ack=run/'receiver_ack.json'
+        item=dict(case=row['case'],a_mm=row['a_mm'],geometry=row['initial_geometry'],
+            predicted_BW_GHz=row['predicted_BW_GHz'],state='pending',final_accepted=False)
+        if ack.exists():
+            a=pc.read(ack);v=pc.read(run/'receiver_verification.json');m=pc.read(run/'response_metrics.json')
+            assert a['event_sha256']==pc.sha(run/'completion_event.json')
+            assert a['verification_sha256']==pc.sha(run/'receiver_verification.json')
+            assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed']
+            assert m['curve_sha256']==pc.sha(run/'sparams.csv')
+            for f,h in v['verified_hashes'].items():assert pc.sha(f)==h
+            bw=m['passband_2dB']['BW_GHz'];error=bw-row['predicted_BW_GHz']
+            item.update(state='design_passed_pending_direct' if a['design_passed'] else 'needs_bounded_tuning',
+                initial_BW_GHz=bw,prediction_error_MHz=error*1000,prediction_error_percent=error/row['predicted_BW_GHz']*100,
+                actual_elements=v['actual_elements'],central_valley_GHz=m['central_valley_GHz'],
+                peak_difference_dB=m['peak_difference_dB'],design_passed=a['design_passed'],
+                evidence_hashes={str(run/f):pc.sha(run/f) for f in ['input.json','completion_event.json','receiver_ack.json','receiver_verification.json','sparams.csv']})
+        rows.append(item)
+    pairs=[]
+    for short,long in zip(rows[::2],rows[1::2]):
+        if all('initial_BW_GHz' in r for r in [short,long]):
+            assert all(short['geometry'][k]==long['geometry'][k] for k in ['Wm','Ws','Ls2'])
+            pairs.append(dict(short=short['case'],long=long['case'],delta_a_mm=long['a_mm']-short['a_mm'],
+                long_minus_short_BW_MHz=(long['initial_BW_GHz']-short['initial_BW_GHz'])*1000,
+                final_direct_review_pending=True))
+    out=dict(at=pc.now(),scope='Reviewed initial responses only; provisional until final same-mesh direct checks',
+        frozen_prediction_source_sha256=plan['prediction_source_sha256'],fitted=False,
+        reviewed_count=sum('initial_BW_GHz' in r for r in rows),rows=rows,paired_arm_comparisons=pairs)
+    pc.write(pc.HERE/'initial_observations.json',out)
+    lines=['# 六配置初值进度','',f"已审查{out['reviewed_count']}/6。以下为初值响应，最终同网格直接点复核尚未完成。预测值保持冻结，未重新拟合。",'',
+        '|配置|网格|带宽/GHz|预测误差/MHz|中央谷/GHz|峰差/dB|状态|',
+        '|---|---:|---:|---:|---:|---:|---|']
+    for r in rows:
+        if 'initial_BW_GHz' in r:
+            state='设计通过，待直接复核' if r['design_passed'] else '待有限调参'
+            lines.append(f"|{r['case']}|{r['actual_elements']}|{r['initial_BW_GHz']:.6f}|{r['prediction_error_MHz']:+.3f}|{r['central_valley_GHz']:.2f}|{r['peak_difference_dB']:.4f}|{state}|")
+        else:lines.append(f"|{r['case']}|—|—|—|—|—|待完成审查|")
+    for pair in pairs:
+        lines+=['',f"{pair['long']}相对{pair['short']}：折臂增加{pair['delta_a_mm']:.1f}mm，初值带宽变化{pair['long_minus_short_BW_MHz']:+.3f}MHz，待直接频点复核确认。"]
+    (pc.HERE/'INITIAL_RESULTS.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    print({'reviewed_initial_cases':out['reviewed_count'],'final_accepted_claimed':False,'paired_arm_comparisons':pairs})
+
+if __name__=='__main__':main()

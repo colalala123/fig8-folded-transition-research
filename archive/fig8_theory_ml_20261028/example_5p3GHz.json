@@ -1,0 +1,109 @@
+{
+  "target": {
+    "f_low_GHz": 4.07,
+    "f_high_GHz": 9.37,
+    "S11_max_dB": -20,
+    "S21_min_dB": -2
+  },
+  "nominal_candidates": 142,
+  "candidates": [
+    {
+      "P": 2.040000024384633,
+      "R": 0.46824985123331075,
+      "a_mm": 1.4,
+      "g_mm": 0.55,
+      "geometry_mm": {
+        "Wm": 1.851255,
+        "Ws": 0.311922,
+        "Lm": 6.617821785008195,
+        "Ls1": 12.6281442807783,
+        "Ls2": 1.1738439999999999,
+        "Ls3": 1.711922
+      },
+      "nominal_fold_coordinates": {
+        "Lpath_nominal_mm": 18.3996762807783,
+        "rho_nominal": 0.3136757360252789,
+        "eta_nominal": 0.40677033411579455,
+        "arm_overlap_ratio_legacy": 0.27112803939146796,
+        "g_mm": 0.5499999999999999,
+        "a_mm": 1.4
+      },
+      "manifold_response_estimate": {
+        "worst_S11_dB": -21.372224437109175,
+        "min_S21_dB": -0.9250217149305495
+      },
+      "category": "E_new_length_not_HFSS_verified",
+      "old_manifold_margin_screen_passed": false,
+      "reliable_R_recommendation": false,
+      "model_strategy": "independent_line_widths_plus_quadratic_length_residual52",
+      "source_response_parents": [
+        {
+          "case": "P02G02",
+          "weight": 0.3327266954208559
+        },
+        {
+          "case": "P06G02",
+          "weight": 3.681157671844063e-06
+        },
+        {
+          "case": "P03G02",
+          "weight": 0.6672696234214722
+        }
+      ],
+      "HFSS_verified": false
+    },
+    {
+      "P": 2.051999982025441,
+      "R": 0.4727499380472096,
+      "a_mm": 1.4,
+      "g_mm": 0.55,
+      "geometry_mm": {
+        "Wm": 1.828201,
+        "Ws": 0.30949,
+        "Lm": 6.618031448744571,
+        "Ls1": 12.611667318499954,
+        "Ls2": 1.16898,
+        "Ls3": 1.70949
+      },
+      "nominal_fold_coordinates": {
+        "Lpath_nominal_mm": 18.368607318499954,
+        "rho_nominal": 0.31341189346466647,
+        "eta_nominal": 0.4061115801102669,
+        "arm_overlap_ratio_legacy": 0.2710965896622349,
+        "g_mm": 0.5499999999999999,
+        "a_mm": 1.4
+      },
+      "manifold_response_estimate": {
+        "worst_S11_dB": -21.28503332860831,
+        "min_S21_dB": -0.927947753062073
+      },
+      "category": "E_new_length_not_HFSS_verified",
+      "old_manifold_margin_screen_passed": false,
+      "reliable_R_recommendation": false,
+      "model_strategy": "independent_line_widths_plus_quadratic_length_residual52",
+      "source_response_parents": [
+        {
+          "case": "P02G02",
+          "weight": 0.11038424819814613
+        },
+        {
+          "case": "P06G02",
+          "weight": 0.10261537307709821
+        },
+        {
+          "case": "P03G02",
+          "weight": 0.7870003787247557
+        }
+      ],
+      "HFSS_verified": false
+    }
+  ],
+  "conservative_old_margin_dB": 4.920285850039582,
+  "status": "exploratory_requires_HFSS_and_bounded_correction",
+  "limits": [
+    "Fixed material/center/gap and two arms only; no P/R hull extrapolation.",
+    "Response proxy is not length-resolved: learned lengths change the geometry, so its nominal score is not a guarantee.",
+    "R category is disabled for new learned-length outputs until independent HFSS validation.",
+    "This command is offline and never launches a solver."
+  ]
+}

@@ -1,0 +1,60 @@
+"""Freeze one explicit remainder-only child of the interrupted V01G05 task."""
+from pathlib import Path
+import psutil
+import recovery_control as pc
+from merge_native import exported_rows,add_disjoint
+from solver_runtime import dc,passes
+
+def remaining_plan(old,probe):
+    p=pc.read(old/'input.json');s=pc.read(old/'state.json');rows={};baseline=[]
+    assert len(s['completed_chunks'])==11 and len(s['segments'])==12
+    for record in s['completed_chunks']:
+        folder=old/'chunks'/f"c{record['index']:02d}"
+        for file,digest in record['hashes'].items():assert pc.sha(file)==digest,file
+        actual=exported_rows(folder);assert sorted(actual)==record['frequencies'];add_disjoint(rows,actual)
+        assert passes(folder/'convergence_before.txt')==passes(folder/'convergence_after.txt')==passes(old/'convergence_before.txt')
+        segment=s['segments'][record['index']-1];assert segment['observed_16core_process'] and not segment['observed_adaptive_process']
+        baseline.append(dict(folder=str(folder),frequencies=record['frequencies'],hashes=record['hashes']))
+    assert len(rows)==44 and probe['mesh_identical'] and probe['partial_finite_frequencies_GHz']==[]
+    requested=p['requested_frequencies_GHz'];missing=[x for x in requested if x not in rows]
+    chunks=[missing[i:i+4] for i in range(0,len(missing),4)]
+    assert len(missing)==19 and len(chunks)==5 and sorted(list(rows)+missing)==requested
+    return p,s,baseline,sorted(rows),chunks
+
+def prepare():
+    run=pc.BASE/'V01G05/direct_resume1';old=pc.BASE/'V01G05/direct_smallbatch'
+    assert not (run/'input.json').exists() and not (pc.HERE/'resume1_plan.json').exists()
+    probe=pc.read(run/'prepare_probe.json');p,s,baseline,existing,chunks=remaining_plan(old,probe)
+    assert not dc.solvers();backend=psutil.Process(probe['backend_pid'])
+    assert abs(backend.create_time()-probe['backend_created'])<.001
+    project=Path(probe['project']);assert project.is_file()
+    ledger=pc.read(pc.ledger_path());own=next(t for t in ledger['tasks'] if t['case']=='V01G05')
+    assert own['status']=='reserved' and own['analyzes_used']==12
+    plan=dict(at=pc.now(),case='V01G05',authority=pc.read(pc.FINAL/'authorization.json')['launch_user_instruction'],
+        reason='Recorded native AEDT91720 crash (ucrtbase.dll/0xc0000409);44 valid points preserved, no finite point recovered from interrupted chunk12.',
+        backend=dict(pid=backend.pid,created=backend.create_time()),existing_points=existing,chunks=chunks,
+        max_additional_analyzes=5,new_geometry=0,adaptive_allowed=False,
+        expected_original_V6R_launches_if_remaining_cases_pass=90,expected_resume_launches=5,
+        expected_direct_review_launches_including_prior_failure_and_diagnostic=97,
+        original_project_lock_preserved=True,old_run=str(old),resume_run=str(run))
+    pc.write(pc.HERE/'resume1_plan.json',plan)
+    pc.write(pc.HERE/'resume1_budget.json',dict(case='V01G05',analyzes_used=0,max_analyzes=5,new_geometry=0))
+    pc.write(run/'budget_before_resume.json',ledger)
+    parents=dict(p['input_parent_hashes'])
+    for f in [old/'input.json',old/'state.json',old/'completion_event.json',old/'worker_error.json',run/'prepare_probe.json',
+              run/'probe_partial_chunk12.json',run/'probe_convergence.txt',run/'budget_before_resume.json',pc.HERE/'resume1_plan.json',
+              pc.HERE/'desktop_resume_worker.py',pc.HERE/'publish_desktop_resume.py',pc.HERE/'desktop_resume_implementation.json',
+              pc.HERE/'RESUME1.md',pc.HERE/'prepare_desktop_resume.py']:
+        parents[str(f)]=pc.sha(f)
+    for b in baseline:parents.update(b['hashes'])
+    spec=dict(case='V01G05',role='cached_desktop_resume',source=p['source'],project_source=p['project_source'],project_source_sha256=p['project_source_sha256'],
+        source_geometry=p['source_geometry'],prepared_project=str(project),prepared_project_sha256=pc.sha(project),project_name=project.stem,
+        run_dir=str(run),input_path=str(run/'input.json'),recovered_from=str(old),baseline_chunks=baseline,
+        requested_frequencies_GHz=p['requested_frequencies_GHz'],existing_frequencies_GHz=existing,chunks=chunks,max_analyze_launches=5,
+        adaptive_allowed=False,geometry_budget_increment=0,input_parent_hashes=parents,created_at=pc.now(),worker_sha256=pc.sha(pc.HERE/'desktop_resume_worker.py'))
+    pc.write(run/'input.json',spec)
+    own.update(resume_input_path=str(run/'input.json'),resume_input_sha256=pc.sha(run/'input.json'),resume_max_analyzes=5,resume_analyzes_used=0)
+    pc.write(pc.ledger_path(),ledger);pc.release('V01G05',run/'input.json')
+    print(dict(resume_input=str(run/'input.json'),preserved_points=44,remaining_points=19,max_new_analyzes=5,new_geometry=0,started=False))
+
+if __name__=='__main__':prepare()

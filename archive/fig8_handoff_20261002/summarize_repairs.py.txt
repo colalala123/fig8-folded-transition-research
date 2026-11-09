@@ -1,0 +1,5 @@
+import json,glob,os
+for f in glob.glob(r'F:\hfss_f8x_261002\R_B0_rebuild_max500\*manifest*.json'):
+ try:
+  j=json.load(open(f,encoding='utf-8')); print(os.path.basename(f),j.get('status'),j.get('sweep_converged'),j.get('nonpassive_warning'),j.get('passivity_failure_messages'))
+ except Exception as e: print(f,e)

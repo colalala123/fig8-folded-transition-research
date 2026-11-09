@@ -1,0 +1,33 @@
+"""Regression for stale PyAEDT Type and false direct-segment acceptance (no AEDT)."""
+import ast,re,tempfile,unittest
+from pathlib import Path
+
+HERE=Path(__file__).resolve().parent
+def functions(path,names,ns):
+    tree=ast.parse(path.read_text(encoding='utf-8'))
+    selected=[n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name in names]
+    exec(compile(ast.Module(body=selected,type_ignores=[]),str(path),'exec'),ns)
+
+class SweepTypeGate(unittest.TestCase):
+    def test_saved_type_not_reloaded_default(self):
+        with tempfile.TemporaryDirectory() as td:
+            p=Path(td)/'case.aedt'
+            p.write_text("$begin 'PilotVerify'\n$begin 'Sweeps'\n$begin 'BridgeDirectV2'\nType='Discrete'\nIsEnabled=true\nRangeStart='6.96GHz'\nRangeEnd='7.01GHz'\n$end 'BridgeDirectV2'\n$end 'Sweeps'\n$end 'PilotVerify'\n")
+            ns={'re':re,'PROJECT':p,'SETUP':'PilotVerify','SEGMENTS':[('Bridge','Discrete',6.96,7.01)],'sha':lambda _: 'test','now':lambda:'test'}
+            functions(HERE/'run_protocol_tf3.py',{'persisted_sweeps','verify_saved_segment'},ns)
+            state={'sweep_names':{'Bridge':'BridgeDirectV2'}}
+            self.assertEqual(ns['verify_saved_segment']('Bridge',state)['actual_type'],'Discrete')
+            self.assertEqual(set(ns['persisted_sweeps']()),{'BridgeDirectV2'})
+            p.write_text(p.read_text().replace("Type='Discrete'","Type='Interpolating'"))
+            with self.assertRaises(AssertionError):ns['verify_saved_segment']('Bridge',state)
+
+    def test_normal_completion_is_insufficient(self):
+        ns={};functions(HERE/'assemble_segments.py',{'require_direct_evidence'},ns)
+        s={'segments':{k:{'settings_evidence':{'actual_type':'Discrete'},'messages':['Normal completion']} for k in ['Bridge','Endpoint']}}
+        with self.assertRaises(AssertionError):ns['require_direct_evidence'](s)
+        for x in s['segments'].values():x['messages']=['Discrete frequency sweep complete.']
+        ns['require_direct_evidence'](s)
+        s['segments']['Bridge']['settings_evidence']['actual_type']='Interpolating'
+        with self.assertRaises(AssertionError):ns['require_direct_evidence'](s)
+
+if __name__=='__main__':unittest.main()

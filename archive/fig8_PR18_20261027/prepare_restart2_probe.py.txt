@@ -1,0 +1,74 @@
+"""Same Lm probe, isolated preparation recovery; do not repeat unnecessary slot booleans."""
+import sys,ast,json,shutil,xml.etree.ElementTree as ET
+from pathlib import Path
+P=Path(__file__).resolve().parent;C=P/'length_tuning';E=P/'restart2'
+sys.path.insert(0,str(C));import phase_control as pc
+R=Path('J:/f8_PR18_261027/P04G05/g03_probe_Lm');B=R/'crash1_preserved'
+assert (E/'desktop.json').exists() and not (E/'implementation.json').exists()
+state=pc.read(B/'state.json');assert state['status']=='preparing' and not state['segments'] and not state['mesh_stages']
+spec=pc.read(B/'input.json');assert pc.sha(R/'input.json')==pc.sha(B/'input.json')
+assert pc.sha(spec['source'])==spec['source_sha256']
+initial=pc.read(Path('J:/f8_PR18_261027/P04G05/g01_initial/input.json'))['geometry']
+assert all(spec['geometry'][k]==initial[k] for k in ['Wm','Ws','Ls1','Ls2','Ls3'])
+assert abs(spec['geometry']['Lm']-initial['Lm']-.05)<1e-10
+src=(C/'phase_geometry_worker.py').read_text(encoding='utf-8')
+old="assert run.resolve().is_relative_to(BASE.resolve()) and not (run/'state.json').exists(),'Existing run requires explicit recovery'"
+new="assert run.resolve().is_relative_to(BASE.resolve()) and spec.get('preparation_recovery_attempt')==1, 'Explicit crash preparation recovery only'"
+assert src.count(old)==1;src=src.replace(old,new)
+old="locks=[HERE/'worker.lock',OLD/'protocol.lock'];assert all(not p.exists() for p in locks)"
+new="""locks=[HERE/'worker.lock',OLD/'protocol.lock']
+    import psutil
+    for p in locks:
+        if p.exists():assert p.read_text()=='19884' and not psutil.pid_exists(19884), 'Exact dead crashed-preparation owner only'
+    assert sha(HERE/'restart2_geometry_worker.py')==spec['preparation_recovery_worker_sha256']"""
+assert src.count(old)==1;src=src.replace(old,new)
+old="with lock.open('x') as h:h.write(str(os.getpid()))"
+new="""if lock.exists():
+                assert lock.read_text()=='19884'
+                with lock.open('r+') as h:
+                    h.seek(0);h.write(str(os.getpid()));h.truncate();h.flush();os.fsync(h.fileno())
+            else:
+                with lock.open('x') as h:h.write(str(os.getpid()))"""
+assert src.count(old)==1;src=src.replace(old,new)
+old="state['build']=apply_folded_geometry(app,wm=g['Wm'],lm=g['Lm'],ws=g['Ws'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3'])"
+new="state['build']=apply_lm_only_recovery(app,g,spec)"
+assert src.count(old)==1;src=src.replace(old,new)
+helper='''
+def apply_lm_only_recovery(app,g,spec):
+    """Same final geometry, native dimensions only; no ground/slot regeneration."""
+    initial=read(BASE/spec['case']/'g01_initial/input.json')['geometry']
+    assert all(g[k]==initial[k] for k in ['Wm','Ws','Ls1','Ls2','Ls3'])
+    assert abs(g['Lm']-initial['Lm']-.05)<1e-10
+    path=Path(spec['run_dir'])/'restart2_preparation_trace.json'
+    trace={'at':now(),'stage':'preparing_existing_CAD','geometry':g,'initial':initial}
+    write(path,trace)
+    assert inspect_rebuilt_geometry(app,initial)['passed']
+    before=canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+    for name,sign in [('Substrate_3',1),('Substrate_18',-1)]:
+        trace.update(at=now(),stage='set_YSize',object=name);write(path,trace)
+        app.oeditor.GetChildObject(name).GetChildObject('CreateBox:1').SetPropValue('YSize',f"{sign*g['Lm']:.15g}mm")
+    trace.update(at=now(),stage='verify_modified_CAD');write(path,trace)
+    app.modeler.refresh()
+    assert inspect_rebuilt_geometry(app,g)['passed']
+    after=canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+    assert before==after
+    assert app.save_project()
+    trace.update(at=now(),stage='verified_and_saved',ports_unchanged=True);write(path,trace)
+    return dict(method='Lm-only native YSize edit of already verified prepared CAD',requested_geometry_mm=g,slot_unchanged=True,ports_unchanged=True,saved=True)
+
+'''
+assert src.count('async def execute(spec_path):')==1;src=src.replace('async def execute(spec_path):',helper+'async def execute(spec_path):')
+src=src.replace('async def main(spec_path):\n',"async def main(spec_path):\n    import faulthandler\n    trace=(HERE/'restart2_worker_stack.log').open('a')\n    faulthandler.dump_traceback_later(120,repeat=True,file=trace)\n")
+ast.parse(src);worker=C/'restart2_geometry_worker.py';assert not worker.exists();worker.write_text(src,encoding='utf-8')
+spec.update(project_name='P04G05_PR18_g03R2',preparation_recovery_attempt=1,preparation_recovery_worker_sha256=pc.sha(worker))
+for f in [worker,E/'shutdown.json',E/'desktop.json',E/'ansysedt.xml',B/'input.json',B/'state.json']:
+ spec['parent_evidence_hashes'][str(f)]=pc.sha(f)
+ledger=pc.read(C/'budget_ledger.json');assert len(ledger['tasks'])==ledger['new_geometry_reserved']==5
+t=ledger['tasks'][-1];assert t['case']=='P04G05' and t['role']=='probe_Lm' and t['status']=='reserved' and t['input_sha256']==pc.sha(R/'input.json')
+pc.write(E/'ledger_before.json',ledger);pc.write(R/'input.json',spec)
+t.update(input_sha256=pc.sha(R/'input.json'),preparation_recovery_attempt=1,previous_input_sha256=pc.sha(B/'input.json'),new_geometry_added=False);pc.write(C/'budget_ledger.json',ledger)
+release=dict(case='P04G05',input_path=str(R/'input.json'),input_sha256=pc.sha(R/'input.json'),bulk_dispatch_released=False,at=pc.now(),preparation_recovery_attempt=1)
+for folder in [P,C]:pc.write(folder/'supervised_release.json',release)
+crash=ET.parse(E/'ansysedt.xml').getroot()
+report=dict(at=pc.now(),original_worker_sha256=pc.sha(C/'phase_geometry_worker.py'),recovery_worker_sha256=pc.sha(worker),original_geometry_unchanged=True,new_geometry_added=False,extra_reserved=5,crash_record=crash.find('ExceptionRecord').attrib,memory=crash.find('Memory').attrib,method='Preserve same +.05mm Lm probe; directly edit only two YSize values in verified unsolved prepared geometry. No ground deletion/slot boolean rebuild. Add per-operation trace and 120s stack log.',cause_limitation='Access violation confirmed; exact triggering CAD/API instruction of prior worker not proven. No license/network/out-of-memory attribution.')
+pc.write(E/'implementation.json',report);print(report)

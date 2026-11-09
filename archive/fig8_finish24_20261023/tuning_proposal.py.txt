@@ -1,0 +1,49 @@
+"""Pure bounded proposal for one local tuning cycle; never launches HFSS.
+
+Callers must supply same-policy reviewed curves, account for historical geometry
+attempts, freeze parent hashes, and review each solve before further dispatch.
+"""
+import numpy as np
+from mesh_budget import design_verdict
+from geometry_worker import geometry_gate
+from pilot_queue import correction, error, normalized_error
+
+def propose_probes(geometry, initial, metrics, attempts_used):
+    if design_verdict(metrics):return {'action':'direct_review','reason':'design_candidate_passed'}
+    if error(metrics,6.72) is None:return {'action':'stop','reason':'shape_not_identifiable'}
+    # Reserve the entire two-probe + one-candidate cycle before spending probes.
+    if attempts_used+3>8:return {'action':'stop','reason':'tuning_budget_exhausted'}
+    probes=[]
+    for key,h in [('Ls1',.10),('Lm',.05)]:
+        g={**geometry,key:geometry[key]+h}
+        if not geometry_gate(g,initial)['passed']:
+            h=-h;g={**geometry,key:geometry[key]+h}
+        if not geometry_gate(g,initial)['passed']:return {'action':'stop','reason':'probe_outside_geometry_window'}
+        probes.append({'role':'probe_'+key,'parameter':key,'step_mm':h,'geometry':g})
+    return {'action':'probe','probes':probes,'max_additional_attempts_this_cycle':3}
+
+def propose_candidate(geometry,initial,metrics,probe_metrics,steps,attempts_used):
+    if attempts_used>=8:return {'action':'stop','reason':'tuning_budget_exhausted'}
+    if len(probe_metrics)!=2 or len(steps)!=2:raise ValueError('Need Ls1 and Lm probes in that order')
+    e=error(metrics,6.72);ep=[error(m,6.72) for m in probe_metrics]
+    if e is None or any(x is None for x in ep):return {'action':'stop','reason':'shape_not_identifiable_in_probe'}
+    if not np.isfinite(e).all() or not all(np.isfinite(x).all() for x in ep):return {'action':'stop','reason':'nonfinite_metrics'}
+    if any(not np.isfinite(h) or h==0 for h in steps):raise ValueError('Nonzero finite probe steps required')
+    delta,info=correction(e,ep,steps)
+    if delta is None:return {'action':'stop',**info}
+    for _ in range(5):
+        g={**geometry,'Ls1':geometry['Ls1']+float(delta[0]),'Lm':geometry['Lm']+float(delta[1])}
+        if geometry_gate(g,initial)['passed']:
+            return {'action':'candidate','geometry':g,'delta_mm':delta.tolist(),'current_error':e.tolist(),
+                    'predicted_error':(e+np.array(info['jacobian'])@delta).tolist(),'model':info,
+                    'required_actual_improvement_fraction':.10,'prediction_not_validation':True}
+        delta*=.5
+    return {'action':'stop','reason':'step_outside_geometry_window'}
+
+def assess_trial(center_metrics,trial_metrics,attempts_used):
+    if design_verdict(trial_metrics):return {'action':'direct_review'}
+    e=error(center_metrics,6.72);trial=error(trial_metrics,6.72)
+    if e is not None and trial is not None and normalized_error(trial)<=.9*normalized_error(e):
+        return {'action':'accept_new_center'}
+    if attempts_used>=8:return {'action':'stop','reason':'tuning_budget_exhausted'}
+    return {'action':'one_half_step','rule':'Half of original candidate delta from original center, at most once; do not loop half-steps'}

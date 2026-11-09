@@ -1,0 +1,19 @@
+"""Adopt independently verified EXISTING worker+observer. Never dispatch/restart/Analyze."""
+import sys,time
+from pathlib import Path
+import psutil
+from build_runtime import ROOT,read,write,new,sha,now
+from tuning_budget import validate_campaign
+C=ROOT.parent/'fig8_inverse_case1_runtime_20261109';R=ROOT/'data/INV01_A14/g01_initial'
+p=read(R/'supervised_start.json');assert p['actual_14core_single_group_observed'] and p['input_sha256']==sha(R/'input.json')
+w=psutil.Process(p['worker_pid']);assert w.is_running() and abs(w.create_time()-p['worker_created'])<.01 and w.cmdline()==p['worker_command']
+o=read(R/'lifecycle_observer/daemon.json');q=psutil.Process(o['pid']);assert q.is_running() and abs(q.create_time()-o['created'])<.01 and q.cmdline()==o['command']
+assert 'lifecycle_watch.py' in ' '.join(q.cmdline()) and str(R) in q.cmdline()
+for f,h in read(R/'input.json')['parent_evidence_hashes'].items():assert sha(f)==h,f
+assert read(C/'hook/config.json')['authorized_threads']==['REDACTED-ID']
+state=read(R/'state.json');assert state['status']=='solving'
+new(ROOT/'START_ADOPTION.json',dict(at=now(),reason='Launch final redundant ensure_observer collided with already live observer OS lock; independent PID/create/cmd verification succeeded. No solver failure.',worker=p,observer=o,new_Analyze=0,worker_restarted=False,observer_restarted=False))
+write(ROOT/'CURRENT_STATUS.json',dict(at=now(),phase='actual14core_solving',active=1,case='INV01_A14',context=str(C),run=str(R),worker=p,observer=o,budget=validate_campaign(),hook_current_chat=True,no_successor=True,old_campaign_paused=True))
+(ROOT/'STATUS.md').write_text('# 单例逆设计验证正在求解\n\nINV01_A14已真实14核1组启动。原批次仍暂停。唯一候选、最多13次Analyze，完成hook本聊天，无后继。\n\n已有observer实际存活并持锁；启动器重复确认碰到互斥锁后，通过独立PID/创建时间/命令核验接管状态，没有重复派发/重启。\n',encoding='utf8')
+M=ROOT.parent/'fig8_response_v2_20261109';s=read(M/'CURRENT_STATUS.json');s.update(phase='single_case_actual14core_solving',new_HFSS_running=True,hook_for_new_case_installed=True,validation_root=str(ROOT),new_HFSS_calls=len(state['segments']),next_action='Await current single-case terminalhook and independently review; no additional candidate');write(M/'CURRENT_STATUS.json',s)
+print(dict(actual14core=True,worker=w.pid,observer=q.pid,additional_Analyze=0))

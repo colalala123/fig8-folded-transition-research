@@ -1,0 +1,124 @@
+"""Read-only scalar-modal review for the explicitly reviewed D12G05/i01 recovery.
+
+Supports HFSS vector and full-matrix impedance comments. A non-diagonal
+matrix is accepted only for the already diagnosed repeated-column 15-GHz
+cached endpoint, with identical original S/Zo and independent conversion.
+All other schema/calibration exceptions stop review. No tolerance changes.
+"""
+import argparse,csv,json
+from pathlib import Path
+import numpy as np
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from recovery_selection import hashes
+from audit_existing import touchstone
+from export_modal_segment import load_segment
+from check_external_normalization import transform
+
+METHOD='explicit_scalar_modal_with_independent_impedance_route_v2'
+
+def impedance_comments(path,n=4):
+    lines=Path(path).read_text(encoding='utf-8').splitlines()
+    matrices=[];gammas=[];formats=[]
+    def pairs(text):
+        values=np.array([float(x) for x in text.split()]);assert len(values)==2*n
+        return values[::2]+1j*values[1::2]
+    for i,line in enumerate(lines):
+        if line.startswith('! Gamma '):gammas.append(pairs(line[len('! Gamma '):]))
+        if not line.startswith('! Port Impedance '):continue
+        rows=[pairs(line[len('! Port Impedance '):])]
+        for next_line in lines[i+1:i+n]:
+            if not next_line.startswith('! '):break
+            try:row=pairs(next_line[1:])
+            except (ValueError,AssertionError):break
+            rows.append(row)
+        assert len(rows) in [1,n],'Incomplete impedance-matrix comment'
+        matrices.append(np.diag(rows[0]) if len(rows)==1 else np.array(rows))
+        formats.append('scalar_vector' if len(rows)==1 else 'full_matrix')
+    result=np.array(matrices);gamma=np.array(gammas)
+    assert result.ndim==3 and result.shape[1:]==(n,n) and gamma.shape==(len(result),n)
+    assert np.isfinite(result).all() and np.isfinite(gamma).all()
+    return result,gamma,formats
+
+def review(attempt):
+    attempt=Path(attempt).resolve()
+    assert attempt==ROOT/'D12G05/i01'
+    base=ROOT/'local_repair'/('D12G05_'+attempt.name);run=base/'direct'
+    plan=read(base/'plan.json');hashes(plan['implementation_hashes'])
+    state=read(run/'local_state.json');snap=read(base/'snapshot.json')
+    assert state['status']=='exported_review_required' and state['source_unchanged']
+    assert state['convergence_after']==state['original_convergence']==snap['original_convergence']
+    assert sha(snap['original_project'])==snap['original_project_sha256']
+    assert read(attempt/'manifest.json')['geometry']==plan['geometry']
+    files=[run/'local_state.json',base/'plan.json',base/'snapshot.json',Path(__file__)]
+    for key in ['native','50ohm_original']:
+        assert sha(state[key]['path'])==state[key]['sha256'];files.append(Path(state[key]['path']))
+    nf=run/'native_direct.s4p';rf=run/'50ohm_original_direct.s4p'
+    f,s=touchstone(nf,4);ff,hf=touchstone(rf,4)
+    ef,es,ez,modes=load_segment(run/'explicit_modal');count=len(f)
+    assert count==len(plan['direct_frequencies_GHz']) and count>=3
+    assert np.allclose(f,plan['direct_frequencies_GHz'],rtol=0,atol=1e-9)
+    assert np.allclose(f,ff,rtol=0,atol=1e-9) and np.allclose(f,ef,rtol=0,atol=1e-9)
+    native_error=float(np.max(abs(es-s)));assert native_error<1e-10
+    headers=[l.strip() for l in nf.read_text().splitlines() if l.startswith('! Port[')]
+    assert headers==[f'! Port[{i+1}] = {m}' for i,m in enumerate(modes)]
+    zm,gamma,formats=impedance_comments(nf)
+    assert zm.shape==(count,4,4)
+    diagonal=np.diagonal(zm,axis1=1,axis2=2)
+    z_error=float(np.max(abs(diagonal-ez)));assert z_error<1e-8
+    with (run/'explicit_modal/mode_impedance_gamma.csv').open(encoding='utf-8-sig') as h:aux=list(csv.DictReader(h))
+    eg=np.array([[complex(float(r[f'Gamma({m})_real']),float(r[f'Gamma({m})_imag'])) for m in modes] for r in aux])
+    gamma_error=float(np.max(abs(eg-gamma)));assert gamma_error<1e-8
+    off=zm-np.eye(4)[None,:,:]*zm
+    anomalous=np.flatnonzero(np.max(abs(off),axis=(1,2))>1e-10)
+    cached_verified=None
+    if len(anomalous):
+        assert anomalous.tolist()==[count-1] and abs(f[-1]-15.)<1e-9,'Unknown full-impedance exception needs explicit review'
+        endpoint=zm[-1]
+        for block in [endpoint[:2,:2],endpoint[2:,2:]]:
+            assert np.max(abs(block[:,0]-block[:,1]))<1e-10
+        assert np.max(abs(endpoint[:2,2:]))<1e-10 and np.max(abs(endpoint[2:,:2]))<1e-10
+        of,os,oz,_=load_segment(attempt);idx=int(np.argmin(abs(of-15)))
+        assert of[idx]==15 and np.max(abs(os[idx]-es[-1]))<1e-10 and np.max(abs(oz[idx]-ez[-1]))<1e-8
+        cached_verified=True
+    fixed=transform(es,ez,'traveling')
+    eye=np.eye(4)[None,:,:];D=np.sqrt(ez)
+    Z=np.linalg.solve((eye-es).transpose(0,2,1),(eye+es).transpose(0,2,1)).transpose(0,2,1)
+    Z=D[:,:,None]*Z*D[:,None,:]
+    independent=np.linalg.solve((Z+50*eye).transpose(0,2,1),(Z-50*eye).transpose(0,2,1)).transpose(0,2,1)
+    independent_error=float(np.max(abs(independent-fixed)))
+    hf_errors=np.max(abs(fixed-hf),axis=(1,2));healthy=np.ones(count,dtype=bool);healthy[anomalous]=False
+    calibration_error=float(max(hf_errors[healthy]))
+    assert independent_error<1e-10 and calibration_error<1e-10
+    calibration=read(HERE/'normalization_2mode_confirmation.json')['calibration_2mode']
+    assert all(x['max_complex_error']<1e-10 for x in calibration.values())
+    sv=np.linalg.svd(fixed,compute_uv=False)[:,0];rec=float(np.max(abs(fixed-fixed.transpose(0,2,1))))
+    assert np.isfinite(fixed).all() and max(sv)<=1.001 and rec<=1e-6
+    files += [*list((run/'explicit_modal').glob('*')),attempt/'all_modes_sparams.csv',
+        attempt/'mode_impedance_gamma.csv',attempt/'manifest.json',HERE/'normalization_2mode_confirmation.json',
+        HERE/'external_normalization_diagnostic.json',HERE/'check_external_normalization.py',
+        HERE/'export_modal_segment.py',ROOT/'production_protocol.json']
+    return {'reviewed_at_utc':now(),'passed':True,'method':METHOD,'points':count,
+        'same_protocol_scalar_modal_convention':True,'impedance_comment_formats':sorted(set(formats)),
+        'retained_terminal_export_exception_GHz':f[anomalous].tolist(),
+        'terminal_50ohm_errors_at_exceptions':hf_errors[anomalous].tolist(),
+        'off_diagonal_impedance_max':float(np.max(abs(off))),
+        'native_S_vs_explicit_error':native_error,'modal_Zo_vs_diagonal_error':z_error,'Gamma_vs_explicit_error':gamma_error,
+        'HFSS_50ohm_calibrated_points':int(sum(healthy)),'HFSS_50ohm_calibration_error':calibration_error,
+        'independent_impedance_route_points':count,'independent_impedance_route_error':independent_error,
+        'endpoint_cached_native_S_Zo_unchanged':cached_verified,'max_sv':float(max(sv)),
+        'reciprocity_error':rec,'evidence_hashes':{str(p):sha(p) for p in files if p.is_file()},
+        'scope':'Existing scalar modal convention. Any listed 15-GHz terminal-matrix export is retained as an explicit exception, never described as calibrated. All points pass independent conversion and numerical gates. No production approval.'}
+
+def write_review(attempt):
+    result=review(attempt);base=ROOT/'local_repair'/('D12G05_'+Path(attempt).name);run=base/'direct'
+    path=run/'normalization_export_schema_review.json';target=run/'review.json'
+    assert not path.exists() and not target.exists(),'Never replace a previous review'
+    write_json(path,result)
+    write_json(target,{'passed':True,'points':result['points'],'max_sv':result['max_sv'],
+        'reciprocity_error':result['reciprocity_error'],'normalization_calibration_error':result['HFSS_50ohm_calibration_error'],
+        'normalization_calibration_scope':result['scope'],'review_method':METHOD,'schema_review':str(path),
+        'evidence_hashes':{**result['evidence_hashes'],str(path):sha(path)},'reviewed_at_utc':now()})
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('attempt');a=ap.parse_args()
+    result=review(a.attempt);print(json.dumps({k:v for k,v in result.items() if k!='evidence_hashes'},indent=2))

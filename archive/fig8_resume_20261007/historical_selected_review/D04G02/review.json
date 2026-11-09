@@ -1,0 +1,125 @@
+{
+  "case": "D04G02",
+  "selected_run": "F:\\hfss_f8x_261002\\D04G02\\i00",
+  "original_design_status": "failed",
+  "phase_solves_used": 1,
+  "original_convergence": {
+    "converged": true,
+    "passes": 22.0,
+    "final_delta_s": 0.0028334
+  },
+  "original_sweep_converged": false,
+  "original_passivity_messages": [
+    "Project: i00, Design: Wideband vertical transition, [info] The interpolating frequency sweep did not converge and had one or more non passive basis solutions. (01:49:48 PM  Oct 03, 2026)\r\n"
+  ],
+  "production_approved": false,
+  "source_curve_geometry_verified": true,
+  "recovered_matrix": {
+    "max_sv": 0.9999253106205903,
+    "passivity_violations": 0,
+    "reciprocity_error": 0.007747344394065619,
+    "strict_diagnostic_screen_passed": false,
+    "note": "The 1e-6 reciprocity screen is diagnostic, not an original universal acceptance limit."
+  },
+  "boundaries": {
+    "run": "${WORKSPACE}\\output\\fig8_resume_20261007\\historical_selected_review\\D04G02",
+    "ports": [
+      {
+        "port": "1",
+        "integration_endpoints_mm": [
+          [
+            0.0,
+            -25.0,
+            0.883
+          ],
+          [
+            0.0,
+            -25.0,
+            -1.38140158943821e-15
+          ]
+        ],
+        "invariant_settings": {
+          "Objects": true,
+          "DoDeembed": true,
+          "DeembedDist": true,
+          "UseLineModeAlignment": true,
+          "UseAnalyticAlignment": true,
+          "RenormalizeAllTerminals": true
+        },
+        "passed": true
+      },
+      {
+        "port": "2",
+        "integration_endpoints_mm": [
+          [
+            0.0,
+            25.0,
+            -0.883
+          ],
+          [
+            0.0,
+            25.0,
+            -1.38140158943821e-15
+          ]
+        ],
+        "invariant_settings": {
+          "Objects": true,
+          "DoDeembed": true,
+          "DeembedDist": true,
+          "UseLineModeAlignment": true,
+          "UseAnalyticAlignment": true,
+          "RenormalizeAllTerminals": true
+        },
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "auxiliary": {
+    "reference": "F:\\hfss_f8x_261002\\M_B0_2",
+    "candidate": "${WORKSPACE}\\output\\fig8_resume_20261007\\historical_selected_review\\D04G02",
+    "quantities": {
+      "Zo(1:1)": {
+        "max_relative_drift": 0.0037811853034875093,
+        "max_relative_adjacent_step": 7.165202226668911e-05,
+        "passed": true
+      },
+      "Zo(2:1)": {
+        "max_relative_drift": 0.004025154381623465,
+        "max_relative_adjacent_step": 1.5784771766853058e-05,
+        "passed": true
+      },
+      "Gamma(1:1)": {
+        "max_relative_drift": 0.0005938490096534876,
+        "max_relative_adjacent_step": 0.0031485985956860103,
+        "passed": true
+      },
+      "Gamma(2:1)": {
+        "max_relative_drift": 0.00038337058353961524,
+        "max_relative_adjacent_step": 0.0031485638950230752,
+        "passed": true
+      }
+    },
+    "passed": true,
+    "screening_thresholds": {
+      "max_relative_drift": 0.02,
+      "max_adjacent_step_per_0p01GHz": 0.02
+    },
+    "scope": "Fundamental continuity in 3.2–10.2 GHz; interpreted jointly with native port-field identity."
+  },
+  "fields": {
+    "passed": false,
+    "reason": "Historical solver incomplete; not promoted by recovered matrix"
+  },
+  "eligible_for_protocol_review": false,
+  "next_action": "review_or_repair_specific_failed_evidence",
+  "evidence_hashes": {
+    "F:\\hfss_f8x_261002\\D04G02\\i00\\manifest.json": "58216ddd5f595955b04fcec21a46443ec40b230af62f99ebc707af882e636ea7",
+    "F:\\hfss_f8x_261002\\D04G02\\i00\\sparams.csv": "07cf6b6175c964bb3ed6c246dc3640f3a6284ddeac1858048c220583bfc6be1f",
+    "F:\\hfss_f8x_261002\\D04G02\\i00\\response_metrics.json": "73be24d85e856d212221625b63003c0fd49cc2f03a4316587f4db207fe32c75f",
+    "F:\\hfss_f8x_261002\\D04G02\\i00\\all_modes_sparams.csv": "31a33f7e47547ca2fb3ebcbda4a9fbc90181c230192bebe8e6323d95e643e5d7",
+    "F:\\hfss_f8x_261002\\D04G02\\i00\\mode_impedance_gamma.csv": "2d0da87369ea6f4d047e48fadd5f07ab79df8302b1b90a848097ef7f5d3964e4",
+    "F:\\hfss_f8x_261002\\D04G02\\i00\\mode_map.json": "15feecb9da4305a285e288ab84c12e91e38e4e3256ead90482e2c25aa8803617",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\external_normalization_diagnostic.json": "ab8244296582d4c5fd7e77b2f6bf378aad335f59e9cf7c959e8888543c1cdc7e"
+  }
+}

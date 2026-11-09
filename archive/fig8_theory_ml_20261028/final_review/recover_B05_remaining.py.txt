@@ -1,0 +1,136 @@
+"""One B05 dead-worker continuation; recover completed chunk01 without Analyze.
+Remaining chunks02-06 are the unchanged already authorized first-wave budget.
+Never modifies frozen worker/input or engineering project locks.
+"""
+from smallbatch_worker import *
+import psutil
+
+async def execute_recovery(p,path,backup):
+    case=p['case'];run=Path(p['run_dir']);src=Path(p['source']);source=Path(p['project_source'])
+    state=pc.read(run/'state.json');project=Path(state['project'])
+    assert pc.sha(source)==p['project_source_sha256']
+    original_state=pc.read(src/'state.json');expected_ports=canonical_ports(original_state['port_settings']['after'])
+    state.update(resource_recovery_attempt=1,recovery_script_sha256=pc.sha(__file__),recovery_started_at=pc.now())
+    pc.write(run/'state.json',state)
+    pc.active(dict(case=case,stage='recovering_cached_chunk01',pid=os.getpid(),run_dir=str(run),phase='C9D',at=pc.now()))
+    chunk=run/'chunks/c01';frequencies=p['chunks'][0]
+    assert not (chunk/'sparams.csv').exists()
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running and app.get_setup('Setup19').is_solved
+        messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        assert any('Discrete frequency sweep complete.' in m for m in messages)
+        assert not any('[error]' in m.lower() for m in messages)
+        assert canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})==expected_ports
+        dc.SWEEP='B6Direct01';dc.export(app,chunk,frequencies);apply_reference(chunk,case)
+        pc.write(chunk/'solver_messages.json',messages)
+        app.export_convergence('Setup19',output_file=str(chunk/'convergence_after.txt'))
+        assert passes(chunk/'convergence_after.txt')==passes(src/'convergence.txt')==passes(chunk/'convergence_before.txt')
+        app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    segment=state['segments'][0]
+    commands=[' '.join(p['cmdline'] or []) for obs in segment['observations'] for p in obs]
+    assert segment['mcp_response']['started'] and any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    assert not any('-solve_broadband_adapt' in c or '-solve_adapt ' in c for c in commands)
+    segment.update(observed_16core_process=True,observed_adaptive_process=False,terminal_confirmed_at=pc.now(),
+        terminal_confirmation='Original resource observations plus actual completed native cache and unchanged convergence; zero retry Analyze',
+        last_status=dict(running=False,source='cached_export_after_dead_worker'))
+    hashes={str(chunk/f):pc.sha(chunk/f) for f in ['all_modes_sparams.csv','mode_impedance_gamma.csv','sparams.csv','reference_review.json','convergence_before.txt','convergence_after.txt','solver_messages.json']}
+    state['completed_chunks'].append(dict(index=1,frequencies=frequencies,hashes=hashes,mesh_identical=True,export_recovered=True))
+    state['status']='between_chunks';pc.write(run/'state.json',state)
+    all_rows=exported_rows(chunk);assert sorted(all_rows)==frequencies
+    sources=[dict(kind='four_point_chunk',frequencies=frequencies,hashes=hashes)]
+    pc.write(backup/'cached_recovery_result.json',dict(at=pc.now(),first_chunk_native_points=frequencies,new_Analyze_for_recovered_chunk=0,remaining_planned_chunks=5,total_first_wave_Analyze_cap=6))
+    for index,frequencies in enumerate(p['chunks'][1:],start=1):
+        assert not dc.solvers();chunk=run/'chunks'/f'c{index+1:02d}';chunk.mkdir(parents=True,exist_ok=False)
+        name=f'B6Direct{index+1:02d}'
+        app=dc.app_for(project)
+        try:
+            assert not app.are_there_simulations_running and app.get_setup('Setup19').is_solved
+            setup=app.get_setup('Setup19')
+            for sw in setup.sweeps:sw.props['IsEnabled']=False;assert sw.update()
+            sw=setup.add_sweep(name,sweep_type='Discrete');sw.auto_update=False;restore_properties(sw,frequencies)
+            sw.props.update({'IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+            app.export_convergence('Setup19',output_file=str(chunk/'convergence_before.txt'))
+            assert passes(chunk/'convergence_before.txt')==passes(src/'convergence.txt')
+            app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        reserve_launch(case,index)
+        pc.active(dict(case=case,stage='candidate_cached_direct',pid=os.getpid(),run_dir=str(run),phase='B6D',chunk=index+1,total_chunks=len(p['chunks']),frequencies_GHz=frequencies,at=pc.now()))
+        segment=await solve_stage(project,run,state,f'chunk_{index+1:02d}',False)
+        app=dc.app_for(project)
+        try:
+            messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));pc.write(chunk/'solver_messages.json',messages)
+            assert not any('[error]' in m.lower() for m in messages)
+            assert any('Discrete frequency sweep complete.' in m for m in messages)
+            dc.SWEEP=name;dc.export(app,chunk,frequencies);apply_reference(chunk,case)
+            app.export_convergence('Setup19',output_file=str(chunk/'convergence_after.txt'))
+            assert passes(chunk/'convergence_after.txt')==passes(src/'convergence.txt')
+            assert canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})==expected_ports
+            app.save_project()
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        assert segment['observed_16core_process'] and not segment['observed_adaptive_process']
+        new=exported_rows(chunk);assert sorted(new)==frequencies;add_disjoint(all_rows,new)
+        hashes={str(chunk/f):pc.sha(chunk/f) for f in ['all_modes_sparams.csv','mode_impedance_gamma.csv','sparams.csv','reference_review.json','convergence_before.txt','convergence_after.txt','solver_messages.json']}
+        sources.append(dict(kind='four_point_chunk',frequencies=frequencies,hashes=hashes))
+        state['completed_chunks'].append(dict(index=index+1,frequencies=frequencies,hashes=hashes,mesh_identical=True))
+        state['status']='between_chunks';pc.write(run/'state.json',state)
+    export(run,all_rows,p['requested_frequencies_GHz']);apply_reference(run,case)
+    shutil.copy2(chunk/'convergence_after.txt',run/'convergence_after.txt')
+    pc.write(run/'merge_sources.json',dict(sources=sources,all_frequencies=sorted(all_rows),no_interpolation=True,
+        mesh_verified_at_every_source=True,all_chunk_provenance_preserved=True))
+    for f,h in p['input_parent_hashes'].items():assert pc.sha(f)==h,f
+    state.update(status='completed',same_mesh_verified=True,source_unchanged=pc.sha(source)==p['project_source_sha256'],finished_at=pc.now())
+    assert state['source_unchanged'];pc.write(run/'state.json',state)
+    pc.write(run/'manifest.json',dict(modes=2,diagnostic_only=True,points=len(all_rows),actual_elements=state['actual_elements'],
+        new_geometry=0,Analyze_launches=len(state['segments']),all_chunk_provenance_preserved=True))
+    result=compare(src,run);pc.write(run/'comparison.json',result)
+    # Close only this solved review copy to prevent accumulated open projects.
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        assert app.close_project(save=True)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    return result
+
+async def recover_main(path):
+    plan=pc.read(pc.HERE/'B05_recovery_plan.json')
+    for f,h in plan['evidence_hashes'].items():assert pc.sha(f)==h,f
+    assert pc.sha(__file__)==plan['worker_sha256']
+    p=pc.read(path);case=p['case'];run=Path(p['run_dir'])
+    assert case=='B05' and run.resolve()==(pc.BASE/case/'direct_smallbatch').resolve()
+    assert path.resolve()==Path(p['input_path']).resolve()
+    assert pc.sha(path)==plan['input_sha256'] and pc.sha(run/'state.json')==plan['state_before_sha256']
+    assert not dc.solvers() and not psutil.pid_exists(plan['dead_worker_pid'])
+    assert not (run/'completion_event.json').exists()
+    s=pc.read(run/'state.json');assert not s.get('resource_recovery_attempt')
+    assert len(s['segments'])==1 and not s['completed_chunks'] and s['copied_original_curves_verified']
+    for f,h in p['input_parent_hashes'].items():assert pc.sha(f)==h,f
+    ledger=pc.read(pc.ledger_path());own=next(x for x in ledger['tasks'] if x['case']==case)
+    assert own['status']=='reserved' and own['analyzes_used']==1 and own['max_analyzes']==6
+    backup=run/'recovery1';backup.mkdir(exist_ok=False)
+    shutil.copy2(run/'state.json',backup/'state_before.json')
+    shutil.copy2(run/'supervised_start.json',backup/'supervised_start_before.json')
+    shutil.copy2(pc.HERE/'B05_recovery_plan.json',backup/'plan.json')
+    locks=[pc.FINAL/'worker.lock',pc.PARENT/'worker.lock',pc.OLD/'protocol.lock'];acquired=[];status='failed'
+    assert all(f.exists() and f.read_text().strip()==str(plan['dead_worker_pid']) for f in locks)
+    try:
+        for f in locks:
+            assert not dc.solvers() and not psutil.pid_exists(plan['dead_worker_pid'])
+            assert f.read_text().strip()==str(plan['dead_worker_pid'])
+            f.write_text(str(os.getpid()));acquired.append(f)
+        pc.write(backup/'lock_adoption.json',dict(at=pc.now(),old_dead_owner=plan['dead_worker_pid'],new_owner=os.getpid(),protocol_locks=[str(f) for f in locks],engineering_project_locks_touched=False))
+        result=await execute_recovery(p,path,backup);status='completed'
+        summary=f'B05一次受控恢复完成：首批4点直接读取原缓存，后5批为原计划未执行频点，仍共21点/6次Analyze。数值核验={result["numerical_review_passed"]}，采样设计={result["sampled_design_supported"]}；待实际审核。'
+        artifacts=['input.json','state.json','comparison.json','manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','reference_review.json','convergence_before.txt','convergence_after.txt','merge_sources.json','recovery1/state_before.json','recovery1/supervised_start_before.json','recovery1/plan.json','recovery1/lock_adoption.json','recovery1/cached_recovery_result.json']
+    except BaseException:
+        pc.write(run/'worker_error.json',dict(at=pc.now(),error=traceback.format_exc(),live_solvers=dc.solvers(),resource_recovery_attempt=1))
+        summary='B05唯一受控恢复未完成；保留全部频点和原预算，不允许自动第二次恢复。';artifacts=['input.json','state.json','worker_error.json','recovery1/plan.json']
+    finally:
+        for f in acquired:
+            if f.exists() and f.read_text().strip()==str(os.getpid()):f.unlink()
+        pc.active(dict(case=case,stage='awaiting_smallbatch_review',run_dir=str(run),operation_status=status,phase='C9D',at=pc.now()))
+    await publish(run,case,status,summary,artifacts)
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--spec',type=Path,required=True);asyncio.run(recover_main(ap.parse_args().spec.resolve()))

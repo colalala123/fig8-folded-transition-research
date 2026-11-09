@@ -1,0 +1,130 @@
+"""Bounded mesh-count bracket study. No automatic repair for adaptive nonconvergence."""
+import asyncio,csv,json,os,shutil,sys,time,traceback
+from pathlib import Path
+from datetime import datetime,timezone,timedelta
+import numpy as np
+HERE=Path(__file__).resolve().parent
+PREV=HERE.parent/'fig8_speed_study_20261021';sys.path.insert(0,str(PREV))
+from run_study import ROOT,read,write,sha,now,solvers,app_for,canonical_ports,inspect_rebuilt_geometry,export_data,convergence,connected_client,session_call,analyze
+from analyze_study import profiles,passes
+BASE=Path('J:/f8_mesh100k_261022')
+RUNS=[('N112_D05G02','D05G02',23,111552),('N090_D05G02','D05G02',22,90937),('N090_D08G05','D08G05',18,89965)]
+REFERENCES={'D05G02':Path('J:/f8_speed_261021/F_D05G02'),'D08G05':Path('J:/f8_speed_261021/I_D08G05')}
+REUSE=Path('J:/f8_speed_261021/M_D08G05')
+BUDGETS={'tuning':{'bw':.05,'edge':.03,'center':.03,'peak':.15,'s21':.1,'complex':.02},'strict_response':{'bw':.02,'edge':.02,'center':.01,'peak':.1,'s21':.05,'complex':.005}}
+def progress():
+    lines=['# 约10万网格对照试验',f'\n更新：{datetime.now(timezone(timedelta(hours=9))).isoformat(timespec="seconds")}（日本时间）\n',
+      '目标是用约9万与11.2万单元夹住10万，并与相同1%扫频设置的严格网格比较；不是宣称精确控制为100000个单元。',
+      '固定轮数停止后的ΔS收敛状态如实记录，不自动返工。16核单任务；不修改生产协议。\n',
+      '| 试验 | 状态 | 实际单元数 | 带宽偏差/MHz | 最大峰高偏差/dB |','|---|---|---:|---:|---:|']
+    for label,case,cap,expected in RUNS:
+        p=BASE/label;s=read(p/'state.json') if (p/'state.json').exists() else {};r=read(p/'comparison.json') if (p/'comparison.json').exists() else {}
+        lines.append(f"| {label} | {s.get('status','pending')} | {s.get('actual_elements','—')} | {r.get('BW_error_MHz','—')} | {r.get('max_peak_error_dB','—')} |")
+    lines.append('| N112_D08G05 | 复用已完成试验M_D08G05 | 112136 | 重新统一计算 | 重新统一计算 |')
+    (HERE/'实时进度.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+def curve(folder):
+    rows=list(csv.DictReader((folder/'sparams.csv').open(encoding='utf-8-sig')))
+    f=np.array([float(r['Freq_GHz']) for r in rows]);v={k:np.array([complex(float(r[k+'_real']),float(r[k+'_imag'])) for r in rows]) for k in ['S11','S21']}
+    assert len(f)==1500 and np.allclose(f,np.arange(1,1501)/100,rtol=0,atol=1e-9) and all(np.isfinite(x).all() for x in v.values())
+    return f,v
+def compare(folder,reference,case):
+    a=analyze(reference/'sparams.csv',f0=6.85);b=analyze(folder/'sparams.csv',f0=6.85)
+    f,x=curve(reference);ff,y=curve(folder);assert np.allclose(f,ff)
+    lo,hi=[a['passband_2dB'][k] for k in ['f_low_GHz','f_high_GHz']];band=(f>=lo)&(f<=hi)
+    assert len(a['peaks'])==len(b['peaks'])==2
+    edges={k:abs(a['passband_2dB'][k]-b['passband_2dB'][k]) for k in ['f_low_GHz','f_high_GHz']}
+    r={'case':case,'candidate':str(folder),'reference':str(reference),'reference_metrics':a,'candidate_metrics':b,
+       'BW_error_MHz':1000*abs(a['passband_2dB']['BW_GHz']-b['passband_2dB']['BW_GHz']),
+       'edge_errors_MHz':{k:1000*v for k,v in edges.items()},'center_error_MHz':1000*abs(a['central_valley_GHz']-b['central_valley_GHz']),
+       'peak_errors_dB':[abs(p['S11_dB']-q['S11_dB']) for p,q in zip(a['peaks'],b['peaks'])],
+       'peak_difference_error_dB':abs(a['peak_difference_dB']-b['peak_difference_dB']),
+       'complex_errors':{k:float(abs(x[k]-y[k])[band].max()) for k in x},
+       'max_S21_dB_error':float(abs(20*np.log10(abs(x['S21']))-20*np.log10(abs(y['S21'])))[band].max()),
+       'shape_ok':b.get('prominent_valley_count')==3 and len(b.get('peaks',[]))==2,
+       'source_hashes':{str(p):sha(p) for p in [reference/'sparams.csv',folder/'sparams.csv']},
+       'scope':'Response differences on identical sweep settings; delta-S stop status is NOT an automatic rejection. No production/design/full-matrix approval.'}
+    r['max_peak_error_dB']=max(r['peak_errors_dB'])
+    r['error_budgets']={name:bool(r['shape_ok'] and r['BW_error_MHz']<=v['bw']*1000 and max(r['edge_errors_MHz'].values())<=v['edge']*1000 and r['center_error_MHz']<=v['center']*1000+1e-9 and r['max_peak_error_dB']<=v['peak'] and r['max_S21_dB_error']<=v['s21'] and max(r['complex_errors'].values())<=v['complex']) for name,v in BUDGETS.items()}
+    return r
+async def run_one(label,case,cap,expected):
+    folder=BASE/label;folder.mkdir(exist_ok=True)
+    if (folder/'state.json').exists():
+        s=read(folder/'state.json')
+        if s['status']=='completed':return read(folder/'comparison.json')
+        raise RuntimeError('Existing attempt: recover explicitly, never rerun blindly')
+    assert not solvers();ref=ROOT/case/'i00';m=read(ref/'manifest.json');source=Path(m['project']);project=folder/(label+'.aedt')
+    assert not project.exists() and not project.with_suffix('.aedtresults').exists();shutil.copy2(source,project)
+    s={'label':label,'case':case,'status':'preparing','source':str(source),'source_sha256':sha(source),'project':str(project),'geometry':m['geometry'],
+       'pass_cap':cap,'expected_elements':expected,'cache_copied':False,'started_at_utc':now(),'stop_policy':'Fixed adaptive pass count, calibrated from historical element counts; no automatic precision repair.'}
+    write(folder/'state.json',s);progress();app=app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert not setup.is_solved
+        s['cad_verification']=inspect_rebuilt_geometry(app,m['geometry']);assert s['cad_verification']['passed']
+        ports={b.name:json.loads(json.dumps(b.props,default=str)) for b in app.boundaries if b.type=='Wave Port'}
+        assert canonical_ports(ports)==canonical_ports(m['port_settings']['after']);s['ports']=ports
+        s['setup_before']=json.loads(json.dumps(setup.props,default=str));assert setup.props['PercentRefinement']==30
+        setup.auto_update=False;setup.props.update({'MinimumPasses':cap,'MaximumPasses':cap,'MaxDeltaS':.005,'MinimumConvergedPasses':2});assert setup.update();setup.auto_update=True
+        sw=next(w for w in setup.sweeps if w.name=='Sweep1');sw.auto_update=False
+        sw.props.update({'Type':'Interpolating','IsEnabled':True,'InterpTolerance':1.0,'EnforcePassivity':False});assert sw.update();sw.auto_update=True
+        s['setup_after']=json.loads(json.dumps(setup.props,default=str));s['sweep_after']=json.loads(json.dumps(sw.props,default=str))
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert not setup.is_solved
+        s['fresh_mesh_verified']=True
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    args={'project_name':project.stem,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':7990,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120}
+    start=time.monotonic();s.update(status='solving',solve_started_at_utc=now(),mcp_request=args,observations=[]);write(folder/'state.json',s);progress()
+    async with connected_client() as client:
+        s['mcp_response']=await session_call(client,'start_analysis',args);assert s['mcp_response'].get('started')
+        while True:
+            await asyncio.sleep(15);live=solvers()
+            if live and (not s['observations'] or s['observations'][-1]!=live):s['observations'].append(live)
+            status=await session_call(client,'get_analysis_status',{k:v for k,v in args.items() if k in ['project_name','design_name','setup_name','port','timeout']})
+            s.update(last_mcp_status=status,elapsed_seconds=time.monotonic()-start,updated_at_utc=now());write(folder/'state.json',s);progress()
+            if not live and not status.get('running'):break
+            if time.monotonic()-start>7200:raise RuntimeError('Two-hour supervision limit: retain live solve for manual inspection')
+    s['solve_wall_seconds']=time.monotonic()-start;s['solve_finished_at_utc']=now();app=app_for(project)
+    try:
+        app.save_project();s['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0))
+        assert any('Normal completion' in x for x in s['messages'])
+        s['export']=export_data(app,folder,2);app.export_convergence('Setup19',output_file=str(folder/'convergence.txt'))
+        s['convergence']=convergence(folder/'convergence.txt');history=passes(folder/'convergence.txt')
+        s['actual_elements']=history[-1][1];s['actual_passes']=history[-1][0]
+        s['target_count_met']=abs(s['actual_elements']/expected-1)<=.02
+        assert s['actual_passes']==cap,'Unexpected fixed-pass stopping point'
+        s['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in x for x in s['messages'])
+        s['profile_export']=str(app.export_profile('Setup19',output_file=str(folder/'profile.prof')))
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert sha(source)==s['source_sha256'];s['source_unchanged']=True
+    commands=[' '.join(p['cmdline'] or []) for obs in s['observations'] for p in obs]
+    assert any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+    assert any('-solve_broadband_adapt' in c for c in commands)
+    s['timing']=profiles(folder);s['status']='exported';write(folder/'state.json',s)
+    write(folder/'manifest.json',{**s,'modes':2,'curve_sha256':sha(folder/'sparams.csv'),'full_matrix_approved':False})
+    r=compare(folder,REFERENCES[case],case)
+    r.update(adaptive_converged=s['convergence']['converged'],sweep_converged=s['sweep_converged'],actual_elements=s['actual_elements'],target_count_met=s['target_count_met'])
+    write(folder/'comparison.json',r);write(folder/'response_metrics.json',r['candidate_metrics'])
+    s.update(status='completed',error_budgets=r['error_budgets']);write(folder/'state.json',s);progress();return r
+async def main():
+    BASE.mkdir(exist_ok=True);assert not solvers() and not (ROOT/'pilot_queue.lock').exists()
+    plan={'runs':[list(x) for x in RUNS],'reuse':str(REUSE),'references':{k:str(v) for k,v in REFERENCES.items()},'interp_tolerance_percent':1.0,'enforce_passivity':False,
+          'MaxDeltaS':.005,'PercentRefinement':30,'cores':16,'concurrent_tasks':1,'mode_count':2,'error_budgets':BUDGETS,
+          'purpose':'Bracket 100000 with matched ~90000 and ~112000 cell counts. Do not equate cell count with guaranteed accuracy or mark adaptive nonconvergence as an automatic failure.',
+          'protocol_sha256':sha(ROOT/'production_protocol.json'),'source_sha256':{c:sha(ROOT/c/'i00'/f'{c}_00.aedt') for c in REFERENCES}}
+    pf=HERE/'frozen_plan.json'
+    if pf.exists():assert read(pf)==plan
+    else:write(pf,plan)
+    reused=read(REUSE/'state.json');assert reused['status']=='completed' and reused['sweep_after']['InterpTolerance']==1.0 and not reused['sweep_after']['EnforcePassivity']
+    assert passes(REUSE/'convergence.txt')[-1][1]==112136
+    r=compare(REUSE,REFERENCES['D08G05'],'D08G05');r.update(actual_elements=112136,reused=True,source_hash=sha(REUSE/'state.json'))
+    write(HERE/'reused_N112_D08G05.json',r)
+    lock=ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:
+        results=[await run_one(*args) for args in RUNS]
+        write(HERE/'results.json',results+[r])
+        assert sha(ROOT/'production_protocol.json')==plan['protocol_sha256']
+    except BaseException:write(HERE/'error.json',{'at_utc':now(),'error':traceback.format_exc()});raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+        progress()
+if __name__=='__main__':asyncio.run(main())

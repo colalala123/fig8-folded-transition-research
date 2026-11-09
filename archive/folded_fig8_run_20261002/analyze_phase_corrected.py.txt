@@ -1,0 +1,177 @@
+"""Analyze P/R and reflection-shape trends on the phase-corrected Fig. 8 set."""
+from __future__ import annotations
+
+import csv
+import hashlib
+import json
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from scipy.optimize import least_squares, minimize_scalar
+from matplotlib.font_manager import FontProperties
+
+ROOT = Path("F:/hfss_f8_261002")
+OUT = Path(__file__).resolve().parent
+CASES = ("T_F2", "B0", "T_F3", "T_G035", "T_G2")
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def ideal_reflection(frequency, p, r, fphi):
+    u = 1 / np.tan(np.pi * frequency / (2 * fphi))
+    characteristic = np.sqrt(r / p) * (p * r * u ** 3 + (1 - p) * u)
+    return np.abs(characteristic) / np.sqrt(1 + characteristic ** 2)
+
+
+def split_reflection(frequency, p, r, fm, fs):
+    zm, zs = np.sqrt(p * r), np.sqrt(p / r)
+    um = 1 / np.tan(np.pi * frequency / (2 * fm))
+    us = 1 / np.tan(np.pi * frequency / (2 * fs))
+    characteristic = -zm * um + (zm * zm * um * um + 1) * us / zs
+    return np.abs(characteristic) / np.hypot(1, characteristic)
+
+
+def shape_metrics(case):
+    run = ROOT / case
+    metrics = read(run / "response_metrics.json")
+    data = np.genfromtxt(run / "sparams.csv", delimiter=",", names=True, encoding="utf-8-sig")
+    f = data["Freq_GHz"]
+    mag = data["S11_mag"]
+    valleys = metrics["valleys"]
+    fphi = metrics["central_valley_GHz"]
+    p = metrics["formal_response_PR"]["P_response"]
+    outer = np.array([valleys[0]["frequency_GHz"], valleys[-1]["frequency_GHz"]])
+    u_outer = 1 / np.tan(np.pi * outer / (2 * fphi))
+    r_each = (p - 1) / (p * u_outer ** 2)
+    r_zero = float(np.mean(r_each))
+    band = (f >= outer[0]) & (f <= outer[1])
+    ideal = ideal_reflection(f[band], p, r_zero, fphi)
+    ideal_rmse = float(np.sqrt(np.mean((ideal - mag[band]) ** 2)))
+    fit = minimize_scalar(lambda r: np.sqrt(np.mean((ideal_reflection(f[band], p, r, fphi) - mag[band]) ** 2)),
+                          bounds=(0.2, 1.8), method="bounded")
+    equal_fit = {
+        "P": p,
+        "R_zero_left": float(r_each[0]),
+        "R_zero_right": float(r_each[1]),
+        "R_zero_mean": r_zero,
+        "R_shape_fit": float(fit.x),
+        "S11_RMSE_R_zero": ideal_rmse,
+        "S11_RMSE_R_shape_fit": float(fit.fun),
+    }
+    fit_band = (f >= 3.8) & (f <= 9.6)
+    ff, yy = f[fit_band], mag[fit_band]
+    split = least_squares(
+        lambda x: split_reflection(ff, *x) - yy,
+        [p, r_zero, fphi, fphi],
+        bounds=([1.05, .2, 5.8, 5.8], [4.0, 1.8, 7.8, 7.8]),
+        max_nfev=2500, xtol=1e-12, ftol=1e-12, gtol=1e-12,
+    )
+    split_rmse = float(np.sqrt(np.mean(split.fun ** 2)))
+    equal_rmse = float(np.sqrt(np.mean((ideal_reflection(ff, p, fit.x, fphi) - yy) ** 2)))
+    return {
+        "case": case,
+        "curve_sha256": hashlib.sha256((run / "sparams.csv").read_bytes()).hexdigest(),
+        "a_mm": read(run / "manifest.json")["geometry"].get("Ls3", 0) - read(run / "manifest.json")["geometry"].get("Ws", 0),
+        "g_mm": read(run / "manifest.json")["geometry"].get("Ls2", 0) - 2 * read(run / "manifest.json")["geometry"].get("Ws", 0),
+        "BW_2dB_GHz": metrics["passband_2dB"]["BW_GHz"],
+        "signed_peak_difference_dB": metrics["signed_peak_difference_dB"],
+        "peak_difference_dB": metrics["peak_difference_dB"],
+        "central_valley_GHz": fphi,
+        "P_response": p,
+        "R_BW_response": metrics["formal_response_PR"]["R_BW"],
+        "equal_phase": equal_fit,
+        "separate_phase": {
+            "P_fit": float(split.x[0]), "R_fit": float(split.x[1]),
+            "fm_GHz": float(split.x[2]), "fs_GHz": float(split.x[3]),
+            "phase_split_GHz": float(split.x[2] - split.x[3]),
+            "S11_RMSE": split_rmse,
+            "S11_RMSE_equal_phase": equal_rmse,
+            "relative_RMSE_reduction": float(1 - split_rmse / equal_rmse),
+        },
+    }
+
+
+def trend(rows, axis, key):
+    x = np.array([row[axis] for row in rows], dtype=float)
+    y = np.array([row[key] for row in rows], dtype=float)
+    slope, intercept = np.polyfit(x, y, 1)
+    pred = slope * x + intercept
+    ss_res = float(np.sum((y - pred) ** 2))
+    ss_tot = float(np.sum((y - np.mean(y)) ** 2))
+    return {"axis": axis, "metric": key, "slope_per_mm": float(slope),
+            "intercept": float(intercept), "R2": None if ss_tot == 0 else float(1 - ss_res / ss_tot),
+            "x_range_mm": [float(np.min(x)), float(np.max(x))], "n": len(rows)}
+
+
+def main():
+    rows = [shape_metrics(case) for case in CASES]
+    by = {row["case"]: row for row in rows}
+    fold = [by[x] for x in ("T_F2", "B0", "T_F3")]
+    gap = [by[x] for x in ("T_G035", "B0", "T_G2")]
+    trends = []
+    for group, axis in ((fold, "a_mm"), (gap, "g_mm")):
+        for metric in ("P_response", "equal_phase.R_zero_mean", "BW_2dB_GHz", "central_valley_GHz"):
+            if "." in metric:
+                head, tail = metric.split(".")
+                values = [{**row, "_metric": row[head][tail]} for row in group]
+                result = trend(values, axis, "_metric")
+                result["metric"] = metric
+            else:
+                result = trend(group, axis, metric)
+            trends.append({"direction": "fold" if axis == "a_mm" else "gap", **result})
+    report = {
+        "status": "completed_response_parameter_analysis",
+        "cases": list(CASES),
+        "fit_band_GHz": [3.8, 9.6],
+        "rows": rows,
+        "trends": trends,
+        "interpretation": {
+            "P": "P_response is extracted from the equal-ripple peak level; it is a response parameter, not a direct local impedance product.",
+            "R": "R_zero uses the two outer valley frequencies at the measured central valley; R_BW is retained only as a bandwidth-based comparison.",
+            "shape": "Separate-phase fit is a diagnostic for phase splitting/coupling, not an independent geometry law.",
+            "scope": "The two three-point lines are local trends at fixed Wm/Ws; they are not universal laws or uncertainty bounds.",
+        },
+    }
+    for path in (ROOT / "phase_corrected_PR_analysis.json", OUT / "phase_corrected_PR_analysis.json"):
+        path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    fields = ["direction", "axis", "metric", "slope_per_mm", "intercept", "R2", "x_range_mm", "n"]
+    with (ROOT / "phase_corrected_local_trends.csv").open("w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(trends)
+    shutil_path = OUT / "phase_corrected_local_trends.csv"
+    shutil_path.write_text((ROOT / "phase_corrected_local_trends.csv").read_text(encoding="utf-8-sig"), encoding="utf-8-sig")
+    font = Path("C:/Windows/Fonts/msyh.ttc")
+    if font.exists():
+        plt.rcParams["font.family"] = FontProperties(fname=str(font)).get_name()
+    plt.rcParams["axes.unicode_minus"] = False
+    fig, axes = plt.subplots(2, 2, figsize=(10.5, 7.2), layout="constrained")
+    for ax, group, axis, title in ((axes[0, 0], fold, "a_mm", "折臂方向"), (axes[0, 1], gap, "g_mm", "间隔方向")):
+        x = np.array([row[axis] for row in group])
+        ax.plot(x, [row["P_response"] for row in group], "o-", label="P_response")
+        ax2 = ax.twinx()
+        ax2.plot(x, [row["equal_phase"]["R_zero_mean"] for row in group], "s--", color="#cb7040", label="R_zero")
+        ax.set(title=title, xlabel="a / mm" if axis == "a_mm" else "g / mm", ylabel="P_response")
+        ax2.set_ylabel("R_zero")
+        ax.grid(alpha=.18)
+        lines1, labels1 = ax.get_legend_handles_labels(); lines2, labels2 = ax2.get_legend_handles_labels()
+        ax.legend(lines1 + lines2, labels1 + labels2, fontsize=8, loc="best")
+    for ax, group, axis, title in ((axes[1, 0], fold, "a_mm", "折臂方向"), (axes[1, 1], gap, "g_mm", "间隔方向")):
+        x = np.array([row[axis] for row in group])
+        ax.plot(x, [row["BW_2dB_GHz"] for row in group], "o-", label="BW₂dB")
+        ax.plot(x, [row["central_valley_GHz"] for row in group], "s--", label="central valley")
+        ax.set(title=title, xlabel="a / mm" if axis == "a_mm" else "g / mm", ylabel="GHz")
+        ax.grid(alpha=.18); ax.legend(fontsize=8)
+    fig.suptitle("相位校正后的 Fig. 8 响应参数局部趋势", fontsize=12)
+    fig.savefig(ROOT / "phase_corrected_PR_trends.png", dpi=190)
+    plt.close(fig)
+    print(json.dumps({"status": report["status"], "cases": CASES, "trends": trends}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

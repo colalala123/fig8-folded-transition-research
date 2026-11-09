@@ -1,0 +1,30 @@
+import copy,unittest
+from tuning_budget_recovery_v1 import recovery_cost
+class Recovery(unittest.TestCase):
+    def setUp(self):
+        self.seg=lambda a:dict(adaptive_requested=a,mcp_request=dict(cores_per_task=14,concurrent_tasks=1))
+        self.old=dict(geometry={'Lm':6.5},segments=[self.seg(True)])
+        self.cur=dict(geometry={'Lm':6.5},segments=[])
+    def test_empty_allowed(self):self.assertEqual(recovery_cost(self.old,self.cur),0)
+    def test_geometry_change_rejected(self):
+        self.cur['geometry']['Lm']=6.6
+        with self.assertRaises(AssertionError):recovery_cost(self.old,self.cur)
+    def test_eleven_adapt_plus_sweep_allowed(self):
+        self.cur['segments']=[self.seg(True)]*11+[self.seg(False)]
+        self.assertEqual(recovery_cost(self.old,self.cur),12)
+    def test_twelfth_adaptive_rejected(self):
+        self.cur['segments']=[self.seg(True)]*12
+        with self.assertRaises(AssertionError):recovery_cost(self.old,self.cur)
+    def test_thirteenth_retry_rejected(self):
+        self.cur['segments']=[self.seg(True)]*11+[self.seg(False)]*2
+        with self.assertRaises(AssertionError):recovery_cost(self.old,self.cur)
+    def test_core_change_rejected(self):
+        self.cur['segments']=[self.seg(True)];self.cur['segments'][0]['mcp_request']['cores_per_task']=16
+        with self.assertRaises(AssertionError):recovery_cost(self.old,self.cur)
+    def test_inherited_request_blocks_next_adaptive(self):
+        self.cur['segments']=[self.seg(True)]*11
+        with self.assertRaises(AssertionError):recovery_cost(self.old,self.cur,extra=1,adaptive=True)
+    def test_one_sweep_after11_allowed(self):
+        self.cur['segments']=[self.seg(True)]*11
+        self.assertEqual(recovery_cost(self.old,self.cur,extra=1,adaptive=False),11)
+if __name__=='__main__':unittest.main()

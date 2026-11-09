@@ -1,0 +1,128 @@
+"""Publish completed Fig. 8 phase-correction validations without solving."""
+from __future__ import annotations
+
+import csv
+import json
+import shutil
+from pathlib import Path
+
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+import numpy as np
+from matplotlib.font_manager import FontProperties
+
+ROOT = Path("F:/hfss_f8_261002")
+HERE = Path(__file__).resolve().parent
+CASES = ("T_F2", "T_F3", "T_G2")
+
+
+def read(path):
+    return json.loads(Path(path).read_text(encoding="utf-8"))
+
+
+def main():
+    plan_path = ROOT / "phase_correction_plan.json"
+    plan = read(plan_path)
+    proposals = {item["case"]: item for item in plan["proposals"]}
+    rows = []
+    for case in CASES:
+        run = ROOT / case
+        manifest = read(run / "manifest.json")
+        validation = read(run / "prospective_validation.json")
+        metrics = read(run / "response_metrics.json")
+        frozen = read(run / "prediction_frozen.json")
+        if manifest.get("status") != "completed" or not manifest.get("source_unchanged"):
+            raise RuntimeError(f"Unverified completed run: {case}")
+        if not validation.get("acceptance_passed"):
+            raise RuntimeError(f"Phase correction did not pass acceptance: {case}")
+        proposal = proposals[case]
+        proposal["status"] = "simulated_accepted"
+        proposal["actual_response"] = validation["actual"]
+        proposal["validation"] = {
+            "acceptance_passed": validation["acceptance_passed"],
+            "equal_ripple_gate": validation["equal_ripple_gate"],
+            "center_gate": validation["center_gate"],
+            "converged": validation["converged"],
+            "sweep_converged": validation["sweep_converged"],
+            "frequency_point_gate": validation["frequency_point_gate"],
+        }
+        proposal["prediction_file"] = str(run / "prediction_frozen.json")
+        proposal["validation_path"] = str(run / "prospective_validation.json")
+        rows.append({
+            "case": case,
+            "parent": frozen["parent"],
+            "Ls1_mm": frozen["geometry"]["Ls1"],
+            "delta_Ls1_mm": frozen["changes_mm"]["Ls1"],
+            "BW_2dB_GHz": validation["actual"]["BW_2dB_GHz"],
+            "signed_peak_difference_dB": validation["actual"]["signed_peak_difference_dB"],
+            "peak_difference_dB": abs(validation["actual"]["signed_peak_difference_dB"]),
+            "central_valley_GHz": validation["actual"]["central_valley_GHz"],
+            "peak_level_dB": validation["actual"]["peak_level_dB"],
+            "P_response": metrics["formal_response_PR"]["P_response"],
+            "R_BW": metrics["formal_response_PR"]["R_BW"],
+            "predicted_BW_2dB_GHz": validation["prediction"]["BW_2dB_GHz"],
+            "predicted_signed_peak_difference_dB": validation["prediction"]["signed_peak_difference_dB"],
+            "predicted_central_valley_GHz": validation["prediction"]["central_valley_GHz"],
+            "prediction_error_BW_GHz": validation["errors"]["BW_2dB_GHz"],
+            "prediction_error_peak_dB": validation["errors"]["signed_peak_difference_dB"],
+            "prediction_error_center_GHz": validation["errors"]["central_valley_GHz"],
+            "acceptance_passed": validation["acceptance_passed"],
+            "convergence_passed": validation["converged"] and validation["sweep_converged"],
+        })
+    plan["phase_round"] = {
+        "status": "completed",
+        "cases": list(CASES),
+        "method": "Run the three bounded Ls1 corrections proposed from the historical B0 Q1/Q2 sensitivity.",
+        "acceptance": plan["acceptance"],
+        "all_acceptance_passed": all(row["acceptance_passed"] for row in rows),
+    }
+    plan_path.write_text(json.dumps(plan, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    for output in (ROOT / "phase_round_summary.json", HERE / "phase_round_summary.json"):
+        output.write_text(json.dumps({"status": "completed", "rows": rows}, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    fieldnames = list(rows[0])
+    for output in (ROOT / "phase_round_summary.csv", HERE / "phase_round_summary.csv"):
+        with output.open("w", encoding="utf-8-sig", newline="") as handle:
+            writer = csv.DictWriter(handle, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(rows)
+    for case in CASES:
+        for name in ("prediction_frozen.json", "prospective_validation.json", "response_metrics.json"):
+            shutil.copy2(ROOT / case / name, ROOT / f"{case}_{name}")
+    font = Path("C:/Windows/Fonts/msyh.ttc")
+    if font.exists():
+        plt.rcParams["font.family"] = FontProperties(fname=str(font)).get_name()
+    plt.rcParams["axes.unicode_minus"] = False
+    base = read(ROOT / "five_case_summary.json")["rows"]
+    base_by_case = {row["case"]: row for row in base}
+    labels = ["F2→T_F2", "F3→T_F3", "G2→T_G2"]
+    parent_names = ["F2", "F3", "G2"]
+    metrics_to_plot = [
+        ("peak_difference_dB", "等峰峰高差 / dB", 0.5),
+        ("central_valley_GHz", "中央反射谷 / GHz", None),
+        ("BW_2dB_GHz", "−2 dB 带宽 / GHz", None),
+    ]
+    fig, axes = plt.subplots(1, 3, figsize=(11.5, 3.8), layout="constrained")
+    for ax, (key, ylabel, threshold) in zip(axes, metrics_to_plot):
+        before = np.array([abs(base_by_case[p]["signed_peak_difference_dB"]) if key == "peak_difference_dB"
+                           else base_by_case[p][key] for p in parent_names])
+        after = np.array([row[key] for row in rows])
+        x = np.arange(len(labels))
+        width = 0.34
+        ax.bar(x - width / 2, before, width, color="#a8b4bf", label="校正前")
+        ax.bar(x + width / 2, after, width, color="#178778", label="校正后")
+        if threshold is not None:
+            ax.axhline(threshold, color="#cb7040", ls="--", lw=1, label="等峰门槛 0.5 dB")
+        ax.set_xticks(x, labels, rotation=18)
+        ax.set_ylabel(ylabel)
+        ax.grid(axis="y", alpha=.18)
+        ax.set_axisbelow(True)
+    axes[0].legend(fontsize=8, loc="upper right")
+    fig.suptitle("Fig. 8 三个 Ls1 相位校正点：校正前后响应指标", fontsize=12)
+    fig.savefig(ROOT / "phase_round_comparison.png", dpi=190)
+    plt.close(fig)
+    print(json.dumps({"status": "completed", "cases": CASES, "all_acceptance_passed": True}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,18 @@
+import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+import numpy as np
+from interpolate_d11 import local_compare
+
+class LocalComparisonTests(unittest.TestCase):
+    def test_local_check_uses_complex_not_deep_null_db(self):
+        with TemporaryDirectory() as tmp:
+            p=Path(tmp);a=p/'a';b=p/'b';a.mkdir();b.mkdir()
+            f=np.arange(1,1501)/100;g=np.arange(1198,1203)/100
+            header='Freq_GHz,S11_real,S11_imag,S21_real,S21_imag'
+            np.savetxt(a/'sparams.csv',np.c_[f,f*0+.2,f*0,f*0+.001,f*0],delimiter=',',header=header,comments='')
+            np.savetxt(b/'sparams.csv',np.c_[g,g*0+.2,g*0,g*0+.002,g*0],delimiter=',',header=header,comments='')
+            r=local_compare(a,b)
+            self.assertTrue(r['complex_check_passed']);self.assertAlmostEqual(r['max_complex_error'],.001)
+            np.savetxt(b/'sparams.csv',np.c_[g,g*0+.2,g*0,g*0+.011,g*0],delimiter=',',header=header,comments='')
+            self.assertFalse(local_compare(a,b)['complex_check_passed'])

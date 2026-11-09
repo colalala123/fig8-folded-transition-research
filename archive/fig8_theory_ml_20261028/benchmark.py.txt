@@ -1,0 +1,127 @@
+"""Frozen group-held-out pilot: theory/RF/shared MLP. Not 1000-point equivalence."""
+import os
+os.environ.setdefault('OMP_NUM_THREADS','2')
+os.environ.setdefault('OPENBLAS_NUM_THREADS','2')
+from common import *
+import numpy as np, sklearn, warnings
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.neural_network import MLPRegressor
+from sklearn.linear_model import Ridge
+from sklearn.preprocessing import StandardScaler, PolynomialFeatures
+from sklearn.pipeline import make_pipeline
+from sklearn.compose import TransformedTargetRegressor
+from sklearn.model_selection import GroupKFold, GroupShuffleSplit
+from sklearn.exceptions import ConvergenceWarning
+from threadpoolctl import threadpool_limits
+import joblib
+
+SEED=20261028
+TASKS={'length_residual': ['delta_Lm_mm','delta_Ls1_mm'],
+       'forward_performance':['S21_minus2_BW_GHz','worse_inner_peak_dB']}
+
+def estimator(name):
+    if name=='quadratic_ridge':
+        reg=make_pipeline(PolynomialFeatures(2,include_bias=False),StandardScaler(),Ridge(alpha=1.0))
+    elif name=='RF':
+        reg=RandomForestRegressor(n_estimators=300,min_samples_leaf=2,max_features=1.0,random_state=SEED,n_jobs=2)
+    elif name=='shared_MLP':
+        reg=make_pipeline(StandardScaler(),MLPRegressor(hidden_layer_sizes=(12,8),activation='tanh',
+                 solver='lbfgs',alpha=.3,max_iter=3000,max_fun=30000,random_state=SEED))
+    else:raise ValueError(name)
+    return TransformedTargetRegressor(regressor=reg,transformer=StandardScaler())
+
+def errors(y,p,labels):
+    e=np.abs(np.asarray(p)-y)
+    return {k:dict(MAE=float(e[:,j].mean()),P95=float(np.quantile(e[:,j],.95)),
+                   max=float(e[:,j].max()),RMSE=float(np.sqrt(np.mean(e[:,j]**2)))) for j,k in enumerate(labels)}
+
+def labels(rows,task):
+    if task=='forward_performance':return np.array([[r['fit_labels']['S21_BW_GHz'],r['fit_labels']['worse_inner_peak_dB']] for r in rows])
+    return np.array([[r['geometry_mm'][k]-nominal_lengths(r['geometry_mm']['Wm'],r['geometry_mm']['Ws'],r['a'])[k]
+                      for k in ['Lm','Ls1']] for r in rows])
+
+def main():
+    dest=ROOT/'benchmark_v1';assert not dest.exists(),'Never overwrite a frozen benchmark'
+    dest.mkdir()
+    data=read(SOURCE52);rows=data['rows'];assert len(rows)==52
+    # Keep both corrected-edge cases for validated LENGTH and S21/inner-peak labels;
+    # never promote their old full curves to proxy eligibility.
+    for f,h in data['source_hashes'].items():assert sha(f)==h,f
+    for r in rows:assert sha(r['source_curve'])==r['source_curve_sha256']
+    X=np.array([features(r) for r in rows]);groups=np.array([r['group'] for r in rows])
+    train,test=next(GroupShuffleSplit(n_splits=1,test_size=.2,random_state=SEED).split(X,groups=groups))
+    assert set(groups[train]).isdisjoint(groups[test])
+    split=dict(seed=SEED,split_unit='width_pair_design_family; both arms stay together',
+         train_cases=[rows[i]['case'] for i in train],test_cases=[rows[i]['case'] for i in test],
+         train_groups=sorted(set(groups[train])),test_groups=sorted(set(groups[test])),
+         train_count=len(train),test_count=len(test),holdout_fraction_requested=.2,
+         caveat='Previously observed research data; honest group holdout, not a new prospective HFSS blind test')
+    write(dest/'split.json',split)
+    config=dict(seed=SEED,input_features=['lnP','lnR','a_mm','theory_Lm_mm','theory_nominal_Ls1_mm'],
+        output_tasks=TASKS,models=['quadratic_ridge','RF','shared_MLP'],
+        RF=dict(trees=300,min_samples_leaf=2),MLP=dict(layers=[12,8],activation='tanh',solver='lbfgs',alpha=.3,max_iter=3000),
+        feature_scaling='fit on training fold only',target_scaling='fit on training fold only',
+        model_selection='five grouped folds inside training split; equal per-output normalized RMSE',
+        source_hashes={str(SOURCE52):sha(SOURCE52),str(WEEKLY):sha(WEEKLY),str(Path(__file__)):sha(__file__),str(ROOT/'common.py'):sha(ROOT/'common.py')},
+        library_versions=dict(sklearn=sklearn.__version__,numpy=np.__version__),
+        independent_rho_eta_variation_available=False,uniform_data_used=False)
+    write(dest/'configuration_frozen.json',config)
+    predictions=[];results={};caught=[]
+    for task,names in TASKS.items():
+        y=labels(rows,task);scores={};result={}
+        folds=list(GroupKFold(5).split(X[train],y[train],groups[train]))
+        foldrecords=[]
+        for it,iv in folds:
+            assert set(groups[train[it]]).isdisjoint(groups[train[iv]])
+            foldrecords.append(dict(train_groups=sorted(set(groups[train[it]])),validation_groups=sorted(set(groups[train[iv]]))))
+        for name in config['models']:
+            oof=np.full_like(y[train],np.nan)
+            with warnings.catch_warnings(record=True) as ww,threadpool_limits(limits=2):
+                warnings.simplefilter('always',ConvergenceWarning)
+                for it,iv in folds:
+                    m=estimator(name);m.fit(X[train[it]],y[train[it]]);oof[iv]=m.predict(X[train[iv]])
+                assert np.isfinite(oof).all()
+                scores[name]=float(np.mean(np.sqrt(np.mean(((oof-y[train])/np.maximum(y[train].std(axis=0),1e-12))**2,axis=0))))
+                m=estimator(name);m.fit(X[train],y[train]);pred=m.predict(X[test])
+                joblib.dump(m,dest/f'{task}_{name}_train_only.joblib')
+                caught.extend(dict(task=task,model=name,message=str(w.message)) for w in ww)
+            result[name]=dict(inner_group_CV=errors(y[train],oof,names),inner_selection_score=scores[name],
+                              group_holdout=errors(y[test],pred,names))
+            predictions.extend(dict(task=task,model=name,case=rows[i]['case'],group=rows[i]['group'],actual=y[i].tolist(),predicted=p.tolist()) for i,p in zip(test,pred))
+        chosen=min(scores,key=scores.get)
+        # A deployment version can now use all52; its old holdout is not re-scored.
+        with warnings.catch_warnings(record=True) as ww,threadpool_limits(limits=2):
+            warnings.simplefilter('always',ConvergenceWarning)
+            deploy=estimator(chosen);deploy.fit(X,y)
+            caught.extend(dict(task=task,model=chosen,stage='all52_deployment',message=str(w.message)) for w in ww)
+        joblib.dump(deploy,dest/f'{task}_deployment52.joblib')
+        results[task]=dict(labels=names,models=result,selected_without_holdout=chosen,folds=foldrecords,
+                           deployment_train_count=52,holdout_is_not_independent_of_deployment=True)
+    coords=[dict(case=r['case'],group=r['group'],**fold_coordinates(r['geometry_mm'])) for r in rows]
+    write(dest/'fold_coordinates.json',dict(rows=coords,definition='Weekly-report nominal sums; not CAD centerline/electrical path',
+        old_ratio_renamed='arm_overlap_ratio_legacy',not_used_as_input='Achieved rho/eta depend on output Ls1; using them here would leak labels'))
+    write(dest/'predictions.json',predictions)
+    write(dest/'results.json',dict(results=results,warnings=caught,split=split,independent_samples=26,geometry_rows=52,
+        four_free_geometry_regression=False,
+        reason='At fixed P/R, Wm/Ws are independent line-model inversions; current learned corrections are Lm/Ls1 only. Do not report zero learned Wm/Ws MAE.',
+        first_blind_six_untouched=True,HFSS_new_validation_done=False))
+    lines=['# 弯折模型理论加机器学习首版基准','',
+       f'52个历史几何、26组宽度。按设计系列固定分割：训练{len(train)}条，留出测试{len(test)}条；两折臂不跨组。',
+       '先在训练部分内做5折分组验证选模型，再一次性评估留出集。没有将原六项盲测用于训练。',
+       '这不是1000条均匀模型的同规模比较，也不代表输入目标带宽后的HFSS命中率。','',
+       '输入为理论P/R、折臂和独立传输线初始长度；当前学习Lm/Ls1修正，Wm/Ws仍由P/R确定，不把它们的构造性零误差算成机器学习能力。',
+       '实际rho/eta由已调好的Ls1计算，本版只用于描述，不输入模型，避免泄漏输出。','',
+       '|任务|模型|参数|留出MAE|留出P95|','|---|---|---|---:|---:|']
+    for task,res in results.items():
+        for model,r in res['models'].items():
+            for label,metrics in r['group_holdout'].items():lines.append(f"|{task}|{model}|{label}|{metrics['MAE']:.6f}|{metrics['P95']:.6f}|")
+    lines+=['','依据训练内分组验证选择：'+', '.join(f'{t}={r["selected_without_holdout"]}' for t,r in results.items()),
+        '注意：forward_performance混合了宽域历史样本，不能用它取代局部18点公式的精度结论。',
+        '两条旧插值曲线的带边限制仍保留；本版只用已选定长度及S21/内峰标量标签，不重新认证其全曲线。',
+        '神经网络仅为小样本基准，未预设其优于简单模型。按实际验证选用。','',
+        '验证方法参考：[scikit-learn分组交叉验证](https://scikit-learn.org/stable/modules/cross_validation.html#cross-validation-iterators-for-grouped-data)。']
+    (dest/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    write(dest/'manifest.json',{str(f):sha(f) for f in dest.iterdir() if f.is_file()})
+    print(json.dumps(dict(directory=str(dest),train=len(train),test=len(test),selected={t:r['selected_without_holdout'] for t,r in results.items()},warnings=len(caught)),ensure_ascii=False))
+
+if __name__=='__main__':main()

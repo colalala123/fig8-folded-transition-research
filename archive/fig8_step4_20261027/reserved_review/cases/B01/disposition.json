@@ -1,0 +1,142 @@
+{
+  "case": "B01",
+  "state": "scoped_accepted",
+  "source": "J:\\f8_B6_261027\\B01\\g01_initial",
+  "direct_run": "J:\\f8_B6_261027\\B01\\direct_reserved",
+  "comparison": {
+    "points": 25,
+    "max_complex_error": 0.001286951451620786,
+    "max_nearband_S21_error_dB": 0.0014807212375518297,
+    "peak_reviews": [
+      {
+        "reference_GHz": 5.33,
+        "actual_sampled_peak_GHz": 5.32,
+        "actual_sampled_peak_dB": -21.502027355396333,
+        "interior": true,
+        "source_sampled_peak_dB": -21.50527027912283,
+        "height_error_dB": 0.0032429237264963717,
+        "points": [
+          5.28,
+          5.29,
+          5.3,
+          5.31,
+          5.32,
+          5.33,
+          5.34
+        ]
+      },
+      {
+        "reference_GHz": 8.08,
+        "actual_sampled_peak_GHz": 8.08,
+        "actual_sampled_peak_dB": -21.513510485388096,
+        "interior": true,
+        "source_sampled_peak_dB": -21.510809666133753,
+        "height_error_dB": 0.0027008192543434006,
+        "points": [
+          8.07,
+          8.08,
+          8.09
+        ]
+      }
+    ],
+    "edge_reviews": [
+      {
+        "kind": "S21",
+        "reference_GHz": 3.065462149760759,
+        "points": [
+          3.05,
+          3.09
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.0654027564128463,
+        "shift_GHz": 5.939334791271733e-05
+      },
+      {
+        "kind": "S21",
+        "reference_GHz": 9.874987258810718,
+        "points": [
+          9.85,
+          9.89
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.87597035306817,
+        "shift_GHz": 0.000983094257453132
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 3.720613268280022,
+        "points": [
+          3.701,
+          3.716,
+          3.726,
+          3.741
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.720617725588111,
+        "shift_GHz": 4.457308089289569e-06,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.0003568081265870049,
+        "other_condition_verified": true
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 9.39705406339259,
+        "points": [
+          9.377,
+          9.392,
+          9.402,
+          9.417
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.398670468257862,
+        "shift_GHz": 0.0016164048652722585,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.00027906945982536513,
+        "other_condition_verified": true
+      }
+    ],
+    "direct_bandwidths": {
+      "S21": {
+        "f_low_GHz": 3.0654027564128463,
+        "f_high_GHz": 9.87597035306817,
+        "BW_GHz": 6.810567596655325,
+        "width_shift_GHz": 0.0010424876053658494
+      },
+      "S11": {
+        "f_low_GHz": 3.720617725588111,
+        "f_high_GHz": 9.398670468257862,
+        "BW_GHz": 5.678052742669751,
+        "width_shift_GHz": 0.001611947557183413
+      }
+    },
+    "direct_peak_difference_dB": 0.011483129991763263,
+    "requested_band_direct_worst_S11": {
+      "GHz": 5.32,
+      "dB": -21.502027355396333
+    },
+    "requested_band_direct_min_S21": {
+      "GHz": 9.22,
+      "dB": -0.8632019802495461
+    },
+    "direct_target_violations": [],
+    "dense_target_covered": true,
+    "target_finite_direct_failure_confirmed": false,
+    "numerical_review_passed": true,
+    "sampled_design_supported": true,
+    "needs_reserved_points": false,
+    "needs_peak_expansion": false,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+    "baseline_tuning_passed": true
+  },
+  "actual_elements": 103604,
+  "event_sha256": "792fe0f78d60679dd3a5abaec924925b5ff92da2f7b8a9331a4ea54f843b49bb",
+  "ack_sha256": "3ce820e78c901f96889269bd55926c29fca508089fbef3fb05ae7c5b1c596d32"
+}

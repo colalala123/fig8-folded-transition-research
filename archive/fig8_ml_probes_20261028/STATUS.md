@@ -1,0 +1,9 @@
+# Fig8 C9P有界长度校正
+
+{
+  "case": "B05S",
+  "stage": "awaiting_geometry_hook_review",
+  "operation_status": "failed",
+  "run_dir": "J:\\f8_MLP_261028\\B05S\\g01_initial",
+  "finished_at": "2026-10-28T03:49:28.409640+00:00"
+}

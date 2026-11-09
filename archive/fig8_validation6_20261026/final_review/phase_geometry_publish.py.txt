@@ -1,0 +1,22 @@
+"""Completion/failed hook for the authorized final direct reviews only."""
+from phase_control import HERE,TARGET,ORDER,read,write,now
+from phase_publish import hook
+def prompt(event,path):
+    return (f'[Fig8 V6 最终同网格直接复核完成事件]\n事件ID：{hook.event_id(event)}\n状态：{event["status"]}\n摘要：{event["summary"]}\n事件：{path}\n'
+        f'先读{HERE/"CONTINUATION.md"}、authorization.json、budget_ledger.json及当前实际状态。'
+        '用户已授权把六项用hook跑完。核验事件和父哈希、原始S参数、同网格记录；运行review_phase_direct.py并实际查看叠图，再用acknowledge_direct.py记录真实结论。'
+        '逐项16核单任务串行，每项一次缓存直接扫频；禁止新自适应或无界重试。未过项如实保留，不自动宣称通过。'
+        '还剩未复核项时，按顺序dispatch.py --case CASE --solve并监督真实启动；无需再次询问启动。'
+        '六项均审查后汇总冻结带宽预测误差、同宽度折臂差异、曲线和验收证据，停止已完成事件心跳。'
+        '正常求解不周期发消息；完成通知5分钟无新真实仿真才检查AI是否中断；未知送达不盲重发。')
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] is True and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Authorized V6 final same-mesh direct review')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

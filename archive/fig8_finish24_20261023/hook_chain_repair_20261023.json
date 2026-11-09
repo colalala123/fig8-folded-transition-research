@@ -1,0 +1,67 @@
+{
+  "at": "2026-10-23T01:43:19.255607+00:00",
+  "root_cause": "Desktop accepted original completion, but receiver stopped after verification without ACK or next dispatch. No end-to-end continuation guard existed.",
+  "original_event_sha256": "d42a31b50541847595fb38fdb66da252182a794b3fab1ca1f578dd5274411e9d",
+  "delivery_receipt": {
+    "event_id": "291f0443f8fabfcf472daa51",
+    "state": "accepted",
+    "accepted_at": "2026-10-23T01:27:46.097458+00:00",
+    "receipt": {
+      "meta": null,
+      "content": [
+        {
+          "type": "text",
+          "text": "{\"threadId\":\"REDACTED-ID\"}",
+          "annotations": null,
+          "meta": null
+        }
+      ],
+      "structuredContent": null,
+      "isError": false
+    },
+    "note": "Accepted by desktop, not yet proof of receiver processing; check receiver_ack.json"
+  },
+  "before_repair": {
+    "resolved": false,
+    "reason": "receiver_ack_missing_or_incomplete"
+  },
+  "guard_grace_seconds": 900,
+  "alert_limit_per_source_event": 1,
+  "solver_auto_restart": false,
+  "tests_passed": 27,
+  "guard_sha256": "ebb0d0d11c6b894246e7d84d5bc9549bbe36d2af3941b77efd053f92141e57b0",
+  "adapter_sha256": "378ee685ecbc8f2d10e5396c66250a47f43bde601dcdbaaecdcbafd5ee310f38",
+  "portable_release_modified": false,
+  "repaired_at": "2026-10-23T01:44:51.055523+00:00",
+  "live_guard_result": {
+    "at": "2026-10-23T01:43:49.533458+00:00",
+    "resolved": true,
+    "reason": "next_worker_running",
+    "next_run": "J:\\f8_finish24_261023\\D12G02\\g00"
+  },
+  "next_solver_evidence": {
+    "at": "2026-10-23T01:44:51.133292+00:00",
+    "active": {
+      "case": "D12G02",
+      "stage": "supervised_geometry_adaptive",
+      "mesh_stage": 0,
+      "requested_passes": 16,
+      "last_elements": null,
+      "pid": 11912,
+      "run_dir": "J:\\f8_finish24_261023\\D12G02\\g00",
+      "updated_at": "2026-10-23T01:44:10.129506+00:00"
+    },
+    "processes": [
+      {
+        "cmdline": [
+          "57728_39",
+          "57728_40",
+          "J:\\f8_finish24_261023\\solver_temp\\hfss_DESKTOP-94969B0_57728.pjt/",
+          "-exedir 'D:/Program Files/AnsysEM/v242/Win64/'  -solve_broadband_adapt 5 8000000000 -freq 8000000000 -max_processors 16 -save_fields -numParallelGroups 1 -solve_frequency_sweep"
+        ],
+        "pid": 21308,
+        "name": "hf3d.exe"
+      }
+    ]
+  }
+}

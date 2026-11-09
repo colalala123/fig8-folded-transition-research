@@ -1,0 +1,15 @@
+"""Observer startup lock-race adapter. No AEDT/solver operations; frozen observer source unchanged."""
+import argparse,asyncio,json,os,sys
+from pathlib import Path
+async def main(ctx,run):
+    sys.path.insert(0,str(ctx));import lifecycle_watch as observer
+    for attempt in range(30):
+        try:return await observer.watch(run)
+        except PermissionError:
+            path=run/'lifecycle_observer/daemon.json'
+            if path.exists() and json.loads(path.read_text(encoding='utf-8-sig')).get('pid')==os.getpid():raise
+            if attempt==29:raise
+            await asyncio.sleep(.25)
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',type=Path,required=True);p.add_argument('--run',type=Path,required=True);a=p.parse_args()
+    asyncio.run(main(a.context.resolve(),a.run.resolve()))

@@ -1,0 +1,45 @@
+from lib import *
+from datetime import datetime,timezone
+baseline=read(OUT/'fig8_next48_20261029/DATASET48_EFFECTIVE_INDEX_V4.json')['rows'];bm={r['case']:r for r in baseline}
+rows=read(OUT/'fig8_offline_audit_20261109_v1/RESPONSE_DATA_CATALOG.json')['rows']
+for r in read(OUT/'fig8_verify_N19_N22_20261109/FINAL_RESULTS.json')['results']:
+ rows.append(dict(case=r['case'],family=r['parent'].split('_')[0],source='diagnostic_holdout',geometry=r['geometry'],run=r['run']))
+manifest={};accepted=[];excluded=[];xx=[];zz=[];yy=[];keys=set();freq=None
+for r in rows:
+ try:
+  run=Path(r['run']);ps={n:run/n for n in ['input.json','state.json','completion_event.json','receiver_verification.json','receiver_ack.json','sparams.csv']}
+  for p in ps.values():assert p.exists(),f'missing {p.name}'
+  st=read(ps['state.json']);ev=read(ps['completion_event.json']);ve=read(ps['receiver_verification.json']);ack=read(ps['receiver_ack.json']);inp=read(ps['input.json'])
+  assert st['status']=='completed' and ev['status']=='completed' and ev['verified_success']
+  assert ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+  assert ack['event_sha256']==sha(ps['completion_event.json']) and ack['verification_sha256']==sha(ps['receiver_verification.json'])
+  assert ve['event_sha256']==sha(ps['completion_event.json']) and ve['mesh_history_verified']
+  mesh=ve['actual_elements'];assert 100000<=mesh<=112000
+  for name,h in ve['verified_hashes'].items():
+   p=Path(name);assert sha(p)==h,f'hash {p}';manifest[str(p)]=h
+  assert ve['metrics']['curve_sha256']==sha(ps['sparams.csv'])
+  assert sha(ve['plot'])==ack['plot_sha256']==ve['plot_sha256']
+  for k,v in r['geometry'].items():assert abs(st['geometry'][k]-v)<1e-8 and abs(inp['geometry'][k]-v)<1e-8
+  f,z=load_curve(ps['sparams.csv']);assert len(f)==1500
+  if freq is None:freq=f
+  assert np.array_equal(f,freq)
+  # Full matrix/native-reference/core verification was previously bound in hashed receiver verification.
+  key=tuple(round(r['geometry'][k],9) for k in ['Wm','Ws','Lm','Ls1','Ls2','Ls3']);assert key not in keys,'duplicate geometry';keys.add(key)
+  q=label(f,z);assert q['shape_valid'],'no defined three-valley regression labels'
+  x,coords=features(r['geometry']);base=bm['_'.join(r['case'].split('_')[:2])]
+  assert abs(coords['P']-base['P_nominal'])<1e-10 and abs(coords['R']-base['R_nominal'])<1e-10
+  assert np.max(abs(np.array([coords['Lm_nominal'],coords['Ls1_nominal']])-base['frozen_prediction']['input_features'][3:]))<1e-10
+  if r['source']=='original48':assert abs(q['worst_S11_dB']-base['scientific_label']['primary']['worst_S11_dB'])<1e-9
+  for p in ps.values():manifest[str(p)]=sha(p)
+  manifest[ve['plot']]=sha(ve['plot'])
+  accepted.append({**r,**coords,'features':x,'mesh':mesh,'score':q,'curve_sha256':sha(ps['sparams.csv']),'old_role':base['role']})
+  xx.append(x);zz.append(z);yy.append([q[k] for k in LABELS])
+ except Exception as e:excluded.append({'case':r['case'],'reason':str(e),'run':r['run']})
+print('accepted',len(accepted),'excluded',excluded,flush=True)
+assert len(accepted)>=70
+for p in [OLD/'PAUSE.json',OLD/'CURRENT_STATUS.json',OUT/'fig8_verify_N19_N22_20261109/closure.json',OUT/'fig8_PR_current_material_20261026/line_models.py',OLD/'b05_corrector.py',OUT/'fig8_inverse_PR_20261027/model.py']:
+ manifest[str(p)]=sha(p)
+np.savez_compressed(ROOT/'dataset.npz',X=xx,Z=zz,Y=yy,f=freq)
+write('DATASET.json',{'created_at':datetime.now(timezone.utc).isoformat(),'rows':accepted,'excluded':excluded,'n':len(accepted),'families':len(set(r['family'] for r in accepted)),'feature_names':['lnP','lnR','a_mm','actual_minus_nominal_Lm_mm','actual_minus_nominal_Ls1_mm'],'labels':LABELS,'scope':'existing hash-bound nominal interpolated data; not a fresh visual or direct-frequency certification'})
+write('SOURCE_MANIFEST.json',manifest)
+write('RUN_PLAN.json',{'purpose':'law research and inverse design, not tune all to pass','development':'all accepted pre-diagnostic geometries','diagnostic_holdout':'N19/N22 D1; retrospective known outcomes, not independent new blind test','outer':'6 deterministic family folds','inner':'3 family folds; train-only preprocessing; family-balanced fit/metrics','models':['A same five-indicator Ridge without actual length','B five-indicator Ridge with actual length','C full complex-curve Ridge with actual length'],'hyperparameters':{'degree':[1,2],'alpha':[.001,.01,.1,1,10]},'new_HFSS':'at most one N19 candidate only if grouped validation improves and in-domain candidate exists; 14 cores serial, hook, <=13 Analyze; old pause untouched','selection_gate':'B family-balanced worstS11 MAE improves >=10% over A, B false pass count <=A; C independently must improve >=10% and no more false passes before curve inverse enabled','limitations':'small selective data; folds are development not a new prospective test; no MLP/NN claim'})

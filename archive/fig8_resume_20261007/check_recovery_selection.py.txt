@@ -1,0 +1,96 @@
+"""Offline provenance/regression fixtures; never runs AEDT or changes production.
+
+Copies genuine healthy curves but uses explicitly synthetic acceptance metadata
+inside a separate test directory to exercise rejection and safe reuse paths.
+"""
+import importlib.util,json,shutil,sys,tempfile
+from pathlib import Path
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+import recovery_selection as sel
+
+def main():
+    out=HERE/'recovery_selection_regression';out.mkdir(exist_ok=True)
+    root=Path(tempfile.mkdtemp(prefix='fixture_',dir=out));checks={}
+    old=read(ROOT/'production_protocol.json');old_file=root/'prior_protocol.json'
+    shutil.copy2(ROOT/'production_protocol.json',old_file);prior=sha(old_file)
+    proof=root/'equivalence_review.json'
+    write_json(proof,{'passed':True,'prior_protocol_sha256':prior,
+        'physical_keys_verified':sel.PHYSICAL_KEYS,'physical_values':{k:old[k] for k in sel.PHYSICAL_KEYS},
+        'evidence_hashes':{str(old_file):prior},'scope':'Synthetic metadata for offline regression only.'})
+    current={**old,'protocol_id':'offline_fixture_only',
+        'compatible_prior_protocols':[{'path':str(old_file),'sha256':prior,
+            'scope':'unchanged_original_sweeps_and_frozen_geometry_specs',
+            'equivalence_review':{'path':str(proof),'sha256':sha(proof)}}]}
+    current_file=root/'production_protocol.json';write_json(current_file,current)
+    sel.compatible_protocol(sha(current_file),root);checks['current_protocol_accepted']=True
+    sel.compatible_protocol(prior,root);checks['explicit_unchanged_prior_accepted']=True
+    def rejected(name,fn):
+        try:fn()
+        except (AssertionError,RuntimeError):checks[name]=True
+        else:raise AssertionError(f'Unsafe acceptance: {name}')
+    rejected('unknown_protocol_rejected',lambda:sel.compatible_protocol('0'*64,root))
+    write_json(current_file,{**current,'central_valley_target_GHz':6.73})
+    rejected('changed_physical_protocol_rejected',lambda:sel.compatible_protocol(prior,root))
+    write_json(current_file,current)
+    source=HERE/'collection_order_regression/healthy'
+    attempt=root/'D02G02/i03';candidate=attempt/'verified_recovery';candidate.mkdir(parents=True)
+    for name in sel.DATA_FILES:shutil.copy2(source/name,candidate/name)
+    m=read(candidate/'manifest.json');m['phase_solve_ordinal_including_history']=4
+    write_json(candidate/'manifest.json',m)
+    write_json(attempt/'manifest.json',{**m,'status':'numerical_or_port_review_required','scope':'Synthetic test metadata, not a new HFSS result.'})
+    write_json(attempt/'state.json',{'status':'review_required','scope':'Synthetic regression fixture, no solve performed.'})
+    spec={'case':'D02G02','geometry':m['geometry'],'source_sha256':m['source_sha256'],'protocol_sha256':prior}
+    write_json(attempt/'prediction_frozen.json',spec);shutil.copy2(source/'sparams.csv',attempt/'sparams.csv')
+    recipe={'input_hashes':{str(source/'sparams.csv'):sha(source/'sparams.csv')},
+        'per_frequency_source':{str(i/100):{'name':'healthy_fixture','path':str(source)} for i in range(1,1501)},
+        'scope':'Synthetic assembly metadata for verifier testing only.'}
+    write_json(candidate/'assembly_recipe.json',recipe)
+    evidence={str(candidate/n):sha(candidate/n) for n in sel.DATA_FILES+['assembly_recipe.json']}
+    write_json(candidate/'recovery_candidate_review.json',{'numerical_and_port_passed':True,'seams_passed':True,
+        'phase_geometry_unchanged':True,'phase_solves_added':0,'evidence_hashes':evidence,
+        'scope':'Synthetic regression acceptance, not production approval.'})
+    assert sel.resolve_attempt(attempt,root)==attempt;checks['unapproved_candidate_not_selected']=True
+    required=[attempt/n for n in ['manifest.json','state.json','prediction_frozen.json','sparams.csv']]
+    required += [candidate/n for n in sel.DATA_FILES+['assembly_recipe.json','recovery_candidate_review.json']]
+    decision={'approved':True,'protocol_sha256':sha(current_file),'original_attempt':str(attempt),
+        'candidate_run':str(candidate),'case':'D02G02','geometry':m['geometry'],
+        'phase_solves_added':0,'phase_geometry_unchanged':True,'mesh_reuse_verified':True,
+        'resource_review':{'passed':True,'cores':16,'tasks':1},
+        'evidence_hashes':{str(p):sha(p) for p in required},'scope':'Synthetic verifier fixture only.'}
+    acceptance=attempt/'recovery_acceptance.json';write_json(acceptance,decision)
+    assert sel.resolve_attempt(attempt,root)==candidate;checks['complete_evidence_selected']=True
+    raw=(candidate/'sparams.csv').read_bytes();(candidate/'sparams.csv').write_bytes(raw+b'\n')
+    rejected('changed_curve_rejected',lambda:sel.resolve_attempt(attempt,root))
+    (candidate/'sparams.csv').write_bytes(raw)
+    broken={**decision,'evidence_hashes':{k:v for k,v in decision['evidence_hashes'].items() if k!=str(attempt/'state.json')}}
+    write_json(acceptance,broken);rejected('missing_original_evidence_rejected',lambda:sel.resolve_attempt(attempt,root))
+    write_json(acceptance,{**decision,'resource_review':{'passed':True,'cores':4,'tasks':1}})
+    rejected('wrong_resources_rejected',lambda:sel.resolve_attempt(attempt,root))
+    write_json(acceptance,decision)
+    module_spec=importlib.util.spec_from_file_location('staged_pilot',HERE/'pending_protocol_v2/guarded_pilot_queue.py')
+    module=importlib.util.module_from_spec(module_spec);module_spec.loader.exec_module(module)
+    module.ROOT=root;module.HERE=HERE
+    plan=read(HERE/'resume_queue_plan.json')
+    old_call=module.subprocess.call
+    def forbid(*args,**kwargs):raise AssertionError('Offline regression must never dispatch a solver')
+    module.subprocess.call=forbid
+    try:
+        case=next(c for c in plan['cases'] if c['case']=='D01G05')
+        folder=root/case['case'];folder.mkdir()
+        shutil.copy2(ROOT/case['case']/'historical_recovery_review.json',folder/'historical_recovery_review.json')
+        try:module.tune(case,current)
+        except RuntimeError as e:
+            assert 'Historical numerical repair must be reviewed' in str(e)
+            checks['historical_repair_stops_before_dispatch']=True
+        else:raise AssertionError('Unresolved historical repair did not stop')
+        case=next(c for c in plan['cases'] if c['case']=='D02G02')
+        shutil.copy2(ROOT/case['case']/'design_result.json',root/case['case']/'design_result.json')
+        result=module.tune(case,current)
+        assert result['status']=='accepted' and result['new_solves']==0
+        checks['verified_prior_result_reused_without_dispatch']=True
+    finally:module.subprocess.call=old_call
+    write_json(out/'result.json',{'passed':all(checks.values()),'checks':checks,'fixture_root':str(root),
+        'checked_at_utc':now(),'solves_started':0,'scope':'Offline synthetic-metadata regression; no production acceptance or protocol migration.'})
+    print(json.dumps(checks,indent=2))
+
+if __name__=='__main__':main()

@@ -1,0 +1,111 @@
+{
+  "created_at_utc": "2026-10-08T00:26:22.354298+00:00",
+  "uniform_index_rows": 1000,
+  "seed_label_checks": [
+    {
+      "folded_seed": "r042_v0",
+      "uniform_run": "ablong_s3_a32",
+      "P_from_index_impedances": 2.6308140300813867,
+      "R_from_index_impedances": 0.41954372386006333,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    },
+    {
+      "folded_seed": "r039_v1",
+      "uniform_run": "ab30_a09",
+      "P_from_index_impedances": 2.6801466457464116,
+      "R_from_index_impedances": 0.39131545781148996,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    },
+    {
+      "folded_seed": "r045_v0",
+      "uniform_run": "phase1_s14a_009",
+      "P_from_index_impedances": 2.630988706263195,
+      "R_from_index_impedances": 0.4531839024601752,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    },
+    {
+      "folded_seed": "r048_v0",
+      "uniform_run": "ab6h_s12_a06",
+      "P_from_index_impedances": 2.6021930926981653,
+      "R_from_index_impedances": 0.4836270841696962,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    },
+    {
+      "folded_seed": "r053_v0",
+      "uniform_run": "ab6h_s14_a05",
+      "P_from_index_impedances": 2.54750523979054,
+      "R_from_index_impedances": 0.5310174115502205,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    },
+    {
+      "folded_seed": "r057_v0",
+      "uniform_run": "ablong_s2_a06",
+      "P_from_index_impedances": 2.4975519776512876,
+      "R_from_index_impedances": 0.568267138733039,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    },
+    {
+      "folded_seed": "r074_v0",
+      "uniform_run": "lhs30n8_011",
+      "P_from_index_impedances": 2.6925915577411548,
+      "R_from_index_impedances": 0.7376522273107005,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    },
+    {
+      "folded_seed": "r078_v0",
+      "uniform_run": "a50_b01_009",
+      "P_from_index_impedances": 2.681728640835832,
+      "R_from_index_impedances": 0.7847166302465396,
+      "label_match": true,
+      "original_uniform_curve_recomputed": false
+    }
+  ],
+  "accepted_folded_formula_checks": [
+    {
+      "case": "D02G02",
+      "old_feature_P": 2.331364023494111,
+      "current_P": 2.3313640234941313,
+      "old_fixed_f0_R": 0.9574380222112561,
+      "current_R_side_poles_fixed_f0": 0.9574380222112627,
+      "R_BW": 1.2135016689465437,
+      "formula_match": true
+    },
+    {
+      "case": "D03G05",
+      "old_feature_P": 2.523231872508866,
+      "current_P": 2.5232318725089176,
+      "old_fixed_f0_R": 0.8706544163877077,
+      "current_R_side_poles_fixed_f0": 0.8706544163877195,
+      "R_BW": 1.0866679329729005,
+      "formula_match": true
+    }
+  ],
+  "f0_GHz": 6.85,
+  "R_formula": "(P-1)/(P*mean(abs(cot(pi*f_outer/(2*f0))))**2)",
+  "limitations": [
+    "Eight historical folded labels were copied from uniform seeds, not extracted from folded responses.",
+    "Original uniform seed curves are not recomputed; row-level extraction provenance for all 1000 entries is not verified.",
+    "TXLINE initialization code uses er=3.38; current HFSS uses er=3.55. These are not interchangeable physical impedance labels.",
+    "This R uses response features; it is not a geometry-only predictor. No independent bandwidth law is fitted.",
+    "Current two accepted configurations still require width-corner mode checks."
+  ],
+  "source_hashes": {
+    "F:\\2026-1\\circuit\\mcp\\opt\\folded_r8_20260814\\selection.json": "465b7dfbe20415cd1523198a7c2e7011d6ba496ee86b22eb287e6ae64794cce0",
+    "F:\\2026-1\\circuit\\weekpost\\structure_a_trainable_1000\\training_index_trainable_1000_with_boundary_flags_gui_authoritative.csv": "81d7cb68d3a25654c3760f27bc62c0405fe1af676ad115845163933208dff43b",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\verified_snapshot\\accepted_designs.csv": "75f4d8acb200990e142ba009505a59e5a9d75b4975a9cd888693feda5a1cdc08",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\audit_uniform_pr_definitions.py": "1fb7b29a8f8accb629378028e9e4568932e5689fb2fce35ef123da8676958b03",
+    "${WORKSPACE}\\fit_modified_impedances.py": "1ea4c211a3c79816e4e7e7666ed514a8e47304e733cdd0d35452d04fc9da4153",
+    "${WORKSPACE}\\output\\folded_simulation_plan_20260920\\response_metrics.py": "6f219f5d643ae954500aac105e6aa22c00b55978c4bd4764d060fca2249884b7",
+    "F:\\2026-1\\circuit\\mcp\\scripts\\run_folded_r8.py": "feef39816eab110433bcae9323c86b7aa2480c65e351b699769ca11cce7b3270",
+    "F:\\2026-1\\circuit\\weekpost\\prepare_txline_training_dataset_1000.py": "0a7d0bd3667678518b75e66f348a63d4bb045d59e049a583a795387cf3a363c8",
+    "F:\\hfss_f8x_261002\\D02G02\\i03\\sparams.csv": "b6a58f79667a8cbb58932bec35b68acca26384794044f65bea2e9f99c1a5075f",
+    "F:\\hfss_f8x_261002\\D03G05\\i01\\sparams.csv": "ed78893bc3822dbc3c351a61d89215a9a76487d5f078117f950fe10dc6b82e39"
+  }
+}

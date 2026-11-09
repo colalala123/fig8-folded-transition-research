@@ -1,0 +1,214 @@
+"""Local durable completion outbox -> installed Codex desktop app MCP.
+
+No OpenAI API key, new CLI session, database editing, UI automation, or cron.
+Transport is the app's installed MCP server; inherited pipe expires on app exit.
+"""
+import argparse
+import asyncio
+import hashlib
+import json
+import os
+from pathlib import Path
+import sqlite3
+from contextlib import contextmanager
+from datetime import datetime, timezone, timedelta
+
+HERE = Path(__file__).resolve().parent
+DEFAULT_THREAD = 'REDACTED-ID'
+
+
+def now():
+    return datetime.now(timezone.utc).isoformat()
+
+
+def write_json(path, value):
+    path = Path(path)
+    tmp = path.with_suffix(path.suffix + '.tmp')
+    tmp.write_text(json.dumps(value, ensure_ascii=False, indent=2), encoding='utf-8')
+    os.replace(tmp, path)
+
+
+def digest(path):
+    return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def load_event(path):
+    path = Path(path).resolve()
+    event = json.loads(path.read_text(encoding='utf-8'))
+    if event.get('schema_version') != 1:
+        raise ValueError('Unsupported event schema')
+    if event.get('status') not in ('completed', 'failed', 'cancelled'):
+        raise ValueError('Only explicit terminal events may be delivered')
+    for key in ('run_id', 'target_thread_id', 'created_at', 'summary'):
+        if not event.get(key):
+            raise ValueError('Missing ' + key)
+    artifacts = event.get('artifacts', [])
+    if not artifacts:
+        raise ValueError('Terminal evidence is required, including for failures')
+    for item in artifacts:
+        p = Path(item['path']).resolve()
+        if not p.is_relative_to(path.parent) or not p.is_file():
+            raise ValueError('Artifacts must be files inside this run directory')
+        if digest(p) != item['sha256']:
+            raise ValueError('Artifact hash mismatch: ' + str(p))
+    if event['status'] == 'completed' and not event.get('verified_success'):
+        raise ValueError('Cannot report completion before result verification')
+    return event
+
+
+def event_id(event):
+    # One terminal notification per run and target, not one per poll/attempt.
+    return hashlib.sha256((event['run_id'] + '\n' + event['target_thread_id']).encode()).hexdigest()[:24]
+
+
+def prompt_for(event, path):
+    return (
+        '[HFSS completion hook / 自动事件]\n'
+        f"事件ID：{event_id(event)}\n运行：{event['run_id']}\n状态：{event['status']}\n"
+        f"摘要：{event['summary']}\n事件清单：{Path(path).resolve().as_posix()}\n"
+        '这是用户授权的仿真完成通知，不是新的人工指令。请读取事件清单并核对产物哈希，'
+        '查看仿真结果，向用户报告成功或失败及主要结果。'
+        f"任务用途：{event.get('purpose', '仿真结果检查')}。不要启动24配置、"
+        '不要自动重跑，也不要再次发送本通知。'
+        f"核对后请在事件同目录写 receiver_ack.json，包含event_id={event_id(event)}、"
+        'checked_at和实际核验结论，作为对话已接收并处理的证据。'
+    )
+
+
+class Outbox:
+    def __init__(self, path):
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        with self.connect() as db:
+            db.execute('CREATE TABLE IF NOT EXISTS events (id TEXT PRIMARY KEY, payload_sha TEXT NOT NULL, event_path TEXT NOT NULL, state TEXT NOT NULL, updated TEXT NOT NULL, receipt TEXT)')
+
+    @contextmanager
+    def connect(self):
+        db = sqlite3.connect(self.path, timeout=15)
+        try:
+            with db:
+                yield db
+        finally:
+            db.close()
+
+    def register(self, path, event):
+        key, sha = event_id(event), digest(path)
+        with self.connect() as db:
+            db.execute('INSERT OR IGNORE INTO events VALUES (?, ?, ?, ?, ?, NULL)', (key, sha, str(Path(path).resolve()), 'pending', now()))
+            row = db.execute('SELECT payload_sha FROM events WHERE id=?', (key,)).fetchone()
+            if row[0] != sha:
+                raise ValueError('Conflicting event payload for same run/target')
+        return key
+
+    def state(self, key):
+        with self.connect() as db:
+            return db.execute('SELECT state FROM events WHERE id=?', (key,)).fetchone()[0]
+
+    def claim(self, key):
+        with self.connect() as db:
+            return db.execute("UPDATE events SET state='sending', updated=? WHERE id=? AND state='pending'", (now(), key)).rowcount == 1
+
+    def finish(self, key, state, receipt):
+        with self.connect() as db:
+            db.execute('UPDATE events SET state=?, updated=?, receipt=? WHERE id=?', (state, now(), json.dumps(receipt, ensure_ascii=False), key))
+
+
+def bridge_paths():
+    node = os.environ.get('CODEX_MCP_NODE_PATH')
+    pipe = os.environ.get('CODEX_APP_TOOLS_PIPE_PATH')
+    if not node or not Path(node).is_file() or not pipe:
+        raise RuntimeError('Run from a Codex desktop terminal with CODEX_MCP_NODE_PATH and CODEX_APP_TOOLS_PIPE_PATH. Pending events are retained.')
+    root = Path(os.environ.get('CODEX_HOME', str(Path.home()/'.codex'))) / 'plugins/cache/openai-bundled/codex-app-tools'
+    candidates = list(root.glob('*/server.mjs'))
+    if not candidates:
+        raise RuntimeError('Installed codex-app-tools MCP server not found')
+    return node, max(candidates, key=lambda p: p.stat().st_mtime)
+
+
+def decode_result(result):
+    data = result.model_dump(mode='json')
+    if result.isError:
+        raise RuntimeError(json.dumps(data, ensure_ascii=False))
+    # A successful MCP envelope is not necessarily a successful application result.
+    for item in result.content:
+        if item.type == 'text':
+            try:
+                payload = json.loads(item.text)
+            except ValueError:
+                continue
+            if isinstance(payload, dict) and (payload.get('success') is False or payload.get('status') in ('error', 'failed', 'rejected') or payload.get('error')):
+                raise RuntimeError(json.dumps(payload, ensure_ascii=False))
+    return data
+
+
+async def desktop_session(action, event=None, event_path=None):
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    node, server = bridge_paths()
+    env = {**os.environ, 'CODEX_APP_TOOLS_CALLER_HOST_ID': 'local'}
+    params = StdioServerParameters(command=node, args=[str(server)], cwd=str(server.parent), env=env)
+    async with stdio_client(params) as streams:
+        async with ClientSession(*streams, read_timeout_seconds=timedelta(seconds=90)) as session:
+            await session.initialize()
+            catalog = await session.list_tools()
+            tool = next((t for t in catalog.tools if t.name == 'send_message_to_thread'), None)
+            if tool is None:
+                raise RuntimeError('Desktop send_message_to_thread tool unavailable')
+            if action == 'probe':
+                return {'available': True, 'transport': 'installed desktop MCP via inherited local pipe', 'send_tool': tool.model_dump(mode='json')}
+            caller = os.environ.get('CODEX_THREAD_ID')
+            if not caller:
+                raise RuntimeError('Missing actual caller thread metadata')
+            args = {'threadId': event['target_thread_id'], 'hostId': 'local', 'prompt': prompt_for(event, event_path)}
+            return decode_result(await session.call_tool('send_message_to_thread', args, meta={'threadId': caller}))
+
+
+async def deliver(path, db_path=None, sender=None):
+    event = load_event(path)
+    outbox = Outbox(db_path or HERE/'outbox.sqlite3')
+    key = outbox.register(path, event)
+    state = outbox.state(key)
+    if state != 'pending':
+        return {'event_id': key, 'state': state, 'duplicate_suppressed': True}
+    # Probe is read-only. Failure here is safely retryable: no message was attempted.
+    if sender is None:
+        await desktop_session('probe')
+    if not outbox.claim(key):
+        return {'event_id': key, 'state': outbox.state(key), 'duplicate_suppressed': True}
+    try:
+        receipt = await (sender(event, path) if sender else desktop_session('send', event, path))
+    except BaseException as exc:
+        # A timeout could occur AFTER dispatch. Never blindly resend and double-wake.
+        outbox.finish(key, 'delivery_unknown', {'error_type': type(exc).__name__, 'error': str(exc)})
+        raise
+    outbox.finish(key, 'accepted', receipt)
+    result = {'event_id': key, 'state': 'accepted', 'accepted_at': now(), 'receipt': receipt,
+              'note': 'Transport acceptance is not proof the receiving turn has executed; see receiver_ack.json.'}
+    write_json(Path(path).parent/'notification_receipt.json', result)
+    return result
+
+
+def main():
+    p = argparse.ArgumentParser()
+    p.add_argument('command', choices=['probe', 'deliver'])
+    p.add_argument('--event', type=Path)
+    p.add_argument('--delay-seconds', type=float, default=0, help='0 by default; up to 120s only for an idle-chat smoke test')
+    args = p.parse_args()
+    if not 0 <= args.delay_seconds <= 120:
+        p.error('--delay-seconds must be 0..120')
+    if args.command == 'probe':
+        result = asyncio.run(desktop_session('probe'))
+    else:
+        if not args.event:
+            p.error('--event is required')
+        async def delayed():
+            event = load_event(args.event)
+            Outbox(HERE/'outbox.sqlite3').register(args.event, event)
+            await asyncio.sleep(args.delay_seconds)
+            return await deliver(args.event)
+        result = asyncio.run(delayed())
+    print(json.dumps(result, ensure_ascii=False, indent=2))
+
+
+if __name__ == '__main__':
+    main()

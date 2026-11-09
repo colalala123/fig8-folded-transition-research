@@ -1,0 +1,64 @@
+"""Bounded D04 continuation after explicit i03 recovery acceptance; default read-only."""
+import argparse,json
+from pathlib import Path
+import psutil
+import continue_d04_supervised as base
+import continue_d04_supervised_windows as windows
+
+HERE=Path(__file__).resolve().parent
+BASIS=base.ROOT/'D04G05/i03'
+ARCHIVE=base.ROOT/'continuation_i03_layout_failure'
+ORIGINAL_EXECUTE=base.execute
+VALIDATION=HERE/'post_i03_continuation_validation.json'
+
+
+def readiness():
+    result=windows.readiness()
+    if not result['ready']:return result
+    accepted=BASIS/'recovery_acceptance.json'
+    if not accepted.exists():return {'ready':False,'reason':'i03 full explicit-window recovery has not been accepted'}
+    assert base.resolve_attempt(BASIS)==BASIS/'verified_recovery'
+    from recover_i03_wide_window import validate_candidate_plan
+    validate_candidate_plan()
+    approval=base.read(accepted)
+    assert approval['explicit_layout_review']['review_id']=='D04G05_i03_explicit_wide_window_20261008'
+    assert base.read(base.ROOT/'local_repair/D04G05_i03/metadata_io_adapter.json')['status']=='candidate_ready_review_required'
+    validation=base.read(VALIDATION);base.hashes(validation['evidence_hashes'])
+    assert validation['passed'] and validation['solver_dispatched_by_tests'] is False
+    files=[Path(__file__).resolve(),HERE/'run_same_port_recovery_prepared.py',VALIDATION,accepted]
+    result['implementation_and_basis_hashes'].update({str(p):base.sha(p) for p in files})
+    result['scope']+=' i03 explicitly accepted; future fresh i04-i07 use journal-aware preparation. Original bounded layout and all gates retained.'
+    return result
+
+
+def execute(script,args,log):
+    if script=='run_same_port_recovery_io.py':
+        attempt=Path(args[0]).resolve()
+        assert attempt.parent==base.ROOT/'D04G05' and attempt.name in ['i04','i05','i06','i07']
+        script='run_same_port_recovery_prepared.py'
+    ORIGINAL_EXECUTE(script,args,log)
+
+
+def main():
+    ready=readiness();assert ready['ready'],ready
+    old=base.read(base.STATE)
+    assert old['status']=='review_required'
+    assert 'run_same_port_recovery_io.py stopped, exit=1' in old['error']
+    assert 'continue_recovery_i03_v2.log' in old['error']
+    assert not psutil.pid_exists(old['pid']) and not base.LOCK.exists()
+    assert 'High-band branch region requires a separately reviewed wider plan' in (base.ROOT/'continue_recovery_i03_v2.log').read_text(encoding='utf-8')
+    base.idle();q,p=base.current_queue()
+    assert p is None and q['status']=='review_required' and Path(q['active_run'])==BASIS
+    assert base.stopped_action(q)==('resume_queue',BASIS)
+    ARCHIVE.mkdir(exist_ok=False)
+    base.write_json(ARCHIVE/'resumption_review.json',{'reviewed_at_utc':base.now(),'ready':ready,
+        'prior_state_sha256':base.sha(base.STATE),'solver_dispatches_during_review':0})
+    base.STATE.rename(ARCHIVE/base.STATE.name)
+    base.readiness=readiness;base.launch_queue=windows.launch_queue;base.execute=execute
+    base.main()
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--run',action='store_true');a=parser.parse_args()
+    if a.run:main()
+    else:print(json.dumps(readiness(),indent=2))

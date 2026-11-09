@@ -1,0 +1,25 @@
+"""Bounded read-only observation, including dead-worker detection. No dispatch."""
+import argparse,json,time
+from pathlib import Path
+import psutil
+def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
+def main():
+    ap=argparse.ArgumentParser();ap.add_argument('--run',type=Path,required=True);ap.add_argument('--seconds',type=int,default=1500);args=ap.parse_args()
+    run=args.run.resolve();assert run.is_relative_to(Path('J:/f8_B6_261027').resolve());deadline=time.monotonic()+args.seconds;lost=0
+    while time.monotonic()<deadline:
+        if (run/'completion_event.json').exists():
+            event=read(run/'completion_event.json');summary=dict(run=str(run),event_status=event['status'])
+            if (run/'comparison.json').exists():
+                c=read(run/'comparison.json');summary.update({k:c.get(k) for k in ['numerical_review_passed','sampled_design_supported','needs_reserved_points','direct_peak_difference_dB','target_finite_direct_failure_confirmed']})
+            print(summary);return
+        if (run/'worker_error.json').exists():print(read(run/'worker_error.json'));return
+        proof=run/'supervised_start.json'
+        if proof.exists():
+            p=read(proof)
+            try:alive=abs(psutil.Process(p['worker_pid']).create_time()-p['worker_created'])<.01
+            except psutil.NoSuchProcess:alive=False
+            lost=0 if alive else lost+1
+            if lost>=4:print(dict(worker_lost_without_event=p['worker_pid'],run=str(run),reason='Exact observed worker identity absent for40s; inspect existing HFSS/cache, never automatically Analyze'));return
+        time.sleep(10)
+    print(dict(timeout=True,run=str(run),action='Inspect retained state, do not restart'))
+if __name__=='__main__':main()

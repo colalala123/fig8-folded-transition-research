@@ -1,0 +1,69 @@
+"""Read-only archival of existing HFSS per-frequency resource profiles.
+
+Profiles establish solver resources at sampled frequencies, not completion
+of the requested sweep or accuracy of its exported S matrix.
+"""
+import argparse,json,re,time
+from datetime import datetime
+from pathlib import Path
+import psutil
+from broadband_recovery import ROOT,read,sha,write_json,now
+
+BASE=ROOT/'local_repair/D04G05_i01'
+PJT=Path('${USER_HOME}/AppData/Local/Temp/hfss_DESKTOP-94969B0_118740.pjt')
+OUT=BASE/'internal_solver_profiles'
+
+def archive():
+    adoption=read(BASE/'direct_adoption.json')
+    assert PJT.as_posix().lower() in adoption['wrapper_command'].replace('\\','/').lower()
+    start=datetime.fromisoformat(adoption['original_started_at_utc']).timestamp()
+    plan=read(BASE/'plan.json')
+    allowed={round(x*100) for x in plan['direct_frequencies_GHz']}
+    OUT.mkdir(exist_ok=True)
+    for source in PJT.glob('mf_apip_*.mfsapip'):
+        match=re.fullmatch(r'mf_apip_(\d+)_(\d+)_(\d+)\.mfsapip',source.name)
+        if not match:continue
+        freq=float(match[1]+'.'+match[2])/1e9
+        key=round(freq*100)
+        if key not in allowed or abs(freq-key/100)>1e-6:continue
+        raw=source.read_bytes();text=raw.decode('utf-8')
+        values=dict(re.findall(r'^\s*(\w+):([^\r\n]+)',text,re.M))
+        if float(values.get('timesinceepock',0))<start:continue
+        # An in-progress profile may lack its final sections; revisit it.
+        if not all(k in values for k in ['fbstatus','fatorizationstatus','fbsnumcores','factorizationnumcores']):continue
+        dest=OUT/source.name
+        if dest.exists():
+            assert dest.read_bytes()==raw,'An archived completed profile changed; review both versions'
+        else:dest.write_bytes(raw)
+    records=[]
+    for file in sorted(OUT.glob('*.mfsapip')):
+        match=re.fullmatch(r'mf_apip_(\d+)_(\d+)_(\d+)\.mfsapip',file.name)
+        values=dict(re.findall(r'^\s*(\w+):([^\r\n]+)',file.read_text(),re.M))
+        freq=round(float(match[1]+'.'+match[2])/1e9,2)
+        passed=all(values.get(k)==v for k,v in {
+            'nummpitasks':'1','factorizationnumcores':'16','fbsnumcores':'16',
+            'analysysstatus':'valid','fatorizationstatus':'valid','fbstatus':'valid',
+            'matrixdim':'1186566','solverprecision':'double'}.items())
+        records.append({'GHz':freq,'solver_pid':int(match[3]),'file':str(file),'sha256':sha(file),
+            'timestamp_epoch':int(values['timesinceepock']),'values':values,'resource_checks_passed':passed})
+    assert records and all(x['resource_checks_passed'] for x in records)
+    result={'updated_at_utc':now(),'scope':'Per-frequency internal matrix resources only; not sweep completion or numerical acceptance.',
+        'source_pjt':str(PJT),'plan_sha256':sha(BASE/'plan.json'),
+        'requested_points':len(allowed),'profile_frequency_count':len({x['GHz'] for x in records}),
+        'all_profile_resource_checks_passed':True,'records':records}
+    temporary=OUT/'review.tmp';write_json(temporary,result);temporary.replace(OUT/'review.json')
+    return result
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--watch',action='store_true');args=ap.parse_args()
+    while True:
+        result=archive()
+        if not args.watch:break
+        adoption=read(BASE/'direct_adoption.json')
+        try:
+            proc=psutil.Process(adoption['wrapper_pid'])
+            alive=proc.is_running() and proc.create_time()==adoption['wrapper_create_time']
+        except psutil.NoSuchProcess:alive=False
+        if not alive:break
+        time.sleep(10)
+    print(json.dumps({k:v for k,v in result.items() if k!='records'},indent=2))

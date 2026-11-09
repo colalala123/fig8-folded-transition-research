@@ -1,0 +1,93 @@
+"""Separate loss-defined bandwidth calibration from reflection-shape calibration."""
+from __future__ import annotations
+import json
+import sys
+from pathlib import Path
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
+WORK = Path('${WORKSPACE}')
+ROOT = Path('F:/hfss_f8_261002')
+sys.path.insert(0, str(WORK / 'output/folded_simulation_plan_20260920'))
+from response_metrics import analyze, extract_pr, theoretical
+
+
+def main():
+    cases = {'A0 (historical)': Path('F:/hfss_fold_260920/A0'), 'B0 (fresh)': ROOT / 'B0'}
+    if not (ROOT / 'B0/response_metrics.json').exists():
+        raise RuntimeError('Fresh B0 is required.')
+    results = []
+    fig, axes = plt.subplots(2, 2, figsize=(11, 7.6), sharex=True)
+    for col, (label, directory) in enumerate(cases.items()):
+        path = directory / 'sparams.csv'
+        metrics = analyze(path)
+        if not metrics['validity']['equal_ripple']:
+            raise RuntimeError('Reflection-shape calibration requires the equal-ripple gate.')
+        curve = np.genfromtxt(path, delimiter=',', names=True, encoding='utf-8-sig')
+        frequency = curve['Freq_GHz']
+        center = metrics['central_valley_GHz']
+        p = metrics['formal_response_PR']['P_response']
+        bw = metrics['passband_2dB']['BW_GHz']
+        roots = np.array([metrics['valleys'][0]['frequency_GHz'], metrics['valleys'][2]['frequency_GHz']])
+        u2 = (1 / np.tan(np.pi * roots / (2 * center)))**2
+        r_roots = (p - 1) / (p * u2)
+        r_shape = float(np.mean(r_roots))
+        r_bw_same_center = extract_pr(metrics['peak_level_dB'], bw, center)['R_BW']
+        mask = (frequency >= roots[0]) & (frequency <= roots[1])
+        row = {
+            'case': label, 'curve_path': str(path), 'curve_sha256': metrics['curve_sha256'],
+            'P_from_equal_peaks': p, 'f_phi_GHz': center,
+            'outer_valleys_GHz': roots.tolist(), 'R_zero_left_right': r_roots.tolist(),
+            'R_zero_mean': r_shape, 'R_BW_at_same_f_phi': r_bw_same_center,
+            'evaluation_band_GHz': roots.tolist(), 'calibrations': {},
+        }
+        schemes = [
+            ('BW, nominal center', metrics['formal_response_PR']['R_BW'], 6.85, '#a5acb8', ':'),
+            ('BW, observed center', r_bw_same_center, center, '#cf763c', '--'),
+            ('Outer valleys, observed center', r_shape, center, '#187b69', '-'),
+        ]
+        for scheme, r, f0, color, style in schemes:
+            ref, trans = theoretical(frequency, p, r, f0)
+            refdb = 20 * np.log10(np.maximum(ref, 1e-10))
+            transdb = 20 * np.log10(np.maximum(trans, 1e-10))
+            row['calibrations'][scheme] = {
+                'R': r, 'f0_GHz': f0,
+                'S11_magnitude_RMSE': float(np.sqrt(np.mean((ref[mask] - curve['S11_mag'][mask])**2))),
+                'S21_dB_RMSE': float(np.sqrt(np.mean((transdb[mask] - curve['S21_dB'][mask])**2))),
+            }
+            axes[0, col].plot(frequency, refdb, color=color, ls=style, lw=1.3, label=scheme)
+            axes[1, col].plot(frequency, transdb, color=color, ls=style, lw=1.3, label=scheme)
+        axes[0, col].plot(frequency, curve['S11_dB'], color='#193d70', lw=1.8, label='HFSS')
+        axes[1, col].plot(frequency, curve['S21_dB'], color='#193d70', lw=1.8, label='HFSS')
+        axes[0, col].set(title=label, ylabel='S11 (dB)', ylim=(-40, -5), xlim=(3, 10.5))
+        axes[1, col].set(ylabel='S21 (dB)', xlabel='Frequency (GHz)', ylim=(-3, .15))
+        for ax in axes[:, col]:
+            ax.grid(alpha=.2)
+        axes[0, col].legend(loc='lower center', fontsize=7.5)
+        results.append(row)
+    fig.suptitle('Response calibration diagnostic: reflection shape and transmission loss', fontsize=12)
+    fig.tight_layout()
+    fig.savefig(ROOT / 'reflection_shape_diagnostic.png', dpi=190)
+    plt.close(fig)
+    result = {
+        'purpose': 'Compare parameter definitions, not validate a geometry-to-response predictor.',
+        'formula': 'F=sqrt(R/P)*(P*R*u^3+(1-P)*u), u=cot(pi*f/(2*f_phi)); R_zero=(P-1)/(P*u_zero^2).',
+        'assumptions': 'An approximately symmetric three-valley reflection shape with comparable ripple peaks.',
+        'limitations': [
+            'The same response supplies the fitted peak level, center and outer-valley locations.',
+            'Reported shape RMSE is a within-curve diagnostic, not an independent prediction test.',
+            'Nonzero and asymmetric valley minima in lossy HFSS data are only approximate ideal zeros.',
+            'R_zero and R_BW are response parameters and need not be a local physical impedance ratio.',
+            'Theoretical S21 is lossless; matching S11 does not establish the actual lossy bandwidth.',
+            'A0 is an existing historical reference and was not rerun in this five-case batch.',
+        ],
+        'rows': results,
+    }
+    (ROOT / 'reflection_shape_diagnostic.json').write_text(json.dumps(result, indent=2) + '\n', encoding='utf-8')
+    print(json.dumps(result, indent=2))
+
+
+if __name__ == '__main__':
+    main()

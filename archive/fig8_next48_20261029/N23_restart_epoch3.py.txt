@@ -1,0 +1,56 @@
+"""Human-approved one-time snapshot and exact-process desktop restart; zero Analyze."""
+import json,hashlib,shutil,subprocess,time,socket,sys
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+ROOT=Path(__file__).resolve().parent
+OLD=Path('D:/hfss_fig8_next48_20261029/b08/N23_A18/g01_initial')
+SNAP=Path('D:/hfss_fig8_next48_20261029/N23_A18_snapshot1')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now():return datetime.now(timezone.utc).isoformat()
+def new(p,d):
+    with Path(p).open('x',encoding='utf-8') as h:json.dump(d,h,ensure_ascii=False,indent=2);h.write('\n')
+def native():return [p.info for p in psutil.process_iter(['pid','name','create_time','cmdline']) if (p.info['name'] or '').lower() in ('ansysedt.exe','hf3d.exe')]
+def main():
+    assert not (ROOT/'PAUSE.json').exists()
+    assert not (ROOT/'N23_restart_attempt1.json').exists()
+    diag=read(ROOT/'N23_A18_TECHNICAL_DIAGNOSIS1.json')
+    assert all(sha(p)==h for p,h in diag['original_hashes'].items())
+    live=native();assert len(live)==1 and live[0]['pid']==50712 and abs(live[0]['create_time']-1793286319.113606)<.01
+    assert live[0]['cmdline']==['D:\\Program Files\\AnsysEM\\v242\\Win64\\ansysedt.exe','-grpcsrv','7990']
+    assert shutil.disk_usage(OLD).free>20*1024**3
+    new(ROOT/'N23_A18_replacement_authorization_v4.json',dict(at=now(),approved=True,
+        human_reply='允许上述唯一有限恢复',scope='Snapshot/restart; export first; at most one original-mesh replacement sweep only if invalid.',
+        technical_recovery_attempt=1,new_sweep_requests_max=1,new_adaptive_requests_max=0,case_requests_max=8,campaign_requests_max=624,
+        source_failed_event_sha256=sha(OLD/'completion_event.json')))
+    SNAP.mkdir(exist_ok=False)
+    project=Path(read(OLD/'state.json')['project']);cache=project.with_suffix('.aedtresults')
+    paths=[project]+[p for p in cache.rglob('*') if p.is_file() and not p.name.endswith(('.semaphore','.lock','.lck'))]
+    paths += [OLD/f for f in ['input.json','state.json','worker_error.json','completion_event.json','supervised_start.json','convergence_stage_05.txt']]
+    hashes={}
+    for p in paths:
+        rel=p.relative_to(OLD);dst=SNAP/rel;dst.parent.mkdir(parents=True,exist_ok=True)
+        before=sha(p);shutil.copy2(p,dst);assert sha(dst)==sha(p)==before;hashes[str(rel)]=before
+    new(ROOT/'N23_A18_snapshot1.json',dict(at=now(),snapshot=str(SNAP),hashes=hashes,
+        runtime_locks_not_cloned=True,original_locks_not_deleted=True,Analyze_requested=False))
+    new(ROOT/'N23_restart_attempt1.json',dict(at=now(),old_identity=live[0],snapshot_sha256=sha(ROOT/'N23_A18_snapshot1.json'),human_authorization_sha256=sha(ROOT/'N23_A18_replacement_authorization_v4.json')))
+    p=psutil.Process(50712);assert abs(p.create_time()-1793286319.113606)<.01 and p.cmdline()==live[0]['cmdline']
+    p.terminate();p.wait(timeout=30)
+    assert not native()
+    exe='D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe'
+    child=subprocess.Popen([exe,'-grpcsrv','7990'],stdin=subprocess.DEVNULL)
+    for _ in range(180):
+        live=native()
+        assert not any(x['name'].lower()=='hf3d.exe' for x in live)
+        if len(live)==1:
+            q=psutil.Process(live[0]['pid'])
+            try:
+                with socket.create_connection(('127.0.0.1',7990),timeout=1):pass
+                identity=dict(at=now(),pid=q.pid,created=q.create_time(),command=q.cmdline(),port=7990,
+                    visible_requested=True,old_pid=50712,Analyze_requested=False,reason='Human-approved restart after broker/read-only attach stalled; snapshot verified')
+                new(ROOT/'desktop_epoch3_N23_20261030.json',identity);print(json.dumps(identity),flush=True);return
+            except OSError:pass
+        time.sleep(1)
+    raise TimeoutError('New AEDT did not expose7990; no automatic restart retry')
+if __name__=='__main__':main()

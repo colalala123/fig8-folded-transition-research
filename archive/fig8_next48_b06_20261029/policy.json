@@ -1,0 +1,49 @@
+{
+  "version": "N48B06",
+  "created_at": "2026-10-26T16:46:45.388271+00:00",
+  "user_authorization": "你现在继续跑48点的计划",
+  "scope": "Frozen48 acquisition; unchanged widths/lengths and split; no tuning",
+  "new_geometry_mesh_target": [
+    100000,
+    110000
+  ],
+  "mesh_policy": "Record actual solved elements and local refinement settings. Do not equate total count with universal accuracy. Reuse existing verified higher-density curves; do not remesh them just to reduce count. Review any new off-target mesh before tuning continuation; no blind precision reruns.",
+  "new_sweep": {
+    "range_GHz": [
+      0.01,
+      15
+    ],
+    "output_step_GHz": 0.01,
+    "InterpTolerance_percent": 1.0,
+    "EnforcePassivity": false
+  },
+  "existing_curve_review": "Preserve original sweep and cached mesh; same-case discrete checks of native fundamental S11/S21 before scoped release.",
+  "direct_criteria": {
+    "max_complex_error": 0.005,
+    "max_inband_S21_error_dB": 0.05,
+    "max_peak_error_dB": 0.1,
+    "max_edge_shift_GHz": 0.02,
+    "max_BW_shift_GHz": 0.02
+  },
+  "design_criteria": {
+    "central_valley_target_GHz": 6.72,
+    "central_valley_tolerance_GHz": 0.03,
+    "peak_difference_dB": 0.5,
+    "valleys": 3,
+    "inner_S11_max_dB": -10,
+    "inner_S21_min_dB": -2
+  },
+  "resources": {
+    "cores": 14,
+    "tasks": 1,
+    "port": 7990,
+    "aedt_version": "2024.2",
+    "modes_per_port": 2
+  },
+  "bounded_tuning": "No tuning;48geometries/624Analyze campaign cap",
+  "full_matrix": "Keep original diagnostics. Scoped fundamental release is NOT approval for full 4x4 network, cascading, mode sufficiency at every width, or radiation attribution.",
+  "corner_mode_review": "Still required before claiming a cross-width final design law; not silently marked complete.",
+  "old_protocol_sha256": "c2c6ff583825ec510f4cbccae884f04f7a20129ff89ae20a323d17714cffec40",
+  "minus20_label": "S11<=-20 AND S21>=-2 continuous bands; not a mandatory success gate for training samples",
+  "blind_target_source": null
+}

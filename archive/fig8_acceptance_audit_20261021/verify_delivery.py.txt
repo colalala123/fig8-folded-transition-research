@@ -1,0 +1,38 @@
+import copy
+from audit import HERE,ROOT,read,write,sha
+from report import decision
+
+comparisons=read(HERE/'direct_comparison.json')
+assert {r['case'] for r in comparisons}=={'D04G05','D05G02','D08G05'}
+decisions=read(HERE/'backlog_decisions.json')
+assert len(decisions['cases'])==24 and len({r['case'] for r in decisions['cases']})==24
+releases=list(HERE.glob('response_release_*.json'));assert len(releases)==2
+checked=0
+for path in releases:
+    release=read(path)
+    assert release['approved'] and not release['full_matrix_approved'] and not release['equal_ripple_design_approved']
+    for file,digest in release['source_evidence_hashes'].items():
+        assert sha(file)==digest,file;checked+=1
+    assert sha(release['policy_path'])==release['policy_sha256']
+    assert sha(release['report_path'])==release['report_sha256']
+    state=read(ROOT/'acceptance_audit_20261021'/release['case']/'state.json')
+    assert state['status']=='completed' and state['same_mesh_verified']
+audit=read(HERE/'offline_audit.json')
+a=next(c for c in audit['cases'] if c['case']=='D05G02')['attempts'][-1]
+d=next(r for r in comparisons if r['case']=='D05G02')
+assert decision(a,d)=='fundamental_response_checked_needs_geometry_tuning'
+# Ensure the scoped rule cannot release an unverified case or ignore a failed check.
+assert decision(a,None)=='candidate_needs_case_specific_direct_check'
+bad=copy.deepcopy(a);bad['sweep_converged']=False;bad['offline_category']='sweep_not_converged'
+assert decision(bad,d)=='needs_sweep_repair'
+bad=copy.deepcopy(a);bad['port_passed']=False
+assert decision(bad,d)=='needs_source_port_or_convergence_review'
+bad=copy.deepcopy(d);bad['band_edges_passed']=False
+assert decision(a,bad)=='fundamental_discrepancy_needs_targeted_repair'
+result={'passed':True,'cases':24,'scoped_releases':2,'new_direct_points':44,'verified_evidence_hashes':checked,
+ 'negative_controls':['missing direct evidence','unconverged sweep','port evidence failure','band-edge check failure'],
+ 'production_protocol_unchanged':sha(ROOT/'production_protocol.json')==read(HERE/'scoped_review_policy.json')['original_protocol_sha256']}
+assert result['production_protocol_unchanged']
+write(HERE/'delivery_verification.json',result)
+print(result)
+print([s for r in comparisons if r['case']=='D08G05' for s in r['samples'] if s['GHz']==8.57])

@@ -1,0 +1,203 @@
+"""Offline Fig8 design synthesis and next-experiment proposal; never connects to AEDT."""
+import argparse
+import hashlib
+import json
+import math
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+OUT = HERE.parent
+TRAIN = OUT / 'fig8_remediation_C3_20261025/deliverables/effective_all24_results.json'
+ANALYSIS = OUT / 'fig8_law_analysis_20261026/analysis.json'
+VALIDATION = OUT / 'fig8_validation6_20261026/deliverables/validation6_results.json'
+FROZEN = OUT / 'fig8_validation6_20261026/predictions_frozen.json'
+
+
+def read(path):
+    return json.loads(path.read_text(encoding='utf-8-sig'))
+
+
+def sha(path):
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def write(name, obj):
+    (HERE / name).write_text(json.dumps(obj, ensure_ascii=False, indent=2, allow_nan=False) + '\n', encoding='utf-8')
+
+
+def coefficients():
+    return read(FROZEN)['coefficients']
+
+
+def predict(wm, ws):
+    c, bm, bs = coefficients()
+    return c + bm * math.log(wm / 1.2) + bs * math.log(ws / .44)
+
+
+def inverse_ws(target_bw, wm):
+    c, bm, bs = coefficients()
+    return .44 * math.exp((target_bw - c - bm * math.log(wm / 1.2)) / bs)
+
+
+def weights(values, value):
+    lo = max(v for v in values if v <= value)
+    hi = min(v for v in values if v >= value)
+    if lo == hi:
+        return [(lo, 1.)]
+    t = (value - lo) / (hi - lo)
+    return [(lo, 1 - t), (hi, t)]
+
+
+def propose(wm, ws, arm, gap=.55):
+    if not all(math.isfinite(v) for v in [wm, ws, arm, gap]):
+        raise ValueError('Finite dimensions required')
+    if not (.9 <= wm <= 2.0 and .30 <= ws <= .58 and 1.4 <= arm <= 1.8 and abs(gap - .55) < 1e-9):
+        raise ValueError('Outside the supported width/arm interpolation domain or g != 0.55 mm')
+    rows = read(TRAIN)['rows']
+    terms = []
+    for x, wx in weights([.9, 1.2, 1.6, 2.0], wm):
+        for y, wy in weights([.30, .44, .58], ws):
+            for a, wa in weights([1.4, 1.8], arm):
+                r = next(r for r in rows if r['geometry_mm']['Wm'] == x and r['geometry_mm']['Ws'] == y
+                         and abs(r['geometry_mm']['Ls3'] - y - a) < 1e-9)
+                terms.append(dict(case=r['case'], weight=wx*wy*wa, result_sha256=r['result_sha256'],
+                                  Lm=r['geometry_mm']['Lm'], Ls1=r['geometry_mm']['Ls1'],
+                                  mesh=r['actual_elements'], acceptance_tier=r['acceptance_tier']))
+    assert abs(sum(t['weight'] for t in terms) - 1) < 1e-12
+    geom = dict(Wm=wm, Ws=ws, Lm=sum(t['weight']*t['Lm'] for t in terms),
+                Ls1=sum(t['weight']*t['Ls1'] for t in terms), Ls2=gap+2*ws, Ls3=arm+ws)
+    rho = 2*geom['Ls3']/geom['Ls1']
+    clearance = (geom['Ls1']-2*geom['Ls3']-wm)/2
+    passed = rho <= .5 and clearance >= .813 and 5.5 <= geom['Lm'] <= 7.5
+    assert passed
+    return dict(geometry_mm=geom, arm_mm=arm, gap_mm=gap, predicted_BW_GHz=predict(wm, ws),
+                lengths_method='Bilinear accepted lengths in widths; linear arm interpolation only for interior arm. No bandwidth fit.',
+                length_parents=terms,
+                dimension_screen=dict(passed=passed, rho=rho, projected_clearance_mm=clearance,
+                                      actual_CAD_collision_checked=False),
+                status='proposal_only_not_configured_not_solved',
+                interpolation_in_arm_unvalidated=arm not in (1.4, 1.8))
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--target-bw', type=float)
+    parser.add_argument('--wm', type=float)
+    parser.add_argument('--arm', type=float, default=1.4)
+    args = parser.parse_args()
+    if args.target_bw is not None or args.wm is not None:
+        if args.target_bw is None or args.wm is None or not math.isfinite(args.target_bw) or not (.9 <= args.wm <= 2.):
+            parser.error('Use --target-bw GHz and --wm in [0.9,2.0] mm together')
+        try:
+            print(json.dumps(propose(args.wm, inverse_ws(args.target_bw, args.wm), args.arm), ensure_ascii=False, indent=2))
+        except (ValueError, OverflowError) as error:
+            parser.error(str(error))
+        return
+    train, analysis, val = read(TRAIN), read(ANALYSIS), read(VALIDATION)
+    assert sha(TRAIN) == val['training_source_sha256']
+    assert sha(FROZEN) == val['prediction_source_sha256']
+    assert len(train['rows']) == 24 and val['accepted'] == val['total'] == 6 and not val['refitted']
+    for r in val['cases']:
+        assert r['scoped_accepted'] and r['comparison']['numerical_review_passed']
+        assert abs(predict(r['geometry']['Wm'], r['geometry']['Ws'])-r['predicted_BW_GHz']) < 1e-12
+    # Keep original training and independent validation roles explicit; do not refit.
+    combined = [dict(r, data_role='original24_training') for r in analysis['rows']]
+    for r in val['cases']:
+        combined.append(dict(case=r['case'], data_role='V6_independent_validation', **r['geometry'],
+                             a=r['a_mm'], gap=.55, BW_GHz=r['BW_GHz'], direct_BW_GHz=r['direct_BW_GHz'],
+                             mesh=r['actual_elements'], prediction_error_MHz=r['prediction_error_MHz'],
+                             direct_peak_mean_dB=20*math.log10(sum(10**(p['dB']/20) for p in r['comparison']['direct_peaks'])/2)))
+    target = predict(1.4, .49)
+    candidates = []
+    for wm, label in [(1.25, 'I01'), (1.90, 'I02')]:
+        ws = round(inverse_ws(target, wm), 6)
+        for arm in [1.4, 1.8, 1.6]:
+            r = propose(wm, ws, arm)
+            r.update(case=f'{label}_a{arm:.1f}', priority='A_required' if arm != 1.6 else 'B_conditional',
+                     objective='iso_bandwidth_width_tradeoff' if arm != 1.6 else 'interior_arm_interpolation')
+            if arm == 1.6:
+                r['before_solve'] = 'If A endpoint lengths change during tuning, initialize B with the two accepted endpoint lengths averaged; save a versioned parent-linked update before B solve. Frozen BW prediction unchanged.'
+            candidates.append(r)
+    candidates.sort(key=lambda r: (r['priority'], r['case']))
+    pairs = []
+    for i in range(0, 6, 2):
+        short, long = val['cases'][i:i+2]
+        avg = lambda r: 20*math.log10(sum(10**(p['dB']/20) for p in r['comparison']['direct_peaks'])/2)
+        pairs.append(dict(pair=short['case'][:3], direct_BW_change_MHz=1000*(long['direct_BW_GHz']-short['direct_BW_GHz']),
+                          direct_peak_mean_change_dB=avg(long)-avg(short),
+                          Lm_change_mm=long['geometry']['Lm']-short['geometry']['Lm'],
+                          Ls1_change_mm=long['geometry']['Ls1']-short['geometry']['Ls1']))
+    plan = dict(status='proposal_only_no_execution', model_coefficients=coefficients(), refitted=False,
+                iso_target_BW_GHz=target, comparator_cases=['V02G02','V02G05'], cases=candidates,
+                budget=dict(priority_A_initial_geometries=4, conditional_B_initial_geometries=2,
+                            max_geometry_evaluations_per_case=4,
+                            allocation='Initial + at most 2 single-variable length probes + 1 joint correction. If exhausted, stop and review.',
+                            A_max_geometry_evaluations=16, A_plus_B_max_geometry_evaluations=24,
+                            direct_max_points_per_accepted_case=70, direct_points_per_launch_max=4,
+                            direct_max_launches_per_case=18,
+                            note='Adaptive passes and HFSS Analyze launches are not geometry counts. No automatic failed-launch retries.'),
+                proposed_research_criteria=dict(A_frozen_prediction_MAE_max_MHz=40,
+                    A_frozen_prediction_absolute_error_max_MHz=80, same_arm_isoBW_spread_max_MHz=100,
+                    matching_test='At each arm, compare mean linear-magnitude S11 inner peaks (then dB) and worse inner peak across I01, existing V02 and I02. Report differences; no fabricated dB guarantee.',
+                    optional_B_trigger='A four cases accepted and width tradeoff evaluated; run B only if a continuous 1.4-1.8 mm arm rule is needed.',
+                    B_midarm_BW_vs_endpoints_mean_max_MHz=20,
+                    B_failure_action='Keep only the two validated endpoint arms; do not widen validity or add high-order terms automatically.',
+                    note='New prospective engineering checks, not statistical confidence bounds or replacements for original design/numerical gates.'),
+                simulation_policy=dict(version='inherit_V6', cores=16, concurrent_tasks=1, visible_AEDT=True,
+                    mesh_target=[100000,110000], slight_exception_max=112000,
+                    central_valley_GHz=6.72, central_tolerance_GHz=.03, peak_difference_limit_dB=.5,
+                    S11_between_valleys_max_dB=-10, S21_between_valleys_min_dB=-2,
+                    direct_complex_error_max=.005, nearband_S21_difference_max_dB=.05,
+                    direct_peak_error_max_dB=.1, direct_edge_or_BW_shift_max_GHz=.02,
+                    frequency_sweep_GHz=[.01,15,.01], interpolation_tolerance_percent=1.0,
+                    adaptive_deltaS=.005, material=dict(er=3.55,tand=.0027,h_mm=.813),
+                    gap_mm=.55, port_modes_per_port=2, reports=['S(1:1,1:1)','S(2:1,1:1)'],
+                    tuning='Tune Lm/Ls1 for center and equal peaks only; never tune widths or select results for agreement with predicted BW.',
+                    actual_CAD_preflight_required=True),
+                hook_policy=dict(target_chat='REDACTED-ID',
+                    event='whole-case completion or failure, not every frequency chunk',
+                    heartbeat='Only after completion notification delivery + 300s with no next real solve; read chat state; running waits, interrupted uses persistent dedupe to resume.',
+                    quiet_during_solver=True, stop_after_batch=True, started=False),
+                deferred=dict(gap_study='4 new geometries: V01G02 and V03G02 widths, a=1.4, g=0.40/0.70 mm. Only needed to extend the g=0.55 domain; initial lengths and gap effect not yet validated.',
+                    loss_mechanism='Separate straight/bent matched controls with field-power accounting and tuning controls. No numerical budget until geometries, normalization and field reuse are inspected.',
+                    physical_PR='Independent microstrip/slotline impedance extraction with current material first. Response-derived R_BW/P_response cannot be used as independent predictors.'))
+    write('next_simulations.json', plan)
+    write('evidence_summary.json', dict(training_count=24, heldout_count=6, independent_width_pairs=15,
+        training_high_mesh_count=analysis['summary']['high_mesh_count'], refitted=False,
+        heldout_error=val['frozen_prediction_validation'], new_arm_pairs=pairs,
+        source_hashes={str(p):sha(p) for p in [TRAIN,ANALYSIS,VALIDATION,FROZEN]}, rows=combined))
+
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    import numpy as np
+    fig, ax = plt.subplots(1,2,figsize=(12,5.4),layout='constrained')
+    original={(r['Wm'],r['Ws']) for r in analysis['rows']}
+    new={(r['geometry']['Wm'],r['geometry']['Ws']) for r in val['cases']}
+    ax[0].scatter(*zip(*sorted(original)), c='#9ca3af',label='Original: 12 width pairs',s=55)
+    ax[0].scatter(*zip(*sorted(new)), c='#2563eb',label='Validated: 3 new width pairs',s=75)
+    cand={(r['geometry_mm']['Wm'],r['geometry_mm']['Ws']) for r in candidates}
+    ax[0].scatter(*zip(*sorted(cand)),c='#d97706',marker='*',s=190,label='Proposed: 2 iso-BW pairs')
+    xx=np.linspace(.9,2,200); yy=np.array([inverse_ws(target,x) for x in xx]); valid=(yy>=.3)&(yy<=.58)
+    ax[0].plot(xx[valid],yy[valid],c='#d97706',ls='--',label=f'Frozen prediction = {target:.3f} GHz')
+    ax[0].set(xlabel='Microstrip width Wm (mm)',ylabel='Slot width Ws (mm)',title='Coverage and proposed tradeoff test',xlim=(.85,2.05),ylim=(.28,.60))
+    ax[0].legend(fontsize=8,loc='upper center',bbox_to_anchor=(.5,-.16),ncol=2);ax[0].grid(alpha=.2)
+    rr=val['cases']; colors=['#2563eb' if r['a_mm']==1.4 else '#0891b2' for r in rr]
+    ax[1].bar([r['case'] for r in rr],[r['prediction_error_MHz'] for r in rr],color=colors)
+    ax[1].axhline(0,color='black',lw=.8)
+    ax[1].set(ylabel='Measured minus predicted BW (MHz)',title='Independent validation; model not refitted')
+    ax[1].tick_params(axis='x',rotation=35);ax[1].grid(axis='y',alpha=.2)
+    fig.savefig(HERE/'coverage_and_validation.png',dpi=180)
+    fig.savefig(HERE/'coverage_and_validation.svg');plt.close(fig)
+    table=['|优先级|编号|Wm|Ws|a|Lm初值|Ls1初值|Ls2|Ls3|预测BW/GHz|',
+           '|---|---|---:|---:|---:|---:|---:|---:|---:|---:|']
+    for r in candidates:
+        g=r['geometry_mm']
+        table.append(f"|{r['priority']}|{r['case']}|{g['Wm']:.3f}|{g['Ws']:.6f}|{r['arm_mm']:.1f}|{g['Lm']:.6f}|{g['Ls1']:.6f}|{g['Ls2']:.6f}|{g['Ls3']:.6f}|{r['predicted_BW_GHz']:.6f}|")
+    (HERE/'candidate_dimensions.md').write_text('# 补跑候选尺寸（mm）\n\n仅方案，未建工程、未启动求解。Ls1/Lm是初值；JSON保留全精度及插值父点。\n\n'+'\n'.join(table)+'\n',encoding='utf-8')
+    print(json.dumps(dict(candidates=[dict(case=r['case'],**r['geometry_mm'],predicted_BW_GHz=r['predicted_BW_GHz']) for r in candidates],
+                         new_arm_pairs=pairs, files=str(HERE)),ensure_ascii=False,indent=2))
+
+
+if __name__ == '__main__':
+    main()

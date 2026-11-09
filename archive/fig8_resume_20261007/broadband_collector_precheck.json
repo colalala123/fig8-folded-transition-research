@@ -1,0 +1,402 @@
+{
+  "V_copy": {
+    "stable": {
+      "reference": "F:\\hfss_f8x_261002\\V_copy",
+      "candidate": "${WORKSPACE}\\output\\fig8_resume_20261007\\baseline\\native_comparable",
+      "comparison": "stable",
+      "thresholds": {
+        "rmse": 0.005,
+        "maxdiff": 0.02,
+        "edge_GHz": 0.02,
+        "center_GHz": 0.01
+      },
+      "S11": {
+        "magnitude_RMSE": 0.004243326276613893,
+        "maximum_magnitude_difference": 0.011860963310942607
+      },
+      "S21": {
+        "magnitude_RMSE": 0.0008760348466520515,
+        "maximum_magnitude_difference": 0.004994234909483808
+      },
+      "f_low_GHz_shift": 0.00103618447870657,
+      "f_high_GHz_shift": 0.006469215329765632,
+      "central_valley_shift_GHz": -0.009999999999999787,
+      "passed": true
+    },
+    "collector": {
+      "reference": "F:\\hfss_f8x_261002\\M_B0_2",
+      "candidate": "F:\\hfss_f8x_261002\\V_copy",
+      "comparison": "collector",
+      "thresholds": {
+        "rmse": 0.005,
+        "maxdiff": null,
+        "edge_GHz": 0.02,
+        "center_GHz": 0.01
+      },
+      "S11": {
+        "magnitude_RMSE": 5.076676730222709e-12,
+        "maximum_magnitude_difference": 2.3601787191296353e-11
+      },
+      "S21": {
+        "magnitude_RMSE": 2.425444731763757e-13,
+        "maximum_magnitude_difference": 6.576961197879427e-13
+      },
+      "f_low_GHz_shift": 4.702904732312163e-13,
+      "f_high_GHz_shift": -1.3571366253017914e-12,
+      "central_valley_shift_GHz": 0.0,
+      "passed": true
+    },
+    "fields": {
+      "passed": true,
+      "evidence": [
+        {
+          "GHz": 8.0,
+          "port": "1",
+          "scores": {
+            "1": 1.0,
+            "2": 0.022339731802366213
+          },
+          "margin": 0.9776602681976337,
+          "passed": true
+        },
+        {
+          "GHz": 8.0,
+          "port": "2",
+          "scores": {
+            "1": 1.0000000000000002,
+            "2": -0.02353197357867122
+          },
+          "margin": 0.976468026421329,
+          "passed": true
+        },
+        {
+          "GHz": 0.55,
+          "port": "1",
+          "scores": {
+            "1": 1.0000000000000002,
+            "2": 0.024330028104046705
+          },
+          "margin": 0.9756699718959535,
+          "passed": true
+        },
+        {
+          "GHz": 0.55,
+          "port": "2",
+          "scores": {
+            "1": 1.0000000000000002,
+            "2": -0.024917507544005048
+          },
+          "margin": 0.9750824924559952,
+          "passed": true
+        },
+        {
+          "GHz": 15.0,
+          "port": "1",
+          "scores": {
+            "1": 1.0,
+            "2": 0.026997070916280126
+          },
+          "margin": 0.9730029290837199,
+          "passed": true
+        },
+        {
+          "GHz": 15.0,
+          "port": "2",
+          "scores": {
+            "1": 1.0,
+            "2": -0.02908371713774499
+          },
+          "margin": 0.9709162828622551,
+          "passed": true
+        }
+      ],
+      "scope": "Common saved adaptive frequencies; combined with full passband Zo/Gamma continuity"
+    },
+    "aux": {
+      "reference": "F:\\hfss_f8x_261002\\M_B0_2",
+      "candidate": "F:\\hfss_f8x_261002\\V_copy",
+      "quantities": {
+        "Zo(1:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 1.5794316897612303e-05,
+          "passed": true
+        },
+        "Zo(2:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 1.5732474658852107e-05,
+          "passed": true
+        },
+        "Gamma(1:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 0.0031484646092148167,
+          "passed": true
+        },
+        "Gamma(2:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 0.003148479593345048,
+          "passed": true
+        }
+      },
+      "passed": true,
+      "screening_thresholds": {
+        "max_relative_drift": 0.02,
+        "max_adjacent_step_per_0p01GHz": 0.02
+      },
+      "scope": "Fundamental continuity in 3.2\u201310.2 GHz; interpreted jointly with native port-field identity."
+    },
+    "boundaries": {
+      "run": "F:\\hfss_f8x_261002\\V_copy",
+      "ports": [
+        {
+          "port": "1",
+          "integration_endpoints_mm": [
+            [
+              0.0,
+              -25.0,
+              0.883
+            ],
+            [
+              0.0,
+              -25.0,
+              -1.38140158943821e-15
+            ]
+          ],
+          "invariant_settings": {
+            "Objects": true,
+            "DoDeembed": true,
+            "DeembedDist": true,
+            "UseLineModeAlignment": true,
+            "UseAnalyticAlignment": true,
+            "RenormalizeAllTerminals": true
+          },
+          "passed": true
+        },
+        {
+          "port": "2",
+          "integration_endpoints_mm": [
+            [
+              0.0,
+              25.0,
+              -0.883
+            ],
+            [
+              0.0,
+              25.0,
+              -1.38140158943821e-15
+            ]
+          ],
+          "invariant_settings": {
+            "Objects": true,
+            "DoDeembed": true,
+            "DeembedDist": true,
+            "UseLineModeAlignment": true,
+            "UseAnalyticAlignment": true,
+            "RenormalizeAllTerminals": true
+          },
+          "passed": true
+        }
+      ],
+      "passed": true
+    }
+  },
+  "V_rebuild": {
+    "stable": {
+      "reference": "F:\\hfss_f8x_261002\\V_rebuild",
+      "candidate": "${WORKSPACE}\\output\\fig8_resume_20261007\\baseline\\native_comparable",
+      "comparison": "stable",
+      "thresholds": {
+        "rmse": 0.005,
+        "maxdiff": 0.02,
+        "edge_GHz": 0.02,
+        "center_GHz": 0.01
+      },
+      "S11": {
+        "magnitude_RMSE": 0.0042433262765112474,
+        "maximum_magnitude_difference": 0.011860963310164674
+      },
+      "S21": {
+        "magnitude_RMSE": 0.0008760348466393128,
+        "maximum_magnitude_difference": 0.004994234909420747
+      },
+      "f_low_GHz_shift": 0.001036184478717228,
+      "f_high_GHz_shift": 0.0064692153295276,
+      "central_valley_shift_GHz": -0.009999999999999787,
+      "passed": true
+    },
+    "collector": {
+      "reference": "F:\\hfss_f8x_261002\\M_B0_2",
+      "candidate": "F:\\hfss_f8x_261002\\V_rebuild",
+      "comparison": "collector",
+      "thresholds": {
+        "rmse": 0.005,
+        "maxdiff": null,
+        "edge_GHz": 0.02,
+        "center_GHz": 0.01
+      },
+      "S11": {
+        "magnitude_RMSE": 5.3235097440474315e-12,
+        "maximum_magnitude_difference": 2.4441282331366665e-11
+      },
+      "S21": {
+        "magnitude_RMSE": 2.0978280843086345e-13,
+        "maximum_magnitude_difference": 5.896394483784206e-13
+      },
+      "f_low_GHz_shift": 4.596323321948148e-13,
+      "f_high_GHz_shift": -1.1191048088221578e-12,
+      "central_valley_shift_GHz": 0.0,
+      "passed": true
+    },
+    "fields": {
+      "passed": true,
+      "evidence": [
+        {
+          "GHz": 8.0,
+          "port": "1",
+          "scores": {
+            "1": 1.0,
+            "2": 0.022339731802366213
+          },
+          "margin": 0.9776602681976337,
+          "passed": true
+        },
+        {
+          "GHz": 8.0,
+          "port": "2",
+          "scores": {
+            "1": 1.0000000000000002,
+            "2": -0.02353197357867122
+          },
+          "margin": 0.976468026421329,
+          "passed": true
+        },
+        {
+          "GHz": 0.55,
+          "port": "1",
+          "scores": {
+            "1": 1.0000000000000002,
+            "2": 0.024330028104046705
+          },
+          "margin": 0.9756699718959535,
+          "passed": true
+        },
+        {
+          "GHz": 0.55,
+          "port": "2",
+          "scores": {
+            "1": 1.0000000000000002,
+            "2": -0.024917507544005048
+          },
+          "margin": 0.9750824924559952,
+          "passed": true
+        },
+        {
+          "GHz": 15.0,
+          "port": "1",
+          "scores": {
+            "1": 1.0,
+            "2": 0.026997070916280126
+          },
+          "margin": 0.9730029290837199,
+          "passed": true
+        },
+        {
+          "GHz": 15.0,
+          "port": "2",
+          "scores": {
+            "1": 1.0,
+            "2": -0.02908371713774499
+          },
+          "margin": 0.9709162828622551,
+          "passed": true
+        }
+      ],
+      "scope": "Common saved adaptive frequencies; combined with full passband Zo/Gamma continuity"
+    },
+    "aux": {
+      "reference": "F:\\hfss_f8x_261002\\M_B0_2",
+      "candidate": "F:\\hfss_f8x_261002\\V_rebuild",
+      "quantities": {
+        "Zo(1:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 1.5794316897612303e-05,
+          "passed": true
+        },
+        "Zo(2:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 1.5732474658852107e-05,
+          "passed": true
+        },
+        "Gamma(1:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 0.0031484646092148167,
+          "passed": true
+        },
+        "Gamma(2:1)": {
+          "max_relative_drift": 0.0,
+          "max_relative_adjacent_step": 0.003148479593345048,
+          "passed": true
+        }
+      },
+      "passed": true,
+      "screening_thresholds": {
+        "max_relative_drift": 0.02,
+        "max_adjacent_step_per_0p01GHz": 0.02
+      },
+      "scope": "Fundamental continuity in 3.2\u201310.2 GHz; interpreted jointly with native port-field identity."
+    },
+    "boundaries": {
+      "run": "F:\\hfss_f8x_261002\\V_rebuild",
+      "ports": [
+        {
+          "port": "1",
+          "integration_endpoints_mm": [
+            [
+              0.0,
+              -25.0,
+              0.883
+            ],
+            [
+              0.0,
+              -25.0,
+              -1.38140158943821e-15
+            ]
+          ],
+          "invariant_settings": {
+            "Objects": true,
+            "DoDeembed": true,
+            "DeembedDist": true,
+            "UseLineModeAlignment": true,
+            "UseAnalyticAlignment": true,
+            "RenormalizeAllTerminals": true
+          },
+          "passed": true
+        },
+        {
+          "port": "2",
+          "integration_endpoints_mm": [
+            [
+              0.0,
+              25.0,
+              -0.883
+            ],
+            [
+              0.0,
+              25.0,
+              -1.38140158943821e-15
+            ]
+          ],
+          "invariant_settings": {
+            "Objects": true,
+            "DoDeembed": true,
+            "DeembedDist": true,
+            "UseLineModeAlignment": true,
+            "UseAnalyticAlignment": true,
+            "RenormalizeAllTerminals": true
+          },
+          "passed": true
+        }
+      ],
+      "passed": true
+    }
+  }
+}

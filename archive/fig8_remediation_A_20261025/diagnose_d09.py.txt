@@ -1,0 +1,141 @@
+"""Stage-A D09G02 single-failed-frequency cached direct diagnostic, never adaptive."""
+import argparse
+import asyncio
+import os
+from pathlib import Path
+import shutil
+import sys
+import traceback
+import numpy as np
+import phase_control as pc
+sys.path.insert(0, str(pc.ORIGINAL))
+from geometry_worker import dc, solve_stage, passes, snapshot, canonical_ports, inspect_rebuilt_geometry
+from preserve_discrete_ranges import restore_properties
+from phase_publish import publish
+
+FREQUENCIES=[10.19]
+SWEEP='RemA_D09_Single10p19'
+
+def compare(source, previous_direct, run):
+    a=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+    b=np.atleast_1d(np.genfromtxt(run/'sparams.csv',delimiter=',',names=True))
+    assert len(b)==1 and abs(b['Freq_GHz'][0]-10.19)<1e-9
+    assert np.isfinite(np.array(b.tolist(),dtype=float)).all()
+    j=1018;assert abs(a['Freq_GHz'][j]-10.19)<1e-9
+    errors={k:float(abs(b[k+'_real'][0]+1j*b[k+'_imag'][0]-a[k+'_real'][j]-1j*a[k+'_imag'][j])) for k in ['S11','S21']}
+    return dict(case='D09G02',diagnostic_only=True,points=1,frequency_GHz=10.19,previous_failed_frequency_recovered=True,
+        interpolation_complex_errors=errors,max_complex_error=max(errors.values()),
+        numerical_review_passed=None,design_passed=None,full_matrix_approved=False,full_direct_review_completed=False,
+        note='One specifically authorized failed-frequency diagnostic, not complete direct acceptance; original failed event remains immutable. New geometry still requires its own full direct check if design entry is met.')
+
+
+def validate(spec_path):
+    p=pc.read(spec_path); auth=pc.read(pc.HERE/'authorization.json')
+    assert auth['stage']=='A' and auth['execution_authorized'] and not auth['stage_B_C_released']
+    assert p['case']=='D09G02' and p['role']=='local_direct_diagnostic'
+    assert p['frequencies_GHz']==FREQUENCIES and p['new_geometry_increment']==0 and not p['adaptive_allowed']
+    assert p['cached_task_ordinal_for_case']==1
+    assert Path(p['run_dir']).resolve().is_relative_to(pc.BASE.resolve())
+    rel=pc.read(pc.HERE/'supervised_release.json')
+    assert rel['input_sha256']==pc.sha(spec_path) and Path(rel['input_path']).resolve()==Path(spec_path).resolve()
+    assert not rel['bulk_dispatch_released']
+    assert pc.sha(__file__)==p['worker_sha256']
+    for path,digest in p['parent_evidence_hashes'].items():assert pc.sha(path)==digest, path
+    return p
+
+async def execute(spec_path):
+    p=validate(spec_path);run=Path(p['run_dir']);src=Path(p['source'])
+    project=run/(p['project_name']+'.aedt');source=Path(p['project_source'])
+    assert not (run/'state.json').exists() and not project.exists()
+    cache=source.with_suffix('.aedtresults')
+    files=[f for f in cache.rglob('*') if f.is_file() and not f.name.endswith(('.lock','.semaphore'))]
+    assert files and shutil.disk_usage(pc.BASE).free>sum(f.stat().st_size for f in files)+15*1024**3
+    shutil.copy2(source,project)
+    for f in files:
+        dest=project.with_suffix('.aedtresults')/f.relative_to(cache)
+        dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(f,dest)
+    state=dict(case=p['case'],status='copied',project=str(project),segments=[],
+        input_sha256=pc.sha(spec_path),actual_elements=p['actual_elements'])
+    pc.write(run/'state.json',state)
+    app=dc.app_for(project)
+    try:
+        assert Path(app.project_file).resolve()==project.resolve() and not app.are_there_simulations_running
+        state['cad_verification']=inspect_rebuilt_geometry(app,p['geometry'])
+        assert state['cad_verification']['passed']
+        assert Path(app.odesktop.GetTempDirectory()).resolve()==Path(p['solver_temp']).resolve()
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        app.export_convergence('Setup19',output_file=str(run/'convergence_before.txt'))
+        assert passes(run/'convergence_before.txt')==passes(src/'convergence.txt')
+        assert passes(run/'convergence_before.txt')[-1][1]==p['actual_elements']
+        f,data,_,_=dc.get_data(app,'Sweep1')
+        original=np.genfromtxt(src/'sparams.csv',delimiter=',',names=True)
+        assert len(f)==1500 and np.allclose(f,original['Freq_GHz'])
+        for key,expr in [('S11','S(1:1,1:1)'),('S21','S(2:1,1:1)')]:
+            assert max(abs(data[expr]-(original[key+'_real']+1j*original[key+'_imag'])))<1e-10
+        state['ports_before']=canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        assert state['ports_before']==p['expected_ports'] and len(state['ports_before'])==2
+        state['original_curve_verified']=True
+        for sw in setup.sweeps:
+            assert sw.name in ['Sweep1','CandidateDirect20261023'];sw.props['IsEnabled']=False;assert sw.update()
+        sw=setup.add_sweep(SWEEP,sweep_type='Discrete');sw.auto_update=False
+        restore_properties(sw,FREQUENCIES)
+        sw.props.update({'IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3)
+        app.save_project();assert setup.is_solved
+        pc.write(run/'state.json',state)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    segment=await solve_stage(project,run,state,'single_direct_10p19GHz',False)
+    app=dc.app_for(project)
+    try:
+        messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));state['messages']=messages
+        assert any('Discrete frequency sweep complete.' in m for m in messages)
+        assert not any('[error]' in m.lower() for m in messages)
+        dc.SWEEP=SWEEP;dc.export(app,run,FREQUENCIES)
+        app.export_convergence('Setup19',output_file=str(run/'convergence_after.txt'))
+        assert passes(run/'convergence_before.txt')==passes(run/'convergence_after.txt')
+        assert state['ports_before']==canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+        app.save_project()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    assert not segment['observed_adaptive_process']
+    for path,digest in p['parent_evidence_hashes'].items():assert pc.sha(path)==digest
+    result=compare(src,Path(p['previous_direct']),run)
+    pc.write(run/'diagnostic_comparison.json',result)
+    state.update(status='completed',same_mesh_verified=True,source_unchanged=True,finished_at=pc.now())
+    pc.write(run/'state.json',state)
+    return result
+
+async def main(spec_path):
+    p=validate(spec_path);run=Path(p['run_dir']);assert not dc.solvers()
+    # Only the known study lock files are acquired; never remove foreign locks.
+    locks=[pc.HERE/'worker.lock',pc.ORIGINAL/'worker.lock',Path('J:/f8_261007/protocol.lock')]
+    assert not Path('J:/f8_261007/pilot_queue.lock').exists()
+    held=[]
+    try:
+        for lock in locks:
+            with lock.open('x') as h:h.write(str(os.getpid()))
+            held.append(lock)
+        pc.write(pc.HERE/'active.json',dict(case=p['case'],stage='candidate_cached_direct',pid=os.getpid(),run_dir=str(run),started_at=pc.now()))
+        pc.status();status='failed'
+        try:
+            result=await execute(spec_path);status='completed'
+            summary="D09G02先前缺失10.19GHz单点同网格诊断完成；网格未改变，仅诊断不是完整验收。核验后继续A阶段最多3个新增几何。"
+            artifacts=['input.json','state.json','diagnostic_comparison.json','manifest.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence_before.txt','convergence_after.txt']
+        except BaseException:
+            pc.write(run/'worker_error.json',dict(at=pc.now(),error=traceback.format_exc(),live_solvers=dc.solvers()))
+            summary='D09G02新一轮A阶段10.19GHz单点诊断异常；先查worker_error和现有缓存，不盲目重复求解。';artifacts=['input.json','worker_error.json']
+    finally:
+        for lock in held:
+            if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+    pc.write(pc.HERE/'active.json',dict(case=p['case'],stage='awaiting_local_diagnostic_review',operation_status=status,run_dir=str(run),finished_at=pc.now()))
+    pc.status()
+    try:
+        receipt=await publish(run,status,summary,artifacts)
+        pc.write(run/'notification_receipt.json',receipt)
+    except Exception:
+        pc.write(run/'notification_error.json',dict(at=pc.now(),error=traceback.format_exc(),
+            note='Do not blindly resend an uncertain desktop delivery; inspect outbox state.'))
+        raise
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('--spec',type=Path,required=True)
+    asyncio.run(main(parser.parse_args().spec.resolve()))

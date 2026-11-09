@@ -1,0 +1,131 @@
+"""Freeze selected18 and finite same-mesh plans; never call HFSS Analyze."""
+import ast,json,sys
+from pathlib import Path
+P=Path(__file__).resolve().parent;C=P/'length_tuning';R=P/'final_review'
+sys.path.insert(0,str(P));import phase_control as pc
+I4=P.parent/'fig8_iso4_20261026/final_review'
+assert not (R/'implementation_hashes.json').exists(),'Existing frozen stage: inspect, never overwrite'
+assert pc.read(C/'budget_ledger.json')['new_geometry_reserved']==6
+assert all(t['status']=='reviewed' for t in pc.read(C/'budget_ledger.json')['tasks'])
+assert len(pc.read(P/'budget_ledger.json')['tasks'])==18
+order=pc.ORDER;provenance={}
+def copy(source,name,transform=lambda s:s):
+ text=transform(source.read_text(encoding='utf-8'));(R/name).write_text(text,encoding='utf-8')
+ provenance[name]=dict(source=str(source),source_sha256=pc.sha(source),local_sha256=pc.sha(R/name))
+def context(text):
+ text=text.replace("BASE=Path('J:/f8_I4_261026')","BASE=Path('J:/f8_PR18_261027')").replace('I4D','PR18D').replace('I4','PR18').replace('四配置','18配置')
+ start=text.index('ORDER=');end=text.index('\n',start);return text[:start]+'ORDER='+repr(order)+text[end:]
+copy(I4/'phase_control.py','phase_control.py',context)
+for name in ['case_reference.py','reference_validation.json','policy.json','mesh_policy_addendum_v2.json','phase_publish.py','aedt_session_guard.py','aedt_identity.json','phase_heartbeat_transport.py']:
+ copy(C/name,name)
+copy(C/'phase_heartbeat.py','phase_heartbeat.py',lambda s:s.replace('仅在PR18这18个验证配置的已授权执行范围内接续；原24项已完成，不重开旧账本。','仅PR18所选18项同网格离散复核；不调几何、不重自适应，不重开旧账本。').replace('先完成18个初始几何，再在有界累计预算内按实际结果调谐/最终直接复核','仅执行final_review冻结的18项离散计划，每项最多24频点、6次Analyze，每次最多4点'))
+copy(C/'test_phase_heartbeat.py','test_phase_heartbeat.py')
+copy(I4/'solver_runtime.py','solver_runtime.py')
+for name in ['preserve_discrete_ranges.py','merge_native.py','supervise_smallbatch.py','acknowledge_smallbatch.py']:
+ copy(I4/name,name)
+copy(I4/'recovery_control.py','recovery_control.py',lambda s:s.replace('I4','PR18').replace('四项','18项').replace('[HERE,PARENT]','[HERE,PARENT,PARENT/\'length_tuning\']'))
+(R/'phase_geometry_publish.py').write_text('from phase_publish import hook\n',encoding='utf-8')
+(R/'phase_direct_context.py').write_text('''"""Validate only frozen selected sources, no geometry dispatch."""
+from pathlib import Path
+from phase_control import HERE,PARENT,BASE,OLD,ORIGINAL,ORDER,TARGET,read,write,sha,now,status_report
+def reviewed_source(source,case):
+    source=Path(source).resolve();assert source.parent==(BASE/case).resolve()
+    row=next(r for r in read(HERE/'selected_sources.json')['cases'] if r['case']==case)
+    assert source==Path(row['source']).resolve()
+    for f,h in row['evidence_hashes'].items():assert sha(f)==h,f
+    p=read(source/'input.json');s=read(source/'state.json');a=read(source/'receiver_ack.json');v=read(source/'receiver_verification.json');event=read(source/'completion_event.json')
+    assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']==TARGET
+    assert p['case']==case and s['case']==case and p['geometry']==s['geometry']
+    assert a['event_sha256']==sha(source/'completion_event.json') and a['verification_sha256']==sha(source/'receiver_verification.json')
+    assert a['operation_success'] and a['artifacts_verified'] and a['visual_review_completed'] and a['design_passed']
+    assert s['status']=='completed' and s['design_passed'] and 100000<=s['actual_elements']<=112000
+    assert v['design_passed'] and v['actual_elements']==s['actual_elements']
+    assert 1<=s['cumulative_geometry_ordinal']<=4
+    for f,h in p['parent_evidence_hashes'].items():assert sha(f)==h,f
+    for item in event['artifacts']:assert sha(source/item['path'])==item['sha256']
+    from case_reference import verify_reference
+    assert verify_reference(source)==s['reference_treatment']
+    initial=next(r['initial_geometry'] for r in read(PARENT/'plan.json')['cases'] if r['case']==case)
+    assert all(p['geometry'][k]==initial[k] for k in ['Wm','Ws','Ls2','Ls3'])
+    from solver_runtime import passes
+    assert passes(source/'convergence.txt')[-1][1]==s['actual_elements']
+    return p,s,read(source/'response_metrics.json')
+''',encoding='utf-8')
+def worker(s):
+ s=s.replace('I4','PR18').replace('len(requested)<=70','len(requested)<=24').replace('len(chunks)<=18','len(chunks)<=6')
+ s=s.replace("    result=compare(src,run);pc.write(run/'comparison.json',result);return result", """    result=compare(src,run);pc.write(run/'comparison.json',result)
+    # Close only this solved review copy to prevent accumulated open projects.
+    app=dc.app_for(project)
+    try:
+        assert not app.are_there_simulations_running
+        assert app.close_project(save=True)
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    return result""")
+ return s
+copy(I4/'smallbatch_worker.py','smallbatch_worker.py',worker)
+copy(I4/'dispatch_smallbatch.py','dispatch_smallbatch.py',lambda s:s.replace("ledger['new_cached_tasks_reserved']<4","ledger['new_cached_tasks_reserved']<18").replace('_I4SmallBatch','_PR18SmallBatch'))
+copy(I4/'receive_verified.py','receive_verified.py',lambda s:s.replace("assert 10.19 in plan['requested_frequencies_GHz'] and len(plan['requested_frequencies_GHz'])<=70","assert 1<=len(plan['requested_frequencies_GHz'])<=24 and len(plan['chunks'])<=6"))
+(R/'publish_smallbatch.py').write_text('''"""Current-chat terminal event, completion-triggered heartbeat, no normal-run messages."""
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    assert case in pc.ORDER and pc.read(pc.HERE/'authorization.json')['execution_authorized']
+    cfg=hook.load_config(pc.HERE/'hook/config.json');assert cfg['authorized_threads']==[pc.TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='PR18 selected18 same-mesh final review; <=24points/case, <=4points/Analyze, <=6launches/case')
+    def prompt(event,event_path):
+        return (f'[Fig8 PR18同网格离散复核完成事件]\\n事件：{event_path}\\n状态：{status}\\n{summary}\\n'
+          f'先读{pc.HERE/"CONTINUATION.md"}、continuation_plan.json、case_work_ledger.json。'
+          '这是原18项补点的最终复核，不是新批次或第4步盲测。用户已授权前三步及hook接续。'
+          '运行receive_verified.py --run事件目录，核验原生基模参考、每批来源、网格未变、全部实际频点和16核资源；实际看叠图后才ACK。'
+          '按ORDER继续尚未复核项，dispatch_smallbatch.py --case CASE --solve后用supervise_smallbatch.py核验真实16核单组启动。'
+          '每项最多24频点/6次Analyze，每次最多4点；只用已有缓存，禁止新自适应、调几何、重复点或无界重试。'
+          '保留-20dB科学负例，最终比较冻结预测与实测；有限直接抽查不等于全曲线/完整多模矩阵验收。'
+          '正常求解安静，完成送达5分钟无后继真实求解才检测AI状态；用户暂停优先，不重开旧队列。')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(at=pc.now(),error=traceback.format_exc()))
+''',encoding='utf-8')
+(R/'CONTINUATION.md').write_text('''# PR18所选18项最终同网格离散复核
+人类授权：前三步完成，补点仿真用hook。18初始+6长度几何已完成，18项基础调谐通过，几何阶段不再扩展。
+本段只复核冻结selected_sources.json，不能重开原24、V6、I4或均匀队列，不启动第4步盲测。
+可见AEDT2024R2端口7990，16核串行。每项<=24个冻结实际频点、每次Analyze<=4点、每项<=6次；全段0新几何、0新自适应。
+先读authorization/continuation_plan/case_work_ledger/active。完成事件：receive_verified.py --run RUN，实际view_image看叠图，之后acknowledge_smallbatch.py --run RUN --visual-reviewed --note 实际观察。
+数值/设计未通过也保留并审核为未解决，不为凑通过改标准或重复仿真。发生工作项错误先读worker_error与日志，不清锁、不重复Analyze。不能把worker进程当HFSS已启动。
+按ORDER、所有前项ACK后dispatch_smallbatch.py --case CASE --solve；之后supervise_smallbatch.py --run J:/f8_PR18_261027/CASE/direct_smallbatch --seconds600，实际核验hf3d16核单组。每个工作项自动运行冻结的<=6批，整项结束后hook当前聊天。
+比较同时检查两内峰、-2dB带边、所有联合-20dB带边。中央谐振谷只在原位置采样，未独立定位新极小值；有限采样不是全曲线极值或网格收敛证明。
+科学-20dB达标与基础调谐分开；不把-19.8dB按-20dB算过。不能跨不达标内峰拼带宽。
+18项全部实际看图ACK后，报告接受/未解决项、冻结预测与新实测误差，更新局部P/R模型证据及交付；不自动执行第4步逆向盲测。结束时按真实状态关闭本完成心跳。
+''',encoding='utf-8')
+cfg=pc.read(C/'hook/config.json');cfg['state_dir']=str(R/'hook/state');pc.write(R/'hook/config.json',cfg)
+pc.write(R/'hook/heartbeat/monitor.json',dict(enabled=False,status='not_armed_before_first_completion'))
+pc.write(R/'authorization.json',dict(stage='PR18D',cases=order,execution_authorized=True,geometry_authorized=False,new_geometry_cap=0,adaptive_allowed=False,cached_task_cap=18,points_per_case_cap=24,points_per_launch_cap=4,launches_per_case_cap=6,cores=16,serial_tasks=1,human_instruction='你现在把前三步做了，补点仿真用记得用hook'))
+# Import only this new stage's pure planner after clearing old context modules.
+for name in ['phase_control','aedt_session_guard','case_reference','solver_runtime']:
+ sys.modules.pop(name,None)
+sys.path.insert(0,str(R))
+from phase_final_direct import frequency_plan
+cases=[];prior={}
+for f in [P/'budget_ledger.json',C/'budget_ledger.json',C/'cases/P01G05/selection.json',C/'cases/P04G05/selection.json',P/'predictions_frozen.json']:
+ prior[str(f)]=pc.sha(f)
+for case in order:
+ source=Path('J:/f8_PR18_261027')/case/'g01_initial'
+ if case in ['P01G05','P04G05']:source=Path(pc.read(C/'cases'/case/'selection.json')['selected_run'])
+ s=pc.read(source/'state.json');a=pc.read(source/'receiver_ack.json');m=pc.read(source/'response_metrics.json');t=pc.read(source/'target20_metrics.json')
+ assert s['status']=='completed' and s['design_passed'] and a['design_passed'] and a['visual_review_completed']
+ evidence={str(source/f):pc.sha(source/f) for f in ['input.json','state.json','manifest.json','response_metrics.json','target20_metrics.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt','completion_event.json','receiver_ack.json','receiver_verification.json']}
+ evidence[str(Path(s['project']))]=pc.sha(s['project'])
+ fp=frequency_plan(m,t)
+ row=dict(case=case,source=str(source),project=s['project'],project_sha256=pc.sha(s['project']),geometry=s['geometry'],actual_elements=s['actual_elements'],baseline_passed=True,both_inner_peaks_le_minus20=t['both_inner_peaks_le_minus20'],frequency_review_plan=fp,requested_frequencies_GHz=fp['frequencies_GHz'],missing_frequencies_GHz=fp['frequencies_GHz'],existing_frequencies_GHz=[],chunks=fp['chunks'],evidence_hashes=evidence)
+ cases.append(row);(R/'cases'/case).mkdir(parents=True,exist_ok=True)
+pc.write(R/'selected_sources.json',dict(cases=cases,source_count=18,baseline_passed=18,geometry_phase_complete=True,final_direct_pending=True))
+pc.write(R/'continuation_plan.json',dict(cases=cases,prior_evidence_hashes=prior,maximum_new_analyze_launches=sum(len(r['chunks']) for r in cases),new_geometry=0,adaptive_allowed=False,point_cap_per_case=24,launch_cap_per_case=6))
+pc.write(R/'case_work_ledger.json',dict(new_geometry_reserved=0,new_cached_tasks_reserved=0,analyze_launches_reserved=0,tasks=[]))
+pc.write(R/'active.json',dict(stage='prepared_not_started',at=pc.now()))
+pc.write(R/'implementation_provenance.json',provenance)
+for path in R.glob('*.py'):ast.parse(path.read_text(encoding='utf-8'),filename=str(path))
+print(dict(prepared=str(R),cases=18,points=sum(len(x['requested_frequencies_GHz']) for x in cases),maximum_analyze_launches=sum(len(x['chunks']) for x in cases),per_case_points=[len(x['requested_frequencies_GHz']) for x in cases],solver_started=False,freeze_pending_tests=True))

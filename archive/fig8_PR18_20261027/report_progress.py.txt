@@ -1,0 +1,25 @@
+"""Read-only solver inspection plus local progress document; never dispatch."""
+import psutil
+import phase_control as pc
+
+def main():
+    plan=pc.read(pc.HERE/'plan.json');out=[]
+    for row in plan['cases']:
+        c=row['case'];run=pc.BASE/c/'g01_initial';state=pc.read(run/'state.json') if (run/'state.json').exists() else {}
+        t=pc.read(run/'target20_metrics.json') if (run/'target20_metrics.json').exists() else {}
+        out.append(dict(case=c,configured=(pc.HERE/'cases'/c/'configuration.json').exists(),
+            state=state.get('status','not_started'),actual_elements=state.get('actual_elements'),
+            baseline_design_passed=state.get('design_passed'),target20=t,
+            error_file=str(run/'worker_error.json') if (run/'worker_error.json').exists() else None))
+    live=[p.info for p in psutil.process_iter(['pid','name','cmdline']) if (p.info['name'] or '').lower()=='hf3d.exe']
+    summary=dict(at=pc.now(),configured=sum(r['configured'] for r in out),initial_completed=sum(r['state']=='completed' for r in out),
+        total=18,live_solvers=live,cases=out,stage3_fully_complete=False)
+    pc.write(pc.HERE/'progress.json',summary)
+    text=['# PR18补点进度','',f"更新UTC：{summary['at']}",f"已配置{summary['configured']}/18；初值完成{summary['initial_completed']}/18；当前真实hf3d进程{len(live)}个。",'',
+          '步骤1、2原型已完成；本页是步骤3，不把初值求解完成等同最终数值验收。', '',
+          '|配置|已配置|初值状态|网格|基础调谐通过|两个内峰≤−20dB|','|---|---|---|---:|---|---|']
+    for r in out:text.append(f"|{r['case']}|{r['configured']}|{r['state']}|{r['actual_elements']}|{r['baseline_design_passed']}|{r['target20'].get('both_inner_peaks_le_minus20')}|")
+    (pc.HERE/'PROGRESS.md').write_text('\n'.join(text)+'\n',encoding='utf-8');pc.status()
+    print({k:summary[k] for k in ['configured','initial_completed','total']})
+
+if __name__=='__main__':main()

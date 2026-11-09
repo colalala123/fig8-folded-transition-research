@@ -1,0 +1,25 @@
+import json,hashlib
+from pathlib import Path
+import numpy as np
+R=Path('output/fig8_tune48_fixedPR_20261031');O=Path('output/fig8_offline_audit_20261109_v1')
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def load(p):
+ a=np.genfromtxt(p,delimiter=',',names=True);return a['Freq_GHz'],a['S11_real']+1j*a['S11_imag']
+c=read(R/'campaign.json');rows=read(c['baseline_index'])['rows'];reg=read(R/'runtime_registry.json')['contexts'];checks=[]
+for x in read(O/'FEASIBILITY.json'):
+ parent=x['parent'];b=next(r for r in rows if r['case']==parent);entry=next(r for r in reg if r['parent']==parent and r['kind']=='probes');plan=read(Path(entry['context'])/'plan.json')['cases']
+ f,z=load(Path(b['effective_run'])/'sparams.csv');fs,zs=load(Path(plan[0]['run_dir'])/'sparams.csv');fm,zm=load(Path(plan[1]['run_dir'])/'sparams.csv');assert np.array_equal(f,fs) and np.array_equal(f,fm)
+ mask=(f>=3.92)&(f<=9.52);z=z[mask];J=np.c_[2*(zs[mask]-z),2*(zm[mask]-z)]
+ cert=x['certificate'];u=np.array(cert['u']);val=z+J@u;G=(np.conj(val)[:,None]*J).real/abs(val)[:,None];intercept=abs(val)-G@u
+ ix=cert['indices'];w=np.array(cert['weights']);w/=sum(w)
+ lower=float(w@intercept[ix]-sum(abs(w@G[ix])))
+ assert lower>.1 and abs(lower-cert['lower_amplitude']-1e-9)<1e-8
+ assert abs(max(abs(val))-cert['upper_amplitude'])<1e-12
+ rng=np.random.default_rng(20261109);uu=rng.uniform(-1,1,(1000,2));assert np.all(np.max(abs(z[:,None]+J@uu.T),axis=0)>=lower-1e-12)
+ checks.append(dict(parent=parent,independent_lower=lower,random_sanity_points=1000))
+v=read(O/'VALIDATION.json');assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in v['source_hashes'].items())
+assert read(R/'CURRENT_STATUS.json')['phase']=='user_paused'
+with (O/'INDEPENDENT_CHECK.json').open('x') as f:json.dump(checks,f,indent=2)
+manifest={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in O.iterdir() if p.is_file()}
+with (O/'MANIFEST.json').open('x') as f:json.dump(manifest,f,indent=2)
+print('PASS: independent seven lower bounds; 7000 sanity samples; old hashes unchanged; paused; files=',len(manifest))

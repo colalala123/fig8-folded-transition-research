@@ -1,0 +1,24 @@
+"""Test explicit unrenormalized modal boundary metadata on the diagnostic copy."""
+from direct_passivity_check import attach,RUN
+from pilot_worker import plain,write_json
+app=attach()
+try:
+    evidence={'before':{},'after':{}}
+    for b in app.boundaries:
+        if b.type!='Wave Port':continue
+        evidence['before'][b.name]=plain(b.props)
+        b.auto_update=False;b.props['RenormalizeAllTerminals']=False
+        modes=plain(b.props['Modes'])
+        for mode in modes.values():
+            line=mode.get('IntLine',{})
+            if 'GeometryPosition' in line:
+                mode['IntLine']={key:[str(p[a+'Position'])+'mm' for a in ('X','Y','Z')] for key,p in zip(('Start','End'),line['GeometryPosition'])}
+        b.props['Modes']=modes
+        assert b.update();b.auto_update=True
+        evidence['after'][b.name]=plain(b.props)
+    evidence['solutions']=list(app.existing_analysis_sweeps)
+    app.save_project()
+    for norm in (False,True):
+        evidence[str(norm)]=app.export_touchstone(setup='Setup19',sweep='DirectCheck',output_file=str(RUN/('explicit_50ohm.s6p' if norm else 'explicit_native.s6p')),renormalization=norm,impedance=50,gamma_impedance_comments=True)
+    write_json(RUN/'explicit_reference_check.json',evidence)
+finally:app.release_desktop(close_projects=False,close_desktop=False)

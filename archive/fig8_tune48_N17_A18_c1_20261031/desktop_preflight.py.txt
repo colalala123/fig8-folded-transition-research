@@ -1,0 +1,12 @@
+import asyncio,shutil
+import phase_control as pc
+from aedt_session_guard import verify
+async def main():
+    identity=verify()
+    from phase_geometry_worker import dc
+    assert not dc.solvers()
+    async with dc.connected_client() as client:
+        result=await dc.session_call(client,'check_aedt_connection',{'port':7990})
+    pc.write(pc.HERE/'mcp_connection_preflight.json',dict(at=pc.now(),connection=result,Analyze_requested=False))
+    print(dict(visible_existing_desktop_pid=identity['pid'],MCP_checked=True,Analyze_requested=False))
+if __name__=='__main__':asyncio.run(main())

@@ -1,0 +1,123 @@
+"""Separate finish-24 ledger. Never edits uniform data or historical acceptance."""
+import argparse
+from collections import Counter
+from datetime import datetime, timezone, timedelta
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+
+HERE = Path(__file__).resolve().parent
+WORK = HERE.parents[1]
+BASE = Path('J:/f8_finish24_261023')
+OLD = Path('J:/f8_261007')
+AUDIT = WORK/'output/fig8_acceptance_audit_20261021'
+HOOK = WORK/'output/completion-hook-portable-1.0.0'
+PRIORITY = ['D02G05','D05G05','D01G05','D03G02','D04G02','D05G02','D08G05',
+            'D10G05','D11G02','D11G05','D12G02','D06G02','D06G05','D07G02','D07G05','D09G02','D09G05','D10G02']
+
+
+def read(p): return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p): return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now(): return datetime.now(timezone.utc).isoformat()
+def write(p, data):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True)
+    tmp=p.with_suffix(p.suffix+'.tmp');tmp.write_text(json.dumps(data,indent=2,ensure_ascii=False,default=str),encoding='utf-8');os.replace(tmp,p)
+
+
+def initialize():
+    if (HERE/'plan.json').exists():
+        return read(HERE/'plan.json')
+    prior=read(WORK/'output/fig8_resume_20261007/resume_queue_plan.json')
+    audit={r['case']:r for r in read(AUDIT/'offline_audit.json')['cases']}
+    policy={
+        'version':'fig8_finish24_fundamental_meshbudget_v1', 'created_at':now(),
+        'user_authorization':'Finish existing 24 folded configurations using completion hook. Uniform data remain separate. New solves target 100k-110k elements, 16 cores, serial.',
+        'scope':'Only existing 24 pilot cases; no six-pole, expansion or holdout runs',
+        'new_geometry_mesh_target':[100000,110000],
+        'mesh_policy':'Record actual solved elements and local refinement settings. Do not equate total count with universal accuracy. Reuse existing verified higher-density curves; do not remesh them just to reduce count. Review any new off-target mesh before tuning continuation; no blind precision reruns.',
+        'new_sweep':{'range_GHz':[.01,15], 'output_step_GHz':.01, 'InterpTolerance_percent':1.0, 'EnforcePassivity':False},
+        'existing_curve_review':'Preserve original sweep and cached mesh; same-case discrete checks of native fundamental S11/S21 before scoped release.',
+        'direct_criteria':{'max_complex_error':.005,'max_inband_S21_error_dB':.05,'max_peak_error_dB':.1,'max_edge_shift_GHz':.02,'max_BW_shift_GHz':.02},
+        'design_criteria':{'central_valley_target_GHz':6.72,'central_valley_tolerance_GHz':.03,'peak_difference_dB':.5,'valleys':3,'inner_S11_max_dB':-10,'inner_S21_min_dB':-2},
+        'resources':{'cores':16,'tasks':1,'port':7990,'aedt_version':'2024.2','modes_per_port':2},
+        'bounded_tuning':'Reuse local sensitivities only when same geometry neighborhood and numerical settings are validated. Preserve historical solve counts; maximum 8 geometry/phase attempts per configuration including history. Direct cached checks do not consume a geometry attempt. No unbounded repair loop.',
+        'full_matrix':'Keep original diagnostics. Scoped fundamental release is NOT approval for full 4x4 network, cascading, mode sufficiency at every width, or radiation attribution.',
+        'corner_mode_review':'Still required before claiming a cross-width final design law; not silently marked complete.',
+        'old_protocol_sha256':sha(OLD/'production_protocol.json'),
+        'matrix_sha256':prior['matrix_sha256']}
+    write(HERE/'policy.json',policy)
+    cases=[]
+    for c in prior['cases']:
+        name=c['case'];a=audit[name];formal=OLD/name/'design_result.json'
+        old=read(formal) if formal.exists() else None
+        state='pending';action='tune_or_recover';selected=None
+        if old and old['status'] in ('accepted','failed'):
+            for p,digest in old.get('evidence_hashes',{}).items():
+                if sha(p)!=digest: raise RuntimeError('Historical acceptance evidence changed: '+p)
+            state='preserved_accepted' if old['status']=='accepted' else 'preserved_design_failed'
+            action='preserve';selected=old.get('selected_run')
+        elif a['attempts']:
+            selected=a['attempts'][-1]['run']
+        if name in PRIORITY[:4]:action='same_mesh_direct_review'
+        elif name=='D04G02':action='repair_unconverged_sweep'
+        elif not selected:action='initial_geometry_solve'
+        elif state=='pending':action='bounded_geometry_tuning'
+        geometry=read(Path(selected)/'manifest.json')['geometry'] if selected and (Path(selected)/'manifest.json').exists() else c['selected_geometry'] or c['initial_geometry']
+        new_iters=list((OLD/name).glob('i[0-9][0-9]/state.json'))
+        cases.append({'case':name,'state':state,'action':action,'selected_source':selected,
+                      'initial_geometry':c['initial_geometry'],'current_geometry':geometry,
+                      'historical_phase_solves':c['historical_solves'],'existing_new_attempts':len(new_iters),
+                      'legacy_result':str(formal) if old else None,'legacy_result_sha256':sha(formal) if old else None})
+    assert len(cases)==24 and len({c['case'] for c in cases})==24
+    plan={'created_at':now(),'policy_sha256':sha(HERE/'policy.json'),'cases':cases,'priority':PRIORITY,
+          'current_stage':'supervise_first_direct_review','new_geometry_runner_released':False}
+    write(HERE/'plan.json',plan)
+    sys.path.insert(0,str(HOOK));import completion_hook as hook
+    target=os.environ.get('CODEX_THREAD_ID')
+    if not target:raise RuntimeError('Need real current Codex thread for authorized hook')
+    hook.init_config(HERE/'hook/config.json',target)
+    status_report()
+    return plan
+
+
+def status_report():
+    plan=read(HERE/'plan.json');rows=[]
+    for c in plan['cases']:
+        result=HERE/'cases'/c['case']/'result.json'
+        r=read(result) if result.exists() else {}
+        state=r.get('case_state',c['state'])
+        rows.append({**c,'state':state,'result':r})
+    counts=Counter(c['state'] for c in rows)
+    stamp=datetime.now(timezone(timedelta(hours=9))).isoformat(timespec='seconds')
+    lines=['# Fig8首批24配置收尾',f'\n更新：{stamp}（日本时间）\n',
+           '只处理弯折数据。保留旧验收记录；本表新增结果限定为原生基模S11/S21研究用途，不冒充完整多模网络验收。',
+           '\n状态计数：'+json.dumps(counts,ensure_ascii=False),
+           '\n| 配置 | 当前状态 | 下一步/结果 |','|---|---|---|']
+    for c in rows:
+        detail=c['result'].get('reason',c['action'])
+        threshold=HERE/'cases'/c['case']/'threshold_review.json'
+        if threshold.exists():
+            t=read(threshold)
+            if t.get('threshold_sensitive'):
+                detail+=f"；临界达标：直接采样峰差{t['direct_sample_peak_difference_dB']:.6f} dB，非充足裕量设计"
+        lines.append(f"| {c['case']} | {c['state']} | {detail} |")
+    active=HERE/'active.json'
+    if active.exists():lines.extend(['\n## 当前工作项',json.dumps(read(active),ensure_ascii=False,indent=2)])
+    lines.extend(['\n## 执行边界','- 每配置/工作项结束由hook通知本对话，再核验结果和推进下一项。',
+                  '- 4个历史合格及2个历史失败保留，不为了凑网格数重跑。',
+                  '- 新几何目标10–11万网格；用户已批准11.2万以内的轻微超限并记录；既有缓存核验不重新自适应。',
+                  '- 不因ΔS标记或高阶通道完整矩阵报警单独触发无限返工；异常定位与基模证据独立记录。',
+                  '- 24配置收尾完成不等于24个全部设计成功，也不等于跨宽度规律已经验证。'])
+    (HERE/'STATUS.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
+    write(HERE/'status.json',{'updated_at':now(),'counts':dict(counts),'cases':rows})
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('command',choices=['init','status']);a=p.parse_args()
+    if a.command=='init':initialize()
+    status_report();print(json.dumps(read(HERE/'status.json')['counts'],ensure_ascii=False))
+
+
+if __name__=='__main__':main()

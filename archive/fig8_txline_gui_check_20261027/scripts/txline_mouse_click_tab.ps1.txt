@@ -1,0 +1,107 @@
+param(
+    [Parameter(Mandatory=$true)]
+    [ValidateSet("Microstrip", "Stripline", "CPW", "CPW Ground", "Round Coaxial", "Slotline", "Coupled MSLine", "Coupled Stripline")]
+    [string]$TabText,
+    [switch]$Background
+)
+
+Add-Type @"
+using System;
+using System.Text;
+using System.Runtime.InteropServices;
+
+public static class TxMouseWin32 {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc lpEnumFunc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern int GetWindowText(IntPtr hWnd, StringBuilder lpString, int nMaxCount);
+    [DllImport("user32.dll")] public static extern int GetClassName(IntPtr hWnd, StringBuilder lpClassName, int nMaxCount);
+    [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint lpdwProcessId);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool BringWindowToTop(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int X, int Y, int cx, int cy, uint uFlags);
+    [DllImport("user32.dll")] public static extern IntPtr FindWindowEx(IntPtr hwndParent, IntPtr hwndChildAfter, string lpszClass, string lpszWindow);
+    [DllImport("user32.dll")] public static extern IntPtr SendMessage(IntPtr hWnd, int msg, IntPtr wParam, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool SetCursorPos(int X, int Y);
+    [DllImport("user32.dll")] public static extern void mouse_event(uint dwFlags, uint dx, uint dy, uint dwData, UIntPtr dwExtraInfo);
+}
+"@
+
+function Get-Class([IntPtr]$h) {
+    $sb = New-Object System.Text.StringBuilder 256
+    [void][TxMouseWin32]::GetClassName($h, $sb, $sb.Capacity)
+    $sb.ToString()
+}
+
+function Get-Text([IntPtr]$h) {
+    $sb = New-Object System.Text.StringBuilder 512
+    [void][TxMouseWin32]::GetWindowText($h, $sb, $sb.Capacity)
+    $sb.ToString()
+}
+
+$process = Get-Process txline -ErrorAction Stop | Select-Object -First 1
+$targetPid = [uint32]$process.Id
+$main = [IntPtr]::Zero
+[void][TxMouseWin32]::EnumWindows({
+    param([IntPtr]$hWnd, [IntPtr]$lParam)
+    $windowPid = [uint32]0
+    [void][TxMouseWin32]::GetWindowThreadProcessId($hWnd, [ref]$windowPid)
+    if ($windowPid -eq $targetPid -and (Get-Class $hWnd) -eq "TForm1" -and (Get-Text $hWnd) -like "TXLINE 2003*") {
+        $script:main = $hWnd
+        return $false
+    }
+    return $true
+}, [IntPtr]::Zero)
+
+if ($main -eq [IntPtr]::Zero) { throw "TXLINE TForm1 window not found." }
+
+$rect = New-Object TxMouseWin32+RECT
+[void][TxMouseWin32]::GetWindowRect($main, [ref]$rect)
+
+# Approximate tab centers from TXLINE 2003's fixed tab strip.
+$tabCenters = @{
+    "Microstrip" = 35
+    "Stripline" = 87
+    "CPW" = 132
+    "CPW Ground" = 186
+    "Round Coaxial" = 268
+    "Slotline" = 333
+    "Coupled MSLine" = 416
+    "Coupled Stripline" = 535
+}
+
+$clientX = [int]$tabCenters[$TabText]
+$clientY = 12
+$x = $rect.Left + $clientX
+$y = $rect.Top + 38
+
+if (-not $Background) {
+    [void][TxMouseWin32]::ShowWindow($main, 5)
+    [void][TxMouseWin32]::BringWindowToTop($main)
+    [void][TxMouseWin32]::SetWindowPos($main, [IntPtr](-1), 0, 0, 0, 0, 0x0001 -bor 0x0002 -bor 0x0040)
+    [void][TxMouseWin32]::SetForegroundWindow($main)
+    Start-Sleep -Milliseconds 250
+}
+
+$tab = [TxMouseWin32]::FindWindowEx($main, [IntPtr]::Zero, "TTabControl", $null)
+if ($tab -ne [IntPtr]::Zero) {
+    $lParam = [IntPtr](($clientY -shl 16) -bor ($clientX -band 0xffff))
+    [void][TxMouseWin32]::SendMessage($tab, 0x0201, [IntPtr]1, $lParam) # WM_LBUTTONDOWN
+    Start-Sleep -Milliseconds 60
+    [void][TxMouseWin32]::SendMessage($tab, 0x0202, [IntPtr]0, $lParam) # WM_LBUTTONUP
+} else {
+    [void][TxMouseWin32]::SetCursorPos($x, $y)
+    Start-Sleep -Milliseconds 80
+    [TxMouseWin32]::mouse_event(0x0002, 0, 0, 0, [UIntPtr]::Zero) # left down
+    Start-Sleep -Milliseconds 50
+    [TxMouseWin32]::mouse_event(0x0004, 0, 0, 0, [UIntPtr]::Zero) # left up
+}
+Start-Sleep -Milliseconds 600
+if (-not $Background) {
+    [void][TxMouseWin32]::SetWindowPos($main, [IntPtr](-2), 0, 0, 0, 0, 0x0001 -bor 0x0002 -bor 0x0040)
+}
+
+Write-Output "Clicked $TabText at screen ($x,$y); window rect=($($rect.Left),$($rect.Top),$($rect.Right),$($rect.Bottom))"

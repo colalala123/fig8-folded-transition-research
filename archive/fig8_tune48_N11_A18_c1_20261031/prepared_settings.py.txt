@@ -1,0 +1,12 @@
+"""Configuration checks for the saved first mesh-controller stage, no solve."""
+import json
+def snapshot(x):return json.loads(json.dumps(x,default=str))
+def check_settings(app):
+    setup=app.get_setup('Setup19')
+    required={'SolveType':'Broadband','MaxDeltaS':.005,'MaximumPasses':16,'MinimumPasses':16,'MinimumConvergedPasses':2,'PercentRefinement':30,'UseMaxTetIncrease':False}
+    for k,v in required.items():assert setup.props[k]==v,(k,setup.props[k],v)
+    assert dict(setup.props['MultipleAdaptiveFreqsSetup'])=={'Low':'0.1GHz','High':'15GHz'}
+    assert len(setup.sweeps)==1
+    sweep=setup.sweeps[0];assert sweep.name=='Sweep1'
+    for k,v in {'Type':'Interpolating','RangeStart':'0.01GHz','RangeEnd':'15GHz','RangeStep':'0.01GHz','InterpTolerance':1.0,'EnforcePassivity':False,'IsEnabled':False}.items():assert sweep.props[k]==v,(k,sweep.props[k],v)
+    return {'setup':snapshot(setup.props),'sweep':snapshot(sweep.props)}

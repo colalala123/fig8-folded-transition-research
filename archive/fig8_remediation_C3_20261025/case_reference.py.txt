@@ -1,0 +1,64 @@
+"""Frozen per-case reference treatment, never a fitted/passivity correction."""
+import csv
+from pathlib import Path
+import numpy as np
+import phase_control as pc
+
+MODES=['1:1','1:2','2:1','2:2']
+PAIRS={'S11':(0,0),'S21':(2,0),'S12':(0,2),'S22':(2,2)}
+
+def table(path):
+    with Path(path).open(encoding='utf-8-sig',newline='') as f:
+        rr=list(csv.DictReader(f))
+    assert rr
+    out={k:np.array([float(r[k]) for r in rr]) for k in rr[0]}
+    assert all(np.isfinite(v).all() for v in out.values())
+    return out
+
+def native_matrix(run):
+    s=table(run/'all_modes_sparams.csv');z=table(run/'mode_impedance_gamma.csv')
+    f=s['Freq_GHz'];assert np.array_equal(f,z['Freq_GHz']) and len(set(f))==len(f)
+    matrix=np.empty((len(f),4,4),complex)
+    for i,a in enumerate(MODES):
+        for j,b in enumerate(MODES):matrix[:,i,j]=s[f'S({a},{b})_real']+1j*s[f'S({a},{b})_imag']
+    impedance=np.column_stack([z[f'Zo({m})_real']+1j*z[f'Zo({m})_imag'] for m in MODES])
+    assert np.isfinite(matrix).all() and np.isfinite(impedance).all() and (abs(impedance)>1e-14).all()
+    return f,matrix,impedance
+
+def transform(s,z):
+    """Same traveling-wave S50=B A^-1 formula as calibrated legacy D12."""
+    assert s.shape==(len(z),4,4) and z.shape[1]==4
+    assert np.isfinite(s).all() and np.isfinite(z).all() and (abs(z)>1e-14).all()
+    d=np.sqrt(z/50.0);eye=np.eye(4)[None,:,:]
+    a=(d+1/d)[:,:,None]*eye+(d-1/d)[:,:,None]*s
+    b=(d-1/d)[:,:,None]*eye+(d+1/d)[:,:,None]*s
+    out=np.linalg.solve(a.transpose(0,2,1),b.transpose(0,2,1)).transpose(0,2,1)
+    assert np.isfinite(out).all()
+    return out
+
+def validate_native(f,m,path):
+    data=table(path);assert np.array_equal(data['Freq_GHz'],f)
+    for k,(i,j) in PAIRS.items():assert abs(m[:,i,j]-(data[k+'_real']+1j*data[k+'_imag'])).max()<1e-10
+
+def apply_reference(run,case):
+    run=Path(run);assert not (run/'reference_review.json').exists()
+    assert case in ('D04G02','D01G02','D12G05')
+    validation=pc.read(pc.HERE/'reference_validation.json');assert validation['legacy_selected_native_reference_verified']
+    assert validation['adapter_sha256']==pc.sha(Path(__file__).resolve())
+    f,raw,z=native_matrix(run);validate_native(f,raw,run/'sparams.csv')
+    result=dict(case=case,treatment='native_fundamental',sparams_sha256=pc.sha(run/'sparams.csv'),
+        adapter_sha256=pc.sha(Path(__file__).resolve()),validation_sha256=pc.sha(pc.HERE/'reference_validation.json'),
+        raw_matrix_sha256=pc.sha(run/'all_modes_sparams.csv'),Zo_sha256=pc.sha(run/'mode_impedance_gamma.csv'),
+        no_conversion=True,points=len(f),full_matrix_approved=False,
+        note='D12 legacy50ohm calibration was a separate matrix diagnostic. Selected legacy sparams exactly equal raw fundamental entries; no second conversion.')
+    pc.write(run/'reference_review.json',result)
+    return result
+
+def verify_reference(run):
+    run=Path(run);review=pc.read(run/'reference_review.json')
+    assert pc.sha(run/'sparams.csv')==review['sparams_sha256']
+    assert review['treatment']=='native_fundamental' and review['no_conversion']
+    assert review['adapter_sha256']==pc.sha(Path(__file__).resolve())
+    assert review['validation_sha256']==pc.sha(pc.HERE/'reference_validation.json')
+    f,raw,z=native_matrix(run);validate_native(f,raw,run/'sparams.csv')
+    return review

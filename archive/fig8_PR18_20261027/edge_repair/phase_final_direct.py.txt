@@ -1,0 +1,63 @@
+"""Finite edge-label repair. Old interpolation failure is immutable, not waived."""
+from pathlib import Path
+import numpy as np
+from phase_control import HERE,BASE,read
+from solver_runtime import passes
+
+def crossing_details(x,y,max_fine=.01):
+    x=np.asarray(x,float);y=np.asarray(y,float)
+    assert len(x)==len(y) and len(x)>=4 and np.all(np.diff(x)>0)
+    hits=[i for i in range(len(x)-1) if y[i]*y[i+1]<=0 and y[i]!=y[i+1]]
+    if len(hits)!=1:return dict(passed=False,reason='Missing or ambiguous actual crossing',crossings=len(hits))
+    i=hits[0];fine=float(x[i]-y[i]*(x[i+1]-x[i])/(y[i+1]-y[i]))
+    if i==0 or i+2>=len(x):return dict(passed=False,reason='No outer nested bracket')
+    lo=i-1;hi=i+2
+    coarse=float(x[lo]-y[lo]*(x[hi]-x[lo])/(y[hi]-y[lo]))
+    width=float(x[i+1]-x[i]);shift=abs(fine-coarse)
+    return dict(passed=bool(width<=max_fine+1e-10 and shift<=.02),fine_edge_GHz=fine,coarse_edge_GHz=coarse,
+                fine_bracket_GHz=[float(x[i]),float(x[i+1])],coarse_bracket_GHz=[float(x[lo]),float(x[hi])],
+                fine_bracket_width_GHz=width,coarse_fine_shift_GHz=shift,actual_sign_values=[float(y[i]),float(y[i+1])])
+
+def compare(source,run):
+    source=Path(source);run=Path(run);p=read(run/'input.json');case=p['case']
+    prior=BASE/case/'direct_smallbatch';old=read(prior/'comparison.json');limits=old['limits']
+    a=np.atleast_1d(np.genfromtxt(source/'sparams.csv',delimiter=',',names=True))
+    b=np.atleast_1d(np.genfromtxt(run/'sparams.csv',delimiter=',',names=True));f=b['Freq_GHz']
+    assert np.allclose(f,p['requested_frequencies_GHz'],rtol=0,atol=1e-9)
+    detail=crossing_details(f,b['S11_dB']+20)
+    error=max(float(np.max(abs(np.interp(f,a['Freq_GHz'],a[k+'_real'])+1j*np.interp(f,a['Freq_GHz'],a[k+'_imag'])-(b[k+'_real']+1j*b[k+'_imag'])))) for k in ['S11','S21'])
+    s21error=float(np.max(abs(np.interp(f,a['Freq_GHz'],a['S21_dB'])-b['S21_dB'])))
+    # All other old checks must actually have passed; only the last band lower
+    # edge and resulting width are replaced with explicit corrected labels.
+    preserved=bool(old['sampled_design_supported'] and old['max_complex_error']<=limits['max_complex_error']
+        and old['max_nearband_S21_error_dB']<=limits['max_inband_S21_error_dB']
+        and max(old['peak_height_errors_dB'])<=limits['max_peak_error_dB']
+        and all(v is not None and v<=limits['max_edge_shift_GHz'] for v in old['edge_shifts_GHz'].values())
+        and old['BW_shift_GHz']<=limits['max_BW_shift_GHz'])
+    for band in old['joint20_band_reviews'][:-1]:
+        preserved=preserved and band['width_shift_GHz'] is not None and band['width_shift_GHz']<=limits['max_BW_shift_GHz']
+        preserved=preserved and all(e['shift_GHz'] is not None and e['shift_GHz']<=limits['max_edge_shift_GHz'] and e['other_condition_verified'] for e in band['edges'])
+    high=old['joint20_band_reviews'][-1];upper=high['edges'][1]
+    preserved=bool(preserved and upper['direct_GHz'] is not None and upper['shift_GHz']<=limits['max_edge_shift_GHz'] and upper['other_condition_verified'])
+    other=bool(np.all(b['S21_dB']>=-2))
+    edge=detail.get('fine_edge_GHz');coarse=detail.get('coarse_edge_GHz');ref=high['edges'][0]['reference_GHz']
+    width=upper['direct_GHz']-edge if edge is not None else None
+    bands=[]
+    for band in old['joint20_band_reviews']:
+        bands.append([band['edges'][0]['direct_GHz'],band['edges'][1]['direct_GHz']])
+    bands[-1][0]=edge
+    accepted=bool(detail['passed'] and preserved and other and error<=limits['max_complex_error'] and s21error<=limits['max_inband_S21_error_dB'])
+    originalshift=abs(edge-ref) if edge is not None else None
+    old_width=upper['reference_GHz']-ref
+    original_pass=bool(edge is not None and originalshift<=limits['max_edge_shift_GHz'] and abs(width-old_width)<=limits['max_BW_shift_GHz'] and preserved)
+    return dict(case=case,points=len(f),prior_direct_run=str(prior),numerical_review_passed=accepted,
+        repaired_direct_labels_accepted=accepted,original_interpolation_consistency_passed=original_pass,
+        old_review_rewritten=False,geometry_changed=False,new_adaptive_mesh=False,full_matrix_approved=False,
+        sampled_design_supported=old['sampled_design_supported'],both_sampled_inner_peaks_le_minus20=old['both_sampled_inner_peaks_le_minus20'],
+        preserved_other_metric_checks=preserved,other_S21_condition_verified=other,max_complex_error=error,max_nearband_S21_error_dB=s21error,
+        direct_peak_difference_dB=old['direct_peak_difference_dB'],corrected_edge_GHz=edge,corrected_high_band_width_GHz=width,
+        corrected_joint20_intervals_GHz=bands,edge_refinement=detail,
+        coarse_fine_width_shift_GHz=abs(edge-coarse) if edge is not None and coarse is not None else None,
+        original_interpolation_edge_GHz=ref,corrected_vs_original_edge_shift_MHz=originalshift*1000 if originalshift is not None else None,
+        corrected_vs_original_width_shift_MHz=abs(width-old_width)*1000 if width is not None else None,
+        limits=limits,scope='Corrected local direct label with nested bracket stability; other metrics inherit prior finite direct review. NOT old interpolation acceptance, full-curve validation, independent mesh convergence or scientific -20dB design approval.')

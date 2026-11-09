@@ -1,0 +1,32 @@
+"""No solver dispatch: test Windows launcher identity acceptance and rejection."""
+import unittest
+from unittest.mock import Mock
+import continue_d04_supervised_windows as c
+
+class ProcessIdentityTests(unittest.TestCase):
+    def process(self, pid=2, parent=1, suffix=None):
+        p=Mock();p.pid=pid
+        p.cmdline.return_value=['python.exe', str(c.HERE/'guarded_pilot_queue.py'), *(suffix or ['--stage','supervised','--solve'])]
+        ancestor=Mock();ancestor.pid=parent;p.parents.return_value=[ancestor]
+        return p
+
+    def test_direct_interpreter(self):
+        self.assertTrue(c.belongs_to_launch(self.process(pid=1),1))
+
+    def test_venv_child(self):
+        self.assertTrue(c.belongs_to_launch(self.process(),1))
+
+    def test_unrelated_queue(self):
+        self.assertFalse(c.belongs_to_launch(self.process(parent=8),1))
+
+    def test_wrong_stage(self):
+        self.assertFalse(c.belongs_to_launch(self.process(suffix=['--stage','remaining','--solve']),1))
+
+    def test_wrong_script(self):
+        p=self.process();p.cmdline.return_value[1]='C:/unrelated/guarded_pilot_queue.py'
+        self.assertFalse(c.belongs_to_launch(p,1))
+
+    def test_no_process(self):
+        self.assertFalse(c.belongs_to_launch(None,1))
+
+if __name__=='__main__':unittest.main(verbosity=2)

@@ -1,0 +1,111 @@
+"""Pure B6 target-specific finite review planner/comparator, no HFSS dispatch."""
+import numpy as np
+from scipy.signal import find_peaks
+
+def cross(x,y):
+    out=[]
+    for i in range(len(x)-1):
+        if y[i]==0:out.append(float(x[i]))
+        if y[i]*y[i+1]<0:out.append(float(x[i]-y[i]*(x[i+1]-x[i])/(y[i+1]-y[i])))
+    if y[-1]==0:out.append(float(x[-1]))
+    return sorted(set(out))
+
+def edge_points(f):
+    c=round(float(f),3)
+    return [round(c-.02,3),round(c-.005,3),round(c+.005,3),round(c+.02,3)]
+
+def make_plan(data,metrics,target,center_joint):
+    f=data['Freq_GHz'];points={target['f_low_GHz'],target['f_high_GHz']};reasons={}
+    def add(values,reason):
+        for x in values:
+            x=round(float(x),5)
+            if .01<=x<=15:points.add(x);reasons.setdefault(str(x),[]).append(reason)
+    peaks=[]
+    for p in metrics.get('peaks',[]):
+        c=float(p['frequency_GHz']);rr=[round(c+d,3) for d in [-.01,0,.01]]
+        if target['f_low_GHz']-.02<=c<=target['f_high_GHz']+.02:
+            add(rr,'inner_S11_peak');peaks.append(dict(reference_GHz=c,points=rr))
+    add([metrics['central_valley_GHz']],'central_reference_sample')
+    edges=[]
+    for key in ['f_low_GHz','f_high_GHz']:
+        ref=metrics.get('passband_2dB',{}).get(key)
+        if ref is not None:
+            cc=round(ref,2);rr=[round(cc-.02,2),round(cc+.02,2)];add(rr,'S21_minus2_edge');edges.append(dict(kind='S21',reference_GHz=ref,points=rr,role=key))
+    if center_joint[0] is not None:
+        for role,ref in zip(['f_low_GHz','f_high_GHz'],center_joint[:2]):
+            rr=edge_points(ref);add(rr,'center_joint20_edge_nested_bracket');edges.append(dict(kind='S11',reference_GHz=ref,points=rr,role=role))
+    band=(f>=target['f_low_GHz'])&(f<=target['f_high_GHz']);ii=np.flatnonzero(band)
+    if len(ii):
+        add([f[ii[np.argmax(data['S11_dB'][ii])]]],'worst_reflection_in_requested_band')
+        add([f[ii[np.argmin(data['S21_dB'][ii])]]],'worst_transmission_in_requested_band')
+    # New shape irregularities, not only the old two-peak metric list.
+    extra=[]
+    for col,sign,threshold in [('S11_dB',1,-22),('S21_dB',-1,1.8)]:
+        ids=find_peaks(sign*data[col])[0]
+        for i in ids:
+            if band[i] and sign*data[col][i]>threshold:extra.append((float(sign*data[col][i]),float(f[i]),col))
+    for _,c,col in sorted(extra,reverse=True):
+        new={round(c+d,3) for d in [-.01,0,.01]}-points
+        if len(points)+len(new)<=24:add(new,'additional_target_extremum_'+col)
+    requested=sorted(points)
+    if len(requested)>24:raise ValueError('Target-critical first-wave plan exceeds24 points; inspect instead of silently dropping extrema')
+    return dict(requested_frequencies_GHz=requested,chunks=[requested[i:i+4] for i in range(0,len(requested),4)],target=target,
+        peak_neighborhoods=peaks,edges=edges,reasons=reasons,reserve_points=8,reserve_launches=2,
+        scope='Target endpoints, target inner peaks/extrema, S21 edges and center joint20 edges only. No remote disconnected-band certification.')
+
+def compare_arrays(original,direct,metrics,plan,limits):
+    f=direct['Freq_GHz'];ff=original['Freq_GHz'];target=plan['target']
+    def rows(points):
+        out=[]
+        for x in points:
+            ii=np.flatnonzero(abs(f-x)<1e-8)
+            if len(ii)!=1:raise ValueError('Missing actual point '+str(x))
+            out.append(ii[0])
+        return np.array(out)
+    error=max(float(np.max(abs(np.interp(f,ff,original[k+'_real'])+1j*np.interp(f,ff,original[k+'_imag'])-(direct[k+'_real']+1j*direct[k+'_imag'])))) for k in ['S11','S21'])
+    mask=(f>=target['f_low_GHz'])&(f<=target['f_high_GHz'])
+    s21error=float(np.max(abs(np.interp(f[mask],ff,original['S21_dB'])-direct['S21_dB'][mask])))
+    peak_reviews=[]
+    for p in plan['peak_neighborhoods']:
+        rr=rows(p['points']);j=int(np.argmax(direct['S11_dB'][rr]));source_max=float(np.interp(f[rr],ff,original['S11_dB']).max());dm=float(direct['S11_dB'][rr[j]])
+        peak_reviews.append(dict(reference_GHz=p['reference_GHz'],actual_sampled_peak_GHz=float(f[rr[j]]),actual_sampled_peak_dB=dm,
+            interior=j not in (0,len(rr)-1),source_sampled_peak_dB=source_max,height_error_dB=abs(dm-source_max),points=p['points']))
+    edges=[]
+    for e in plan['edges']:
+        rr=rows(e['points']);col='S11_dB' if e['kind']=='S11' else 'S21_dB';threshold=-20 if e['kind']=='S11' else -2
+        xs=f[rr];ys=direct[col][rr]-threshold;cc=cross(xs,ys)
+        value=min(cc,key=lambda v:abs(v-e['reference_GHz'])) if cc else None
+        detail=dict(**e,direct_GHz=value,shift_GHz=abs(value-e['reference_GHz']) if value is not None else None)
+        if e['kind']=='S11':
+            hit=[i for i in range(len(xs)-1) if ys[i]*ys[i+1]<=0 and ys[i]!=ys[i+1]]
+            fine_width=min((float(xs[i+1]-xs[i]) for i in hit),default=None)
+            coarse=cross(xs[[0,-1]],ys[[0,-1]])
+            detail.update(fine_bracket_width_GHz=fine_width,coarse_fine_shift_GHz=abs(coarse[0]-value) if coarse and value is not None else None,
+                other_condition_verified=bool(np.all(direct['S21_dB'][rr]>=-2)))
+        edges.append(detail)
+    target_rows=np.flatnonzero(mask);w=int(target_rows[np.argmax(direct['S11_dB'][mask])]);t=int(target_rows[np.argmin(direct['S21_dB'][mask])])
+    violations=[dict(GHz=float(f[i]),S11_dB=float(direct['S11_dB'][i]),S21_dB=float(direct['S21_dB'][i])) for i in target_rows if direct['S11_dB'][i]>-20 or direct['S21_dB'][i]<-2]
+    limits_ok=error<=limits['max_complex_error'] and s21error<=limits['max_inband_S21_error_dB'] and all(x['height_error_dB']<=limits['max_peak_error_dB'] for x in peak_reviews)
+    edge_ok=all(e['shift_GHz'] is not None and e['shift_GHz']<=limits['max_edge_shift_GHz'] for e in edges)
+    fine_ok=all(e.get('fine_bracket_width_GHz') is not None and e['fine_bracket_width_GHz']<=.01000001 and e.get('coarse_fine_shift_GHz') is not None and e['coarse_fine_shift_GHz']<=.02 and e['other_condition_verified'] for e in edges if e['kind']=='S11')
+    needs_peak=any(not x['interior'] for x in peak_reviews)
+    # Only finite samples. Passing target requires both dense source support
+    # and completed critical-point checks; direct failure is retained even if
+    # a separate interpolating consistency test fails.
+    ff2=np.r_[target['f_low_GHz'],ff[(ff>target['f_low_GHz'])&(ff<target['f_high_GHz'])],target['f_high_GHz']]
+    dense_ok=bool(np.max(np.interp(ff2,ff,original['S11_dB']))<=-20 and np.min(np.interp(ff2,ff,original['S21_dB']))>=-2)
+    bykind={}
+    for k in ['S21','S11']:
+        ee={e['role']:e for e in edges if e['kind']==k}
+        if set(ee)=={'f_low_GHz','f_high_GHz'} and all(v['direct_GHz'] is not None for v in ee.values()):
+            width=ee['f_high_GHz']['direct_GHz']-ee['f_low_GHz']['direct_GHz'];refwidth=ee['f_high_GHz']['reference_GHz']-ee['f_low_GHz']['reference_GHz']
+            bykind[k]=dict(f_low_GHz=ee['f_low_GHz']['direct_GHz'],f_high_GHz=ee['f_high_GHz']['direct_GHz'],BW_GHz=width,width_shift_GHz=abs(width-refwidth))
+    width_ok=all(x['width_shift_GHz']<=limits['max_BW_shift_GHz'] for x in bykind.values())
+    numerical=bool(limits_ok and edge_ok and fine_ok and width_ok and not needs_peak)
+    return dict(points=len(f),max_complex_error=error,max_nearband_S21_error_dB=s21error,peak_reviews=peak_reviews,edge_reviews=edges,
+        direct_bandwidths=bykind,direct_peak_difference_dB=abs(peak_reviews[0]['actual_sampled_peak_dB']-peak_reviews[1]['actual_sampled_peak_dB']) if len(peak_reviews)==2 else None,
+        requested_band_direct_worst_S11=dict(GHz=float(f[w]),dB=float(direct['S11_dB'][w])),requested_band_direct_min_S21=dict(GHz=float(f[t]),dB=float(direct['S21_dB'][t])),
+        direct_target_violations=violations,dense_target_covered=dense_ok,target_finite_direct_failure_confirmed=bool(violations),
+        numerical_review_passed=numerical,sampled_design_supported=bool(dense_ok and not violations),
+        needs_reserved_points=bool(not violations and not numerical),needs_peak_expansion=needs_peak,
+        full_matrix_approved=False,limits=limits,scope='Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.')

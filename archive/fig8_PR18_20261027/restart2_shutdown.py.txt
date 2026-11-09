@@ -1,0 +1,32 @@
+"""Human-authorized crash recovery, preserving all preparation and crash evidence."""
+import os,sys,shutil,json,datetime,hashlib
+from pathlib import Path
+import psutil
+P=Path(__file__).resolve().parent;C=P/'length_tuning'
+R=Path('J:/f8_PR18_261027/P04G05/g03_probe_Lm');B=R/'crash1_preserved'
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+assert not B.exists()
+s=json.loads((R/'state.json').read_text());assert s['status']=='preparing' and not s['segments'] and not s['mesh_stages']
+assert not any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name']))
+identity=json.loads((C/'aedt_identity.json').read_text());d=psutil.Process(identity['pid']);assert abs(d.create_time()-identity['created'])<.01
+workers=[]
+for pid,created in [(19884,1793077189.2376473),(39688,1793077189.183468)]:
+ w=psutil.Process(pid);assert abs(w.create_time()-created)<.01 and str(R/'input.json').lower() in ' '.join(w.cmdline()).lower();workers.append(w)
+B.mkdir();records={}
+for f in list(R.iterdir()):
+ if f==B:continue
+ if f.is_dir():shutil.copytree(f,B/f.name,ignore=shutil.ignore_patterns('*.semaphore'))
+ else:shutil.copy2(f,B/f.name);assert sha(f)==sha(B/f.name);records[f.name]=sha(f)
+evidence=P/'restart2';evidence.mkdir(exist_ok=True)
+for name in ['ansysedt.xml','ansysedt.dmp']:
+ f=Path(os.environ['TEMP'])/name
+ if f.exists():shutil.copy2(f,evidence/name)
+for name in ['worker.lock']:
+ f=C/name;assert f.read_text()=='19884';shutil.copy2(f,evidence/('before_'+name))
+f=Path('J:/f8_261007/protocol.lock');assert f.read_text()=='19884';shutil.copy2(f,evidence/'before_protocol.lock')
+for w in workers:w.terminate()
+gone,alive=psutil.wait_procs(workers,timeout=15);assert not alive
+d.terminate();d.wait(timeout=30)
+assert not any((p.info['name'] or '').lower() in ['hf3d.exe','ansysedt.exe'] for p in psutil.process_iter(['name']))
+report=dict(at=datetime.datetime.now(datetime.timezone.utc).isoformat(),backup=str(B),files=records,old_desktop=identity,workers=[w.pid for w in workers],solver_started_before_crash=False,locks_deleted=False,analyze_requested=False,authorization='User asked to investigate/restart HFSS and supplied screenshot confirming crash.')
+(evidence/'shutdown.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');print({k:v for k,v in report.items() if k!='files'})

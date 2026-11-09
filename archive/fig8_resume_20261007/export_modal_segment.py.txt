@@ -1,0 +1,66 @@
+"""Export explicit scalar modal quantities from an already solved sweep."""
+import csv
+from pathlib import Path
+import numpy as np
+from run_broadband_case import connect
+from broadband_recovery import write_json,read
+
+def load_segment(run):
+    run=Path(run)
+    with (run/'all_modes_sparams.csv').open(encoding='utf-8-sig') as h:rows=list(csv.DictReader(h))
+    with (run/'mode_impedance_gamma.csv').open(encoding='utf-8-sig') as h:aux=list(csv.DictReader(h))
+    count=read(run/'manifest.json')['modes'];assert count==2
+    assert rows and len(rows)==len(aux)
+    f=np.array([float(r['Freq_GHz']) for r in rows])
+    assert np.all(np.diff(f)>0)
+    assert np.allclose(f,[float(r['Freq_GHz']) for r in aux],rtol=0,atol=1e-9)
+    modes=[f'{p}:{m}' for p in [1,2] for m in [1,2]]
+    s=np.zeros((len(f),4,4),complex);z=np.zeros((len(f),4),complex)
+    for i,a in enumerate(modes):
+        label=f'Zo({a})';z[:,i]=[complex(float(r[label+'_real']),float(r[label+'_imag'])) for r in aux]
+        for j,b in enumerate(modes):
+            label=f'S({a},{b})';s[:,i,j]=[complex(float(r[label+'_real']),float(r[label+'_imag'])) for r in rows]
+    assert np.isfinite(s).all() and np.isfinite(z).all() and np.all(abs(z)>0)
+    return f,s,z,modes
+
+def export(project, setup_sweep, out, frequencies):
+    out=Path(out);out.mkdir(exist_ok=True,parents=True)
+    modes=[f'{p}:{m}' for p in [1,2] for m in [1,2]]
+    expressions=[f'S({a},{b})' for a in modes for b in modes]
+    auxiliary=[f'{kind}({m})' for kind in ['Zo','Gamma'] for m in modes]
+    app=connect(Path(project),7990)
+    try:
+        assert not app.are_there_simulations_running
+        data=app.post.get_solution_data(expressions=expressions+auxiliary,
+            setup_sweep_name=setup_sweep,domain='Sweep',report_category='Modal Solution Data')
+        assert data
+        f=np.array(data.primary_sweep_values)*{'GHz':1,'MHz':1e-3,'Hz':1e-9}[data.units_sweeps['Freq']]
+        assert len(f)==len(frequencies) and np.allclose(f,frequencies,rtol=0,atol=1e-9)
+        values={}
+        for e in expressions+auxiliary:
+            _,a=data.get_expression_data(e,formula='real')
+            _,b=data.get_expression_data(e,formula='imag')
+            values[e]=np.array(a)+1j*np.array(b)
+            assert len(values[e])==len(f) and np.isfinite(values[e]).all()
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+    def table(name,mapping,magnitude=False):
+        rows=[{'Freq_GHz':float(x)} for x in f]
+        for label,e in mapping.items():
+            for i,z in enumerate(values[e]):
+                rows[i][label+'_real']=float(z.real);rows[i][label+'_imag']=float(z.imag)
+                if magnitude:
+                    rows[i][label+'_mag']=float(abs(z))
+                    rows[i][label+'_dB']=float(20*np.log10(max(abs(z),1e-300)))
+        with (out/name).open('w',newline='',encoding='utf-8') as h:
+            w=csv.DictWriter(h,fieldnames=rows[0]);w.writeheader();w.writerows(rows)
+    mapping={'S11':'S(1:1,1:1)','S21':'S(2:1,1:1)','S12':'S(1:1,2:1)','S22':'S(2:1,2:1)'}
+    table('all_modes_sparams.csv',{e:e for e in expressions})
+    table('mode_impedance_gamma.csv',{e:e for e in auxiliary})
+    table('sparams.csv',mapping,True)
+    write_json(out/'mode_map.json',{'mode_count_per_port':2,'excitations':modes,
+        'fundamental_report_mapping':mapping,'setup_sweep':setup_sweep,'source':'Explicit HFSS scalar port:mode report quantities'})
+    manifest=out/'manifest.json'
+    if not manifest.exists():
+        write_json(manifest,{'modes':2,'project':str(project),'setup_sweep':setup_sweep,
+            'status':'exported_review_required','diagnostic_only':True,
+            'scope':'Explicit modal export only; numerical, geometry and production acceptance not asserted.'})

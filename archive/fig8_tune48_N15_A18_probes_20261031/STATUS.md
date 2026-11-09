@@ -1,0 +1,9 @@
+# Fig8 T48_N15_A18_PROBES有界长度校正
+
+{
+  "case": "N15_A18_S",
+  "stage": "awaiting_geometry_hook_review",
+  "operation_status": "failed",
+  "run_dir": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031\\data\\N15_A18\\probes\\N15_A18_S\\g01_initial",
+  "finished_at": "2026-10-31T08:34:50.866171+00:00"
+}

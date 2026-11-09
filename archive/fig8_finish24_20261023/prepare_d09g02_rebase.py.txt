@@ -1,0 +1,144 @@
+"""D09G02-only policy-aligned center and bounded local tuning.
+
+Preserve the converged legacy cache. Its higher mesh count is NOT a failure.
+One center is explicitly budgeted to avoid mixing sweep/meshing policies in
+finite differences; this is not a full-matrix repair or a precision retry.
+"""
+import argparse
+from pathlib import Path
+import numpy as np
+import prepare_tuning as core
+from control import HERE, BASE, OLD, read, write, sha, now
+from geometry_worker import dc, geometry_gate, analyze, passes
+
+CASE = 'D09G02'
+LEGACY = OLD / CASE / 'i01'
+RUN = BASE / CASE / 'g00_rebase'
+DECISION = HERE / 'cases' / CASE / 'rebase_decision.json'
+
+
+def check_decision(d, row, ledger):
+    assert d['case'] == row['case'] == CASE
+    assert d['action'] == 'one_same_policy_center'
+    assert d['old_results_preserved'] and d['count_as_additional_geometry_attempt']
+    assert not d['reuse_old_sensitivities'] and not d['mesh_count_is_failure']
+    assert d['geometry'] == d['history_best_geometry']
+    assert d['legacy_sweep']['InterpTolerance'] == .5 and d['legacy_sweep']['EnforcePassivity'] is True
+    assert not d['same_controller_center_available'] and not d['design_already_passed']
+    assert ledger['attempts_used_or_reserved'] == 3 and not ledger['new_geometry_slots']
+    assert [x['run_name'] for x in d['history_audit']] == ['i00', 'i01', 'i02']
+    assert min(d['history_audit'], key=lambda x:x['normalized_error'])['run_name'] == 'i01'
+    assert ledger['attempts_used_or_reserved'] + 1 + 3 == 7 <= 8
+
+
+def audit():
+    from pilot_queue import error, normalized_error
+    row = next(x for x in read(HERE/'plan.json')['cases'] if x['case'] == CASE)
+    assert Path(row['selected_source']).resolve() == (OLD/CASE/'i02').resolve()
+    assert row['existing_new_attempts'] == 3 and row['historical_phase_solves'] == 0
+    initial = dict(Wm=1.6, Ws=.58, Lm=6.499465, Ls1=12.08066, Ls2=1.71, Ls3=1.98)
+    assert row['initial_geometry'] == initial
+    expected = [initial, {**initial, 'Ls1':12.18066}, {**initial, 'Lm':6.549465}]
+    expected_mesh = [108345, 122809, 152315]
+    parents = {}; records = []; states = []
+    for index in range(3):
+        folder = OLD/CASE/f'i{index:02d}'
+        state = read(folder/'state.json'); metrics = read(folder/'response_metrics.json')
+        assert state['geometry'] == expected[index]
+        assert state['sweep_converged'] and state['source_unchanged']
+        assert sha(state['source']) == state['source_sha256']
+        assert state['cad_verification']['passed'] and state['modes_per_port'] == 2
+        assert passes(folder/'convergence.txt')[-1][1] == expected_mesh[index]
+        assert state['settings']['setup']['PercentRefinement'] == 30
+        assert state['settings']['setup']['MaxDeltaS'] == .005
+        assert state['settings']['sweep']['InterpTolerance'] == .5
+        assert state['settings']['sweep']['EnforcePassivity'] is True
+        actual = analyze(folder/'sparams.csv', f0=6.85)
+        for key in ['signed_peak_difference_dB', 'central_valley_GHz']:
+            assert abs(actual[key] - metrics[key]) < 1e-12
+        assert abs(actual['passband_2dB']['BW_GHz']-metrics['passband_2dB']['BW_GHz']) < 1e-12
+        for fn in ['sparams.csv', 'all_modes_sparams.csv', 'mode_impedance_gamma.csv']:
+            data = np.genfromtxt(folder/fn, delimiter=',', skip_header=1)
+            assert len(data) == 1500 and np.isfinite(data).all()
+            assert np.allclose(data[:,0], np.arange(1,1501)/100)
+        assert error(metrics,6.72) is not None
+        records.append(dict(run_name=folder.name, run=str(folder), geometry=state['geometry'],
+            elements=expected_mesh[index], signed_peak_difference_dB=metrics['signed_peak_difference_dB'],
+            central_valley_GHz=metrics['central_valley_GHz'], BW_GHz=metrics['passband_2dB']['BW_GHz'],
+            normalized_error=normalized_error(error(metrics,6.72))))
+        states.append(state)
+        for fn in ['state.json','response_metrics.json','sparams.csv','all_modes_sparams.csv',
+                   'mode_impedance_gamma.csv','manifest.json','convergence.txt','normalization_recovery_review.json']:
+            parents[str(folder/fn)] = sha(folder/fn)
+    assert row['current_geometry'] == states[2]['geometry']
+    assert min(records,key=lambda x:x['normalized_error'])['run_name'] == 'i01'
+    state = states[1]; metrics = read(LEGACY/'response_metrics.json')
+    assert geometry_gate(state['geometry'], row['initial_geometry'])['passed']
+    for root in [BASE, Path('J:/f8_speed_261021'), Path('J:/f8_mesh100k_261022')]:
+        assert not list(root.glob('*D09G02*'))
+    for path in [HERE/'policy.json', HERE/'mesh_policy_addendum_v2.json', Path(__file__).resolve()]:
+        parents[str(path)] = sha(path)
+    ledger = core.attempt_ledger(CASE)
+    d = dict(case=CASE, created_at=now(), action='one_same_policy_center', geometry=state['geometry'],
+        history_best_geometry=state['geometry'], history_audit=records, old_results_preserved=True,
+        count_as_additional_geometry_attempt=True, reuse_old_sensitivities=False, mesh_count_is_failure=False,
+        legacy_sweep=state['settings']['sweep'], same_controller_center_available=False,
+        design_already_passed=False, legacy=records[1], plan_selected_source_preserved=row['selected_source'],
+        budget_before=ledger, evidence_hashes=parents,
+        reason='All three legacy curves independently audited. i01 has the smallest measured normalized design error; i02 is an independent Lm probe with worse error, not an improved center. Use i01 unchanged geometry for exactly one policy-aligned center; preserve all three attempts. New finite differences must not mix legacy0.5%/passivity-on/DeltaS-driven mesh with new1%/passivity-off/count mesh.',
+        alternatives='Retain all legacy caches and old sensitivities as historical evidence. Latest i02 is worse than i01. A sweep-only legacy conversion would not quantify mesh-controller offset. Higher mesh count alone is not failure; no full-matrix repair.',
+        limitations='Both meshing and sweep policies change. Compare against i01, not silently against i02, and retain combined differences without strict-mesh equivalence claim. No second center or automatic precision escalation.',
+        budget_plan='History3+one center=4; independent Ls1/Lm/candidate reach5/6/7. No complete second cycle fits. At most one already-defined half-step if actual failed trial warrants it and budget remains; otherwise bounded disposition. Same-mesh direct review does not add geometry. Never exceed8.')
+    check_decision(d,row,ledger)
+    return d,state
+
+
+def prepare_rebase():
+    assert not dc.solvers() and not any(p.exists() for p in [HERE/'worker.lock', OLD/'protocol.lock', OLD/'pilot_queue.lock'])
+    assert not RUN.exists() and not DECISION.exists()
+    d, s = audit()
+    assert geometry_gate(d['geometry'], d['geometry'])['passed']
+    addon = read(HERE/'mesh_policy_addendum_v2.json')
+    assert addon['user_authorized'] and addon['reviewed_exception_upper'] == 112000
+    prev = read(HERE/'supervised_release.json'); ps = read(prev['input_path']); pr = Path(ps['run_dir'])
+    assert sha(prev['input_path']) == prev['input_sha256']
+    ack = read(pr/'receiver_ack.json')
+    assert ack['event_sha256'] == sha(pr/'completion_event.json')
+    assert ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+    archive = HERE/'supervised_releases'/f"{prev['case']}_{pr.name}.json"
+    assert not archive.exists()
+    write(DECISION, d)
+    spec = dict(case=CASE, role='initial_geometry', geometry=d['geometry'], source=s['source'],
+        source_sha256=s['source_sha256'], run_dir=str(RUN), project_name=CASE+'_g00_rebase',
+        policy_sha256=sha(HERE/'policy.json'), mesh_addendum_sha256=sha(HERE/'mesh_policy_addendum_v2.json'),
+        phase_solve_ordinal_including_history=4, created_at=now(), worker_sha256=sha(HERE/'geometry_worker.py'),
+        controller_sha256=sha(HERE/'mesh_budget.py'), parent_evidence_hashes={**d['evidence_hashes'], str(DECISION):sha(DECISION)},
+        rebase_decision=str(DECISION), scope='One explicitly budgeted policy-aligned center; original cache preserved.')
+    path = RUN/'input.json'; write(path, spec); write(archive, prev)
+    write(HERE/'supervised_release.json', dict(case=CASE, input_path=str(path.resolve()), input_sha256=sha(path),
+        bulk_dispatch_released=False, at=now(), reason=d['reason']))
+    print(path)
+
+
+def prepare_tuning(center, cycle, step):
+    assert cycle == 'c01', 'Three legacy attempts leave room for one full local cycle only'
+    d = read(DECISION)
+    for p,h in d['evidence_hashes'].items(): assert sha(p) == h
+    assert d['case'] == CASE and d['old_results_preserved'] and not d['reuse_old_sensitivities']
+    spec, _, _ = core.reviewed(RUN, CASE)
+    assert spec['parent_evidence_hashes'][str(DECISION)] == sha(DECISION)
+    expected = RUN if cycle == 'c01' else BASE/CASE/'c01_candidate'
+    assert Path(center).resolve() == expected.resolve()
+    core.ALLOWED = {CASE}  # process-local; never edit the frozen generic source
+    core.prepare(CASE, center, cycle, step)
+
+
+if __name__ == '__main__':
+    p = argparse.ArgumentParser(); subs = p.add_subparsers(dest='command', required=True)
+    subs.add_parser('rebase'); t = subs.add_parser('tune')
+    t.add_argument('--center', type=Path, required=True)
+    t.add_argument('--cycle', choices=['c01'], required=True)
+    t.add_argument('--step', choices=['probe_Ls1','probe_Lm','candidate'], required=True)
+    a = p.parse_args()
+    if a.command == 'rebase': prepare_rebase()
+    else: prepare_tuning(a.center, a.cycle, a.step)

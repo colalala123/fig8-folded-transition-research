@@ -1,0 +1,15 @@
+from phase_control import HERE,TARGET,ORDER,read,write,now
+from phase_publish import hook
+def prompt(event,path):
+    return f'[N19/N22 limited diagnostic terminal] {path}\n{event["summary"]}\nRead {HERE/"CONTINUATION.md"}. Only N19_A14_D1 and N22_A18_D1 authorized. Old campaign stays paused. Real visual review/ACK then launch_verified.py for N22 only; after N22 stop. Technical failure: inspect, no retries. No old continue_tuning.'
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='New fixedP/R length engineering tuning, not independent blind test')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

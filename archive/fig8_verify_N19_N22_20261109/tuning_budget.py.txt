@@ -1,0 +1,38 @@
+"""Two-point authorization overlay; old entire campaign remains paused and immutable."""
+import json,hashlib,shutil
+from pathlib import Path
+ROOT=Path(__file__).resolve().parent
+ORDER=['N19_A14_D1','N22_A18_D1']
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def validate_campaign(extra_analyze=0,case=None,storage=False):
+ assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'closure.json').exists()
+ assert extra_analyze in (0,1)
+ frozen=read(ROOT/'HISTORICAL_BUDGET_SNAPSHOT.json')
+ for p,h in frozen['hashes'].items():assert sha(p)==h, 'Historical record changed: '+p
+ authorized={r['case']:r for r in read(ROOT/'PLAN.json')['cases']}
+ assert set(authorized)==set(ORDER)
+ counts={};started=0;declared=0
+ for entry in read(ROOT/'runtime_registry.json')['contexts']:
+  ctx=Path(entry['context']);assert sha(ctx/'plan.json')==entry['plan_sha256']
+  for row in read(ctx/'plan.json')['cases']:
+   k=row['case'];assert k in authorized and k not in counts;declared+=1
+   assert row['parent_case']==authorized[k]['parent'] and row['geometry']==authorized[k]['geometry']
+   assert row['target']==read(ROOT/'campaign.json')['target']
+   assert frozen['declared'][row['parent_case']]+1<=4
+   run=Path(row['run_dir']);assert run.resolve().is_relative_to((ROOT/'data').resolve())
+   n=0
+   if (run/'state.json').exists():
+    st=read(run/'state.json');assert st['geometry']==row['geometry'] and st['case']==k
+    seg=st.get('segments',[]);n=len(seg);started+=1
+    assert n<=13 and sum(bool(x['adaptive_requested']) for x in seg)<=12 and sum(not x['adaptive_requested'] for x in seg)<=1
+    assert all(x['mcp_request']['cores_per_task']==14 and x['mcp_request']['concurrent_tasks']==1 for x in seg)
+   counts[k]=n
+ assert declared<=2 and sum(counts.values())+extra_analyze<=26
+ assert 269+sum(counts.values())+extra_analyze<=2236
+ if case:assert case in counts and counts[case]+extra_analyze<=13
+ if extra_analyze:assert case
+ if storage:
+  assert shutil.disk_usage(ROOT).free>21*1024**3
+  assert shutil.disk_usage('D:/').free>15*1024**3
+ return dict(Analyze_used=269+sum(counts.values()),diagnostic_Analyze_used=sum(counts.values()),Analyze_cap=2236,diagnostic_cap=26,per_case_Analyze=counts,new_geometries_declared=declared,geometries_started=started,cores=14,tasks=1,serial=True,old_campaign_paused=True)

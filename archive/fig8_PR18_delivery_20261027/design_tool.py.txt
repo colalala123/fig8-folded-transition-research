@@ -1,0 +1,104 @@
+"""Offline bounded Fig8 parameter candidates. No AEDT, network, hook, or dispatch.
+
+band: S11 limit + S21 limit throughout specified continuous band.
+formula: inner-peak target + S21-only bandwidth, explicitly not joint bandwidth.
+"""
+import argparse,json,sys
+from pathlib import Path
+import numpy as np
+HERE=Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE.parent/'fig8_inverse_PR_20261027'))
+from model import Forward,pr,widths,intervals,center_band,band_score
+
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def load():
+    data=read(HERE/'dataset52.json');rows=[x for x in data['rows'] if x['full_curve_proxy_eligible']]
+    return rows,Forward(rows),read(HERE/'model_validation.json')
+def geometry(wm,ws,arm,q,rows):
+    mapping={x['case']:x for x in rows}
+    lm=sum(x['weight']*mapping[x['case']]['geometry_mm']['Lm'] for x in q['parents'])
+    ls1=sum(x['weight']*mapping[x['case']]['geometry_mm']['Ls1'] for x in q['parents'])
+    g=dict(Wm=float(wm),Ws=float(ws),Lm=float(lm),Ls1=float(ls1),Ls2=float(.55+2*ws),Ls3=float(arm+ws))
+    tip=g['Ls1']-2*g['Ls3'];rho=2*g['Ls3']/g['Ls1']
+    screen=dict(slot_branch_web_mm=.55,opposing_arm_tip_separation_mm=tip,rho=rho,nominal_dimensions_passed=bool(.9<=wm<=2 and .3<=ws<=.58 and tip>=.35 and rho<.5),actual_CAD_checked=False)
+    assert screen['nominal_dimensions_passed']
+    return g,screen
+
+def band_search(lo,hi,reflection=-20,transmission=-2,grid=31,top=5,margin=None):
+    if not all(np.isfinite(x) for x in [lo,hi,reflection,transmission]):raise ValueError('Finite targets required')
+    if not .01<=lo<hi<=15:raise ValueError('Band must lie within0.01-15GHz')
+    if not 3<=grid<=81 or not 1<=top<=20:raise ValueError('Use grid3..81 and top1..20')
+    rows,model,v=load();margin=v['screening_margin_S11_dB'] if margin is None else margin
+    if not np.isfinite(margin) or margin<0:raise ValueError('Nonnegative finite screening margin required')
+    known=[]
+    for row in rows:
+        score=band_score(np.array(row['frequency_GHz']),np.array(row['S11_dB']),np.array(row['S21_dB']),lo,hi)
+        if score['worst_S11_dB']<=reflection and score['min_S21_dB']>=transmission:
+            evidence=row['evidence']
+            known.append(dict(case=row['case'],geometry_mm=row['geometry_mm'],a_mm=row['a'],g_mm=.55,P=row['P'],R=row['R'],dense_HFSS_curve_score=score,evidence=evidence,
+                current_direct_edge_review=bool(evidence.get('current_direct_review') and evidence.get('overall_scoped_accepted')),
+                status='existing_HFSS_curve_match_with_finite_direct_evidence' if evidence.get('current_direct_review') else 'existing_HFSS_curve_match_new_minus20_edges_not_all_directly_reviewed',
+                continuous_curve_independently_proven=False,source_curve=row['source_curve']))
+    known.sort(key=lambda x:(not x['current_direct_edge_review'],x['dense_HFSS_curve_score']['worst_S11_dB']))
+    exploratory=[]
+    for arm in [1.4,1.8]:
+        for wm in np.linspace(.9,2,grid):
+            for ws in np.linspace(.3,.58,grid):
+                try:q=model.predict(float(wm),float(ws),arm)
+                except ValueError:continue
+                score=band_score(q['f'],q['s11'],q['s21'],lo,hi)
+                if score['worst_S11_dB']>reflection or score['min_S21_dB']<transmission:continue
+                g,screen=geometry(float(wm),float(ws),arm,q,rows)
+                exploratory.append(dict(geometry_mm=g,a_mm=arm,g_mm=.55,P=q['P'],R=q['R'],predicted=score,response_and_length_parents=q['parents'],dimension_screen=screen,
+                    screening_passed=bool(score['worst_S11_dB']<=reflection-margin and score['min_S21_dB']>=transmission+.05),HFSS_verified=False,status='unverified_interpolated_candidate'))
+    exploratory.sort(key=lambda x:x['predicted']['worst_S11_dB'])
+    def diverse(items):
+        chosen=[]
+        for x in items:
+            g=x['geometry_mm']
+            if any(x['a_mm']==y['a_mm'] and abs(g['Wm']-y['geometry_mm']['Wm'])<.06 and abs(g['Ws']-y['geometry_mm']['Ws'])<.02 for y in chosen):continue
+            chosen.append(x)
+            if len(chosen)>=top:break
+        return chosen
+    screened=diverse([x for x in exploratory if x['screening_passed']])
+    return dict(target=dict(f_low_GHz=lo,f_high_GHz=hi,S11_max_dB=reflection,S21_min_dB=transmission,meaning='Both constraints continuously on dense surrogate/source curve, not S21-only bandwidth'),
+        existing_curve_match_count=len(known),existing_curve_matches=known[:max(top,12)],screened_candidate_count=sum(x['screening_passed'] for x in exploratory),screened_candidates=screened,
+        exploratory_candidates=diverse(exploratory),estimated_screening_margin_dB=margin,margin_is_certified_bound=False,
+        status='Existing measured matches available; new parameters remain HFSS-unverified' if known else ('New screened candidates require HFSS' if screened else 'No supported match; do not relax requested thresholds automatically'),
+        limitations=['Fixed er3.55,h0.813mm,t0.035mm,g0.55mm; arms1.4 or1.8mm and tuned center near6.72GHz only.',
+            'Magnitude interpolation and length interpolation are local proxies, not full-wave theory or network cascading.',
+            'Two partial PR18 cases excluded from full-curve proxy; every row retains its acceptance tier.',
+            '52geometries/26width pairs, not a large independent ANN dataset; inverse-design blind testing not performed.',
+            'Finite direct samples do not prove all continuous extrema; no guarantee for a new manufactured or simulated model.'])
+
+def formula_inverse(peak,bw,arm=1.8):
+    if arm not in [1.4,1.8] or not np.isfinite(peak) or not np.isfinite(bw) or bw<=0:raise ValueError('Finite peak, positive BW, arm1.4/1.8 required')
+    rows,model,v=load();equations=v['local_PR18_formulas'];a=np.array(equations['worse_inner_peak_dB']['coefficients']);b=np.array(equations['S21_BW_GHz']['coefficients'])
+    matrix=np.array([a[1:3],b[1:3]]);logp,logr=np.linalg.solve(matrix,[peak-a[0]-a[3]*(arm-1.6),bw-b[0]-b[3]*(arm-1.6)])
+    p,r=np.exp([logp,logr])
+    if not 2.04<=p<=2.28 or not .43<=r<=.475:raise ValueError('Formula target maps outside observed local PR grid; no extrapolation')
+    wm,ws=widths(p,r);q=model.predict(wm,ws,arm);g,screen=geometry(wm,ws,arm,q,rows)
+    return dict(target_inner_worse_peak_dB=peak,target_S21_minus2_BW_GHz=bw,not_joint20_bandwidth=True,P=float(p),R=float(r),geometry_mm=g,a_mm=arm,g_mm=.55,
+        predicted_joint20_center_band_GHz=center_band(intervals(q['f'],q['s11'],q['s21'])),response_and_length_parents=q['parents'],dimension_screen=screen,
+        formula_condition_number=float(np.linalg.cond(matrix)),HFSS_verified=False,independent_inverse_blind_test_completed=False,
+        status='Local empirical formula candidate, geometry must be tuned and verified in HFSS',
+        caveat='Inner peak target plus S21-only bandwidth does not guarantee the same -20dB joint bandwidth. Use band subcommand for continuous-band requirements.')
+
+def main():
+    ap=argparse.ArgumentParser(description=__doc__);subs=ap.add_subparsers(dest='command',required=True)
+    band=subs.add_parser('band');band.add_argument('--bandwidth',type=float);band.add_argument('--f-low',type=float);band.add_argument('--f-high',type=float);band.add_argument('--s11',type=float,default=-20);band.add_argument('--s21',type=float,default=-2);band.add_argument('--grid',type=int,default=31);band.add_argument('--top',type=int,default=5);band.add_argument('--margin',type=float);band.add_argument('--out',type=Path)
+    formula=subs.add_parser('formula');formula.add_argument('--peak',type=float,required=True);formula.add_argument('--transmission-bw',type=float,required=True);formula.add_argument('--arm',type=float,default=1.8);formula.add_argument('--out',type=Path)
+    a=ap.parse_args()
+    try:
+        if a.command=='formula':result=formula_inverse(a.peak,a.transmission_bw,a.arm)
+        else:
+            if a.bandwidth is not None:
+                if not np.isfinite(a.bandwidth) or a.bandwidth<=0 or a.f_low is not None or a.f_high is not None:raise ValueError('Use bandwidth OR explicit band edges')
+                a.f_low,a.f_high=6.72-a.bandwidth/2,6.72+a.bandwidth/2
+            if a.f_low is None or a.f_high is None:raise ValueError('Specify bandwidth or both band edges')
+            result=band_search(a.f_low,a.f_high,a.s11,a.s21,a.grid,a.top,a.margin)
+    except ValueError as e:ap.error(str(e))
+    text=json.dumps(result,ensure_ascii=False,indent=2,allow_nan=False)
+    if a.out:a.out.write_text(text+'\n',encoding='utf-8')
+    print(text)
+if __name__=='__main__':main()

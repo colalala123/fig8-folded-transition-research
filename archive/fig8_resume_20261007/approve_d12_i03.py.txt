@@ -1,0 +1,144 @@
+"""Read-only by default: exact 109-point/three-segment D12 acceptance."""
+import argparse
+import json
+import re
+from datetime import datetime
+from pathlib import Path
+import recover_d12_i03 as d
+from recovery_selection import DATA_FILES, compatible_protocol, validate_data, resolve_attempt
+from approve_d04_recovery import request_ok
+
+r=d.r
+
+
+def review():
+    p=d.validate_plan()
+    r.direct.idle()
+    assert not (r.ROOT/'protocol.lock').exists()
+    base=d.BASE;attempt=d.ATTEMPT;candidate=attempt/'verified_recovery'
+    flow=r.read(base/'flow.json');assert flow['status']=='candidate_ready_review_required'
+    assert r.read(base/'plan.json')==p
+    spec=r.read(attempt/'prediction_frozen.json');protocol=compatible_protocol(spec['protocol_sha256'])
+    original=r.read(attempt/'state.json');manifest=r.read(attempt/'manifest.json')
+    assert original['geometry']==manifest['geometry']==spec['geometry']==p['geometry']
+    assert original['source_unchanged'] and original['cad_verification']['passed']
+    request_ok(original)
+    assert original['settings']==r.read(Path(protocol['baseline_run'])/'manifest.json')['settings']
+    monitoring=r.read(attempt/'monitoring_600.json');r.hashes(monitoring['implementation_hashes'])
+    assert monitoring['interval_seconds']==600
+    observed=r.read(attempt/'observed_solver_commands.json')
+    assert observed['case']=='D12G05' and Path(observed['run'])==attempt and observed['observations']
+    for sample in observed['observations']:
+        assert sample['project']==original['project'] and len(sample['processes'])==1
+        command=' '.join(sample['processes'][0]['cmdline'])
+        assert re.search(r'-max_processors\s+16(?:\s|$)',command)
+        assert re.search(r'-numParallelGroups\s+1(?:\s|$)',command)
+    snap=r.read(base/'snapshot.json')
+    expected=manifest['convergence']
+    assert expected==original['convergence']==snap['original_convergence']
+    assert expected['converged'] and expected['final_delta_s']<=.005
+    assert snap['original_run']==str(attempt) and snap['original_project']==manifest['project']
+    assert r.sha(snap['original_project'])==snap['original_project_sha256']
+    assert snap['cached_curve_verified'] and len(snap['cutoff_checks'])==2
+    assert all(x['crossing_GHz']==9.47 for x in snap['cutoff_checks'])
+    data=validate_data(candidate)
+    assert data['geometry']==spec['geometry'] and data['convergence']==expected
+    assert data['phase_solve_ordinal_including_history']==4 and data['project']==snap['project']
+    verdict=r.read(candidate/'recovery_candidate_review.json');r.hashes(verdict['evidence_hashes'])
+    assert all(verdict[k] for k in ['numerical_and_port_passed','seams_passed','phase_geometry_unchanged'])
+    assert verdict['phase_solves_added']==0
+    recipe=r.read(candidate/'assembly_recipe.json');r.hashes(recipe['input_hashes'])
+    _,selected=d.layout()
+    assert set(recipe['per_frequency_source'])=={str(k/100) for k in selected}
+    for k,name in selected.items():
+        source=recipe['per_frequency_source'][str(k/100)]
+        assert source['name']==name
+        assert Path(source['path'])==(base/'direct/explicit_modal' if name=='Direct' else base/name)
+    expected_seams=[k/100 for lo,hi in d.SEGMENTS.values() for k in [lo,hi] if k not in [1,1500]]
+    assert [x['GHz'] for x in recipe['seams']]==expected_seams
+    assert all(x['full_50ohm_complex_error']<=.005 for x in recipe['seams'])
+    files=[attempt/n for n in DATA_FILES+['state.json','prediction_frozen.json','observed_solver_commands.json','monitoring_600.json']]
+    files += [candidate/n for n in DATA_FILES+['assembly_recipe.json','recovery_candidate_review.json']]
+    files += [base/n for n in ['plan.json','snapshot.json','flow.json','observed_solver_commands.json']]
+    files += [d.REVIEW,Path(__file__).resolve(),*map(Path,p['implementation_hashes']),*map(Path,monitoring['implementation_hashes'])]
+    # This attempt lost its desktop/controller after the completed direct sweep.
+    # Bind the explicit adoption evidence instead of inventing a session message.
+    adoption_path=base/'interrupted_collection_adoption.json'
+    resume_path=base/'interrupted_resumption.json'
+    adoption=r.read(adoption_path);resumption=r.read(resume_path)
+    for record in [adoption,resumption]:r.hashes(record['evidence_hashes'])
+    assert adoption['status']=='direct_exports_recovered'
+    assert adoption['repeated_solver_dispatches']==adoption['phase_solves_added']==0
+    assert adoption['persisted_normal_completion_verified'] and adoption['source_unchanged']
+    assert adoption['missing_transient_message'] and adoption['convergence']==expected
+    assert adoption['original_attempt']==resumption['original_attempt']==str(attempt)
+    assert resumption['direct_solver_dispatches']==0 and resumption['segments']==p['segments_GHz']
+    assert flow['resumption_record']==str(resume_path) and flow['pid']==resumption['pid']
+    archive=base/'interrupted_collection'
+    archived=r.read(archive/'evidence.json');r.hashes(archived['files'])
+    profile=(archive/'recollection_profile.prof').read_text(encoding='utf-8',errors='replace')
+    assert 'Solution - '+r.DIRECT_NAME in profile and 'Status: Normal Completion' in profile
+    assert 'Total number of cores: 16' in profile and 'Max number of processes/frequency: 1' in profile
+    import numpy as np
+    for label in ['native','50ohm_original']:
+        af,am=r.direct.touchstone(archive/f'{label}_direct.s4p',4)
+        bf,bm=r.direct.touchstone(base/'direct'/f'{label}_direct.s4p',4)
+        assert len(af)==109 and np.array_equal(af,bf) and np.array_equal(am,bm)
+        assert adoption['archived_matrix_comparisons'][label]=={'points':109,'max_complex_difference':0.0}
+    files += [adoption_path,resume_path,*map(Path,adoption['evidence_hashes']),*map(Path,resumption['evidence_hashes'])]
+    # Recompute schema/calibration instead of accepting the saved pass flag alone.
+    recomputed=d.reviewer.review(attempt)
+    saved=r.read(base/'direct/normalization_export_schema_review.json')
+    assert {k:v for k,v in recomputed.items() if k!='reviewed_at_utc'}=={k:v for k,v in saved.items() if k!='reviewed_at_utc'}
+    s=r.read(base/'direct/local_state.json');request_ok(s)
+    assert s['status']=='exported_review_required' and s['case']=='D12G05'
+    assert s['source_unchanged'] and s['convergence_after']==s['original_convergence']==expected
+    assert s['completion_evidence_file']==str(adoption_path)
+    assert s['completion_evidence_kind']=='persisted_profile_and_identical_archived_full_matrices'
+    assert s['expected_frequencies_GHz']==p['direct_frequencies_GHz']
+    intervals=[(s['started_at_utc'],s['finished_at_utc'],'direct')]
+    for name,(lo,hi) in d.SEGMENTS.items():
+        state=r.read(base/name/'state.json');rec=state['segments'][name];request_ok(rec)
+        assert state['mesh_reuse_verified'] and state['source_unchanged']
+        assert rec['status']=='exported' and rec['sweep_converged'] and rec['convergence']==expected
+        props={**manifest['settings']['sweep'],'IsEnabled':False,'InterpUsePortImped':True,
+            'RangeStart':f'{lo/100:g}GHz','RangeEnd':f'{hi/100:g}GHz'}
+        assert state['diagnostic_sweep']==props
+        saved_props=rec['settings_evidence']['saved_properties']
+        assert saved_props['InterpTolerance']=='0.5' and saved_props['InterpMaxSolns']=='250'
+        assert all(saved_props[k]=='true' for k in ['InterpUseS','InterpUsePortImped','InterpUsePropConst'])
+        intervals.append((rec['started_at_utc'],rec['finished_at_utc'],name));files.append(base/name/'state.json')
+    for name in ['direct',*d.SEGMENTS]:
+        verdict=r.read(base/name/'review.json');assert verdict['passed'];r.hashes(verdict['evidence_hashes'])
+        assert verdict['max_sv']<=1.001 and verdict['reciprocity_error']<=1e-6
+        if name!='direct':
+            lo,hi=d.SEGMENTS[name]
+            assert [x['GHz'] for x in verdict['samples']]==[f for f in p['direct_frequencies_GHz'] if lo/100<=f<=hi/100]
+            assert len(verdict['samples'])>=3 and all(x['full_50ohm_complex_error']<=.005 for x in verdict['samples'])
+        files += [base/name/'review.json',*map(Path,verdict['evidence_hashes'])]
+    intervals.sort(key=lambda x:datetime.fromisoformat(x[0]))
+    assert all(datetime.fromisoformat(a[1])<=datetime.fromisoformat(b[0]) for a,b in zip(intervals,intervals[1:]))
+    r.audit_observations(base)
+    commands=r.read(base/'observed_solver_commands.json')['observations']
+    assert any(x['stage']=='direct_check' for x in commands)
+    # An observation failure cannot be silently absorbed by this acceptance path.
+    assert not (base/'status_query_fallbacks.json').exists(),'Status timeout evidence needs explicit review'
+    for event in flow['retry_events']:
+        assert event['winerror'] in [5,32] and 1<=event['retry_number']<=20
+        assert event['operation'].startswith('write_json:') or event['operation']=='run_protocol_tf3.save'
+    return {'approved':True,'case':'D12G05','original_attempt':str(attempt),'candidate_run':str(candidate),
+        'protocol_sha256':r.sha(r.ROOT/'production_protocol.json'),'geometry':spec['geometry'],
+        'phase_solves_added':0,'phase_geometry_unchanged':True,'mesh_reuse_verified':True,
+        'resource_review':{'passed':True,'cores':16,'tasks':1,'serial_intervals':intervals,
+            'observations_file':str(base/'observed_solver_commands.json')},
+        'evidence_hashes':{str(f):r.sha(f) for f in dict.fromkeys(files)},'finished_at_utc':r.now(),
+        'scope':'Only D12G05/i03 numerical recovery; 109 direct points, three segments, four seams. Design acceptance and queue release remain separate.'}
+
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--apply',action='store_true');args=ap.parse_args()
+    result=review()
+    if args.apply:
+        target=d.ATTEMPT/'recovery_acceptance.json';assert not target.exists()
+        r.write_json(target,result);assert resolve_attempt(d.ATTEMPT)==d.ATTEMPT/'verified_recovery'
+    print(json.dumps({'ready':True,'written':args.apply}))

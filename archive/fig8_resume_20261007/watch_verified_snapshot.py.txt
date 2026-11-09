@@ -1,0 +1,33 @@
+"""Refresh partial tables/figures only when result evidence changes. Read-only."""
+import json,os,time,traceback
+from pathlib import Path
+from broadband_recovery import ROOT,HERE,read,write_json,now
+from summarize_verified_pilot import main as summarize
+
+STATE=ROOT/'snapshot_monitor.json'
+
+def signature():
+    paths=[ROOT/'production_protocol.json',HERE/'summarize_verified_pilot.py']
+    for pattern in ['D*/design_result.json','D*/i*/manifest.json','D*/i*/response_metrics.json','D*/i*/recovery_acceptance.json']:
+        paths.extend(ROOT.glob(pattern))
+    return [(str(p),p.stat().st_mtime_ns,p.stat().st_size) for p in sorted(paths) if p.exists()]
+
+def save(values):
+    temp=STATE.with_suffix('.tmp');write_json(temp,values);os.replace(temp,STATE)
+
+def main():
+    previous=None
+    while True:
+        current=signature()
+        state={'pid':os.getpid(),'updated_at_utc':now(),'scope':'Partial snapshot only; never launches or approves simulations'}
+        if current!=previous:
+            try:
+                summarize();previous=current
+                state.update(status='updated',last_report_utc=read(HERE/'verified_snapshot/summary.json')['updated_at_utc'])
+            except Exception:
+                state.update(status='refresh_failed_retained_previous',error=traceback.format_exc())
+        else:state.update(status='watching',last_report_utc=read(HERE/'verified_snapshot/summary.json')['updated_at_utc'])
+        state['interval_seconds']=600
+        save(state);time.sleep(600)
+
+if __name__=='__main__':main()

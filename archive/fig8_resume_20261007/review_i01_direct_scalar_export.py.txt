@@ -1,0 +1,112 @@
+"""Review existing i01 direct data under the frozen scalar modal convention.
+
+HFSS's cached 15-GHz endpoint has repeated columns in the exported terminal
+impedance matrix. Its full-matrix 50-ohm conversion is not the protocol's
+scalar modal reference. Preserve it, identify the exact exception, calibrate
+all 103 unaffected frequencies against HFSS, and independently convert all
+104 frequencies through voltage/current impedance matrices. No solve, source
+modification, numerical tolerance change, or production acceptance occurs.
+"""
+import re
+from pathlib import Path
+import numpy as np
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from recovery_selection import hashes
+from audit_existing import touchstone
+from export_modal_segment import load_segment
+from check_external_normalization import transform
+from run_broadband_case import solvers
+
+BASE=ROOT/'local_repair/D04G05_i01';RUN=BASE/'direct';ATTEMPT=ROOT/'D04G05/i01'
+
+def main():
+    assert not solvers() and not (ROOT/'protocol.lock').exists()
+    assert not (RUN/'review.json').exists(),'Do not replace an existing review'
+    plan=read(BASE/'plan.json');hashes(plan['implementation_hashes'])
+    state=read(RUN/'local_state.json');snap=read(BASE/'snapshot.json')
+    assert state['status']=='exported_review_required' and state['source_unchanged']
+    assert state['convergence_after']==state['original_convergence']==snap['original_convergence']
+    assert sha(snap['original_project'])==snap['original_project_sha256']
+    files=[RUN/'local_state.json',BASE/'plan.json',BASE/'snapshot.json',Path(__file__)]
+    for key in ['native','50ohm_original']:
+        assert sha(state[key]['path'])==state[key]['sha256'];files.append(Path(state[key]['path']))
+    nf=RUN/'native_direct.s4p';rf=RUN/'50ohm_original_direct.s4p'
+    f,s=touchstone(nf,4);ff,hf=touchstone(rf,4)
+    ef,es,ez,modes=load_segment(RUN/'explicit_modal')
+    assert np.allclose(f,plan['direct_frequencies_GHz'],rtol=0,atol=1e-9)
+    assert np.allclose(f,ff,rtol=0,atol=1e-9) and np.allclose(f,ef,rtol=0,atol=1e-9)
+    assert len(f)==104 and np.max(abs(es-s))<1e-10
+    lines=nf.read_text().splitlines();matrices=[];gammas=[]
+    headers=[l.strip() for l in lines if l.startswith('! Port[')]
+    assert headers==[f'! Port[{i+1}] = {m}' for i,m in enumerate(modes)]
+    for i,line in enumerate(lines):
+        if line.startswith('! Gamma '):
+            vals=np.array([float(x) for x in line[len('! Gamma '):].split()])
+            assert len(vals)==8;gammas.append(vals[::2]+1j*vals[1::2])
+        if not line.startswith('! Port Impedance '):continue
+        rows=[]
+        for k in range(4):
+            content=line[len('! Port Impedance '):] if k==0 else lines[i+k][1:]
+            assert k==0 or lines[i+k].startswith('! ')
+            vals=np.array([float(x) for x in content.split()]);assert len(vals)==8
+            rows.append(vals[::2]+1j*vals[1::2])
+        matrices.append(rows)
+    zm=np.array(matrices);assert zm.shape==(104,4,4)
+    diagonal=np.diagonal(zm,axis1=1,axis2=2)
+    assert np.isfinite(zm).all() and np.max(abs(diagonal-ez))<1e-8
+    import csv
+    with (RUN/'explicit_modal/mode_impedance_gamma.csv').open() as h:aux=list(csv.DictReader(h))
+    eg=np.array([[complex(float(r[f'Gamma({m})_real']),float(r[f'Gamma({m})_imag'])) for m in modes] for r in aux])
+    assert np.max(abs(eg-np.array(gammas)))<1e-8
+    off=zm-np.eye(4)[None,:,:]*zm
+    anomalous=np.flatnonzero(np.max(abs(off),axis=(1,2))>1e-10)
+    assert anomalous.tolist()==[103] and f[103]==15.
+    endpoint=zm[103]
+    for block in [endpoint[:2,:2],endpoint[2:,2:]]:
+        assert np.max(abs(block[:,0]-block[:,1]))<1e-10
+    assert np.max(abs(endpoint[:2,2:]))<1e-10 and np.max(abs(endpoint[2:,:2]))<1e-10
+    fixed=transform(es,ez,'traveling')
+    eye=np.eye(4)[None,:,:];D=np.sqrt(ez)
+    Z=np.linalg.solve((eye-es).transpose(0,2,1),(eye+es).transpose(0,2,1)).transpose(0,2,1)
+    Z=D[:,:,None]*Z*D[:,None,:]
+    independent=np.linalg.solve((Z+50*eye).transpose(0,2,1),(Z-50*eye).transpose(0,2,1)).transpose(0,2,1)
+    independent_error=float(np.max(abs(independent-fixed)))
+    hf_errors=np.max(abs(fixed-hf),axis=(1,2))
+    assert np.flatnonzero(hf_errors>1e-10).tolist()==[103]
+    calibration_error=float(max(hf_errors[:103]))
+    assert independent_error<1e-10 and calibration_error<1e-10
+    # Verify the exceptional point is the unchanged cached original endpoint.
+    of,os,oz,_=load_segment(ATTEMPT);idx=int(np.argmin(abs(of-15)))
+    assert of[idx]==15 and np.max(abs(os[idx]-es[103]))<1e-10 and np.max(abs(oz[idx]-ez[103]))<1e-8
+    calibration=read(HERE/'normalization_2mode_confirmation.json')['calibration_2mode']
+    assert all(x['max_complex_error']<1e-10 for x in calibration.values())
+    sv=np.linalg.svd(fixed,compute_uv=False)[:,0]
+    reciprocal=float(np.max(abs(fixed-fixed.transpose(0,2,1))))
+    assert np.isfinite(fixed).all() and max(sv)<=1.001 and reciprocal<=1e-6
+    files += [*list((RUN/'explicit_modal').glob('*')),
+        ATTEMPT/'all_modes_sparams.csv',ATTEMPT/'mode_impedance_gamma.csv',ATTEMPT/'manifest.json',
+        HERE/'normalization_2mode_confirmation.json',HERE/'external_normalization_diagnostic.json',
+        HERE/'check_external_normalization.py',HERE/'export_modal_segment.py',
+        ROOT/'production_protocol.json',BASE/'internal_solver_profiles/endpoint_cache/review.json']
+    evidence={str(p):sha(p) for p in files if p.is_file()}
+    details={'reviewed_at_utc':now(),'passed':True,'method':'explicit_scalar_modal_with_independent_impedance_route',
+        'same_protocol_scalar_modal_convention':True,'retained_terminal_export_exception_GHz':[15.],
+        'terminal_50ohm_error_at_exception':float(hf_errors[103]),
+        'off_diagonal_impedance_max':float(np.max(abs(off))),
+        'native_S_vs_explicit_error':float(np.max(abs(s-es))),
+        'modal_Zo_vs_diagonal_error':float(np.max(abs(diagonal-ez))),
+        'HFSS_50ohm_calibrated_points':103,'HFSS_50ohm_calibration_error':calibration_error,
+        'independent_impedance_route_points':104,'independent_impedance_route_error':independent_error,
+        'endpoint_cached_native_S_Zo_unchanged':True,'max_sv':float(max(sv)),
+        'reciprocity_error':reciprocal,'evidence_hashes':evidence,
+        'scope':'All 104 points checked under the existing scalar modal protocol. The 15-GHz full-terminal-matrix export remains invalid for that convention and is retained; no claim of its calibration passing. No phase solve or design approval.'}
+    write_json(RUN/'normalization_export_schema_review.json',details)
+    write_json(RUN/'review.json',{'passed':True,'points':104,'max_sv':float(max(sv)),
+        'reciprocity_error':reciprocal,'normalization_calibration_error':calibration_error,
+        'normalization_calibration_scope':'HFSS scalar reference at 103 unaffected frequencies; independent impedance conversion at all 104; see explicit exception evidence.',
+        'review_method':details['method'],'schema_review':str(RUN/'normalization_export_schema_review.json'),
+        'evidence_hashes':{**evidence,str(RUN/'normalization_export_schema_review.json'):sha(RUN/'normalization_export_schema_review.json')},
+        'reviewed_at_utc':now()})
+    print({k:v for k,v in details.items() if k!='evidence_hashes'})
+
+if __name__=='__main__':main()

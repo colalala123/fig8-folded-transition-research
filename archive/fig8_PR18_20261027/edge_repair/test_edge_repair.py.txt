@@ -1,0 +1,14 @@
+import unittest
+import numpy as np
+from phase_final_direct import crossing_details
+class TestEdge(unittest.TestCase):
+    def test_linear(self):
+        x=np.arange(8.35,8.411,.005);r=crossing_details(x,8.382-x)
+        self.assertTrue(r['passed']);self.assertAlmostEqual(r['fine_edge_GHz'],8.382)
+    def test_no_bracket(self):self.assertFalse(crossing_details([1,2,3,4],[1,2,3,4])['passed'])
+    def test_multiple(self):self.assertFalse(crossing_details([1,2,3,4],[-1,1,-1,1])['passed'])
+    def test_no_nested(self):self.assertFalse(crossing_details([1,2,3,4],[-1,1,2,3])['passed'])
+    def test_wide(self):self.assertFalse(crossing_details([1,2,3,4],[-2,-1,1,2])['passed'])
+    def test_no_extrapolation(self):
+        r=crossing_details([8.3,8.32,8.34,8.36],[.084,.07,.051,.03]);self.assertNotIn('fine_edge_GHz',r)
+if __name__=='__main__':unittest.main()

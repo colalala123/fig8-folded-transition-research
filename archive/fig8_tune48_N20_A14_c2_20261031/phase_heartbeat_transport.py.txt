@@ -1,0 +1,68 @@
+"""Read-only thread status through the installed, supported desktop MCP tool."""
+import json
+import os
+from datetime import timedelta
+
+
+def decode_thread(result, target):
+    if result.isError:
+        raise RuntimeError('Desktop read_thread returned an error')
+    payloads = [result.structuredContent] if isinstance(result.structuredContent, dict) else []
+    for item in result.content:
+        if item.type == 'text':
+            try:
+                payloads.append(json.loads(item.text))
+            except ValueError:
+                pass
+    for data in payloads:
+        if (isinstance(data, dict) and data.get('schemaVersion') == 1
+                and data.get('thread', {}).get('id') == target
+                and isinstance(data.get('turns'), list)):
+            return classify(data)
+    raise RuntimeError('Unrecognized read_thread response; not evidence of interruption')
+
+
+def classify(data):
+    thread = data['thread']; status = thread.get('status', {})
+    if not isinstance(status, dict):
+        return {'state': 'unknown', 'reason': 'unknown_thread_status_schema'}
+    turns = data['turns']
+    if not turns:
+        return {'state': 'unknown', 'reason': 'no_turn'}
+    turn = turns[0]
+    result = {'state': 'unknown', 'thread_status': status.get('type'),
+              'active_flags': status.get('activeFlags', []), 'turn_id': turn.get('id'),
+              'turn_status': turn.get('status'), 'completed_at': turn.get('completedAt')}
+    # Any flag may represent approval/input gating; fail closed instead of poking it.
+    if status.get('activeFlags'):
+        result.update(state='attention', reason='active_flags_require_review')
+    elif turn.get('status') == 'inProgress':
+        result.update(state='running', reason='latest_turn_in_progress')
+    elif turn.get('status') in ('completed', 'failed', 'interrupted') and turn.get('id'):
+        if status.get('type') == 'idle':
+            result.update(state='stopped', reason='terminal_turn_and_idle_thread')
+        else:
+            result['reason'] = 'terminal_turn_but_thread_not_confirmed_idle'
+    else:
+        result['reason'] = 'unrecognized_or_queued_status'
+    return result
+
+
+async def read_status(hook, config, target):
+    from mcp import ClientSession, StdioServerParameters
+    from mcp.client.stdio import stdio_client
+    hook.authorize({'target_thread_id': target}, config)
+    node, server = hook.bridge_paths(config)
+    params = StdioServerParameters(command=node, args=[str(server)], cwd=str(server.parent),
+        env={**os.environ, 'CODEX_APP_TOOLS_CALLER_HOST_ID': 'local'})
+    async with stdio_client(params) as streams:
+        async with ClientSession(*streams, read_timeout_seconds=timedelta(seconds=45)) as session:
+            await session.initialize()
+            catalog = await session.list_tools()
+            tool = next((t for t in catalog.tools if t.name == 'read_thread'), None)
+            required = {'threadId', 'hostId', 'turnLimit', 'includeOutputs'}
+            if tool is None or not required <= tool.inputSchema.get('properties', {}).keys():
+                raise RuntimeError('read_thread interface unavailable or changed')
+            result = await session.call_tool('read_thread', {'threadId': target, 'hostId': 'local',
+                'turnLimit': 1, 'includeOutputs': False}, meta={'threadId': os.environ['CODEX_THREAD_ID']})
+            return decode_thread(result, target)

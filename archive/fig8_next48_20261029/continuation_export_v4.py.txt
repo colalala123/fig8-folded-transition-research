@@ -1,0 +1,43 @@
+"""N23 export-only effective route and independent review. No launch/Analyze entry point."""
+import argparse,copy,importlib.util,json,sys
+from pathlib import Path
+import effective_budget_v3 as budget
+ROOT=Path(__file__).resolve().parent
+read=budget.read;sha=budget.sha
+def effective(row):
+    r=copy.deepcopy(row)
+    if r['case']=='N23_A18':
+        ov=read(ROOT/'session_export_recovery_v4.json');r.update(context=ov['context'],run_dir=ov['effective_run'])
+    else:r=budget.effective(r)
+    return r
+def validate():
+    b=budget.validate_campaign();assert b['Analyze_used']==365
+    ov=read(ROOT/'session_export_recovery_v4.json');assert ov['agent_new_Analyze']==0 and ov['completed_export']
+    assert ov['known_submitted_Analyze']==365 and ov['case_request_upper_bound']==8 and ov['campaign_request_upper_bound']==366<=624
+    for p,h in ov['original_failed_hashes'].items():assert sha(p)==h
+    old=Path(ov['original_run']);run=Path(ov['effective_run'])
+    assert read(old/'completion_event.json')['status']=='failed' and not (old/'receiver_ack.json').exists()
+    assert read(run/'completion_event.json')['status']=='completed'
+    s=read(run/'state.json');original=read(old/'state.json')
+    assert s['mesh_stages']==original['mesh_stages'] and s['segments'][:6]==original['segments'][:6]
+    assert len(s['segments'])==7 and 'mcp_response' not in s['segments'][-1] and s['agent_Analyze_added']==0
+    assert s['actual_elements']==102038 and s['actual_passes']==21
+    release=read(ROOT/'PROSPECTIVE_TEST_RELEASE.json')
+    assert sha(ROOT/'predictions_frozen.json')==release['predictions_sha256']
+    assert sha(ROOT/'TRAINING38_ACQUISITION_SUMMARY.json')==release['training_summary_sha256']
+    for p,h in release['frozen_source_hashes_verified'].items():assert sha(p)==h
+    return dict(known_submitted_Analyze=365,conservative_request_upper_bound=366,new_agent_Analyze=0)
+def review():
+    validate()
+    spec=importlib.util.spec_from_file_location('_review_export_v4',ROOT/'review48.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+    original=m.read
+    def routed(p):
+        d=original(p)
+        if Path(p).resolve()==(ROOT/'campaign_frozen.json').resolve():
+            d=copy.deepcopy(d);d['cases']=[effective(r) for r in d['cases']]
+        return d
+    m.read=routed;m.main('N23_A18')
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('action',choices=['review','validate']);a=p.parse_args()
+    if a.action=='review':review()
+    else:print(validate())

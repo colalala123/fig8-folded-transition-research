@@ -1,0 +1,274 @@
+{
+  "case": "D11G05",
+  "case_state": "scoped_accepted",
+  "reason": "unchanged_mesh_interpolation_0p5_repaired_original_numerical_discrepancy",
+  "at": "2026-10-24T17:35:14.714736+00:00",
+  "operation_success": true,
+  "design_passed": true,
+  "numerical_review_passed": true,
+  "full_matrix_approved": false,
+  "selected_run": "J:\\f8_remA_261025\\D11G05\\n02_interp0p5",
+  "source_run": "J:\\f8_finish24_261023\\D11G05\\c02_candidate",
+  "previous_direct": "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct",
+  "local_direct": "J:\\f8_remA_261025\\D11G05\\n01_local12",
+  "geometry": {
+    "Wm": 2.0,
+    "Ws": 0.44,
+    "Lm": 6.524564655199935,
+    "Ls1": 12.160660000000002,
+    "Ls2": 1.4300000000000002,
+    "Ls3": 2.24
+  },
+  "actual_elements": 101715,
+  "historical_geometry_attempts": 7,
+  "new_geometry_attempts": 0,
+  "cached_tasks_used": 2,
+  "cached_task_cap": 2,
+  "metrics": {
+    "extraction_version": "response_pr_v1_20260920",
+    "curve_path": "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\sparams.csv",
+    "curve_sha256": "a90a7444914915412d507817b65f2223aca1ad25e40cbfbe78c7ca2cda32a927",
+    "points": 1500,
+    "frequency_range_GHz": [
+      0.01,
+      15.0
+    ],
+    "f0_reference_GHz": 6.85,
+    "peak_average": "linear magnitude mean, then 20log10",
+    "R_definition": "zm/zs",
+    "max_S21_dB": -0.3869736503818333,
+    "power_excess_S11_S21": -0.0006225760677137648,
+    "formal_response_PR": {
+      "P_response": 1.5422112456221357,
+      "R_BW": 0.8298790480352815,
+      "Zm_response_ohm": 56.5652013252451,
+      "Zs_response_ohm": 68.16077771714063,
+      "f0_reference_GHz": 6.85
+    },
+    "diagnostic_response_PR": {
+      "P_response": 1.5422112456221357,
+      "R_BW": 0.8298790480352815,
+      "Zm_response_ohm": 56.5652013252451,
+      "Zs_response_ohm": 68.16077771714063,
+      "f0_reference_GHz": 6.85
+    },
+    "passband_2dB": {
+      "f_low_GHz": 2.894654867581053,
+      "f_high_GHz": 10.096111869156521,
+      "BW_GHz": 7.201457001575468,
+      "touches_sweep_edge": false
+    },
+    "passband_joint": {
+      "f_low_GHz": 3.1454738579708317,
+      "f_high_GHz": 10.045359855486824,
+      "BW_GHz": 6.899885997515993,
+      "touches_sweep_edge": false
+    },
+    "prominent_valley_count": 3,
+    "valley_prominence_dB": 0.5,
+    "valleys": [
+      {
+        "frequency_GHz": 3.81,
+        "S11_dB": -33.447853474468054
+      },
+      {
+        "frequency_GHz": 6.73,
+        "S11_dB": -59.754242013041214
+      },
+      {
+        "frequency_GHz": 9.41,
+        "S11_dB": -43.55623288504076
+      }
+    ],
+    "peaks": [
+      {
+        "frequency_GHz": 5.06,
+        "S11_dB": -20.142587814945042,
+        "S21_dB": -0.4289590993110026
+      },
+      {
+        "frequency_GHz": 8.37,
+        "S11_dB": -20.005490542249373,
+        "S21_dB": -0.6629465490876814
+      }
+    ],
+    "signed_peak_difference_dB": -0.1370972726956694,
+    "peak_difference_dB": 0.1370972726956694,
+    "peak_level_dB": -20.073768690082808,
+    "central_valley_GHz": 6.73,
+    "band_center_GHz": 6.495383368368787,
+    "worst_S11_between_valleys_dB": -20.005490542249373,
+    "min_S21_between_valleys_dB": -0.8150215075377041,
+    "validity": {
+      "peak_difference_le_0p5": true,
+      "S11_below_minus10_between_valleys": true,
+      "S21_ge_minus2_between_valleys": true,
+      "band_not_truncated": true,
+      "nonpositive_transmission": true,
+      "equal_ripple": true,
+      "solver_convergence_verified": false
+    },
+    "bandcenter_sensitivity_PR": {
+      "P_response": 1.5422112456221357,
+      "R_BW": 0.691917807504782,
+      "Zm_response_ohm": 51.649865047744484,
+      "Zs_response_ohm": 74.64739957193186,
+      "f0_reference_GHz": 6.495383368368787
+    },
+    "R_side_poles_diagnostic": 0.6228337210971242,
+    "unused_shape_checks": {
+      "S11_magnitude_RMSE": 0.11768664185663277,
+      "S21_dB_RMSE": 0.7395380838287544,
+      "low_edge_error_GHz": 0.3546166316312127,
+      "high_edge_error_GHz": 0.3546166316312114,
+      "central_valley_error_GHz": 0.11999999999999922,
+      "note": "Peak level and bandwidth were used for extraction; these checks do not establish independent design prediction."
+    }
+  },
+  "comparison": {
+    "case": "D11G05",
+    "reference62": {
+      "points": 62,
+      "max_complex_error": 0.004499805609161496,
+      "max_nearband_S21_error_dB": 0.01656125018908794,
+      "peak_height_errors_dB": [
+        0.016828525705445685,
+        0.0015654865231766735
+      ],
+      "direct_peaks": [
+        {
+          "GHz": 5.07,
+          "dB": -20.159416340650488,
+          "interior": true
+        },
+        {
+          "GHz": 8.37,
+          "dB": -20.003925055726196,
+          "interior": true
+        }
+      ],
+      "direct_peak_difference_dB": 0.15549128492429176,
+      "direct_central_valley": {
+        "GHz": 6.73,
+        "interior": true
+      },
+      "direct_edges_GHz": {
+        "f_low_GHz": 2.894724877592611,
+        "f_high_GHz": 10.09218002587473
+      },
+      "edge_shifts_GHz": {
+        "f_low_GHz": 7.001001155826359e-05,
+        "f_high_GHz": 0.003931843281790748
+      },
+      "direct_BW_GHz": 7.19745514828212,
+      "BW_shift_GHz": 0.004001853293348567,
+      "numerical_review_passed": true,
+      "sampled_design_supported": true,
+      "full_matrix_approved": false,
+      "limits": {
+        "max_complex_error": 0.005,
+        "max_inband_S21_error_dB": 0.05,
+        "max_peak_error_dB": 0.1,
+        "max_edge_shift_GHz": 0.02,
+        "max_BW_shift_GHz": 0.02
+      },
+      "scope": "Finite direct samples on unchanged mesh; not full-curve independent convergence or continuous-extrema proof. Requires receiver review; no automatic acceptance."
+    },
+    "local5": {
+      "points": 5,
+      "frequencies_GHz": [
+        11.98,
+        11.99,
+        12.0,
+        12.01,
+        12.02
+      ],
+      "complex_errors": {
+        "S11": [
+          0.0024645101072692742,
+          0.002471991654964668,
+          0.0024760578115184677,
+          0.002476647201667168,
+          0.0024737027140884506
+        ],
+        "S21": [
+          0.0004865857212636642,
+          0.000488700949914955,
+          0.0004901608862198835,
+          0.0004909506488857274,
+          0.0004910559983880792
+        ]
+      },
+      "max_complex_error": 0.002476647201667168,
+      "complex_check_passed": true
+    },
+    "numerical_review_passed": true,
+    "design_passed": true,
+    "full_matrix_approved": false,
+    "accepted": false,
+    "receiver_review_required": true,
+    "note": "Second/last D11 cached task; no adaptive or new geometry. Original62direct and new5points reused only after exact mesh/port/source binding. Not automatic acceptance; do not tighten further."
+  },
+  "direct_verified_metrics": {
+    "peak_difference_dB": 0.15549128492429176,
+    "central_valley_GHz": 6.73,
+    "BW_GHz": 7.19745514828212
+  },
+  "resource_note": "MCP requested16cores1task; cached interpolation converged immediately without observed newhf3d. No fabricated process record or rerun.",
+  "scope": "Native fundamental S11/S21, sampled direct validation on unchanged mesh; not full multimode or fabrication-tolerance qualification.",
+  "old_unresolved_result_preserved": true,
+  "evidence_hashes": {
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\input.json": "1c6feebd8086e73f21dcec848f2bb9902bdbb78c37a07288561f9f4d065818d1",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\state.json": "1a77cac1d0e23da018b05e891c87ce37bac89b8c829d9539a9a6971a8d991fc4",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\completion_event.json": "8e25d3e7358bea80bfcdedb3cfc560ffb51e2bc02185a51bbabdafdd834aabab",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\receiver_verification.json": "02e27eb0b80e7151b87b52f82e10fba537b87855070a1177ca4a735d05884108",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\receiver_ack.json": "6e9f61c7f0ebb14c935e3c0f9e731a815f9296e3846955fc694a92354723a104",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\diagnostic_comparison.json": "b22cb45bae18c8884db97322ea735a6c1c4e6d54315a264de3cf13c5ae6b9b69",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\sparams.csv": "e55542c07407e137f6371708ad2a5c269d9d66f04eebc238d91697bac991dc49",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\convergence_before.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_remA_261025\\D11G05\\n01_local12\\convergence_after.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate\\input.json": "7656ea56f15e7cdc7443a41725e2c7025fed7611ae653b54afb858eb54a8e261",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate\\state.json": "712a77d7ffb0bc55f5ddb6e2f08678998393e6d0f86b9974bbfe2d22d6a9ac2b",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate\\sparams.csv": "b72741cff72191c0c8eb766555bcc2f4718d8a88f3f984ba41e23f1bf2e9defc",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate\\response_metrics.json": "3dff0d8e160055157ffbaf7bef0b77e6b9eaf70d1d8606dd3712bec212d6f20b",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate\\convergence.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate\\receiver_ack.json": "07732ae9034b8e40496f715e8571466d9425010560119a2e15b4a70184129d80",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\input.json": "baa15ef436c17d9ab3008e396a6d564670cc1c88c6d882d68106477ae8a782ed",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\state.json": "2ba663b4b49b34efaa3a5a6c68b6360e264eb530f4b276053214feacb28f2c8a",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\sparams.csv": "cf19a427fdff22fd9910c5218a502b6f88ecef3a1bbad011004fecdb074cee0f",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\comparison.json": "b5e44c2415602461429effb20e1e0dcb261031920660765433e019176e2c124c",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\convergence_before.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\convergence_after.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\receiver_verification.json": "99fda314accbf155861e9ebb591266fac2c9dc5bc6439a8d6da1b9bcdb45b9b8",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate_direct\\receiver_ack.json": "8566b90f2f5aed8d98087c1937efa0084b5ab325d4911d13719d1b66b01d26ed",
+    "J:\\f8_finish24_261023\\D11G05\\c02_candidate\\D11G05_c02_candidate.aedt": "d9e1aa6beb22fa7ab90091b1b1ead273e4bfa47d97b9ba96d6e223215dd9b1a7",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\authorization.json": "c4b3707a5d60f1df6280fdf7204273548c1eeb6d24033550781baa904f27a2ee",
+    "${WORKSPACE}\\output\\fig8_remediation_plan_20261025\\PLAN.md": "11992b72f54219862362ca8ece1244de1daf1f515702c07896e1f7ce78199f95",
+    "${WORKSPACE}\\output\\fig8_remediation_plan_20261025\\budget.json": "0c35bd6437fa7964af2b123003aa729e972528169267f97decde1b36d947c753",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\n02_preparation_validation.json": "1609f804a593f094b164c73c03d5aeaf93fd297bffb59ad00edb4b67942ccf72",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\budget_before.json": "b7c5f9e3814292ac9e3f4132789261f07ebe849b436d51451685d830fc394529",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\phase_control.py": "71b70a7f1923bc602fa3091007d28e926dfa2766285f0bd1590b37e572696993",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\phase_publish.py": "d43a4b0874e7a660b6becf5e2671ea9e45e7bf78c211b1b3a3b24423a2e28a38",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\phase_heartbeat.py": "bd65054f7e605559048d6519d192d66ab27374715005dfe905b508f831af51bb",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\phase_heartbeat_transport.py": "9b1d17132723166ac6587c97d1ff498a5770b47a19f40b0bbb336ec81d6695fd",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\hook\\config.json": "94894c59ab9f1643e77143ba61b60b9c04f414220a5561cf933e772c615ff01b",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\geometry_worker.py": "af9d440dd0de8e2f2f002cca6b6bdebd60078cd3117c14acee0101ee4bd10e24",
+    "${WORKSPACE}\\output\\fig8_finish24_20261023\\candidate_direct.py": "c505a83ae6d99e180a8b602e7ce454a50320de2a29c8d00eada0d31dff6b65ba",
+    "${WORKSPACE}\\output\\fig8_acceptance_audit_20261021\\direct_check.py": "d8cc599370cd7cc1fb3e19357922cf57245ceb5de3b8dbb30dd1c77b44acde36",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\input.json": "f5c11ec0b55a6fc24393a6460e524c73b972c0c51226afdd78fe3f444d599f24",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\state.json": "6bec2539a27de09b77e37d7ad4e1446b8d4a492b2d8857d17889beb16c15f2be",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\comparison.json": "93d89d29f22402aa37c66085ff273b7417fce6618802d7c100a4a691317f9f22",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\response_metrics.json": "257776b183f5ebba66edb3b8a98bf17d6e2a46522ae3f6ae277283d25e1c9da3",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\manifest.json": "92e627a41072deb0fa33e582e0bad126e4b973428b50d084decdc537051f10ca",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\sparams.csv": "a90a7444914915412d507817b65f2223aca1ad25e40cbfbe78c7ca2cda32a927",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\all_modes_sparams.csv": "f7057b0f9f8e7004899583f8dbf4d3622532a697290513eb9cf8a4e54e4a4696",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\mode_impedance_gamma.csv": "49b8e49bf2f473608b37f3245f8f385f144f64bd972b15334f1e0f6d1434ef13",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\convergence_before.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\convergence_after_setup.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\convergence.txt": "92c1ce8c389c4bce3b8fe0620161d5275782b9a5a25bd484a57a77a8f2897516",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\completion_event.json": "e7fdfa1fa92afc578aa6dbfb4c3793c3dae752ac130c42494a43f6f88fab25cf",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\receiver_verification.json": "79fc2c672756d640e65a1e164be9decd5c6676f3ee7cdac2b8f90edd405c6e96",
+    "J:\\f8_remA_261025\\D11G05\\n02_interp0p5\\receiver_ack.json": "b9c4e94b8391f1b2d23509f059d6e009888d90082923e57c217e2d339f25d7e3",
+    "${WORKSPACE}\\output\\fig8_remediation_A_20261025\\D11G05_n02_review.png": "8bb8a3046d27defda9cfdfa1d7dc4a793f05021e0eb382ffba080af7f5b2795b"
+  }
+}

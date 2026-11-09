@@ -1,0 +1,63 @@
+"""One no-Analyze isolation test for stale report initialization in seed copies."""
+import json,sys,shutil,time,traceback
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+ROOT=Path(__file__).resolve().parent
+CTX=ROOT.parent/'fig8_B05_fix14_probes_20261029'
+DIR=Path('D:/hfss_fig8_B05_20261029/diagnostics/report_preflight_v1')
+def write(p,d):
+ p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(d,ensure_ascii=False,indent=2,default=str),encoding='utf-8')
+def solvers():return [p.info for p in psutil.process_iter(['pid','name','cmdline']) if (p.info['name'] or '').lower()=='hf3d.exe']
+def checkpoint(stage,**kw):
+ assert not solvers()
+ record=dict(at=datetime.now(timezone.utc).isoformat(),stage=stage,Analyze_requested=False,**kw)
+ write(ROOT/'report_preflight_progress.json',record);print(json.dumps(record,ensure_ascii=False),flush=True)
+def main():
+ assert not DIR.exists(),'Diagnostic evidence already exists; never retry in place'
+ assert not [p for p in psutil.process_iter(['name']) if (p.info['name'] or '').lower() in ('hf3d.exe','ansysedt.exe')]
+ plan=json.loads((CTX/'plan.json').read_text(encoding='utf-8-sig'));row=next(r for r in plan['cases'] if r['case']=='B05N_M');g=row['geometry']
+ DIR.mkdir(parents=True);project=DIR/'B05M_NoSolve_ReportClean.aedt';shutil.copy2(plan['seed'],project)
+ checkpoint('starting_visible_diagnostic_desktop')
+ from ansys.aedt.core import Desktop,Hfss
+ desktop=Desktop(version='2024.2',non_graphical=False,new_desktop=True,port=7990,close_on_exit=False)
+ pid=desktop.aedt_process_id
+ sys.path.insert(0,str(CTX))
+ from phase_geometry_worker import apply_folded_geometry,inspect_rebuilt_geometry,set_modes
+ from prepared_settings import check_settings
+ # No guarded worker app_for is used: only this unique no-solve diagnostic copy.
+ app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+ checkpoint('raw_report_module_before_geometry',desktop_pid=pid)
+ report=app.odesign.GetModule('ReportSetup');before=list(report.GetAllReportNames())
+ report.DeleteAllReports();after=list(report.GetAllReportNames());assert after==[]
+ checkpoint('legacy_reports_cleared_before_port_change',removed_report_names=before,reports_after=after)
+ temp=Path('D:/hfss_fig8_B05_20261029/solver_temp');assert app.set_temporary_directory(temp)
+ build=apply_folded_geometry(app,wm=g['Wm'],ws=g['Ws'],lm=g['Lm'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3'])
+ cad=inspect_rebuilt_geometry(app,g);ports=set_modes(app,2)
+ setup=app.get_setup('Setup19');assert not setup.is_solved
+ setup.auto_update=False;setup.props.update({'MinimumPasses':16,'MaximumPasses':16,'PercentRefinement':30,'UseMaxTetIncrease':False,'MaxDeltaS':.005,'MinimumConvergedPasses':2});assert setup.update();setup.auto_update=True
+ sw=setup.sweeps[0];sw.auto_update=False;sw.props.update({'Type':'Interpolating','IsEnabled':False,'InterpTolerance':1.0,'EnforcePassivity':False});assert sw.update();sw.auto_update=True
+ settings=check_settings(app);app.save_project()
+ checkpoint('new_geometry_and_two_modes_saved_unsolved',geometry=g,CAD_passed=cad['passed'])
+ # Exercise the formerly suspect lazy initialization only AFTER reports are empty.
+ names=list(app.post.all_report_names);assert names==[] and not setup.is_solved
+ checkpoint('postprocessor_initialization_after_clean_succeeded',report_names=names)
+ material=app.materials['rogers ro4003 (tm)'];assert float(material.permittivity.value)==3.55
+ assert app.close_project(save=True);app.release_desktop(close_projects=False,close_desktop=False)
+ checkpoint('first_close_succeeded')
+ for cycle in [1,2]:
+  app=Hfss(project=str(project),design='Wideband vertical transition',version='2024.2',machine='localhost',port=7990,non_graphical=False,new_desktop=False,close_on_exit=False)
+  assert not app.get_setup('Setup19').is_solved
+  assert list(app.odesign.GetModule('ReportSetup').GetAllReportNames())==[]
+  assert list(app.post.all_report_names)==[]
+  assert inspect_rebuilt_geometry(app,g)['passed']
+  assert app.close_project(save=False);app.release_desktop(close_projects=False,close_desktop=False)
+  checkpoint('reopen_close_cycle_succeeded',cycle=cycle)
+ p=psutil.Process(pid);assert p.is_running()
+ result=dict(at=datetime.now(timezone.utc).isoformat(),passed=True,Analyze_requested=False,geometry=g,project=str(project),desktop_pid=pid,desktop_created=p.create_time(),desktop_command=p.cmdline(),old_seed=str(plan['seed']),legacy_reports_removed=before,report_names_after=[],post_initialization_passed=True,reopen_close_cycles_passed=2,settings=settings,ports=ports,cad=cad,root_cause_scope='Supports stale report lazy initialization as trigger path; does not prove AEDT internal crash root cause',production_launch_authorization_changed=False)
+ write(ROOT/'report_preflight_result.json',result);checkpoint('no_solve_preflight_passed')
+ desktop.release_desktop(close_projects=False,close_on_exit=False)
+if __name__=='__main__':
+ try:main()
+ except BaseException:
+  write(ROOT/'report_preflight_error.json',dict(at=datetime.now(timezone.utc).isoformat(),error=traceback.format_exc(),Analyze_requested=False,live_solvers=solvers()));raise

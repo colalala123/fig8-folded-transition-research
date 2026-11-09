@@ -1,0 +1,64 @@
+import ast,copy,unittest
+from pathlib import Path
+import effective_budget_v3 as b
+ROOT=Path(__file__).resolve().parent
+
+def seg(adaptive=True,cores=14):
+    return dict(adaptive_requested=adaptive,mcp_request=dict(cores_per_task=cores,concurrent_tasks=1),observed_14core_process=True)
+
+class EpochSafety(unittest.TestCase):
+    def fixture(self):
+        old=dict(case='N07_A18',geometry={'Wm':1.7},segments=[seg() for _ in range(6)]+[seg(False)],mesh_stages=[{'index':i} for i in range(6)])
+        s=copy.deepcopy(old);s.update(segments=copy.deepcopy(old['segments'][:6]),resource_recovery_attempt=1,inherited_successful_segments=6,actual_elements=102882,actual_passes=21)
+        return old,s
+    def test_inherited_six_are_not_new_cost(self):
+        old,s=self.fixture();self.assertEqual(b.new_segments(s,old,'N07_A18',s['geometry']),[])
+    def test_single_replacement_retains_original_seven(self):
+        old,s=self.fixture();s['segments'].append(seg(False))
+        self.assertEqual(7+len(b.new_segments(s,old,'N07_A18',s['geometry'])),8)
+    def test_second_replacement_rejected(self):
+        old,s=self.fixture();s['segments']+=[seg(False),seg(False)]
+        with self.assertRaises(AssertionError):b.new_segments(s,old,'N07_A18',s['geometry'])
+    def test_new_adaptive_rejected(self):
+        old,s=self.fixture();s['segments'].append(seg())
+        with self.assertRaises(AssertionError):b.new_segments(s,old,'N07_A18',s['geometry'])
+    def test_changed_inherited_request_rejected(self):
+        old,s=self.fixture();s['segments'][0]['observed_14core_process']=False
+        with self.assertRaises(AssertionError):b.new_segments(s,old,'N07_A18',s['geometry'])
+    def test_mesh_change_rejected(self):
+        old,s=self.fixture();s['actual_elements']=102883
+        with self.assertRaises(AssertionError):b.new_segments(s,old,'N07_A18',s['geometry'])
+    def test_second_technical_recovery_rejected(self):
+        old,s=self.fixture();s['resource_recovery_attempt']=2
+        with self.assertRaises(AssertionError):b.new_segments(s,old,'N07_A18',s['geometry'])
+    def test_wrong_core_rejected(self):
+        old,s=self.fixture();s['segments'].append(seg(False,16))
+        with self.assertRaises(AssertionError):b.new_segments(s,old,'N07_A18',s['geometry'])
+    def test_geometry_change_rejected(self):
+        old,s=self.fixture()
+        with self.assertRaises(AssertionError):b.new_segments(s,old,'N07_A18',{'Wm':1.8})
+    def test_unstarted_relocation_is_not_a_recovery(self):
+        s=dict(case='N08_A14',geometry={'Wm':1.7},segments=[seg()],resource_recovery_attempt=0)
+        self.assertEqual(len(b.new_segments(s,None,'N08_A14',s['geometry'])),1)
+        s['resource_recovery_attempt']=1
+        with self.assertRaises(AssertionError):b.new_segments(s,None,'N08_A14',s['geometry'])
+    def test_other_cases_get_no_extra_sweep_exception(self):
+        s=dict(case='N08_A14',geometry={'Wm':1.7},segments=[seg(False),seg(False)],resource_recovery_attempt=0)
+        with self.assertRaises(AssertionError):b.new_segments(s,None,'N08_A14',s['geometry'])
+    def test_start_supervision_excludes_old_observations(self):
+        src=(ROOT/'prepare_epoch2_v3.py').read_text(encoding='utf-8')
+        self.assertIn("own_segments=s.get('segments',[])[frozen.get('inherited_successful_segments',0):]",src)
+        self.assertIn("seg.get('mcp_response',{}).get('started')",src)
+    def test_no_automatic_visual_ack(self):
+        self.assertNotIn('--visual-reviewed',(ROOT/'continuation_v3.py').read_text(encoding='utf-8'))
+    def test_new_desktop_is_not_frozen_old_identity_rewrite(self):
+        d=b.read(ROOT/'desktop_epoch2_20261030.json');old=b.read(ROOT.parent/'fig8_next48_b02_20261029/aedt_identity.json')
+        self.assertNotEqual(d['pid'],old['pid']);self.assertEqual(old['pid'],70064)
+    def test_old_input_hash_chain_unchanged(self):
+        path=Path('D:/hfss_fig8_next48_20261029/b02/N07_A18/g01_initial/input.json')
+        for p,h in b.read(path)['parent_evidence_hashes'].items():self.assertEqual(b.sha(p),h,p)
+    def test_syntax(self):
+        for n in ['effective_budget_v3.py','continuation_v3.py','prepare_epoch2_v3.py','verify_cached_preflight_v3.py']:
+            ast.parse((ROOT/n).read_text(encoding='utf-8'))
+
+if __name__=='__main__':unittest.main()

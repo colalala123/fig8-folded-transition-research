@@ -1,0 +1,480 @@
+{
+  "reference_evidence": [
+    {
+      "case": "D05G02",
+      "strict_profile": {
+        "path": "J:\\f8_261007\\D05G02\\i00\\D05G02_00.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 637,
+          "Frequency Sweep": 808
+        },
+        "sum_seconds": 1447
+      },
+      "historical_stopping_estimates": {
+        "0.005": [
+          25,
+          132015,
+          0.0023686
+        ],
+        "0.01": [
+          20,
+          69491,
+          0.0072858
+        ],
+        "0.02": [
+          17,
+          42993,
+          0.010632
+        ]
+      },
+      "note": "Historical threshold replay estimates potential only; fresh-mesh trials determine actual speed/accuracy."
+    },
+    {
+      "case": "D08G05",
+      "strict_profile": {
+        "path": "J:\\f8_261007\\D08G05\\i00\\D08G05_00.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 690,
+          "Frequency Sweep": 958
+        },
+        "sum_seconds": 1650
+      },
+      "historical_stopping_estimates": {
+        "0.005": [
+          22,
+          179560,
+          0.0027382
+        ],
+        "0.01": [
+          19,
+          112136,
+          0.0066244
+        ],
+        "0.02": [
+          15,
+          47466,
+          0.01547
+        ]
+      },
+      "note": "Historical threshold replay estimates potential only; fresh-mesh trials determine actual speed/accuracy."
+    }
+  ],
+  "trials": [
+    {
+      "profile": "M",
+      "case": "D05G02",
+      "status": "completed",
+      "fresh_mesh_verified": true,
+      "actual_convergence": {
+        "converged": true,
+        "passes": 20.0,
+        "final_delta_s": 0.0072858
+      },
+      "actual_sweep_converged": true,
+      "measured_profile": {
+        "path": "J:\\f8_speed_261021\\M_D05G02\\M_D05G02.aedtresults\\Wideband vertical transition.results\\DV50532_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 3,
+          "Adaptive Meshing": 330,
+          "Frequency Sweep": 269
+        },
+        "sum_seconds": 602
+      },
+      "wall_seconds": 620.7649999999994,
+      "reference_profile": {
+        "path": "J:\\f8_261007\\D05G02\\i00\\D05G02_00.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 637,
+          "Frequency Sweep": 808
+        },
+        "sum_seconds": 1447
+      },
+      "total_seconds_for_comparison": 602,
+      "all_frequency_basis_cached": false,
+      "total_timing_kind": "measured_fresh_mesh_and_sweep",
+      "speedup_factor": 2.403654485049834,
+      "time_saved_percent": 58.39668279198341,
+      "comparison": {
+        "case": "D05G02",
+        "reference": "J:\\f8_261007\\D05G02\\i00",
+        "run": "J:\\f8_speed_261021\\M_D05G02",
+        "BW_error_GHz": 0.022322059050583043,
+        "edge_errors_GHz": {
+          "f_low_GHz": 0.0008588298000846706,
+          "f_high_GHz": 0.023180888850667714
+        },
+        "center_error_GHz": 0.019999999999999574,
+        "peak_height_errors_dB": [
+          0.048061356427597346,
+          0.34653790919061045
+        ],
+        "peak_difference_error_dB": 0.2984765527630131,
+        "complex_errors": {
+          "S11": {
+            "max_inband": 0.027431178645268846,
+            "rms_inband": 0.008931314892205411
+          },
+          "S21": {
+            "max_inband": 0.04292441676064739,
+            "rms_inband": 0.020552559077862926
+          }
+        },
+        "max_S21_dB_error_inband": 0.09910738606861513,
+        "design_peak_pass_reference": false,
+        "design_peak_pass_candidate": false,
+        "shape_ok": true,
+        "scope": "Measured against archived strict mesh and native curves already checked at direct frequencies. Historical wall time is approximate; report adaptive passes/elements as well.",
+        "coarse_tuning_pass": false,
+        "strict_response_comparison_pass": false,
+        "evidence_hashes": {
+          "J:\\f8_261007\\D05G02\\i00\\sparams.csv": "7ac345ec02a02b99e48749ddcf5f92614cf46b4850e60966a64605f8cf7f2548",
+          "J:\\f8_speed_261021\\M_D05G02\\sparams.csv": "d1103cd5910b49949c9cdf07a00ca5d9edf3110f05de34d9c60bfbdc09c18e0b",
+          "J:\\f8_speed_261021\\M_D05G02\\convergence.txt": "4bfca8667ca480ceae0a77d54d1b1bbee742cf2a80051a05a209e01badb16bb7",
+          "J:\\f8_speed_261021\\M_D05G02\\manifest.json": "54b9dc0df8d113d4d72118bdc1e6634a302c040346ca55e5765e3cd91e9c00e8"
+        }
+      },
+      "final_elements": 69491
+    },
+    {
+      "profile": "M",
+      "case": "D08G05",
+      "status": "completed",
+      "fresh_mesh_verified": true,
+      "actual_convergence": {
+        "converged": true,
+        "passes": 19.0,
+        "final_delta_s": 0.0066244
+      },
+      "actual_sweep_converged": true,
+      "measured_profile": {
+        "path": "J:\\f8_speed_261021\\M_D08G05\\M_D08G05.aedtresults\\Wideband vertical transition.results\\DV50532_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 405,
+          "Frequency Sweep": 476
+        },
+        "sum_seconds": 883
+      },
+      "wall_seconds": 904.3279999999977,
+      "reference_profile": {
+        "path": "J:\\f8_261007\\D08G05\\i00\\D08G05_00.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 690,
+          "Frequency Sweep": 958
+        },
+        "sum_seconds": 1650
+      },
+      "total_seconds_for_comparison": 883,
+      "all_frequency_basis_cached": false,
+      "total_timing_kind": "measured_fresh_mesh_and_sweep",
+      "speedup_factor": 1.868629671574179,
+      "time_saved_percent": 46.484848484848484,
+      "comparison": {
+        "case": "D08G05",
+        "reference": "J:\\f8_261007\\D08G05\\i00",
+        "run": "J:\\f8_speed_261021\\M_D08G05",
+        "BW_error_GHz": 0.005782506049570202,
+        "edge_errors_GHz": {
+          "f_low_GHz": 0.0013545453193328783,
+          "f_high_GHz": 0.007137051368903968
+        },
+        "center_error_GHz": 0.040000000000000036,
+        "peak_height_errors_dB": [
+          0.30242864735911823,
+          0.07582091788915513
+        ],
+        "peak_difference_error_dB": 0.2266077294699631,
+        "complex_errors": {
+          "S11": {
+            "max_inband": 0.011508636184055301,
+            "rms_inband": 0.004664879304287829
+          },
+          "S21": {
+            "max_inband": 0.02241347647963951,
+            "rms_inband": 0.01133681837567313
+          }
+        },
+        "max_S21_dB_error_inband": 0.0326983351884671,
+        "design_peak_pass_reference": false,
+        "design_peak_pass_candidate": false,
+        "shape_ok": true,
+        "scope": "Measured against archived strict mesh and native curves already checked at direct frequencies. Historical wall time is approximate; report adaptive passes/elements as well.",
+        "coarse_tuning_pass": false,
+        "strict_response_comparison_pass": false,
+        "evidence_hashes": {
+          "J:\\f8_261007\\D08G05\\i00\\sparams.csv": "cf044b905a07039197e5ba947940d04a2f469228cf18f7c728e8f3471c125847",
+          "J:\\f8_speed_261021\\M_D08G05\\sparams.csv": "bceb0967aa8d03387f026bf25db342a015d69ac83de296ba694b3a98873581b2",
+          "J:\\f8_speed_261021\\M_D08G05\\convergence.txt": "0436a47b5be795dd1fb7d9430aebfeb3044dbcf42f08b55f627b8a155bfc56ce",
+          "J:\\f8_speed_261021\\M_D08G05\\manifest.json": "f4f894eba921064f14807dacf4249aa899614437def655f1555cbc475b32675d"
+        }
+      },
+      "final_elements": 112136
+    },
+    {
+      "profile": "I",
+      "case": "D05G02",
+      "status": "completed",
+      "fresh_mesh_verified": false,
+      "actual_convergence": {
+        "converged": true,
+        "passes": 25.0,
+        "final_delta_s": 0.0023686
+      },
+      "actual_sweep_converged": true,
+      "measured_profile": {
+        "path": "J:\\f8_speed_261021\\I_D05G02\\I_D05G02.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Frequency Sweep": 1
+        },
+        "sum_seconds": 1
+      },
+      "wall_seconds": 21.514999999999418,
+      "reference_profile": {
+        "path": "J:\\f8_261007\\D05G02\\i00\\D05G02_00.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 637,
+          "Frequency Sweep": 808
+        },
+        "sum_seconds": 1447
+      },
+      "total_seconds_for_comparison": null,
+      "all_frequency_basis_cached": true,
+      "total_timing_kind": "cached_reconstruction_not_a_speed_benchmark",
+      "speedup_factor": null,
+      "time_saved_percent": null,
+      "comparison": {
+        "case": "D05G02",
+        "reference": "J:\\f8_261007\\D05G02\\i00",
+        "run": "J:\\f8_speed_261021\\I_D05G02",
+        "BW_error_GHz": 0.00046598408876175057,
+        "edge_errors_GHz": {
+          "f_low_GHz": 0.00017286212597955597,
+          "f_high_GHz": 0.0006388462147413065
+        },
+        "center_error_GHz": 0.0,
+        "peak_height_errors_dB": [
+          0.030382341022503923,
+          0.023514112175037738
+        ],
+        "peak_difference_error_dB": 0.0068682288474661846,
+        "complex_errors": {
+          "S11": {
+            "max_inband": 0.004804422239112757,
+            "rms_inband": 0.001079691156006948
+          },
+          "S21": {
+            "max_inband": 0.000936536090271622,
+            "rms_inband": 0.00022549326327459928
+          }
+        },
+        "max_S21_dB_error_inband": 0.007262772755538771,
+        "design_peak_pass_reference": false,
+        "design_peak_pass_candidate": false,
+        "shape_ok": true,
+        "scope": "Measured against archived strict mesh and native curves already checked at direct frequencies. Historical wall time is approximate; report adaptive passes/elements as well.",
+        "coarse_tuning_pass": true,
+        "strict_response_comparison_pass": true,
+        "evidence_hashes": {
+          "J:\\f8_261007\\D05G02\\i00\\sparams.csv": "7ac345ec02a02b99e48749ddcf5f92614cf46b4850e60966a64605f8cf7f2548",
+          "J:\\f8_speed_261021\\I_D05G02\\sparams.csv": "82235f772ad74576d331d326c40719c9a0818b2897be992a871f82a8e9b2dbba",
+          "J:\\f8_speed_261021\\I_D05G02\\convergence.txt": "3d708eaae6a72202d6738738795000986492c8c54cd5a15182328c17894b9afd",
+          "J:\\f8_speed_261021\\I_D05G02\\manifest.json": "7280cb6489ae16f1313239816df32dd36337bf116975e977844476668fd83ded"
+        }
+      },
+      "final_elements": 132015
+    },
+    {
+      "profile": "I",
+      "case": "D08G05",
+      "status": "completed",
+      "fresh_mesh_verified": false,
+      "actual_convergence": {
+        "converged": true,
+        "passes": 22.0,
+        "final_delta_s": 0.0027382
+      },
+      "actual_sweep_converged": true,
+      "measured_profile": {
+        "path": "J:\\f8_speed_261021\\I_D08G05\\I_D08G05.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Frequency Sweep": 2
+        },
+        "sum_seconds": 2
+      },
+      "wall_seconds": 26.18800000000192,
+      "reference_profile": {
+        "path": "J:\\f8_261007\\D08G05\\i00\\D08G05_00.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 690,
+          "Frequency Sweep": 958
+        },
+        "sum_seconds": 1650
+      },
+      "total_seconds_for_comparison": null,
+      "all_frequency_basis_cached": true,
+      "total_timing_kind": "cached_reconstruction_not_a_speed_benchmark",
+      "speedup_factor": null,
+      "time_saved_percent": null,
+      "comparison": {
+        "case": "D08G05",
+        "reference": "J:\\f8_261007\\D08G05\\i00",
+        "run": "J:\\f8_speed_261021\\I_D08G05",
+        "BW_error_GHz": 0.000235331708299924,
+        "edge_errors_GHz": {
+          "f_low_GHz": 0.00023512641021117275,
+          "f_high_GHz": 2.0529808786307058e-07
+        },
+        "center_error_GHz": 0.0,
+        "peak_height_errors_dB": [
+          0.008020949506128972,
+          0.015096994492367344
+        ],
+        "peak_difference_error_dB": 0.023117943998496315,
+        "complex_errors": {
+          "S11": {
+            "max_inband": 0.0009098030951641608,
+            "rms_inband": 0.0002481902571392541
+          },
+          "S21": {
+            "max_inband": 0.0007588860753631079,
+            "rms_inband": 8.887689632723702e-05
+          }
+        },
+        "max_S21_dB_error_inband": 0.005642471206946387,
+        "design_peak_pass_reference": false,
+        "design_peak_pass_candidate": false,
+        "shape_ok": true,
+        "scope": "Measured against archived strict mesh and native curves already checked at direct frequencies. Historical wall time is approximate; report adaptive passes/elements as well.",
+        "coarse_tuning_pass": true,
+        "strict_response_comparison_pass": true,
+        "evidence_hashes": {
+          "J:\\f8_261007\\D08G05\\i00\\sparams.csv": "cf044b905a07039197e5ba947940d04a2f469228cf18f7c728e8f3471c125847",
+          "J:\\f8_speed_261021\\I_D08G05\\sparams.csv": "1d0ac3c71735eda05318c042d9a487d8cdeef7b67c8c880469cbf57ea78c61c4",
+          "J:\\f8_speed_261021\\I_D08G05\\convergence.txt": "975b0fe526dede666e8de04a44600d999070ffd7bbd2e8f369e40c7e90b65887",
+          "J:\\f8_speed_261021\\I_D08G05\\manifest.json": "d3294c443798889615375e38f3e34f49d3385341264d55b73eadd5e3ea2a1f2d"
+        }
+      },
+      "final_elements": 179560
+    },
+    {
+      "profile": "F",
+      "case": "D05G02",
+      "status": "completed",
+      "fresh_mesh_verified": true,
+      "actual_convergence": {
+        "converged": true,
+        "passes": 25.0,
+        "final_delta_s": 0.0023686
+      },
+      "actual_sweep_converged": true,
+      "measured_profile": {
+        "path": "J:\\f8_speed_261021\\F_D05G02\\F_D05G02.aedtresults\\Wideband vertical transition.results\\DV50532_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 678,
+          "Frequency Sweep": 526
+        },
+        "sum_seconds": 1206
+      },
+      "wall_seconds": 1225.594000000001,
+      "reference_profile": {
+        "path": "J:\\f8_261007\\D05G02\\i00\\D05G02_00.aedtresults\\Wideband vertical transition.results\\DV50093_S49168_V50430.profile",
+        "stages_seconds": {
+          "Initial Meshing": 2,
+          "Adaptive Meshing": 637,
+          "Frequency Sweep": 808
+        },
+        "sum_seconds": 1447
+      },
+      "total_seconds_for_comparison": 1206,
+      "all_frequency_basis_cached": false,
+      "total_timing_kind": "measured_fresh_mesh_and_sweep",
+      "speedup_factor": 1.1998341625207296,
+      "time_saved_percent": 16.655148583275746,
+      "comparison": {
+        "case": "D05G02",
+        "reference": "J:\\f8_261007\\D05G02\\i00",
+        "run": "J:\\f8_speed_261021\\F_D05G02",
+        "BW_error_GHz": 0.0004659840886160893,
+        "edge_errors_GHz": {
+          "f_low_GHz": 0.00017286212616252072,
+          "f_high_GHz": 0.00063884621477861
+        },
+        "center_error_GHz": 0.0,
+        "peak_height_errors_dB": [
+          0.030382341028003523,
+          0.023514112180690105
+        ],
+        "peak_difference_error_dB": 0.006868228847313418,
+        "complex_errors": {
+          "S11": {
+            "max_inband": 0.004804422239940271,
+            "rms_inband": 0.001079691156123439
+          },
+          "S21": {
+            "max_inband": 0.0009365360903432335,
+            "rms_inband": 0.00022549326319687375
+          }
+        },
+        "max_S21_dB_error_inband": 0.007262772756253089,
+        "design_peak_pass_reference": false,
+        "design_peak_pass_candidate": false,
+        "shape_ok": true,
+        "scope": "Measured against archived strict mesh and native curves already checked at direct frequencies. Historical wall time is approximate; report adaptive passes/elements as well.",
+        "coarse_tuning_pass": true,
+        "strict_response_comparison_pass": true,
+        "evidence_hashes": {
+          "J:\\f8_261007\\D05G02\\i00\\sparams.csv": "7ac345ec02a02b99e48749ddcf5f92614cf46b4850e60966a64605f8cf7f2548",
+          "J:\\f8_speed_261021\\F_D05G02\\sparams.csv": "4bceac7039d4960fc7861b2560b2d8cab2f9161da2529cd4e7a23341f4a047a0",
+          "J:\\f8_speed_261021\\F_D05G02\\convergence.txt": "3d708eaae6a72202d6738738795000986492c8c54cd5a15182328c17894b9afd",
+          "J:\\f8_speed_261021\\F_D05G02\\manifest.json": "8eb3c8bcc62899cd0b433a311a2608c29c3dd81ef711b430d23ae2d32fdd3841"
+        }
+      },
+      "final_elements": 132015
+    }
+  ],
+  "full_matrix_threshold_grid": [
+    {
+      "reciprocity_threshold": 1e-06,
+      "passivity_threshold": 1.001,
+      "cases_passing_both": 0,
+      "out_of": 13
+    },
+    {
+      "reciprocity_threshold": 1e-05,
+      "passivity_threshold": 1.001,
+      "cases_passing_both": 0,
+      "out_of": 13
+    },
+    {
+      "reciprocity_threshold": 0.0001,
+      "passivity_threshold": 1.001,
+      "cases_passing_both": 2,
+      "out_of": 13
+    },
+    {
+      "reciprocity_threshold": 0.001,
+      "passivity_threshold": 1.001,
+      "cases_passing_both": 5,
+      "out_of": 13
+    },
+    {
+      "reciprocity_threshold": 0.01,
+      "passivity_threshold": 1.001,
+      "cases_passing_both": 5,
+      "out_of": 13
+    },
+    {
+      "reciprocity_threshold": 0.03,
+      "passivity_threshold": 1.001,
+      "cases_passing_both": 7,
+      "out_of": 13
+    }
+  ]
+}

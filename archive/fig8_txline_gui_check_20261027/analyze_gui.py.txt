@@ -1,0 +1,129 @@
+"""Offline comparison of recorded TXLINE GUI readings with existing HFSS data."""
+import hashlib
+import itertools
+import json
+from pathlib import Path
+import numpy as np
+
+OUT = Path(__file__).resolve().parent
+SOURCE = OUT.parent / 'fig8_PR_current_material_20261026' / 'analysis.json'
+old = json.loads(SOURCE.read_text(encoding='utf-8-sig'))
+samples = {}
+comparisons = []
+hashes = {str(SOURCE): hashlib.sha256(SOURCE.read_bytes()).hexdigest()}
+for kind, widthkey, zkey in [('microstrip', 'Wm', 'Zm_nominal_ohm'), ('slotline', 'Ws', 'Zs_nominal_ohm')]:
+    samples[kind] = {}
+    for p in sorted(OUT.glob(kind + '_*.json')):
+        d = json.loads(p.read_text(encoding='utf-8-sig'))
+        o, m = d['output'], d['readback_material']
+        w = float(o['width_um' if kind == 'microstrip' else 'gap_um']) / 1000
+        assert float(m['er']) == 3.55 and float(m['tanD']) == .0027
+        assert float(o['frequency_ghz']) == 6.72 and float(o['height_um']) == 813
+        if kind == 'microstrip':
+            assert float(o['thickness_um']) == 35
+        assert w not in samples[kind]
+        z = float(o['impedance_ohm'])
+        a = next(r[zkey] for r in old['rows'] if abs(r[widthkey] - w) < 1e-10)
+        samples[kind][w] = z
+        comparisons.append(dict(kind=kind, width_mm=w, GUI_ohm=z, analytical_ohm=a,
+                                GUI_minus_analytical_ohm=z-a, relative_difference_percent=100*(z/a-1)))
+        hashes[str(p)] = hashlib.sha256(p.read_bytes()).hexdigest()
+    assert len(samples[kind]) == (9 if kind == 'microstrip' else 8)
+
+rows = []
+for r in old['rows']:
+    zm = samples['microstrip'][r['Wm']]
+    zs = samples['slotline'][r['Ws']]
+    rows.append(dict(r, Zm_GUI_ohm=zm, Zs_GUI_ohm=zs, P_GUI=zm*zs/2500, R_GUI=zm/zs))
+
+def pairs(tol):
+    ans = []
+    for x, y in itertools.combinations(rows, 2):
+        if x['a'] != y['a']:
+            continue
+        dp = abs(x['P_GUI']-y['P_GUI'])/((x['P_GUI']+y['P_GUI'])/2)
+        lo, hi = sorted([x, y], key=lambda r:r['R_GUI'])
+        if dp > tol or hi['R_GUI']/lo['R_GUI'] < 1.1:
+            continue
+        ans.append(dict(low_R=lo['case'], high_R=hi['case'], P_difference_percent=100*dp,
+                        R_ratio=hi['R_GUI']/lo['R_GUI'], BW_difference_MHz=1000*(hi['BW_GHz']-lo['BW_GHz'])))
+    return ans
+
+def design(rs, p_only=False):
+    return np.array([[1, np.log(r['P_GUI'])] + ([] if p_only else [np.log(r['R_GUI'])]) + [r['a']-1.6] for r in rs])
+
+def error(y, pred):
+    e = (np.asarray(pred)-y)*1000
+    return dict(MAE_MHz=float(np.mean(abs(e))), RMSE_MHz=float(np.sqrt(np.mean(e**2))), max_abs_MHz=float(max(abs(e))))
+
+models = {}
+train, test = rows[:24], rows[24:]
+for key, only in [('P_and_R', False), ('P_only', True)]:
+    b = np.linalg.lstsq(design(train, only), [r['BW_GHz'] for r in train], rcond=None)[0]
+    models[key] = dict(coefficients=b.tolist(), heldout10=error([r['BW_GHz'] for r in test], design(test, only)@b))
+    yy, pp, slopes = [], [], []
+    for group in sorted({r['group'] for r in train}):
+        tr = [r for r in train if r['group'] != group]
+        te = [r for r in train if r['group'] == group]
+        bb = np.linalg.lstsq(design(tr, only), [r['BW_GHz'] for r in tr], rcond=None)[0]
+        yy.extend(r['BW_GHz'] for r in te)
+        pp.extend(design(te, only)@bb)
+        if not only:
+            slopes.append(float(bb[2]))
+    models[key].update(leave_group_out=error(yy, pp), leave_group_R_slopes=slopes)
+
+matching = {str(t): pairs(t) for t in [.005, .01, .02, .05]}
+summary = {}
+for kind in samples:
+    cc = [c for c in comparisons if c['kind'] == kind]
+    summary[kind] = dict(count=len(cc), max_abs_ohm=max(abs(c['GUI_minus_analytical_ohm']) for c in cc),
+                         max_abs_percent=max(abs(c['relative_difference_percent']) for c in cc))
+result = dict(status='completed', real_TXLINE_GUI_readings=True, HFSS_solve_started=False,
+              settings=dict(er=3.55, tanD=.0027, f_GHz=6.72, h_mm=.813, microstrip_t_mm=.035, conductivity_S_m=5.88e7),
+              comparison_summary=summary, comparisons=comparisons, rows=rows, matching=matching, models=models,
+              source_hashes=hashes, caveats=[
+                  'TXLINE standard straight-line nominal impedance, not extracted folded-network effective impedance.',
+                  'Existing 34 HFSS curves reused unchanged; no new independent full-wave validation.',
+                  'Pairs overlap and repeat across fold arms; not independent trials.',
+                  'TXLINE/analytical agreement tests implementation consistency, not physical model accuracy.',
+                  'Material dropdown labels are preset names; numerical Er/tanD/conductivity were set and read back.'])
+(OUT/'analysis.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+
+r1 = next(r for r in rows if r['case']=='D09G02')
+r2 = next(r for r in rows if r['case']=='D04G02')
+pair = next(p for p in matching['0.01'] if p['low_R']=='D09G02' and p['high_R']=='D04G02')
+lines = [
+    '# TXLINE真实界面核对及Fig8名义P/R更新（2026-10-27）', '',
+    '## 结论', '',
+    '**已用原专用控制脚本完成9种微带宽度、8种槽宽的真实TXLINE计算与输入回读。近固定名义P时，R越小、−2 dB带宽越宽的方向不变。**', '',
+    '这次不是再次运行解析公式冒充TXLINE：原始JSON记录来自已打开的TXLINE 2003窗口，包含输入、回读材料和输出。没有启动新的TXLINE实例或HFSS求解，也没有修改原34项曲线。', '',
+    '## 控制问题及参数', '',
+    '用户截图显示完整窗口。通用控制接口未列出该窗口；旧脚本在沙箱内也报告0窗口，经授权在桌面会话中执行后找到1个TForm1窗口并成功读写。实际计算窗口一直存在，不能把控制接口不可见解释成软件没有启动。', '',
+    '设置：εr=3.55，tanδ=0.0027，f=6.72 GHz，h=813 μm，微带金属厚度35 μm，导电率5.88×10⁷ S/m。各点均检查GHz/Ω/μm单位，并回读材料、频率和尺寸。界面GaAs/Silver是原下拉预设名称；本次以实际填入并回读的数值为准。', '',
+    '## 与此前解析计算比较', '',
+    '|类型|点数|最大阻抗差 Ω|最大相对差|', '|---|---:|---:|---:|']
+for kind, label in [('microstrip','微带'), ('slotline','槽线')]:
+    s=summary[kind]
+    lines.append(f"|{label}|{s['count']}|{s['max_abs_ohm']:.6f}|{s['max_abs_percent']:.6f}%|")
+lines += ['', '此一致性支持此前名义阻抗映射的实现，但不是弯折结构等效阻抗或真实物理精度的证明。', '',
+          '## 最直接的近固定P对照', '',
+          'P=Zm·Zs/2500，R=Zm/Zs；两配置折臂a=1.4 mm、间隔g=0.55 mm相同。', '',
+          '|配置|Wm mm|Ws mm|Zm Ω|Zs Ω|P|R|HFSS带宽 GHz|', '|---|---:|---:|---:|---:|---:|---:|---:|']
+for r in [r1, r2]:
+    lines.append(f"|{r['case']}|{r['Wm']}|{r['Ws']}|{r['Zm_GUI_ohm']:.4f}|{r['Zs_GUI_ohm']:.4f}|{r['P_GUI']:.5f}|{r['R_GUI']:.5f}|{r['BW_GHz']:.5f}|")
+lines += ['', f"名义P相差{pair['P_difference_percent']:.3f}%，R增大{100*(pair['R_ratio']-1):.2f}%，实测−2 dB带宽减少{-pair['BW_difference_MHz']:.2f} MHz。网格分别102346、103761。", '',
+          '## 全34配置配对', '', '|P差上限|符合筛选的配置配对|R大时带宽小|', '|---|---:|---:|']
+for t, ps in matching.items():
+    lines.append(f"|{100*float(t):g}%|{len(ps)}|{sum(p['BW_difference_MHz']<0 for p in ps)}|")
+b = models['P_and_R']['coefficients']
+lines += ['', '配对要求同折臂且R比值≥1.1；配对有重复配置及两折臂重复，不能当作独立实验。', '',
+          '## 探索性回归', '',
+          f"BW/GHz = {b[0]:.6f} + {b[1]:.6f} ln(P) {b[2]:+.6f} ln(R) {b[3]:+.6f}(a/mm−1.6)。", '',
+          f"原24项拟合、后10项不参与拟合：P/R模型MAE={models['P_and_R']['heldout10']['MAE_MHz']:.2f} MHz；仅P加折臂模型MAE={models['P_only']['heldout10']['MAE_MHz']:.2f} MHz。留整组宽度交叉检查的R系数全部为负。", '',
+          '这是对既有数据的回顾性分析，不是新预注册独立验证。原冻结宽度公式仍用于设计预测，不因本次检查改换模型。', '',
+          '## 下一步边界', '',
+          '当前可表述为：在已研究几何范围和标准直线名义阻抗定义下，P之外，R是重要带宽解释量，方向稳定。不能表述为所有弯折结构严格固定物理P的普适定律。', '',
+          '不需要为了TXLINE核对重跑原34项。若进一步要求严格固定名义P的因果对照，再单独制定少量等P、跨R的新宽度配对并固定折臂；本次未启动这类额外仿真。', '',
+          '原始记录：本目录microstrip_*.json、slotline_*.json；完整汇总analysis.json；可复算脚本analyze_gui.py。', '']
+(OUT/'REPORT.md').write_text('\n'.join(lines), encoding='utf-8')
+print(json.dumps(dict(comparison_summary=summary, example=pair, models=models, matching_counts={k:len(v) for k,v in matching.items()}), ensure_ascii=False, indent=2))

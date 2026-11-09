@@ -1,0 +1,182 @@
+"""Additive B delivery, audited against frozen A/original outputs. No solving."""
+from collections import Counter
+from pathlib import Path
+import copy
+import shutil
+import numpy as np
+import psutil
+import phase_control as pc
+
+OUT=pc.HERE/'deliverables'
+A=pc.HERE.parent/'fig8_remediation_A_20261025'
+
+def main():
+    assert not (OUT/'manifest.json').exists(),'Frozen delivery must not be overwritten'
+    assert not any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name']))
+    am=pc.read(A/'deliverables/manifest.json')
+    for name,h in am['files'].items():assert pc.sha(A/'deliverables'/name)==h
+    ac=pc.read(A/'stage_A_closure.json')
+    assert pc.sha(A/'stage_A_closure.json')==pc.read(pc.HERE/'authorization.json')['stage_A_closure_sha256']
+    for row in ac['stage_case_results'].values():assert pc.sha(row['path'])==row['sha256']
+    old=pc.read(pc.ORIGINAL/'batch_closure.json')
+    for row in old['case_results']:assert pc.sha(row['result_path'])==row['result_sha256']
+    om=pc.read(pc.ORIGINAL/'deliverables/manifest.json')
+    for name,h in om['file_sha256'].items():assert pc.sha(pc.ORIGINAL/'deliverables'/name)==h
+    base=pc.read(A/'deliverables/effective_all24_results.json')
+    rows=copy.deepcopy(base['rows']);curves=copy.deepcopy(pc.read(A/'deliverables/effective_selected_curves.json')['curves'])
+    changes=[];evidence={};refs=0
+    for case,filename in [('D04G02','bounded_result.json'),('D09G05','result.json')]:
+        result_path=pc.HERE/'cases'/case/filename;r=pc.read(result_path)
+        d=pc.read(pc.HERE/'cases'/case/'disposition.json')
+        assert d['state']==r['case_state']
+        for item in [r,d]:
+            for file,h in item['evidence_hashes'].items():
+                assert pc.sha(file)==h,file
+                evidence[file]=h;refs+=1
+        evidence[str(result_path)]=pc.sha(result_path)
+        evidence[str(pc.HERE/'cases'/case/'disposition.json')]=pc.sha(pc.HERE/'cases'/case/'disposition.json')
+        previous=next(x for x in rows if x['case']==case);source=Path(r['selected_run']);m=r['metrics']
+        assert m['curve_sha256']==pc.sha(source/'sparams.csv')
+        changes.append(dict(case=case,previous_state=previous['state'],new_state=r['case_state'],
+            previous_result=previous['result_path'],previous_result_sha256=previous['result_sha256'],
+            new_result=str(result_path),new_result_sha256=pc.sha(result_path),
+            previous_peak_difference_dB=previous['selected_curve_metrics']['peak_difference_dB'],
+            previous_central_valley_GHz=previous['selected_curve_metrics']['central_valley_GHz'],
+            selected_interpolated_peak_difference_dB=m['peak_difference_dB'],selected_interpolated_central_valley_GHz=m['central_valley_GHz'],
+            direct_metrics=r.get('direct_verified_metrics'),new_geometry=3,cached_tasks=0 if case=='D04G02' else 1,
+            historical_geometry=r['historical_geometry_attempts'],lifetime_geometry=r['lifetime_geometry_attempts'],old_records_preserved=True))
+        prior=dict(state=previous['state'],path=previous['result_path'],sha256=previous['result_sha256'])
+        previous.update(state=r['case_state'],state_label='B阶段基模范围通过' if case=='D09G05' else 'B阶段改善但设计仍未过',
+            included_in_accepted_subset=case=='D09G05',acceptance_tier='stage_B_fundamental_same_mesh_direct' if case=='D09G05' else 'not_accepted',
+            geometry_mm=r['geometry'],selected_run=str(source),result_path=str(result_path),result_sha256=pc.sha(result_path),
+            selected_curve_sha256=pc.sha(source/'sparams.csv'),actual_elements=r['actual_elements'],
+            geometry_attempts_including_history=r['lifetime_geometry_attempts'],selected_curve_metrics=m,
+            design_passed=r['design_passed'],numerical_review_passed=r['numerical_review_passed'],reason=r['reason'],
+            numerical_status='same_mesh_direct_checks_passed' if case=='D09G05' else 'direct_not_attempted_outside_near_threshold_entry',
+            prior_stage_disposition=prior,risk_note=r.get('risk_note',r['reason']),
+            threshold_warning='Direct central valley6.75GHz at upper allowed boundary; no manufacturing-margin guarantee.' if case=='D09G05' else None,
+            source_reference=dict(treatment='Native fundamental source; no new normalization',normalization_recovery_review=None,
+                interpolation_tolerance_percent=1.,note='B joint candidate; same physical/mesh-controller policy as reviewed center. Source sweep and direct metrics are distinct.'),
+            full_matrix_approved=False)
+        if case=='D09G05':
+            c=r['comparison'];assert c['numerical_review_passed'] and c['sampled_design_supported']
+            previous['direct_review']=dict(BW_GHz=c['direct_BW_GHz'],peak_difference_dB=c['direct_peak_difference_dB'],
+                central_valley_GHz=c['direct_central_valley']['GHz'],max_complex_error=c['max_complex_error'],BW_shift_GHz=c['BW_shift_GHz'],
+                points=c['points'],run=r['direct_run'])
+        else:assert previous['direct_review']['run'] is None and not previous['design_passed']
+        data=np.genfromtxt(source/'sparams.csv',delimiter=',',names=True)
+        assert len(data)==1500 and np.isfinite(np.array(data.tolist(),dtype=float)).all()
+        cr=next(x for x in curves if x['case']==case)
+        cr.update(state=previous['state'],acceptance_tier=previous['acceptance_tier'],source_reference=previous['source_reference'],
+            source=str(source/'sparams.csv'),source_sha256=pc.sha(source/'sparams.csv'),frequency_GHz=data['Freq_GHz'].tolist(),
+            S11_dB=data['S11_dB'].tolist(),S21_dB=data['S21_dB'].tolist())
+    counts=dict(Counter(x['state'] for x in rows))
+    assert counts==dict(preserved_design_failed=2,scoped_accepted=17,preserved_accepted=4,bounded_design_failed=1)
+    assert len(rows)==24 and len({r['case'] for r in rows})==24 and sum(r['included_in_accepted_subset'] for r in rows)==21
+    for row in rows:assert pc.sha(row['result_path'])==row['result_sha256']
+    for curve in curves:
+        assert pc.sha(curve['source'])==curve['source_sha256']
+        assert all(len(curve[k])==1500 and np.isfinite(curve[k]).all() for k in ['frequency_GHz','S11_dB','S21_dB'])
+        assert np.allclose(curve['frequency_GHz'],np.arange(1,1501)/100)
+    ledger=pc.read(pc.HERE/'budget_ledger.json')
+    assert ledger['new_geometry_reserved']==6 and ledger['new_cached_tasks_reserved']==1 and len(ledger['tasks'])==7
+    assert ledger['case_cumulative_geometry']=={'D04G02':6,'D09G05':7}
+    for task in ledger['tasks']:
+        assert task['status']=='reviewed'
+        run=Path(task['path']).parent;e=pc.read(run/'completion_event.json');ack=pc.read(run/'receiver_ack.json')
+        receipt=pc.read(run/'notification_receipt.json')
+        assert e['status']=='completed' and e['target_thread_id']==pc.TARGET and receipt['state']=='accepted'
+        assert ack['event_sha256']==pc.sha(run/'completion_event.json') and ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+        assert ack['verification_sha256']==pc.sha(run/'receiver_verification.json')
+        for a in e['artifacts']:assert pc.sha(run/a['path'])==a['sha256']
+        for file,h in pc.read(run/'input.json')['parent_evidence_hashes'].items():assert pc.sha(file)==h
+        for name in ['input.json','completion_event.json','receiver_ack.json','receiver_verification.json','notification_receipt.json','supervised_start.json']:
+            evidence[str(run/name)]=pc.sha(run/name)
+    for file in [pc.HERE/'authorization.json',pc.HERE/'budget_ledger.json',A/'stage_A_closure.json',A/'deliverables/manifest.json',
+                 pc.ORIGINAL/'batch_closure.json',pc.ORIGINAL/'deliverables/manifest.json',Path(__file__).resolve()]:evidence[str(file)]=pc.sha(file)
+    OUT.mkdir(exist_ok=True)
+    meta=dict(schema='fig8_stage_B_delivery_v1',at=pc.now(),scope='Additive effective view of original24folded cases after stagesA+B; uniform data excluded',
+              original_batch_files_unchanged=True,stage_A_files_unchanged=True,full_matrix_approved=False)
+    pc.write(OUT/'effective_all24_results.json',dict(**meta,counts=counts,rows=rows))
+    pc.write(OUT/'effective_accepted21_results.json',dict(**meta,rows=[r for r in rows if r['included_in_accepted_subset']]))
+    pc.write(OUT/'effective_selected_curves.json',dict(**meta,quantity='Fundamental S11/S21 magnitudes only; source-specific reference and interpolation policy retained',curves=curves))
+    pc.write(OUT/'changes_and_budget.json',dict(**meta,changes=changes,previous_accepted_count=20,accepted_count=21,remaining_design_failed=3,
+        new_geometry_used=6,new_geometry_cap=6,cached_tasks_used=1,cached_task_cap=2,total_work_items=7,work_item_cap=8,
+        D04_unused_direct_not_transferred=True,stage_C_released=False))
+    pc.write(OUT/'evidence_audit.json',dict(**meta,formal_B_evidence_references_verified=refs,unique_evidence_sources=len(evidence),
+        evidence_hashes=evidence,all7completion_acknowledgments_verified=True,original_and_A_manifests_verified=True))
+    for case in ['D04G02','D09G05']:
+        for name in ['g01_probe_Ls1','g02_probe_Lm','g03_candidate']:
+            shutil.copy2(pc.HERE/'cases'/case/f'{name}_response.png',OUT/f'{case}_{name}.png')
+    shutil.copy2(pc.HERE/'cases/D09G05/final_direct_overlay.png',OUT/'D09G05_direct_review.png')
+    report='''# Fig8 B阶段结果
+
+## 结论
+
+**B阶段已结束：D09G05新增通过，D04G02明显改善但仍设计未过。** 原24配置有效结果为 **21项通过、3项设计未达标、0项数值未解决**。剩余未通过：D01G02、D04G02、D12G05。C阶段未释放，不再派发求解。
+
+原首批24和A阶段的结果、闭合、事件、ACK及交付包保持不变；本目录是新增有效视图。通过仍限于基模S11/S21及有限关键频点，不是完整多模网络批准。
+
+## 两个配置的变化
+
+| 配置 | 原插值峰差/dB | 新插值峰差/dB | 原中央谷/GHz | 新中央谷/GHz | 新网格 | 结论 |
+|---|---:|---:|---:|---:|---:|---|
+| D04G02 | 4.365295485 | 0.740678029 | 6.94 | 6.80 | 100348 | 改善但未达标，未进入直接复核 |
+| D09G05 | 2.905392336 | 0.154290766 | 6.55 | 6.75 | 100528 | 直接复核通过，新增接受 |
+
+峰差为S11两个内峰的高度差绝对值，不是S21带内纹波。
+
+### D09G05正式直接复核指标
+
+- 63个有限关键频点，同100528单元网格，无新自适应。
+- 直接峰差 **0.170590554dB**，中央谷 **6.75GHz**；中央谷处于6.72±0.03GHz的上边界，不能据此宣称有加工容差余量。
+- 直接−2dB带边2.922735171/10.250375620GHz，BW **7.327640449GHz**；完整插值BW7.327845869GHz，差 **0.205420MHz**，两种口径分列。
+- 最大复数差0.000524192109（限0.005），近带S21差0.001376391dB（限0.05），两峰高度差误差0.000448250/0.016748038dB（限0.1），最大带边位移0.223655MHz（限20）。
+- 右峰直接采样极值8.73GHz，相对插值峰附近8.75GHz有小幅位移，实际峰细节图已审查；未通过修改频点或标准掩盖。
+
+### D04G02为什么停止
+
+联合候选将峰差降低约83.03%，但0.740678029dB仍大于0.5，中央6.80GHz仍超6.72±0.03。它也不满足直接复核入口（0.6dB及±0.05GHz）。已保存该最好实测点，不为未达标设计消耗数值复核，也不把“没做直接复核”写成数值通过。该项仍归设计失败，而非数值未解决。
+
+本轮每项最多3个新几何，D04已用完，所以不自动开启第二周期或半步。这是有限预算停止，**不是证明该几何结构无法达标**。
+
+## 如何修改设计
+
+每项均复用原候选为中心，分别测量仅Ls1+0.10mm、仅Lm+0.05mm两个独立探针，再计算一组受限联合修正。不是将两个探针叠加，也不是同一设计反复重算。
+
+| 配置 | 相对原中心ΔLs1/mm | ΔLm/mm | 最终Ls1/mm | 最终Lm/mm | 归一化条件数 |
+|---|---:|---:|---:|---:|---:|
+| D04G02 | −0.300000000 | +0.015857841 | 12.040660000 | 6.530602073 | 13.015389 |
+| D09G05 | +0.125667374 | −0.098395789 | 11.806327374 | 6.413286041 | 3.041305 |
+
+Wm/Ws/Ls2/Ls3及结构定义固定，原几何门限、信任域和条件数门限均未放宽。D04采取整体信任域缩放0.811564；D09在线性模型中预测零残差，但实际残差非零，再次说明预测不是仿真验收。
+
+## 预算、资源和hook
+
+实际 **6个新几何+1个同网格直接任务=7个工作项**，上限6+2=8。D04未使用的1个缓存任务没有挪给D09。历史不清零：D04原6+新3=9次，D09原7+新3=10次。工作项数不等于Analyze次数，一个几何含多个网格控制阶段。
+
+所有新几何实际网格100348–103551，均在10–11万目标区间。使用可见AEDT/HFSS2024R2、本机MCP、16核单任务串行，7项均保存实际hf3d命令与监督启动证据；最终直接任务没有新自适应。
+
+7个真实完成事件均由hook通知本聊天，全部产物/父证据核验、实际曲线查看及ACK均完成。没有创建正常仿真期间持续发消息的全局定时任务。心跳仅在完成消息后5分钟无新求解时检查AI状态；B结束写绑定事件的终态后停止监视。未做锁屏/休眠专项可靠性证明。
+
+## 数据、边界与后续
+
+- effective_all24_results.json：21通过/3设计失败的完整有效视图，保留旧结论路径/SHA。
+- effective_accepted21_results.json：通过子集；历史保留、原范围、A、B层级及风险提示均保留。
+- effective_selected_curves.json：24条自包含S11/S21幅度曲线，每条1500点；不是复数多模网络或完整HFSS工程。
+- changes_and_budget.json、evidence_audit.json、manifest.json：变化、预算和来源哈希；7张实际曲线/复核图附后。
+
+所有最终设计与数值阈值未改。有限直接频点不构成连续极值证明或普遍网格收敛证明；历史参考处理差异、D11的0.5%插值修复、D01G05/D10G02接近0.5dB阈值等原警告保留，不能宣称全数据原生50Ω完全同口径。
+
+本轮增加1项可靠通过点，尚未验证弯折带宽的独立物理规律。P_response由响应峰高反推、R_BW由带宽反解，不能拿BW对R_BW再拟合当成独立预测证据。均匀与弯折数据未混用，也未启动六极或扩展样本。
+
+后续可另行批准C阶段处理D01G02/D12G05，或另拟D04的有限修正方案；本阶段均不自动执行。
+'''
+    (OUT/'REPORT.md').write_text(report,encoding='utf-8')
+    pc.write(OUT/'manifest.json',dict(**meta,effective_counts=counts,accepted_count=21,not_accepted_count=3,
+        new_geometry_used=6,cached_tasks_used=1,total_work_items=7,
+        files={p.name:pc.sha(p) for p in sorted(OUT.iterdir()) if p.is_file()},
+        last_event_sha256=pc.sha(pc.BASE/'D09G05/final_direct/completion_event.json')))
+    print(dict(accepted=21,remaining_design_failed=3,new_geometry=6,cached_tasks=1,formal_refs=refs,unique_sources=len(evidence),output=str(OUT)))
+
+if __name__=='__main__':main()

@@ -1,0 +1,120 @@
+"""Explicit metadata-I/O adapter around the unchanged v2 recovery recipe.
+
+Retry only WinError 5/32 raised by known JSON writes (at most two seconds).
+Never retry start_analysis, collection, a segment, or the recovery recipe.
+Supports new diagnostics, or the specifically adopted i02 completed exports.
+"""
+import argparse,asyncio,json,os,sys,time,traceback
+from pathlib import Path
+import run_same_port_recovery_v2 as v2
+
+r=v2.legacy
+VERSION='same_port_v2_metadata_io_20261008'
+ORIGINAL_WRITE=r.write_json
+
+
+def retry_metadata(operation,call,events,pause=time.sleep):
+    for attempt in range(21):
+        try:return call()
+        except PermissionError as error:
+            if getattr(error,'winerror',None) not in (5,32) or attempt==20:raise
+            events.append({'operation':operation,'winerror':error.winerror,
+                'retry_number':attempt+1,'observed_at_utc':r.now()})
+            pause(.1)
+
+
+def readiness(attempt):
+    attempt=Path(attempt).resolve();plan=v2.plan(attempt)
+    base=r.ROOT/'local_repair'/f'D04G05_{attempt.name}'
+    r.hashes(r.read(r.ROOT/'production_protocol.json')['implementation_hashes'])
+    assert not (attempt/'recovery_acceptance.json').exists(),'Already accepted; no rerun'
+    assert not (base/'metadata_io_adapter.json').exists(),'Existing adapter requires explicit review'
+    assert not r.direct.solvers(),'Retain active solver'
+    assert not any((r.ROOT/name).exists() for name in ['protocol.lock','pilot_queue.lock'])
+    kind='new_diagnostic'
+    if (base/'plan.json').exists():
+        assert r.read(base/'plan.json')==plan
+        assert attempt.name=='i02','Only explicitly adopted i02 exports may resume'
+        a=r.read(base/'state_write_adoption.json');s=r.read(base/'direct/local_state.json')
+        assert a['status']=='direct_exports_recovered' and a['production_approved'] is False
+        assert a['repeated_solver_dispatches']==0
+        assert a['direct_state_sha256']==r.sha(base/'direct/local_state.json')
+        r.hashes(a['implementation_hashes']);r.hashes(a['interrupted_evidence_hashes'])
+        assert s['status']=='exported_review_required' and s['source_unchanged']
+        assert s['convergence_after']==s['original_convergence']
+        assert r.read(base/'flow.json')['status']=='direct_exported_review_required'
+        assert not any((base/name).exists() for name in ['Low','Middle','Upper'])
+        kind='resume_adopted_direct_exports'
+    elif base.exists():
+        assert not any(base.iterdir()),'Partial diagnostic directory requires review'
+    return base,plan,kind
+
+
+def validate_record(base):
+    path=Path(base)/'metadata_io_adapter.json';a=r.read(path)
+    assert a['version']==VERSION and a['status']=='candidate_ready_review_required'
+    assert a['recipe_invocations']==1 and a['production_approved'] is False
+    assert a['kind'] in ['new_diagnostic','resume_adopted_direct_exports']
+    assert a['plan_at_start']==r.read(Path(base)/'plan.json')
+    assert a['attempt']==a['plan_at_start']['attempt']
+    assert a['retry_policy']=={'winerrors':[5,32],'max_retries':20,'delay_seconds':.1,'operations':'JSON writes only'}
+    r.hashes(a['implementation_hashes'])
+    for event in a['retry_events']:
+        assert event['winerror'] in (5,32) and 1<=event['retry_number']<=20
+        assert event['operation'].startswith('write_json:') or event['operation']=='run_protocol_tf3.save'
+    assert a['patched_aliases'] and 'recover_same_port_phase' in a['patched_aliases']
+    assert a['backend_save_wrapped'] is True
+    return a
+
+
+async def run(attempt):
+    base,plan,kind=readiness(attempt);base.mkdir(parents=True,exist_ok=True)
+    path=base/'metadata_io_adapter.json';events=[]
+    aliases=[m for m in list(sys.modules.values()) if m is not None and getattr(m,'write_json',None) is ORIGINAL_WRITE]
+    files=[Path(__file__),Path(v2.__file__),Path(r.backend.__file__)]
+    record={'version':VERSION,'status':'running','pid':os.getpid(),'kind':kind,
+        'attempt':str(Path(attempt).resolve()),'started_at_utc':r.now(),'recipe_invocations':1,
+        'plan_at_start':plan,
+        'production_approved':False,'retry_policy':{'winerrors':[5,32],'max_retries':20,'delay_seconds':.1,'operations':'JSON writes only'},
+        'patched_aliases':[m.__name__ for m in aliases],'backend_save_wrapped':True,
+        'implementation_hashes':{str(p.resolve()):r.sha(p) for p in files},'retry_events':events}
+    def persist():
+        # The journal itself has a bounded retry; it must never re-enter a solve.
+        retry_metadata('write_json:'+str(path),lambda:ORIGINAL_WRITE(path,record),[])
+    def write(path,obj):
+        before=len(events)
+        result=retry_metadata('write_json:'+str(path),lambda:ORIGINAL_WRITE(path,obj),events)
+        if len(events)!=before:persist()
+        return result
+    original_save=r.backend.save
+    def save(state):
+        before=len(events)
+        result=retry_metadata('run_protocol_tf3.save',lambda:original_save(state),events)
+        if len(events)!=before:persist()
+        return result
+    # Exclusive creation prevents two adapters from entering the same recipe.
+    with path.open('x',encoding='utf-8') as handle:
+        json.dump(record,handle,indent=2)
+    for module in aliases:module.write_json=write
+    r.backend.save=save
+    try:
+        # One call only. Its direct-solve branch is inaccessible for adopted
+        # exports because readiness requires exported_review_required.
+        await v2.run(attempt)
+        assert r.read(base/'flow.json')['status']=='candidate_ready_review_required'
+        record.update(status='candidate_ready_review_required',finished_at_utc=r.now())
+        persist()
+    except BaseException:
+        record.update(status='review_required',error=traceback.format_exc(),finished_at_utc=r.now())
+        persist();raise
+    finally:
+        for module in aliases:module.write_json=ORIGINAL_WRITE
+        r.backend.save=original_save
+
+
+if __name__=='__main__':
+    parser=argparse.ArgumentParser();parser.add_argument('attempt');parser.add_argument('--run',action='store_true');args=parser.parse_args()
+    if args.run:asyncio.run(run(args.attempt))
+    else:
+        base,plan,kind=readiness(args.attempt)
+        print({'ready':True,'kind':kind,'base':str(base),'version':VERSION})

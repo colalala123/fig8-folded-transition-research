@@ -1,0 +1,133 @@
+"""Observe the existing i02 direct solver and collect it once; never dispatch.
+
+The interrupted controller failed to replace a status JSON on Windows. This
+separate adapter retries only bounded metadata writes, preserves the failure,
+waits for the original wrapper and AEDT finalization, then exports cached data.
+It does not approve results, launch segments, or launch any solver.
+"""
+import json, os, shutil, time, traceback
+from pathlib import Path
+import psutil
+import run_same_port_recovery_v2 as v2
+
+r = v2.legacy
+BASE = r.ROOT/'local_repair/D04G05_i02'
+ATTEMPT = r.ROOT/'D04G05/i02'
+STATE = BASE/'direct/local_state.json'
+FLOW = BASE/'flow.json'
+RECORD = BASE/'state_write_adoption.json'
+WRAPPER = 5492
+PJT = 'hfss_DESKTOP-94969B0_119388.pjt'
+ORIGINAL_WRITE = r.write_json
+
+
+def resilient_write(path, obj, writer=ORIGINAL_WRITE, pause=time.sleep):
+    for attempt in range(21):
+        try:
+            return writer(path, obj)
+        except PermissionError as error:
+            if getattr(error, 'winerror', None) not in (5, 32) or attempt == 20:
+                raise
+            pause(0.1)
+
+
+def save(status, **values):
+    old = r.read(RECORD) if RECORD.exists() else {}
+    resilient_write(RECORD, {**old, 'status': status, 'pid': os.getpid(),
+        'updated_at_utc': r.now(), **values})
+
+
+def preflight():
+    assert not RECORD.exists(), 'An adoption already exists; inspect it first'
+    original, flow = r.read(STATE), r.read(FLOW)
+    assert original['status'] == 'review_required'
+    assert 'PermissionError: [WinError 5]' in original['error'] and 'local_state.json.tmp' in original['error']
+    assert flow['status'] == 'review_required'
+    assert 'PermissionError: [WinError 5]' in flow['error']
+    assert 'local_state.json.tmp' in flow['error'] and 'os.replace' in flow['error']
+    assert v2.plan(ATTEMPT) == r.read(BASE/'plan.json')
+    assert not (ATTEMPT/'recovery_acceptance.json').exists()
+    assert not (r.ROOT/'protocol.lock').exists() and not (r.ROOT/'pilot_queue.lock').exists()
+    for process in psutil.process_iter(['pid', 'name', 'cmdline']):
+        if process.info['pid'] == os.getpid():
+            continue
+        command = ' '.join(process.info['cmdline'] or [])
+        assert not (process.info['name'].lower() == 'python.exe'
+                    and 'run_same_port_recovery_v2.py' in command), 'Original controller remains live'
+    owner = psutil.Process(WRAPPER)
+    command = ' '.join(owner.cmdline())
+    assert owner.name().lower() == 'hf3d.exe' and PJT in command
+    assert '-UseSolverWrapper' in command and '-max_processors 16' in command and '-numParallelGroups 1' in command
+    return original, flow, owner.create_time(), command
+
+
+def main():
+    original, failure, created, command = preflight()
+    archive = BASE/'state_write_failure'
+    archive.mkdir()
+    for source in [STATE, FLOW, STATE.with_suffix('.json.tmp'),
+                   r.ROOT/'recovery_i02_session_resume_stderr.log',
+                   r.ROOT/'recovery_i02_session_resume_stdout.log']:
+        if source.exists():
+            shutil.copy2(source, archive/source.name)
+    r.write_json = resilient_write
+    r.direct.write_json = resilient_write
+    save('observing_existing_direct', wrapper_pid=WRAPPER, wrapper_create_time=created,
+         wrapper_command=command, original_started_at_utc=original['started_at_utc'],
+         interrupted_evidence_hashes={str(p):r.sha(p) for p in archive.iterdir()},
+         implementation_hashes={str(Path(__file__).resolve()):r.sha(__file__)},
+         production_approved=False, repeated_solver_dispatches=0,
+         reason='Only status-file replacement failed; retain the live direct solver.')
+    lock = r.ROOT/'protocol.lock'
+    with lock.open('x') as handle:
+        handle.write(str(os.getpid()))
+    observe = r.resource_observer(BASE, r.direct.solvers)
+    try:
+        resilient_write(FLOW, {'status':'direct_check', 'adoption':str(RECORD), 'updated_at_utc':r.now()})
+        state = {**original, 'status':'solving', 'state_write_failure_evidence':str(RECORD),
+                 'status_observation_method':'Original OS wrapper identity; no solver dispatch'}
+        state['observation_error_history'] = [original['error']]
+        state.pop('error', None)
+        start = time.monotonic()
+        while True:
+            live = observe()
+            if live:
+                r.audit_observations(BASE)
+                assert any(p['pid'] == WRAPPER for p in live), 'Unexpected solver owner'
+                assert psutil.Process(WRAPPER).create_time() == created, 'Wrapper PID reused'
+            state.update(solver_processes=live, updated_at_utc=r.now())
+            resilient_write(STATE, state)
+            save('observing_existing_direct', solver_pids=[p['pid'] for p in live])
+            if not live:
+                break
+            assert time.monotonic()-start < 7200, 'Review trigger; keep existing solver'
+            time.sleep(5)
+        save('waiting_for_aedt_finalization')
+        app = r.direct.connect(Path(state['project']), 7990)
+        try:
+            start = time.monotonic()
+            while app.are_there_simulations_running:
+                assert not r.direct.solvers(), 'Unexpected solver during finalization'
+                assert time.monotonic()-start < 600, 'AEDT finalization review trigger'
+                time.sleep(5)
+        finally:
+            app.release_desktop(close_projects=False, close_desktop=False)
+        save('collecting_existing_direct', aedt_idle_verified_at_utc=r.now())
+        r.direct.NAME = r.DIRECT_NAME
+        r.direct.collect('D04G05', BASE/'direct')
+        assert r.read(STATE)['status'] == 'exported_review_required'
+        save('direct_exports_recovered', direct_state_sha256=r.sha(STATE))
+        resilient_write(FLOW, {'status':'direct_exported_review_required',
+            'adoption':str(RECORD), 'updated_at_utc':r.now(), 'production_approved':False})
+    except Exception:
+        save('review_required', error=traceback.format_exc())
+        resilient_write(FLOW, {'status':'review_required', 'adoption':str(RECORD),
+            'error':traceback.format_exc(), 'updated_at_utc':r.now()})
+        raise
+    finally:
+        if lock.exists() and lock.read_text() == str(os.getpid()):
+            lock.unlink()
+
+
+if __name__ == '__main__':
+    main()

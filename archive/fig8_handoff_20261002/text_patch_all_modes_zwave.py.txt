@@ -1,0 +1,16 @@
+import shutil
+from pathlib import Path
+
+root = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+p = root / "R_B0_rebuild_max500.aedt"
+shutil.copy2(p, root / "R_B0_rebuild_max500.before_text_all_modes_zwave.aedt")
+t = p.read_text(encoding="utf-8", errors="ignore")
+a = t.rindex("NextUniqueID=50")
+b = t.index("\t\t\t$end 'Boundaries'", a)
+block = t[a:b]
+n = block.count("CharImp='Zpi'")
+if n != 6:
+    raise RuntimeError(f"expected 6 port characteristic impedance entries, found {n}")
+t = t[:a] + block.replace("CharImp='Zpi'", "CharImp='Zwave'") + t[b:]
+p.write_text(t, encoding="utf-8")
+print({"replaced": n}, flush=True)

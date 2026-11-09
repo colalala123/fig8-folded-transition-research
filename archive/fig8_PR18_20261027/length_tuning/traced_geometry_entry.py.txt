@@ -1,0 +1,10 @@
+"""Execute the immutable standard worker, with post-import periodic stack diagnostics."""
+import argparse,asyncio,faulthandler
+from pathlib import Path
+import phase_geometry_worker as worker
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--spec',type=Path,required=True);a=p.parse_args()
+    with (a.spec.parent/'python_stack_diagnostic.log').open('a') as trace:
+        faulthandler.dump_traceback_later(120,repeat=True,file=trace)
+        try:asyncio.run(worker.main(a.spec.resolve()))
+        finally:faulthandler.cancel_dump_traceback_later()

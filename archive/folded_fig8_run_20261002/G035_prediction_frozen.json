@@ -1,0 +1,69 @@
+{
+  "frozen_at": "2026-10-02T17:27:43+08:00",
+  "model": "Local linear geometry-response model using historical B0 and G2 only.",
+  "domain": "Fixed Wm/Ws/Lm/fold arm, geometrical path compensated by Ls1.",
+  "target_case": "G035",
+  "target_gap_mm": 0.35,
+  "target_curve_existed_at_freeze": false,
+  "target_is_extrapolation_below_training_gap": true,
+  "training": [
+    {
+      "case": "B0",
+      "gap_mm": 0.45533,
+      "curve": "F:\\hfss_fold_260920\\B0_rerun_20260923\\sparams.csv",
+      "sha256": "4120578bbb64354a9a210de617d2841ae616bd9afba8a65a1754ede8d5e393e8",
+      "features": {
+        "BW_2dB_GHz": 6.759439758066668,
+        "f_low_GHz": 3.243958437969751,
+        "f_high_GHz": 10.003398196036418,
+        "signed_peak_difference_dB": -0.1979283399853493,
+        "peak_level_dB": -13.711515621321094,
+        "central_valley_GHz": 6.74,
+        "S21_at_9p5GHz_dB": -1.0477134561339665
+      }
+    },
+    {
+      "case": "G2",
+      "gap_mm": 0.75,
+      "curve": "F:\\hfss_fold_260920\\G2\\sparams.csv",
+      "sha256": "7aa6bf95d8d564acefdfe772dd14e0640e751881906ffbef73948881c168d305",
+      "features": {
+        "BW_2dB_GHz": 6.7031795619918775,
+        "f_low_GHz": 3.218363284455387,
+        "f_high_GHz": 9.921542846447265,
+        "signed_peak_difference_dB": 1.968213744631262,
+        "peak_level_dB": -14.080166602569202,
+        "central_valley_GHz": 6.83,
+        "S21_at_9p5GHz_dB": -1.0229981946365365
+      }
+    }
+  ],
+  "slopes_per_mm": {
+    "BW_2dB_GHz": -0.19092610742454325,
+    "f_low_GHz": -0.08686039812116579,
+    "f_high_GHz": -0.27778650554570605,
+    "signed_peak_difference_dB": 7.351077763656332,
+    "peak_level_dB": -1.251063838355134,
+    "central_valley_GHz": 0.3054264092035153,
+    "S21_at_9p5GHz_dB": 0.08387437301873274
+  },
+  "prediction": {
+    "BW_2dB_GHz": 6.779550004961695,
+    "f_low_GHz": 3.253107443703853,
+    "f_high_GHz": 10.032657448665548,
+    "signed_peak_difference_dB": -0.972217360831271,
+    "peak_level_dB": -13.579741067227149,
+    "central_valley_GHz": 6.707829436318594,
+    "S21_at_9p5GHz_dB": -1.0565479438440297
+  },
+  "screening_tolerances_not_physical_guarantees": {
+    "BW_2dB_GHz": 0.05,
+    "f_low_GHz": 0.05,
+    "f_high_GHz": 0.05,
+    "signed_peak_difference_dB": 0.3,
+    "central_valley_GHz": 0.03,
+    "peak_level_dB": 0.3,
+    "S21_at_9p5GHz_dB": 0.1
+  },
+  "limitations": "One prospective geometry check can validate a local correction only; it cannot establish a universal P/R law or radiation mechanism."
+}

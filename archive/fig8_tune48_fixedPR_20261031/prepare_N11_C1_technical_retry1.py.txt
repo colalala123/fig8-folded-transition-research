@@ -1,0 +1,58 @@
+"""Only one same-geometry retry, conservatively consuming remaining C2 SLOT. Raw C1 failure untouched."""
+import copy,ast,shutil,sys
+from pathlib import Path
+from build_runtime import ROOT,OUT,read,sha,new,write,now,make
+def main():
+    assert not (ROOT/'PAUSE.json').exists() and not (ROOT/'coordination/protocol.lock').exists()
+    original=ROOT/'data/N11_A18/c1/N11_A18_C1/g01_initial'
+    oldctx=OUT/'fig8_tune48_N11_A18_c1_20261031'
+    assert read(original/'completion_event.json')['status']=='failed' and not (original/'receiver_ack.json').exists()
+    state=read(original/'state.json');assert len(state['segments'])==1 and not state.get('actual_elements')
+    diagnosis=ROOT/'diagnostics/N11_A18_C1_attempt1/native_diagnosis.json';d=read(diagnosis)
+    assert not d['setup_solved'] and any('Port refinement' in x and '-1073741819' in x for x in d['messages'])
+    assert all(sha(p)==h for p,h in d['original_hashes'].items())
+    decision=ROOT/'decisions/N11_A18_technical_retry1.json';assert not decision.exists()
+    row=read(oldctx/'plan.json')['cases'][0];source=Path(row['prepared_project']);proof=read(oldctx/'cases/N11_A18_C1/configuration.json')
+    assert proof['passed'] and not proof['solved'] and sha(source)==proof['project_sha256']
+    assert proof['geometry']==state['geometry']
+    new(decision,dict(at=now(),technical_recovery_attempt=1,parent='N11_A18',failed_case='N11_A18_C1',recovery_label='N11_A18_C2',
+        label_meaning='C2 is the last budget SLOT used for same-geometry technical recovery, not a new Broyden candidate',
+        failure='Native port-refinement hf3d exit -1073741819, setup unsolved, no completed adaptive mesh',
+        original_hashes=d['original_hashes'],diagnosis_sha256=sha(diagnosis),prepared_source=str(source),prepared_source_sha256=sha(source),
+        geometry=state['geometry'],same_geometry=True,failed_Analyze_retained=1,new_Analyze_max=12,combined_physical_case_Analyze_cap=13,
+        conservative_parent_geometry_attempts_after_retry=4,actual_distinct_parent_geometries=3,
+        no_extra_candidate_after_this_slot=True,no_desktop_restart=True,no_lock_deletion=True,no_automatic_second_recovery=True))
+    ctx=make('N11_A18','c2',[copy.deepcopy(state['geometry'])],decision)
+    plan=read(ctx/'plan.json');newrow=plan['cases'][0]
+    newrow.update(category='unique_same_geometry_technical_retry_of_C1',technical_recovery_attempt=1,original_failed_run=str(original))
+    write(ctx/'plan.json',plan)
+    registry=read(ROOT/'runtime_registry.json');entry=next(e for e in registry['contexts'] if e['context']==str(ctx));entry['plan_sha256']=sha(ctx/'plan.json');write(ROOT/'runtime_registry.json',registry)
+    prepared=Path(newrow['prepared_project']);prepared.parent.mkdir(parents=True,exist_ok=True);assert not prepared.exists()
+    shutil.copy2(source,prepared);assert sha(prepared)==sha(source)
+    copied=copy.deepcopy(proof);copied.update(case='N11_A18_C2',project=str(prepared),project_sha256=sha(prepared),
+        original_configuration_sha256=sha(oldctx/'cases/N11_A18_C1/configuration.json'),prepared_bytes_copied=True,
+        preparation_note='Exact unsolved source bytes reused in an independent uniquely named project; native reopen/CAD/settings gate still required')
+    new(ctx/'cases/N11_A18_C2/configuration.json',copied)
+    # The original worker is unchanged. Only this NEW, NOT YET FROZEN copy gets the inherited-count gate.
+    worker=ctx/'phase_geometry_worker.py';s=worker.read_text(encoding='utf-8')
+    needle="    assert not dc.solvers(),'Another HFSS solver active'"
+    injection="    from technical_request_gate import check_recovery_request\n    previous=read(Path("+repr(str(original/'state.json'))+"))\n    assert sha(Path("+repr(str(original/'state.json'))+"))=="+repr(sha(original/'state.json'))+"\n    check_recovery_request(previous,state,adaptive)\n"+needle
+    assert s.count(needle)==1;s=s.replace(needle,injection);worker.write_text(s,encoding='utf-8');ast.parse(s)
+    finalize=ctx/'finalize_and_authorize.py';s=finalize.read_text(encoding='utf-8');needle='        pc.write(path,spec);entries.append'
+    replacement="        spec.update(technical_recovery_attempt=1,original_failed_run="+repr(str(original))+",same_geometry_as_failed_C1=True,combined_request_cap=13,failed_requests_inherited=1)\n"+needle
+    assert s.count(needle)==1;s=s.replace(needle,replacement);finalize.write_text(s,encoding='utf-8');ast.parse(s)
+    parents=read(ctx/'parent_evidence.json')
+    for p in [original/'input.json',original/'state.json',original/'worker_error.json',original/'completion_event.json',diagnosis,source,
+              ROOT/'technical_request_gate.py',ROOT/'test_technical_request_gate.py',Path(__file__)]:parents['hashes'][str(p)]=sha(p)
+    write(ctx/'parent_evidence.json',parents)
+    publisher=ctx/'phase_geometry_publish.py';s=publisher.read_text(encoding='utf-8').replace('先review_phase_geometry、实际view_image、acknowledge_review，再continue_tuning.py。',
+        '这是C1同几何唯一技术恢复，借用最后C2预算槽位；原失败1次加本次最多12次≤13。成功才review/实际看图/ACK/continue，失败不得再次恢复或再生成候选。')
+    publisher.write_text(s,encoding='utf-8')
+    with (ctx/'CONTINUATION.md').open('a',encoding='utf-8') as f:
+        f.write('\n## 本C2标签是C1唯一技术恢复，不是新的长度候选\n参数/源prepared工程字节与失败C1相同；只换独立新工程/作业路径，不重启HFSS、不改端口精度/几何/网格目标。原失败input/state/event/worker_error未改，不能给旧失败目录写成功ACK。使用最后C2预算槽，父项4尝试（3个不同几何）已用满，不另发候选。原失败1请求永久计账，本恢复最多12请求，其中≤11自适应+1扫频；物理C1总≤13。若再次技术失败，报告技术未解决，不冒充设计负例、不再次自动重试。成功才按本C2有效目录review/实际看图/ACK，再continue_tuning.py选择结果或如实记有限搜索未过。\n后继启动入口 '+str(ROOT/'run_context_v4.py')+'；先读'+str(ROOT/'STARTUP_ADAPTER_V4.md')+'。\n')
+    status=read(ROOT/'CURRENT_STATUS.json');status.update(at=now(),phase='preparing_unique_same_geometry_technical_recovery',active=0,
+      current_case='N11_A18_C2',technical_failed_case='N11_A18_C1',technical_recovery_attempt=1,
+      nominal_passed=6,technical_failure_is_not_design_failure=True,original_failed_run=str(original))
+    write(ROOT/'CURRENT_STATUS.json',status)
+    print(dict(recovery_context=str(ctx),same_geometry=True,original_request_retained=1,recovery_request_cap=12,last_parent_slot_consumed=True,Analyze_added_by_preparation=0))
+if __name__=='__main__':main()

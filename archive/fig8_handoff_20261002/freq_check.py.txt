@@ -1,0 +1,12 @@
+from pathlib import Path
+import numpy as np
+# quick parse with same generic
+p=Path(r'F:\hfss_f8x_261002\R_tri_diagC\50ohm_full_no_pass.s6p'); vals=[];u=1;fmt='RI'
+for ln in p.read_text(errors='ignore').splitlines():
+ ln=ln.strip()
+ if not ln or ln.startswith('!'):continue
+ if ln.startswith('#'):
+  t=ln.upper().split();u={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+ vals.extend(float(x.replace('D','E')) for x in ln.split())
+ch=[vals[i:i+73] for i in range(0,len(vals)-72,73)]; f=np.array([c[0]*u/1e9 for c in ch]);
+for i in range(np.where(np.isclose(f,6.96))[0][0]-2,np.where(np.isclose(f,7.01))[0][0]+3):print(i,f[i])

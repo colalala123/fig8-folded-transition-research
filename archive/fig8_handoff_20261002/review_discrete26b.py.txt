@@ -1,0 +1,77 @@
+import csv, json, hashlib
+from pathlib import Path
+import numpy as np
+
+ROOT = Path(r"F:\hfss_f8x_261002\R_B0_discrete26b")
+MASTER = Path(r"F:\hfss_f8x_261002\R_B0_rebuild_max500")
+
+def read_touchstone(path):
+    values = []
+    for line in path.read_text(errors="ignore").splitlines():
+        s = line.strip()
+        if not s or s.startswith("!") or s.startswith("#"):
+            continue
+        values.extend(float(x) for x in s.split())
+    if len(values) % 73:
+        raise ValueError(f"unexpected numeric token count {len(values)} in {path}")
+    a = np.asarray(values, dtype=float).reshape(-1, 73)
+    f = a[:, 0]
+    z = a[:, 1::2] * np.exp(1j * np.deg2rad(a[:, 2::2]))
+    return f, z.reshape(-1, 6, 6)
+
+def sha(path):
+    h = hashlib.sha256()
+    with path.open("rb") as f:
+        for b in iter(lambda: f.read(1 << 20), b""):
+            h.update(b)
+    return h.hexdigest()
+
+def row_from_matrix(freq, m):
+    def v(i, j):
+        x = m[i, j]
+        mag = abs(x)
+        return (x.real, x.imag, mag, 20 * np.log10(max(mag, 1e-300)))
+    vals = [freq]
+    for ij in ((0, 0), (3, 0), (0, 3), (3, 3)):
+        vals.extend(v(*ij))
+    return vals
+
+freq, s = read_touchstone(ROOT / "hfss_50ohm_discrete26.s6p")
+sv = np.linalg.svd(s, compute_uv=False)[:, 0]
+fund = s[:, [0, 3]][:, :, [0, 3]]
+fund_sv = np.linalg.svd(fund, compute_uv=False)[:, 0]
+report = {
+    "points": int(len(freq)), "frequency_GHz": [float(freq[0]), float(freq[-1])],
+    "grid_step_GHz": float(np.median(np.diff(freq))),
+    "full_6port_max_singular": float(np.max(sv)),
+    "full_6port_passivity_violations_gt_1p0001": int(np.sum(sv > 1.0001)),
+    "fundamental_2port_max_singular": float(np.max(fund_sv)),
+    "fundamental_2port_passivity_violations_gt_1p0001": int(np.sum(fund_sv > 1.0001)),
+    "max_reciprocity_error_full": float(np.max(np.abs(s - s.transpose(0, 2, 1)))),
+    "max_reciprocity_error_fundamental": float(np.max(np.abs(fund - fund.transpose(0, 2, 1)))),
+    "worst_frequency_full_GHz": float(freq[int(np.argmax(sv))]),
+    "source_sha256": sha(ROOT / "R_B0_discrete26b.aedt"),
+    "convergence": (ROOT / "convergence_discrete26.txt").read_text(),
+}
+
+with (MASTER / "sparams_mixed_verified.csv").open(newline="") as f:
+    rows = list(csv.DictReader(f))
+fieldnames = list(rows[0].keys())
+replaced = 0
+for row in rows:
+    fghz = float(row["Freq_GHz"])
+    i = int(round((fghz - 6.25) / 0.01))
+    if 0 <= i < len(freq) and abs(freq[i] - fghz) < 1e-8:
+        vals = row_from_matrix(fghz, s[i])
+        for key, value in zip(fieldnames, vals):
+            row[key] = f"{value:.16g}"
+        replaced += 1
+out_csv = ROOT / "sparams_mixed_discrete26_verified.csv"
+with out_csv.open("w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=fieldnames)
+    w.writeheader(); w.writerows(rows)
+report["mixed_curve_points_replaced"] = replaced
+report["mixed_curve_path"] = str(out_csv)
+report["mixed_curve_sha256"] = sha(out_csv)
+(ROOT / "discrete26_review.json").write_text(json.dumps(report, indent=2), encoding="utf-8")
+print(json.dumps(report, indent=2))

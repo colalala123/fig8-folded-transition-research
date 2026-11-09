@@ -1,0 +1,43 @@
+"""One explicit post-resource-fix continuation from verified completed pass19."""
+import shutil
+from geometry_worker import *
+
+def main():
+    old=BASE/'D11G02/g00';run=BASE/'D11G02/g00_recovery1'
+    assert not run.exists() and not dc.solvers() and not (HERE/'worker.lock').exists() and not (OLD/'protocol.lock').exists()
+    event=read(old/'completion_event.json')
+    for a in event['artifacts']:assert sha(old/a['path'])==a['sha256']
+    inspection=read(HERE/'cases/D11G02/recovery_inspection.json')
+    assert not inspection['running'] and inspection['history'][-1][:2]==[19,82052]
+    assert any('hf3d exited with code -1073740791' in x for x in inspection['messages'])
+    resource=read(HERE/'resource_recovery_20261023.json')
+    assert Path(resource['new_aedt_temp']).resolve()==(BASE/'solver_temp').resolve()
+    s=read(old/'state.json');source_project=Path(s['project']);project=run/'D11G02_recovery1.aedt'
+    cached=source_project.with_suffix('.aedtresults')
+    files=[p for p in cached.rglob('*') if p.is_file() and not p.name.endswith('.semaphore')]
+    assert shutil.disk_usage(BASE).free>sum(p.stat().st_size for p in files)+15*1024**3
+    run.mkdir(parents=True);shutil.copy2(source_project,project)
+    for p in files:
+        dest=project.with_suffix('.aedtresults')/p.relative_to(cached);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(p,dest)
+    for i in range(4):shutil.copy2(old/f'convergence_stage_{i:02d}.txt',run/f'convergence_stage_{i:02d}.txt')
+    shutil.copy2(HERE/'cases/D11G02/convergence_recovery_inspection.txt',run/'resume_convergence.txt')
+    failed_segment=s['segments'][-1];failed_stage=s['mesh_stages'][-1]
+    write(run/'original_failed_segment.json',{'segment':failed_segment,'mesh_stage':failed_stage,'event_path':str(old/'completion_event.json'),'event_sha256':sha(old/'completion_event.json')})
+    s['segments']=s['segments'][:-1];s['mesh_stages']=s['mesh_stages'][:-1]
+    assert len(s['segments'])==len(s['mesh_stages'])==4
+    s.update(project=str(project),status='recovery_checkpoint',resource_recovery_attempt=1,
+             parent_failed_run=str(old),parent_event_sha256=sha(old/'completion_event.json'),
+             resource_fix_sha256=sha(HERE/'resource_recovery_20261023.json'),cache_copied=True)
+    checkpoint=run/'resume_checkpoint.json';write(checkpoint,s)
+    spec=read(old/'input.json');spec.update(run_dir=str(run),resume_checkpoint=str(checkpoint),resume_checkpoint_sha256=sha(checkpoint),
+           resume_project_sha256=sha(project),worker_sha256=sha(HERE/'geometry_worker.py'),created_at=now(),
+           recovery_reason='One explicit resource recovery after hf3d crash; continue existing pass19, retry only failed pass20. Not a new geometry.')
+    write(run/'input.json',spec)
+    oldrelease=read(HERE/'supervised_release.json');assert oldrelease['case']=='D11G02'
+    archive=HERE/'supervised_releases/D11G02_g00_failed.json';assert not archive.exists();write(archive,oldrelease)
+    write(HERE/'supervised_release.json',{'case':'D11G02','input_path':str((run/'input.json').resolve()),'input_sha256':sha(run/'input.json'),
+          'bulk_dispatch_released':False,'at':now(),'reason':'Explicit one-time recovery after inspection and temp directory change; no fresh geometry budget charge'})
+    write(old/'recovery_link.json',{'at':now(),'recovery_run':str(run),'resource_fix':str(HERE/'resource_recovery_20261023.json'),'original_event_unchanged':True})
+    print(run/'input.json')
+
+if __name__=='__main__':main()

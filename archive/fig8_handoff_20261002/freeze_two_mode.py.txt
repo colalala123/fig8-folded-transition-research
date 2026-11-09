@@ -1,0 +1,36 @@
+"""Freeze the validated two-mode production protocol after three-mode diagnostic failure."""
+import json
+from pathlib import Path
+from pilot_queue import ROOT,OLD,read,status
+from pilot_worker import now,sha,write_json
+from pilot_queue import compare
+
+def main():
+    checks=[]
+    for case in ('B0','T_F3'):
+        checks.append(compare(OLD/case,ROOT/f'M_{case}_2','single'))
+    if not all(x['passed'] for x in checks):raise RuntimeError('Single-to-two-mode gate failed')
+    evidence={'production_two_mode_checks':checks,'three_mode_diagnostic':str(ROOT/'visible_three_mode_review.json'),
+              'three_mode_protocol_passed':False,'decision':'two-mode production protocol',
+              'reason':'Both two-mode copies converge and remain within the predefined single-mode curve, field, boundary and auxiliary continuity gates. Both visible 16-core three-mode trials fail HFSS interpolating passivity; they are excluded from production.',
+              'reviewed_at_utc':now()}
+    write_json(ROOT/'two_mode_protocol_review.json',evidence)
+    result={'id':'fig8_er355_mode2_v2_visible_mcp16','status':'frozen_verified','modes':2,
+            'baseline_run':str(ROOT/'M_B0_2'),'central_valley_target_GHz':read(ROOT/'M_B0_2/response_metrics.json')['central_valley_GHz'],
+            'f0_reference_GHz':6.85,'material':{'er':3.55,'tand':.0027,'h_mm':.813},
+            'normalization':'Original unrenormalized modal Zpi for the two retained port modes; original integration-line coordinates, direction and reference plane.',
+            'mode_identity':'Two-mode single comparison, native field identity and explicit Gamma/Zo mapping passed; third-mode trials diagnostic-only.',
+            'evidence':str(ROOT/'two_mode_protocol_review.json'),'evidence_sha256':sha(ROOT/'two_mode_protocol_review.json'),
+            'frozen_at_utc':now(),'source_B0_sha256':sha(OLD/'B0/B0.aedt'),'source_T_F3_sha256':sha(OLD/'T_F3/T_F3.aedt'),
+            'power_accounting':'Two retained modes are the production port basis; no third-mode power claim is made.',
+            'three_mode_verification_suffix':'3g16_diagnostic','additional_mode_impedance_overrides':{},
+            'additional_mode_normalization_note':'No added mode is used in production.'}
+    if (ROOT/'port_protocol.json').exists():
+        old=read(ROOT/'port_protocol.json')
+        if old.get('modes')!=2:raise RuntimeError('Existing protocol is not two-mode; refusing overwrite')
+    write_json(ROOT/'port_protocol.json',result)
+    status(status='port_protocol_verified',port_protocol_id=result['id'],active_stage='collector_visible_mcp16',active_run=None,
+           protocol_issue='Three-mode diagnostic failed interpolating passivity; validated two-mode production protocol selected for the authorized 24-pilot study.',
+           pilot_attempted=0)
+    print(json.dumps({'protocol':result,'checks':checks},ensure_ascii=False,indent=2))
+if __name__=='__main__':main()

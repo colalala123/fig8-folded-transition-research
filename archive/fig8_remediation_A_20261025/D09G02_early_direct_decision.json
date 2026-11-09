@@ -1,0 +1,23 @@
+{
+  "at": "2026-10-24T18:06:26.724155+00:00",
+  "case": "D09G02",
+  "action": "early_direct_review_of_passing_probe",
+  "selected_run": "J:\\f8_remA_261025\\D09G02\\g01_probe_Ls1",
+  "selected_role": "probe_Ls1",
+  "source_event_sha256": "f4cb5fe2edf525bc095b3205737839ba357e27ac31b652f0909a732b92c2eb39",
+  "source_ack_sha256": "36d57d14dd19dd0aefcd1b955eef8f043e91986762dde851f7cc82e70c324203",
+  "source_verification_sha256": "261fe4584f391233cd69a23297dcebc3bec27e1a3b7f52a0871e6246a84710cf",
+  "design_passed": true,
+  "peak_difference_dB": 0.29511126683869726,
+  "central_valley_GHz": 6.72,
+  "new_geometry_used": 1,
+  "new_geometry_cap": 3,
+  "historical_geometry_attempts": 7,
+  "lifetime_geometry_attempts": 8,
+  "reason": "PLAN section3 explicitly allows early stop on a successful branch and prohibits solving merely to fill caps. First probe already passes original design with margin; independent Lm/Jacobian/candidate are unnecessary to validate this geometry. Supersedes prior assistant implementation note requiring all3even if a probe passes; no user requirement, acceptance criterion or budget increased.",
+  "cancel_further_geometry_if_direct_passes": true,
+  "full_direct_still_required": true,
+  "previous_missing_point_mandatory_GHz": 10.19,
+  "remaining_cached_tasks": 1,
+  "no_original_result_overwrite": true
+}

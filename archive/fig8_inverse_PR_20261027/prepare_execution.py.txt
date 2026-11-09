@@ -1,0 +1,140 @@
+"""Isolate the authorized PR18 batch, reusing reviewed I4 machinery. No solve."""
+import ast
+import hashlib
+import json
+from datetime import datetime,timezone
+from pathlib import Path
+
+HERE=Path(__file__).resolve().parent
+OLD=HERE.parent/'fig8_iso4_20261026'
+NEW=HERE.parent/'fig8_PR18_20261027'
+BASE=Path('J:/f8_PR18_261027')
+USER='你现在把前三步做了，补点仿真用记得用hook'
+def read(p):return json.loads(Path(p).read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(Path(p).read_bytes()).hexdigest()
+def now():return datetime.now(timezone.utc).isoformat()
+def write(p,x):
+    p=Path(p);p.parent.mkdir(parents=True,exist_ok=True);p.write_text(json.dumps(x,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+def main():
+    assert not (NEW/'plan.json').exists(),'Existing batch must not be replaced'
+    NEW.mkdir(exist_ok=True)
+    proposal=read(HERE/'supplement_plan.json');ORDER=[r['case'] for r in proposal['cases']]
+    files=['phase_control.py','phase_geometry_context.py','phase_geometry_worker.py','phase_publish.py',
+           'phase_geometry_publish.py','phase_heartbeat.py','phase_heartbeat_transport.py','case_reference.py',
+           'prepared_settings.py','configure_projects.py','dispatch.py','review_phase_geometry.py','acknowledge_review.py',
+           'supervise_start.py','verify_live_hook.py','test_phase_heartbeat.py','desktop_preflight.py','aedt_session_guard.py',
+           'finalize_and_authorize.py']
+    provenance={}
+    for name in files:
+        src=OLD/name;s=src.read_text(encoding='utf-8')
+        s=s.replace('I4','PR18').replace('f8_PR18_261026','f8_PR18_261027')
+        s=s.replace('四配置','18配置').replace('四项','18项').replace('四个','18个').replace('这4个','这18个').replace('先完成4个','先完成18个')
+        if name=='phase_control.py':
+            a=s.index('ORDER=');b=s.index('\n',a);s=s[:a]+'ORDER='+repr(ORDER)+s[b:]
+        if name=='phase_geometry_context.py':s=s.replace('<=4','<=18')
+        if name=='dispatch.py':s=s.replace("len(ledger['tasks'])<4","len(ledger['tasks'])<18")
+        if name=='finalize_and_authorize.py':
+            s=s.replace('prepared_projects=4','prepared_projects=18').replace('prepared=4','prepared=18').replace('initial_four_only','initial18_only')
+        if name=='phase_geometry_worker.py':
+            s=s.replace("from mesh_budget import MeshBudget, decide, design_verdict", "from mesh_budget import MeshBudget, decide, design_verdict\nfrom target_metrics import compute20")
+            s=s.replace("state.update(status='completed',design_passed=design_verdict(metrics),finished_at=now())", "write(run/'target20_metrics.json',compute20(run/'sparams.csv',metrics))\n    state.update(status='completed',design_passed=design_verdict(metrics),finished_at=now())")
+            s=s.replace("artifacts+=['reference_review.json']","artifacts+=['reference_review.json','target20_metrics.json']")
+            s=s.replace('设计指标=', '中心与等峰条件=')
+        if name=='review_phase_geometry.py':
+            s=s.replace("ax.axhline(-2,color='gray'", "ax.axhline(-20,color='red',ls='--',lw=.8);ax.axhline(-2,color='gray'")
+        (NEW/name).write_text(s,encoding='utf-8')
+        provenance[name]=dict(source=str(src),source_sha256=sha(src),local_sha256=sha(NEW/name))
+    # New20dB metrics use the same tested interval extractor as the offline prototype.
+    (NEW/'target_metrics.py').write_text('''from pathlib import Path
+import sys
+import numpy as np
+sys.path.insert(0,str(Path(__file__).resolve().parent.parent/'fig8_inverse_PR_20261027'))
+from model import intervals,center_band,band_score
+def compute20(path,metrics):
+    d=np.genfromtxt(path,delimiter=',',names=True)
+    f=d['Freq_GHz'];s11=d['S11_dB'];s21=d['S21_dB']
+    bands=intervals(f,s11,s21)
+    return dict(joint20_intervals_GHz=bands,joint20_center_band_GHz=center_band(bands),
+        worse_inner_peak_dB=max(p['S11_dB'] for p in metrics['peaks']),
+        both_inner_peaks_le_minus20=all(p['S11_dB']<=-20 for p in metrics['peaks']),
+        fixed_4to9=band_score(f,s11,s21,4,9),is_scientific_label_not_solver_success=True)
+''',encoding='utf-8')
+    (NEW/'CONTINUATION.md').write_text('''# PR18：已授权的前三步补点接续
+
+人类请求：你现在把前三步做了，补点仿真用记得用hook。
+范围：本目录plan.json中18配置，9个独立宽度对、a=1.4/1.8mm、g=.55mm。
+目的：精确名义P=2.04/2.16/2.28与R=.43/.455/.475网格，研究-20dB边界及P/R解释。
+不是第4步独立逆向设计盲测，也不是把原34项重新仿真。不得操作均匀数据。
+
+先读plan.json、authorization.json、execution_plan.json、budget_ledger.json、active.json和当前事件；只核验本批路径。
+只用可见AEDT2024R2和现有本机MCP，16核、1任务串行。实际网格目标10–11万、允许记录至11.2万；不盲清锁、不重复Analyze。
+初始按ORDER逐项dispatch.py --case CASE --solve；每项启动后supervise_start.py --run RUN --seconds 600记录真实16核证据。
+前两项必须完成事件哈希核验和实际S11/S21看图；运行review_phase_geometry.py --run RUN，然后acknowledge_review.py --run RUN --visual-reviewed --note 实际观察。
+后续仍逐项接收核验后dispatch，不允许并发。所有初始18点结束后再统一判断是否需要长度补偿。
+
+重要：design_passed是旧中心/等峰/谷间-10dB基础调谐条件，不是新的-20dB要求已达标。
+每项另外输出target20_metrics.json，分别记录两个峰是否均<=-20以及全部连续联合通带。
+有意保留-20dB两侧的样本，不能把未达到-20的科学负例改宽度强行调过。
+Wm/Ws/P/R/折臂/间隔全部冻结；仅为中央谷6.72±.03GHz和峰差<=.5dB，必要时调整Lm/Ls1。
+预算：18个初值；共享最多12个额外几何，总上限30，每配置最多4个几何。不得追逐预测带宽，不自动扩预算。
+后续调谐必须新子目录冻结父证据及代码，不改初始输入；有问题先诊断，保留失败与全部尝试。
+
+初始有效结果仍需最终同网格直接抽查，不重自适应。优先两内峰和新-20dB联合带边，必要时传输带边，原则12–20频点，硬上限24频点/配置、每次最多4点、最多6次调用；冻结计划后执行。
+可复用旧I4 final_review的代码，但必须建立PR18独立上下文和新24点预算；不能向旧队列dispatch。
+邻阈值配置重点复核；超过预算停下来报告，不把粗插值断言为严格-20dB保证。
+本轮结束必须回填模型比较（冻结预测对新实测）、18点分类及几何账本，并关闭完成通知心跳。第4步盲测未授权，不自动另起批次。
+
+hook：每个完整配置完成或失败才通知当前聊天。正常求解安静；消息送达300秒后没有下一真实求解，再检查对话状态；仍在处理则等待，中断且空闲才去重继续，未知送达不盲重发。
+用户暂停时先停心跳；原34点的关闭hook不重新启用。
+离线成果在相邻fig8_inverse_PR_20261027；其模型只是原型，存在近-20dB连通性跳变，不承诺普适理论或确定性达标。
+''',encoding='utf-8')
+    # Replace historical prompt with this batch's precise scope.
+    p=NEW/'phase_geometry_publish.py';s=p.read_text(encoding='utf-8');a=s.index('def prompt(');b=s.index('async def publish',a)
+    prompt='''def prompt(event,path):
+    return (f'[Fig8 PR18完成事件]\\n事件ID：{hook.event_id(event)}\\n状态：{event["status"]}\\n摘要：{event["summary"]}\\n事件：{path}\\n'
+        f'人类已授权完成前三步和18个P/R补点，先读{HERE/"CONTINUATION.md"}及plan/authorization/execution_plan/budget_ledger/active。'
+        '核验真实完成/失败、原始S11/S21、实际网格及target20_metrics，实际看图后ACK，再按ORDER启动下一配置。'
+        '16核串行、目标10–11万网格；完成后用同一hook。前两配置监督后才放行其余。'
+        '旧design_passed仅基础调谐，不等于-20dB通过；科学负例必须保留，不调宽度强行过线。'
+        '初始18项，额外长度调谐共享12个，几何总上限30、每配置最多4；同网格直接抽查最多24点/配置、每次4点。'
+        '不重新跑原34项，不操作均匀数据，不自动启动第4步盲测。正常求解不周期通知；完成送达5分钟无下一仿真才检查对话中断。')
+'''
+    p.write_text(s[:a]+prompt+s[b:],encoding='utf-8')
+    oldplan=read(OLD/'plan.json');cases=[]
+    for r in proposal['cases']:
+        c=dict(r);case=r['case'];c.update(prepared_project=str(BASE/case/'prepared'/f'{case}_PR18_Prepared.aedt'),
+            run_dir=str(BASE/case/'g01_initial'),status='configuration_pending')
+        cases.append(c)
+    plan=dict(stage='PR18',at=now(),cases=cases,seed=oldplan['seed'],seed_sha256=oldplan['seed_sha256'],
+        prediction_source=str(HERE/'supplement_plan.json'),prediction_source_sha256=sha(HERE/'supplement_plan.json'),
+        training_source=oldplan['training_source'],training_source_sha256=oldplan['training_source_sha256'],
+        source_validation_result=oldplan['source_validation_result'],source_validation_sha256=oldplan['source_validation_sha256'],
+        initial_geometry_cap=18,overall_geometry_cap_per_case=4,overall_geometry_cap=30,predictions_refitted=False)
+    write(NEW/'plan.json',plan)
+    policy=read(OLD/'policy.json');policy.update(version='PR18_v1',created_at=now(),user_authorization=USER,
+        scope=proposal['scope'],minus20_label='S11<=-20 AND S21>=-2 continuous bands; not a mandatory success gate for training samples',
+        bounded_tuning='18 initial +shared12 extras, total30, at most4/case; Lm/Ls1 only. Direct<=24points/case, <=4/launch, <=6launches.')
+    write(NEW/'policy.json',policy)
+    addon=read(OLD/'mesh_policy_addendum_v2.json');addon.update(created_at=now(),base_policy_sha256=sha(NEW/'policy.json'),scope='PR18 inherits approved112k slight exception')
+    write(NEW/'mesh_policy_addendum_v2.json',addon)
+    ref=read(OLD/'reference_validation.json');ref['adapter_sha256']=sha(NEW/'case_reference.py');write(NEW/'reference_validation.json',ref)
+    write(NEW/'predictions_frozen.json',proposal)
+    for name in provenance:provenance[name]['local_sha256']=sha(NEW/name)
+    write(NEW/'implementation_provenance.json',provenance)
+    write(NEW/'authorization.json',dict(stage='PR18',cases=ORDER,configuration_authorized=True,execution_authorized=False,
+        launch_user_instruction=USER,at=now(),overall_geometry_cap_per_case=4,overall_geometry_cap=30,overall_cached_direct_cap=18))
+    write(NEW/'execution_plan.json',dict(stage='PR18',cases=ORDER,initial_geometry_cap=18,total_geometry_cap=30,
+        geometry_cap_per_case=4,shared_extra_geometry_cap=12,total_cached_direct_cap=18,first_supervised=ORDER[:2],
+        final_direct_points_cap=24,final_direct_batch_points_cap=4,final_direct_launch_cap_per_case=6,
+        initial_stage_release_only=True,cores=16,serial_tasks=1,completion_hook_target='REDACTED-ID',
+        true_blind_inverse_stage4_included=False,launch_user_instruction=USER))
+    write(NEW/'budget_ledger.json',dict(stage='PR18',new_geometry_reserved=0,new_cached_tasks_reserved=0,tasks=[]))
+    cfg=read(OLD/'hook/config.json');cfg.update(state_dir=str(NEW/'hook/state'),created_at=now(),authorization=USER+'；本批18配置完成/失败及中断接续至当前聊天。')
+    write(NEW/'hook/config.json',cfg)
+    write(NEW/'hook/heartbeat/monitor.json',dict(enabled=False,status='waiting_first_real_completion',created_at=now()))
+    write(NEW/'active.json',dict(stage='preparing18',at=now()))
+    for p in NEW.glob('*.py'):ast.parse(p.read_text(encoding='utf-8'),filename=str(p))
+    print('Prepared isolated PR18 code and plan; no AEDT connection or solve.')
+
+if __name__=='__main__':main()

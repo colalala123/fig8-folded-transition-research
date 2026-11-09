@@ -1,0 +1,153 @@
+{
+  "at": "2026-10-30T20:14:49.263472+00:00",
+  "tools": {
+    "start_analysis": {
+      "properties": {
+        "project_name": {
+          "title": "Project Name",
+          "type": "string"
+        },
+        "design_name": {
+          "title": "Design Name",
+          "type": "string"
+        },
+        "setup_name": {
+          "title": "Setup Name",
+          "type": "string"
+        },
+        "concurrent_tasks": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Concurrent Tasks"
+        },
+        "cores_per_task": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Cores Per Task"
+        },
+        "pid": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pid"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Port"
+        },
+        "blocking": {
+          "default": false,
+          "title": "Blocking",
+          "type": "boolean"
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout"
+        }
+      },
+      "required": [
+        "project_name",
+        "design_name",
+        "setup_name"
+      ],
+      "title": "start_analysisArguments",
+      "type": "object"
+    },
+    "get_analysis_status": {
+      "properties": {
+        "project_name": {
+          "title": "Project Name",
+          "type": "string"
+        },
+        "design_name": {
+          "title": "Design Name",
+          "type": "string"
+        },
+        "setup_name": {
+          "default": "",
+          "title": "Setup Name",
+          "type": "string"
+        },
+        "pid": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pid"
+        },
+        "port": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Port"
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Timeout"
+        }
+      },
+      "required": [
+        "project_name",
+        "design_name"
+      ],
+      "title": "get_analysis_statusArguments",
+      "type": "object"
+    }
+  },
+  "analyze_requested": false
+}

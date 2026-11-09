@@ -1,0 +1,74 @@
+"""Read-only delivery validation; does not change solver/production acceptance."""
+import csv, hashlib, json, sys
+from pathlib import Path
+import numpy as np
+HERE=Path(__file__).resolve().parent
+sys.path.insert(0,str(HERE.parent/'fig8_acceptance_audit_20261021'))
+from audit import load
+from compare_direct import norm
+ROOT=Path('J:/f8_261007'); BASE=Path('J:/f8_speed_261021')
+def read(p):return json.loads(p.read_text(encoding='utf-8-sig'))
+def sha(p):return hashlib.sha256(p.read_bytes()).hexdigest()
+def main():
+    plan=read(HERE/'frozen_plan.json');results=[]
+    all_profiles={**plan['profiles'],'I':{'MaxDeltaS':.005,'InterpTolerance':1.0},'F':{'MaxDeltaS':.005,'InterpTolerance':1.0}}
+    for profile,case in plan['order']+[['I','D05G02'],['I','D08G05'],['F','D05G02']]:
+        folder=BASE/f'{profile}_{case}'
+        if not (folder/'comparison.json').exists():continue
+        s=read(folder/'state.json');r=read(folder/'comparison.json')
+        assert s['status']=='completed' and s['source_unchanged']
+        if profile=='I':
+            assert s['same_mesh_verified'] and s['cache_copied'] and s['copied_original_curves_verified']
+            assert (folder/'convergence.txt').read_bytes()==(folder/'convergence_before.txt').read_bytes()
+        else:assert s['fresh_mesh_verified'] and not s['cache_copied']
+        assert sha(Path(s['source']))==plan['source_sha256'][case]
+        assert s['cad_verification']['passed']
+        assert s['geometry_tuning_iterations_added']==0 and s['fresh_numerical_solves_added']==(0 if profile=='I' else 1)
+        assert s['mcp_request']['cores_per_task']==16 and s['mcp_request']['concurrent_tasks']==1
+        commands=[' '.join(p['cmdline'] or []) for obs in s['observations'] for p in obs]
+        if profile!='I':
+            assert any('-max_processors 16' in c and '-numParallelGroups 1' in c for c in commands)
+            assert any('-solve_broadband_adapt' in c or '-solve_adapt' in c for c in commands)
+        else:
+            assert not any('-solve_broadband_adapt' in c or '-solve_adapt' in c for c in commands)
+        before=s['setup_before'];after=s['setup_after']
+        changes={k:[v,after.get(k)] for k,v in before.items() if k!='Sweeps' and after.get(k)!=v}
+        assert changes==({} if profile in ['I','F'] else {'MaxDeltaS':[.005,all_profiles[profile]['MaxDeltaS']]}),changes
+        sweep=s['sweep_after'];old=before['Sweeps']['Sweep1']
+        sweep_changes={k:[v,sweep.get(k)] for k,v in old.items() if k!='ID' and v!=sweep.get(k)}
+        assert sweep_changes=={'InterpTolerance':[.5,all_profiles[profile]['InterpTolerance']],'EnforcePassivity':[True,False]},sweep_changes
+        assert all(p['NumModes']==2 for p in s['ports'].values())
+        f,sm,z=load(folder)
+        assert len(f)==1500 and np.allclose(f,np.arange(1,1501)/100,rtol=0,atol=1e-9)
+        assert np.isfinite(sm).all() and np.isfinite(z).all()
+        rows=list(csv.DictReader((folder/'sparams.csv').open(encoding='utf-8-sig')))
+        for k,i,j in [('S11',0,0),('S21',2,0)]:
+            v=np.array([complex(float(row[k+'_real']),float(row[k+'_imag'])) for row in rows])
+            assert np.allclose(v,sm[:,i,j],rtol=0,atol=1e-12)
+        n=norm(sm,z);sv=np.linalg.svd(n,compute_uv=False)[:,0]
+        sub=n[:,[0,2]][:,:,[0,2]]
+        diag={'full_50ohm_max_sv':float(sv.max()),'full_50ohm_reciprocity':float(abs(n-n.transpose(0,2,1)).max()),
+          'fundamental_50ohm_max_sv':float(np.linalg.svd(sub,compute_uv=False)[:,0].max()),
+          'native_fundamental_reciprocity':float(abs(sm[:,0,2]-sm[:,2,0]).max()),
+          'full_matrix_approved':False,'scope':'Diagnostics retained, not a substitute for response comparison, direct checks, or mode sufficiency.'}
+        metrics=r['candidate_metrics'];band=metrics['passband_2dB']
+        direct_folder=ROOT/'acceptance_audit_20261021'/case
+        df,ds,dz=load(direct_folder);ix=np.searchsorted(f,df)
+        assert np.allclose(f[ix],df,rtol=0,atol=1e-9)
+        refband=r['reference_metrics']['passband_2dB']
+        near=(df>=refband['f_low_GHz']-.03)&(df<=refband['f_high_GHz']+.03)
+        direct_error={'reference':str(direct_folder),'points':len(df),
+          'max_fundamental_complex_error':float(np.maximum(abs(sm[ix,0,0]-ds[:,0,0]),abs(sm[ix,2,0]-ds[:,2,0])).max()),
+          'max_S21_dB_error_near_band':float(abs(20*np.log10(abs(sm[ix,2,0]))-20*np.log10(abs(ds[:,2,0])))[near].max()),
+          'scope':'Independent direct-frequency samples on the strict reference mesh; not same-mesh interpolation-only error for the relaxed trial.'}
+        results.append({'profile':profile,'case':case,'integrity_checks_passed':True,'setup_changes':changes,'sweep_changes':sweep_changes,
+          'actual_16core_solver_observed':any('-max_processors 16' in c for c in commands),'all_frequency_basis_cached':s.get('all_frequency_basis_cached',False),
+          'sweep_default_fields_added':{k:v for k,v in sweep.items() if k not in old},
+          'matrix_diagnostics':diag,'direct_reference_comparison':direct_error,'bandwidth_GHz':band['BW_GHz'],'relative_BW_error_percent':100*r['BW_error_GHz']/r['reference_metrics']['passband_2dB']['BW_GHz'],
+          'adaptive_converged':s['convergence']['converged'],'sweep_converged':s['sweep_converged'],
+          'evidence_sha256':{str(folder/k):sha(folder/k) for k in ['manifest.json','state.json','comparison.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','convergence.txt']}})
+    out={'completed_trials':len(results),'production_protocol_sha256':sha(ROOT/'production_protocol.json'),
+      'original_sources_unchanged':all(sha(ROOT/c/'i00'/f'{c}_00.aedt')==h for c,h in plan['source_sha256'].items()),'trials':results}
+    (HERE/'verification.json').write_text(json.dumps(out,ensure_ascii=False,indent=2),encoding='utf-8')
+    print(json.dumps(out,ensure_ascii=False,indent=2))
+if __name__=='__main__':main()

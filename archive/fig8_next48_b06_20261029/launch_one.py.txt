@@ -1,0 +1,14 @@
+"""One serial release plus actual-start supervision and quiet exit observer."""
+import argparse,subprocess,sys
+import phase_control as pc
+sys.path.insert(0,'${WORKSPACE}\\output\\fig8_next48_20261029')
+from effective_budget_v3 import validate_campaign
+def main():
+    p=argparse.ArgumentParser();p.add_argument('--case',choices=pc.ORDER,required=True);a=p.parse_args()
+    validate_campaign(case=a.case,storage=True)
+    assert not (pc.HERE/'closure.json').exists()
+    subprocess.run([sys.executable,str(pc.HERE/'dispatch.py'),'--case',a.case,'--solve'],check=True)
+    run=pc.BASE/a.case/'g01_initial'
+    subprocess.run([sys.executable,str(pc.HERE/'supervise_start.py'),'--run',str(run),'--seconds','600'],check=True)
+    subprocess.run([sys.executable,str(pc.HERE/'lifecycle_watch.py'),'ensure','--run',str(run)],check=True)
+if __name__=='__main__':main()

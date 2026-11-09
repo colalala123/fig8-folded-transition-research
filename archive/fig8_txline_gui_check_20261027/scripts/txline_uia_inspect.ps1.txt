@@ -1,0 +1,59 @@
+param(
+    [string]$TitleLike = "TXLINE 2003*"
+)
+
+Add-Type -AssemblyName UIAutomationClient
+Add-Type -AssemblyName UIAutomationTypes
+
+$root = [System.Windows.Automation.AutomationElement]::RootElement
+$windowsAll = $root.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+$windows = New-Object System.Collections.ArrayList
+for ($i = 0; $i -lt $windowsAll.Count; $i++) {
+    $candidate = $windowsAll.Item($i)
+    if ($candidate.Current.Name -like $TitleLike) {
+        [void]$windows.Add($candidate)
+    }
+}
+
+Write-Output "TitleLike: $TitleLike"
+Write-Output "Windows: $($windows.Count)"
+
+function Get-PatternValue($element) {
+    $parts = New-Object System.Collections.Generic.List[string]
+    $valuePattern = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.ValuePattern]::Pattern, [ref]$valuePattern)) {
+        $parts.Add("Value=$($valuePattern.Current.Value)")
+    }
+    $selectionPattern = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.SelectionItemPattern]::Pattern, [ref]$selectionPattern)) {
+        $parts.Add("Selected=$($selectionPattern.Current.IsSelected)")
+    }
+    $invokePattern = $null
+    if ($element.TryGetCurrentPattern([System.Windows.Automation.InvokePattern]::Pattern, [ref]$invokePattern)) {
+        $parts.Add("Invokable=True")
+    }
+    return ($parts -join "; ")
+}
+
+function Walk-Ui($element, $depth, $maxDepth) {
+    if ($depth -gt $maxDepth) { return }
+    $indent = "  " * $depth
+    $name = $element.Current.Name
+    $controlType = $element.Current.ControlType.ProgrammaticName
+    $className = $element.Current.ClassName
+    $automationId = $element.Current.AutomationId
+    $rect = $element.Current.BoundingRectangle
+    $bounds = "bounds=[$([int]$rect.Left),$([int]$rect.Top),$([int]$rect.Width),$([int]$rect.Height)]"
+    $patterns = Get-PatternValue $element
+    Write-Output "$indent$controlType class=[$className] id=[$automationId] name=[$name] $bounds $patterns"
+    $children = $element.FindAll([System.Windows.Automation.TreeScope]::Children, [System.Windows.Automation.Condition]::TrueCondition)
+    for ($i = 0; $i -lt $children.Count; $i++) {
+        Walk-Ui $children.Item($i) ($depth + 1) $maxDepth
+    }
+}
+
+for ($i = 0; $i -lt $windows.Count; $i++) {
+    Write-Output ""
+    Write-Output "WINDOW[$i]"
+    Walk-Ui $windows.Item($i) 0 5
+}

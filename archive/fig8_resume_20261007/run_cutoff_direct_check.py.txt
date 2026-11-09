@@ -1,0 +1,57 @@
+"""Direct samples of the remaining cutoff and high-frequency interpolation errors."""
+import asyncio
+from pathlib import Path
+import local_direct_check as direct
+from broadband_recovery import ROOT, read, sha, write_json, now
+from pilot_worker import convergence
+
+RUN = ROOT/'local_repair/D04G05/cutoff_check'
+PROJECT = RUN.parent/'D04G05_repair.aedt'
+NAME = 'RecoveryDirectV2'
+FREQUENCIES = [9.30, 9.35, 9.40, 9.44, 9.46, 9.47, 9.50, 9.55, 9.60, 9.65,
+               14.00, 14.15, 14.25, 14.27, 14.28, 14.30, 14.31, 14.40, 14.50, 15.00]
+
+def prepare():
+    direct.idle()
+    assert not (ROOT/'protocol.lock').exists()
+    assert not (RUN/'local_state.json').exists(), 'Recover existing sample results'
+    zo = read(RUN.parent/'zo_fullband/state.json')
+    assert zo['mesh_reuse_verified'] and zo['status']=='segments_exported_review_required'
+    assert read(RUN.parent/'direct_comparison.json')['direct_matrix_checks_passed']
+    RUN.mkdir(exist_ok=True)
+    snapshot = read(RUN.parent/'snapshot.json')
+    write_json(RUN/'snapshot.json', snapshot)
+    app = direct.connect(PROJECT, 7990)
+    try:
+        assert not app.are_there_simulations_running
+        setup = app.get_setup('Setup19'); assert setup.is_solved
+        before = direct.persisted_sweeps(PROJECT); assert NAME not in before
+        for sweep in setup.sweeps:
+            sweep.props['Type'] = before[sweep.name]['Type']
+            sweep.props['IsEnabled'] = False
+            assert sweep.update()
+        sw = setup.add_sweep(NAME, sweep_type='Discrete')
+        sw.props.update({'Type':'Discrete','IsEnabled':True,'SaveFields':False,'SaveRadFields':False})
+        assert sw.update()
+        for i, freq in enumerate(FREQUENCIES):
+            assert sw.add_subrange('SinglePoints',freq,unit='GHz',clear=(i==0))
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence_before.txt'))
+        conv = convergence(RUN/'convergence_before.txt')
+        assert conv == zo['adaptive_convergence_before']
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3)
+        app.save_project(); assert setup.is_solved
+        saved = direct.persisted_sweeps(PROJECT)
+        assert saved[NAME]['Type']=='Discrete' and saved[NAME]['IsEnabled']=='true'
+        assert all(v['IsEnabled']=='false' for k,v in saved.items() if k!=NAME)
+        write_json(RUN/'local_state.json',{
+            'case':'D04G05','project':str(PROJECT),'status':'prepared',
+            'expected_frequencies_GHz':FREQUENCIES,'original_convergence':conv,
+            'saved_sweeps':saved,'prepared_project_sha256':sha(PROJECT),'prepared_at_utc':now(),
+            'scope':'20 diagnostic direct samples on existing mesh; no phase solve, no production acceptance.'})
+    finally:
+        app.release_desktop(close_projects=False,close_desktop=False)
+
+if __name__=='__main__':
+    prepare()
+    direct.NAME=NAME
+    asyncio.run(direct.solve('D04G05',RUN))

@@ -1,0 +1,38 @@
+"""Record an explicitly completed visual review. Does NOT perform that review.
+
+Run review_phase_geometry.py and inspect its actual rendered S11/S21 image first.
+The explicit --visual-reviewed flag is a receiver assertion, not an auto-pass.
+"""
+import argparse
+from pathlib import Path
+import phase_control as pc
+
+def record(run,visual_reviewed,note):
+    assert visual_reviewed and note.strip()
+    run=run.resolve();spec=pc.read(run/'input.json');case=spec['case']
+    from phase_geometry_context import job_name
+    assert case in pc.ORDER and run==(pc.BASE/case/job_name(spec['new_phase_geometry_ordinal'])).resolve()
+    assert not (run/'receiver_ack.json').exists(),'Do not overwrite a prior ACK'
+    event=pc.read(run/'completion_event.json');r=pc.read(run/'receiver_verification.json')
+    assert event['status']=='completed' and event['verified_success'] and event['target_thread_id']==pc.TARGET
+    assert r['event_sha256']==pc.sha(run/'completion_event.json') and pc.sha(r['plot'])==r['plot_sha256']
+    for f,h in r['verified_hashes'].items():assert pc.sha(f)==h
+    for f,h in spec['parent_evidence_hashes'].items():assert pc.sha(f)==h
+    start=pc.read(run/'supervised_start.json')
+    assert start['input_sha256']==pc.sha(run/'input.json') and start['actual_16core_single_group_observed']
+    ack=dict(at=pc.now(),event_id=r['event_id'],event_sha256=pc.sha(run/'completion_event.json'),
+        verification_sha256=pc.sha(run/'receiver_verification.json'),artifacts_verified=True,
+        visual_review_completed=True,visual_review_note=note,operation_success=True,design_passed=r['design_passed'],
+        final_numerical_acceptance=False,plot_sha256=r['plot_sha256'])
+    ledger=pc.read(pc.HERE/'budget_ledger.json')
+    own=[t for t in ledger['tasks'] if Path(t['path']).resolve()==(run/'input.json').resolve()]
+    assert len(own)==1 and own[0]['input_sha256']==pc.sha(run/'input.json') and own[0]['status']=='reserved'
+    pc.write(run/'receiver_ack.json',ack)
+    own[0].update(status='reviewed',ack_sha256=pc.sha(run/'receiver_ack.json'),design_passed=r['design_passed'])
+    pc.write(pc.HERE/'budget_ledger.json',ledger)
+    print({'case':case,'reviewed':True,'design_passed':r['design_passed'],'final_accepted':False})
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--run',type=Path,required=True)
+    ap.add_argument('--visual-reviewed',action='store_true');ap.add_argument('--note',required=True)
+    a=ap.parse_args();record(a.run,a.visual_reviewed,a.note)

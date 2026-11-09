@@ -1,0 +1,31 @@
+"""Preserve old files and prove cached pass history before any resumed solve."""
+import sys,shutil,json,datetime,faulthandler
+from pathlib import Path
+P=Path(__file__).resolve().parent;C=P/'length_tuning'
+sys.path.insert(0,str(C))
+import phase_geometry_worker as w
+from analyze_study import passes
+r=Path('J:/f8_PR18_261027/P04G05/g02_probe_Ls1');b=r/'restart1_preserved'
+project=r/'P04G05_PR18_g02R1.aedt'
+assert not project.exists()
+shutil.copy2(b/'P04G05_PR18_g02.aedt',project)
+shutil.copytree(b/'P04G05_PR18_g02.aedtresults',project.with_suffix('.aedtresults'))
+log=(P/'restart1_preflight_stack.log').open('w');faulthandler.dump_traceback_later(90,file=log)
+app=w.dc.app_for(project)
+try:
+ assert not app.are_there_simulations_running
+ out=r/'restart1_preflight_convergence.txt'
+ app.export_convergence('Setup19',output_file=str(out))
+ expected=passes(b/'convergence_stage_02.txt');actual=passes(out)
+ assert actual==expected and actual[-1][:2]==[18,81330],(actual,expected)
+ state=w.read(b/'state.json');spec=w.read(b/'input.json')
+ assert w.inspect_rebuilt_geometry(app,spec['geometry'])['passed']
+ ports=w.canonical_ports({x.name:w.snapshot(x.props) for x in app.boundaries if x.type=='Wave Port'})
+ assert ports==w.canonical_ports(state['port_settings']['after'])
+ temp=Path(app.temp_directory)
+ assert temp.resolve()==Path(w.read(C/'desktop_start.json')['temp_directory']).resolve(),str(temp)
+ report=dict(at=w.now(),passed=True,project=str(project),history=actual,actual_elements=81330,actual_passes=18,geometry_verified=True,ports_verified=True,temp_directory=str(temp),analyze_requested=False)
+ w.write(P/'restart1_preflight.json',report);print(report,flush=True)
+finally:
+ app.release_desktop(close_projects=False,close_desktop=False)
+ faulthandler.cancel_dump_traceback_later()

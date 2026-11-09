@@ -1,0 +1,84 @@
+"""Build and check a candidate matrix. Never imports AEDT or launches a solver."""
+from pathlib import Path
+import csv
+import hashlib
+import json
+import math
+from collections import Counter
+
+HERE = Path(__file__).resolve().parent
+WORK = Path('${WORKSPACE}')
+SOURCE = Path('F:/hfss_f8_261002/B0/B0.aedt')
+PATH_REF = 17.140660
+H = 0.813
+TRAIN_SHAPES = [(1.4,.35),(1.4,.55),(1.4,.75),(1.8,.35),
+                (1.8,.55),(1.8,.75),(2.0,.35),(2.0,.55)]
+HOLDOUT_SHAPES = [(1.5,.40),(1.5,.60),(1.5,.70),(1.9,.40),
+                  (1.9,.60),(1.9,.70),(2.05,.40),(2.05,.60)]
+WIDTHS = [(wm,ws) for wm in (.9,1.2,1.6,2.0) for ws in (.30,.44,.58)]
+HOLDOUT_WIDTHS = [(1.05,.35),(1.40,.49),(1.85,.53)]
+
+
+def check(g):
+    a, gap = g['Ls3']-g['Ws'], g['Ls2']-2*g['Ws']
+    minimum = max(4*g['Ls3'],2*g['Ls3']+g['Wm']+2*H)
+    valid = (all(math.isfinite(v) and v > 0 for v in g.values())
+             and 1.4-1e-9 <= a <= 2.3+1e-9 and .35-1e-9 <= gap <= .75+1e-9
+             and g['Ls1'] >= minimum-1e-9)
+    return valid,minimum
+
+
+def build():
+    rows=[]
+    for split,widths,shapes in [('development',WIDTHS,TRAIN_SHAPES),
+                                ('holdout',HOLDOUT_WIDTHS,HOLDOUT_SHAPES)]:
+        for i,(wm,ws) in enumerate(widths,1):
+            for j,(a,gap) in enumerate(shapes,1):
+                geom=dict(Wm=wm,Ws=ws,Lm=6.499465,Ls1=PATH_REF-2*a-2*gap-2*ws,
+                          Ls2=gap+2*ws,Ls3=a+ws)
+                valid,minimum=check(geom)
+                phase='pilot' if split=='development' and j in (2,5) else ('expansion' if split=='development' else 'holdout')
+                case=f"{'D' if split=='development' else 'H'}{i:02d}G{j:02d}"
+                rows.append(dict(case=case,split=split,phase=phase,width_family=f'{split}_{i:02d}',
+                                 shape_id=f'{split}_G{j:02d}',**geom,a_mm=a,g_mm=gap,
+                                 initial_path_mm=PATH_REF,minimum_Ls1_mm=minimum,
+                                 Ls1_lower_margin_mm=geom['Ls1']-minimum,geometry_valid=valid,
+                                 stage_status='proposed_not_simulated',
+                                 run_dir=f'F:/hfss_f8x_261002/{case}'))
+    return rows
+
+
+def main():
+    rows=build()
+    assert len(rows)==120 and len({r['case'] for r in rows})==120
+    assert Counter(r['phase'] for r in rows)==dict(pilot=24,expansion=72,holdout=24)
+    for row in rows:
+        assert row['geometry_valid'],row['case']
+        assert abs(row['Ls1']+2*row['Ls2']+2*row['Ls3']-4*row['Ws']-PATH_REF)<1e-9
+        assert check({k:row[k] for k in ['Wm','Ws','Lm','Ls1','Ls2','Ls3']})[0]
+    # Independent width directions: rectangular grid has full affine rank.
+    import numpy as np
+    assert np.linalg.matrix_rank([[1,wm,ws] for wm,ws in WIDTHS])==3
+    outputs={}
+    for name,selected in [('candidate_matrix.csv',rows),('pilot_24.csv',[r for r in rows if r['phase']=='pilot']),
+                          ('holdout_24.csv',[r for r in rows if r['phase']=='holdout'])]:
+        path=HERE/name
+        with path.open('w',encoding='utf-8-sig',newline='') as handle:
+            writer=csv.DictWriter(handle,fieldnames=list(rows[0]));writer.writeheader();writer.writerows(selected)
+        outputs[name]=hashlib.sha256(path.read_bytes()).hexdigest()
+    required=[SOURCE,WORK/'.venv/Scripts/python.exe',WORK/'tmp/folded_plan_review/automation/folded_transition.py',
+              WORK/'output/folded_fig8_run_20261002/run_batch.py',WORK/'resume_folded_case.py',
+              WORK/'output/folded_simulation_plan_20260920/response_metrics.py']
+    report={'status':'offline_geometry_checks_passed','candidate_count':120,'phase_counts':dict(Counter(r['phase'] for r in rows)),
+            'minimum_initial_Ls1_margin_mm':min(r['Ls1_lower_margin_mm'] for r in rows),
+            'width_affine_matrix_rank':3,'file_sha256':outputs,
+            'required_paths':{str(p):p.exists() for p in required},
+            'source_project_sha256':hashlib.sha256(SOURCE.read_bytes()).hexdigest() if SOURCE.exists() else None,
+            'no_solver_launched':True,
+            'limitation':'Geometric feasibility of initial guesses only; neither electromagnetic convergence nor equal ripple is guaranteed.'}
+    assert all(report['required_paths'].values()),report['required_paths']
+    (HERE/'preflight.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    print(json.dumps(report,ensure_ascii=False,indent=2))
+
+
+if __name__=='__main__':main()

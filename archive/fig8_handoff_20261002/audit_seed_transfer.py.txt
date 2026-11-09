@@ -1,0 +1,26 @@
+"""Read-only audit of saved adaptive vs interpolation modal impedance blocks."""
+import re,json
+from pathlib import Path
+import numpy as np
+ROOT=Path('F:/hfss_f8x_261002')
+out={}
+for case in ('M_B0_2','M_B0_3g16','M_T_F3_3g16','M_B0_3w16'):
+    rows=[]
+    for p in (ROOT/case).rglob('*.sd'):
+        if '_SOL' not in p.name:continue
+        t=p.read_text(encoding='utf-8',errors='replace')
+        if "SolutionType='HfssInterpolatingSweep'" not in t and "Name='Adaptive_1 '" not in t:continue
+        for dm in re.finditer(r"\$begin 'DataPoint'(.*?)\$end 'DataPoint'",t,re.S):
+            part=dm[1];fm=re.search(r'Frequency=([0-9.eE+-]+)',part)
+            if not fm or abs(float(fm[1])/1e9-15)>1e-8:continue
+            b=re.search(r"\$begin 'PortImpedance'(.*?)\$end 'PortImpedance'",part,re.S)
+            if not b:continue
+            block=re.search(r"\$begin 'Block0'(.*?)\$end 'Block0'",b[1],re.S)
+            if not block:continue
+            n=int(re.search(r'm=(\d+)',block[1])[1]);v=[complex(float(a),float(c)) for a,c in re.findall(r'c\(([^,]+), ([^)]+)\)',block[1])]
+            z=np.array(v).reshape(n,n);off=z-np.diag(np.diag(z))
+            rows.append({'file':str(p),'kind':'interpolation' if 'HfssInterpolatingSweep' in t else 'adaptive','adaptive_pass':int(re.search(r'AdaptivePass=(-?\d+)',t)[1]),'frequency_GHz':15,'port1_offdiag_max_ohm':float(np.max(abs(off))),'port1_block_size':n,'port1_block_rank':int(np.linalg.matrix_rank(z)),'first_row':[[float(x.real),float(x.imag)] for x in z[0]]})
+    adaptive=[x for x in rows if x['kind']=='adaptive']
+    out[case]=([max(adaptive,key=lambda x:x['adaptive_pass'])] if adaptive else [])+[x for x in rows if x['kind']=='interpolation']
+(ROOT/'modal_seed_transfer_audit.json').write_text(json.dumps(out,indent=2),encoding='utf-8')
+print(json.dumps(out,indent=2))

@@ -1,0 +1,18 @@
+"""Launch one explicitly authorized visible desktop; never Analyze."""
+import json,datetime
+from pathlib import Path
+import psutil
+from ansys.aedt.core import Desktop
+P=Path(__file__).resolve().parent
+assert (P/'restart1_shutdown.json').exists()
+assert not any((p.info['name'] or '').lower() in ['hf3d.exe','ansysedt.exe'] for p in psutil.process_iter(['name']))
+d=Desktop(version='2024.2',non_graphical=False,new_desktop=True,port=7990,close_on_exit=False)
+p=psutil.Process(d.aedt_process_id)
+identity=dict(at=datetime.datetime.now(datetime.timezone.utc).isoformat(),pid=p.pid,created=p.create_time(),command=p.cmdline(),visible_requested=True,version='2024.2',port=7990,analyze_requested=False,explicit_restart_authorized=True)
+for folder in [P,P/'length_tuning']:
+ old=folder/'aedt_identity.json';arch=folder/'aedt_identity_before_restart1.json'
+ if not arch.exists():arch.write_bytes(old.read_bytes())
+ old.write_text(json.dumps(identity,indent=2),encoding='utf-8')
+(P/'restart1_desktop.json').write_text(json.dumps(identity,indent=2),encoding='utf-8')
+d.release_desktop(close_projects=False,close_on_exit=False)
+print(identity)

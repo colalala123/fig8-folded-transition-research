@@ -1,0 +1,37 @@
+import asyncio
+import unittest
+from unittest.mock import AsyncMock, patch
+import supervised_queue_600 as q
+import run_guarded_case_600 as w
+
+
+class MonitoringTests(unittest.TestCase):
+    def test_wait_is_local_and_command_observed(self):
+        sleeper = AsyncMock()
+        original = asyncio.sleep
+        with patch.object(w, 'observe') as observer:
+            asyncio.run(w.Monitor(q.HERE, sleeper).sleep(30))
+        observer.assert_called_once_with(q.HERE)
+        sleeper.assert_awaited_once_with(600)
+        self.assertIs(original, asyncio.sleep)
+
+    def test_unknown_wait_refused(self):
+        with self.assertRaises(AssertionError):
+            asyncio.run(w.Monitor(q.HERE, AsyncMock()).sleep(15))
+
+    def test_worker_delegated_once_with_same_arguments(self):
+        args = ['python', str(q.HERE / 'run_guarded_case.py'), 'case/prediction.json', '--solve']
+        with patch.object(q.subprocess, 'call', return_value=9) as call:
+            self.assertEqual(q.WorkerTransport().call(args, cwd='workspace'), 9)
+        call.assert_called_once_with(['python', str(q.HERE / 'run_guarded_case_600.py'),
+                                     'case/prediction.json', '--solve'], cwd='workspace')
+
+    def test_other_dispatch_refused(self):
+        with patch.object(q.subprocess, 'call') as call:
+            with self.assertRaises(AssertionError):
+                q.WorkerTransport().call(['python', 'unexpected.py', '--solve'])
+            call.assert_not_called()
+
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

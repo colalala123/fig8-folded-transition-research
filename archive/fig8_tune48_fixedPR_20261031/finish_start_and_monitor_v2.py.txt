@@ -1,0 +1,49 @@
+"""Adopt an ALREADY started case and repair only a dead startup observer. Never dispatch/Analyze."""
+import argparse,json,subprocess,sys,time
+from pathlib import Path
+import psutil
+from build_runtime import ROOT,read,write,new,sha,now
+def exact(record):
+    try:
+        p=psutil.Process(record['pid']);return p.is_running() and abs(p.create_time()-record['created'])<.01 and p.cmdline()==record['command']
+    except psutil.NoSuchProcess:return False
+def ensure_observer(ctx,run):
+    sys.path.insert(0,str(ctx));from phase_heartbeat import mutex
+    path=run/'lifecycle_observer/daemon.json';folder=path.parent;folder.mkdir(exist_ok=True)
+    with mutex(folder):
+        if path.exists():
+            previous=read(path)
+            if exact(previous):return previous
+        args=[sys.executable,str(ROOT/'observer_retry_v2.py'),'--context',str(ctx),'--run',str(run)]
+        with (folder/'daemon_retry_v2.log').open('ab') as log:
+            p=subprocess.Popen(args,cwd=str(ctx),stdin=subprocess.DEVNULL,stdout=log,stderr=log,creationflags=subprocess.CREATE_NO_WINDOW)
+        q=psutil.Process(p.pid);record=dict(pid=q.pid,created=q.create_time(),command=q.cmdline(),registered_at=time.time())
+        write(path,record)
+    for i in range(40):
+        if path.exists():
+            record=read(path)
+            if exact(record) and 'observer_retry_v2.py' in ' '.join(record['command']):return record
+        time.sleep(.25)
+    raise RuntimeError('Observer-only adapter did not become live; do not relaunch solver')
+def adopt(ctx,case):
+    row=next(r for r in read(ctx/'plan.json')['cases'] if r['case']==case);run=Path(row['run_dir'])
+    proof=read(run/'supervised_start.json');assert proof['actual_14core_single_group_observed'] and proof['input_sha256']==sha(run/'input.json')
+    worker=psutil.Process(proof['worker_pid']);assert abs(worker.create_time()-proof['worker_created'])<.01 and worker.cmdline()==proof['worker_command']
+    for p,h in read(run/'input.json')['parent_evidence_hashes'].items():assert sha(p)==h,p
+    observer=ensure_observer(ctx,run)
+    from continue_tuning import refresh
+    status=refresh();status.update(phase='actual14core_solving',active=1,current_case=case,current_parent=row['parent_case'],current_context=str(ctx),current_run=str(run),
+       worker_pid=worker.pid,worker_created=worker.create_time(),observer_pid=observer['pid'],observer_created=observer['created'],actual14core=True,hook_configured=True,
+       next_action='Wait terminalhook; independent review/actual image ACK then continue_tuning.py. For next start use run_context_v2.py; startup observer lock race repaired without Analyze/relaunch.')
+    write(ROOT/'CURRENT_STATUS.json',status)
+    (ROOT/'CURRENT_STATUS.md').write_text('# 固定P/R达标调谐正在运行\n\n'
+       f'{case}已真实14核1组启动；worker={worker.pid}，外部observer={observer["pid"]}。\n\n'
+       '原48项/5项已通过保持不变。当前为43项修正中的首例N17_A18，F盘新工程、D盘临时区，完成hook已配置。\n\n'
+       '启动监护的非阻塞文件锁竞争已由独立v2适配器处理，没有重启HFSS或重复Analyze。后续用run_context_v2.py，仅一个几何串行。\n',encoding='utf-8')
+    evidence=ROOT/'observer_startup_repair_v2.json'
+    if not evidence.exists():new(evidence,dict(at=now(),case=case,reason='Legacy child observer raced parent nonblocking mutex before registration',
+          frozen_scripts_unchanged=True,worker_not_restarted=True,new_Analyze=0,start_proof_sha256=sha(run/'supervised_start.json'),
+          observer=observer,adapter_sha256=sha(ROOT/'observer_retry_v2.py'),adopter_sha256=sha(Path(__file__))))
+    print(json.dumps(dict(actual14core=True,case=case,worker_pid=worker.pid,observer_pid=observer['pid'],new_Analyze=0,worker_relaunched=False),ensure_ascii=False))
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--context',type=Path,required=True);p.add_argument('--case',required=True);a=p.parse_args();adopt(a.context.resolve(),a.case)

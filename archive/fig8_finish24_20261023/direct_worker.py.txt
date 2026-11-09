@@ -1,0 +1,107 @@
+"""One same-mesh direct review at a time, followed by completion hook.
+
+Reuses the already validated direct solver/exporter without changing its files.
+"""
+import argparse
+import asyncio
+import os
+from pathlib import Path
+import sys
+import traceback
+
+from control import HERE,WORK,BASE,OLD,AUDIT,read,write,sha,now,status_report
+sys.path.insert(0,str(AUDIT))
+import direct_check as dc
+import faulthandler
+faulthandler.cancel_dump_traceback_later()
+from compare_direct import compare
+from publish_event import publish
+
+
+def build_plan(case):
+    record=next(c for c in read(HERE/'plan.json')['cases'] if c['case']==case)
+    assert record['action']=='same_mesh_direct_review'
+    src=Path(record['selected_source']);m=read(src/'manifest.json');met=read(src/'response_metrics.json')
+    assert m['sweep_converged'] and m['convergence']['converged']
+    assert sha(src/'sparams.csv')==m['curve_sha256']
+    assert sha(m['source'])==m['source_sha256']
+    centers=[met['passband_2dB'][k] for k in ['f_low_GHz','f_high_GHz']]+[p['frequency_GHz'] for p in met['peaks']]
+    points={round(f+d,2) for f in centers for d in [-.02,0,.02]}
+    points.update(round(v['frequency_GHz']+d,2) for v in met['valleys'] for d in [-.01,0,.01])
+    points.update([.1,3.,6.,12.,15.])
+    a=next(c for c in read(AUDIT/'offline_audit.json')['cases'] if c['case']==case)['attempts'][-1]
+    if a.get('worst_pair_GHz'):points.add(round(a['worst_pair_GHz'],2))
+    return {'case':case,'source':str(src),'project_source':m['project'],
+            'frequencies_GHz':sorted(points),'geometry':m['geometry'],'source_sha256':sha(m['project']),
+            'original_convergence':m['convergence'],'criteria':read(HERE/'policy.json')['direct_criteria'],
+            'scope':'Cached same-mesh native fundamental review only; no new geometry or adaptive solve',
+            'source_curve_sha256':sha(src/'sparams.csv'),'policy_sha256':sha(HERE/'policy.json')}
+
+
+async def main(case):
+    plan=read(HERE/'plan.json');assert plan['policy_sha256']==sha(HERE/'policy.json')
+    assert sha(OLD/'production_protocol.json')==read(HERE/'policy.json')['old_protocol_sha256']
+    assert not dc.solvers(),'Existing HFSS solve; do not start another'
+    for lock in [OLD/'protocol.lock',OLD/'pilot_queue.lock']:
+        assert not lock.exists(),'Existing legacy worker lock requires inspection'
+    BASE.mkdir(parents=True,exist_ok=True)
+    folder=BASE/case;job=HERE/'cases'/case;job.mkdir(parents=True,exist_ok=True)
+    if (job/'result.json').exists():raise RuntimeError('Already reviewed; do not blindly rerun')
+    lock=HERE/'worker.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    # Also coordinate with existing precision/recovery workers.
+    oldlock=OLD/'protocol.lock'
+    try:
+        with oldlock.open('x') as h:h.write(str(os.getpid()))
+    except BaseException:
+        lock.unlink();raise
+    write(HERE/'active.json',{'case':case,'stage':'same_mesh_direct_review','pid':os.getpid(),'started_at':now(),'run_dir':str(folder)})
+    status_report()
+    event_status='failed';summary='';artifacts=[]
+    try:
+        frozen=build_plan(case);write(job/'input.json',frozen)
+        dc.BASE=BASE;dc.SWEEP='Finish24Direct20261023';dc.plan=lambda requested: frozen if requested==case else None
+        # A bounded supervision timeout is not permission to kill/restart HFSS.
+        await asyncio.wait_for(dc.execute(case), timeout=3600)
+        result=compare(Path(frozen['source']),folder,case)
+        assert read(folder/'state.json')['same_mesh_verified']
+        numerical=bool(result['sample_response_passed'] and result['band_edges_passed'])
+        src=Path(frozen['source']);metrics=read(src/'response_metrics.json')
+        v=metrics['validity'];design=bool(metrics.get('prominent_valley_count')==3 and v['equal_ripple']
+             and abs(metrics['central_valley_GHz']-6.72)<=.03+1e-10)
+        r={'case':case,'case_state':'scoped_accepted' if numerical and design else 'needs_review',
+           'reason':'same_mesh_direct_checked_and_design_passed' if numerical and design else 'direct_or_design_check_requires_inspection',
+           'numerical_review_passed':numerical,'design_passed':design,'full_matrix_approved':False,
+           'selected_run':str(src),'direct_run':str(folder),'geometry':frozen['geometry'],'metrics':metrics,
+           'comparison':result,'policy_sha256':sha(HERE/'policy.json'),'finished_at':now(),
+           'evidence_hashes':{str(p):sha(p) for p in [src/'manifest.json',src/'sparams.csv',folder/'state.json',folder/'sparams.csv',folder/'convergence_before.txt',folder/'convergence_after.txt']}}
+        write(job/'result.json',r);write(folder/'finish24_result.json',r)
+        summary=(f"{case}关键频点补算完成；基模核验={'通过' if numerical else '未通过'}，"
+                 f"设计指标={'通过' if design else '未通过'}；BW={metrics['passband_2dB']['BW_GHz']:.6f}GHz，"
+                 f"双峰差={metrics['peak_difference_dB']:.4f}dB，中央谷={metrics['central_valley_GHz']:.2f}GHz。"
+                 '复用原网格，未重跑自适应；不代表完整多模矩阵验收。')
+        # Successful operation, even if its scientific/design verdict requires review.
+        event_status='completed';artifacts=['finish24_result.json','state.json','plan.json','sparams.csv','all_modes_sparams.csv',
+                                          'mode_impedance_gamma.csv','convergence_before.txt','convergence_after.txt']
+    except BaseException:
+        folder.mkdir(parents=True,exist_ok=True)
+        write(folder/'worker_error.json',{'case':case,'at':now(),'error':traceback.format_exc(),'live_solvers':dc.solvers()})
+        write(job/'attention.json',{'case':case,'error_file':str(folder/'worker_error.json'),'at':now()})
+        summary=f'{case}收尾工作项出错，请先检查worker_error.json；不要把它当作设计失败，也不要盲目重算。'
+        artifacts=['worker_error.json']
+    finally:
+        for p in [lock,oldlock]:
+            if p.exists() and p.read_text()==str(os.getpid()):p.unlink()
+        write(HERE/'active.json',{'case':case,'stage':'awaiting_hook_review','finished_at':now(),'run_dir':str(folder),'operation_status':event_status})
+        status_report()
+    try:
+        receipt=await publish(folder,case,event_status,summary,artifacts)
+        write(job/'notification.json',receipt)
+    except Exception:
+        write(job/'notification_error.json',{'error':traceback.format_exc(),'at':now(),'rule':'Do not rerun solver for a notification error'})
+        raise
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--case',required=True);a=p.parse_args()
+    asyncio.run(main(a.case))

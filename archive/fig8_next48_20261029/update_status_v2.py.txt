@@ -1,0 +1,51 @@
+"""Read-only simulation evidence -> mutable campaign status/Markdown; never dispatches."""
+import argparse,json
+from pathlib import Path
+from datetime import datetime,timezone
+import psutil
+from effective_budget_v2 import read,sha,effective,validate_campaign
+ROOT=Path(__file__).resolve().parent
+
+def main(case):
+    rows=read(ROOT/'campaign_frozen.json')['cases'];row=effective(next(r for r in rows if r['case']==case))
+    run=Path(row['run_dir']);ctx=Path(row['context']);start=read(run/'supervised_start.json');state=read(run/'state.json')
+    assert start['actual_14core_single_group_observed'] and start['input_sha256']==sha(run/'input.json')
+    assert not (run/'completion_event.json').exists(),'Terminal event: review before status claims running'
+    daemon=read(run/'lifecycle_observer/daemon.json')
+    for pid,created,cmd in [(start['worker_pid'],start['worker_created'],start['worker_command']),
+                            (daemon['pid'],daemon['created'],daemon['command'])]:
+        p=psutil.Process(pid);assert p.is_running() and abs(p.create_time()-created)<.01 and p.cmdline()==cmd
+    responses=[s['mcp_response'] for s in state['segments']]
+    assert all(r['started'] and r['resource_plan']==dict(mode='custom',concurrent_tasks=1,cores_per_task=14,total_cores=14) for r in responses)
+    reviewed=[];not_started=0
+    for r in rows:
+        er=effective(r);rr=Path(er['run_dir']);ack=rr/'receiver_ack.json'
+        not_started+=int(not (rr/'state.json').exists())
+        if ack.exists():
+            a=read(ack);assert a['operation_success'] and a['visual_review_completed'] and a['event_sha256']==sha(rr/'completion_event.json')
+            label=read(ROOT/'labels'/f"{r['case']}.json");assert Path(label['source']).resolve()==rr.resolve()
+            reviewed.append(dict(case=r['case'],mesh=read(rr/'state.json')['actual_elements'],
+                BW=label['S21_minus2_BW_GHz'],worst_S11=label['primary']['worst_S11_dB'],passed=label['primary']['passed']))
+    assert all((Path(effective(r)['run_dir'])/'receiver_ack.json').exists() for r in rows if r['ordinal']<row['ordinal'])
+    nxt=next((r['case'] for r in rows if r['ordinal']==row['ordinal']+1),None)
+    s=read(ROOT/'CURRENT_STATUS.json');s.update(at=datetime.now(timezone.utc).isoformat(),stage=case+'_actually_solving',
+        case=case,context=str(ctx),run=str(run),completed_geometries=len(reviewed),active_geometries=1,not_started_geometries=not_started,
+        actual_elements=state.get('actual_elements'),actual_resource_plan=responses,worker_pid=start['worker_pid'],worker_created=start['worker_created'],
+        observer_pid=daemon['pid'],observer_created=daemon['created'],worker_identity_verified=True,observer_identity_verified=True,
+        actual_14core_single_group_observed=True,technical_recovery_attempt=read(run/'input.json').get('technical_recovery_attempt',0),
+        budget=validate_campaign(),initial_pilot_gate_passed=read(ROOT/'pilot_gate.json')['passed'],
+        effective_continuation=str(ROOT/'CONTINUATION_V2.md'),status_update_helper=str(Path(__file__)),
+        next_action=f'Terminal hook -> continuation_v2.py review --case {case}; actual view_image then effective-context acknowledge_review. Next frozen case {nxt}. Use CONTINUATION_V2 for all routing/preparation; no retuning.')
+    (ROOT/'CURRENT_STATUS.json').write_text(json.dumps(s,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+    text=f'# Fig8新48点当前状态\n\n已完成且真实看图ACK：{len(reviewed)}；正在仿真：{case}（14核1组串行）；未启动：{not_started}。\n\n'
+    text+='完成hook发当前聊天；正常仿真静默。按 CONTINUATION_V2.md 接续，不重跑已有state，不修改冻结几何/分组/预测。\n\n'
+    text+='| 已审核配置 | 网格 | S21 −2dB带宽/GHz | 主窗口最差S11/dB | 主窗口完整达标 |\n|---|---:|---:|---:|---|\n'
+    for r in reviewed:text+=f"| {r['case']} | {r['mesh']} | {r['BW']:.6f} | {r['worst_S11']:.6f} | {'是' if r['passed'] else '否，保留负例'} |\n"
+    text+='\n上述带宽不是联合−20dB带宽；数值链路通过不代表设计达标。本批是冻结初始参数的数据采集，不追加调谐或直接频点。\n\n'
+    text+=f"实际Analyze启动快照：{s['budget']['Analyze_used']}/624；原N02_A18失败0、唯一恢复{s['budget']['recovery_Analyze']}。原失败记录保留，后续账本使用有效路径与合并成本。\n"
+    text+=f'\n下一项：{nxt}。资源等待自动化已删除，不创建正常求解期间的周期唤醒。\n'
+    (ROOT/'CURRENT_STATUS.md').write_text(text,encoding='utf-8')
+    print(json.dumps(dict(case=case,completed=len(reviewed),active=1,not_started=not_started,worker=start['worker_pid'],observer=daemon['pid'],actual14core=True,Analyze_used=s['budget']['Analyze_used'])))
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--case',required=True);main(p.parse_args().case)

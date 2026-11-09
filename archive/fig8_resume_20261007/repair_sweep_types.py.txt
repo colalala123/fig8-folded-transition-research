@@ -1,0 +1,39 @@
+"""Preserve failed interpolation and add correctly typed direct sweeps, no solve."""
+import json,shutil
+import run_protocol_tf3 as b
+
+def main():
+    assert not b.active_solvers()
+    assert not (b.ROOT/'protocol.lock').exists()
+    s=b.read(b.STATE)
+    archive=b.RUN/'incorrect_bridge_interpolation'
+    assert not archive.exists(),'Repair already attempted; inspect instead of repeating'
+    archive.mkdir()
+    for p in [b.STATE,b.PROJECT,*b.RUN.glob('*Bridge*')]:
+        if p.is_file():shutil.copy2(p,archive/p.name)
+    app=b.attach()
+    try:
+        app.save_project()
+        before=b.persisted_sweeps()
+        setup=app.get_setup(b.SETUP)
+        for sw in setup.sweeps:
+            if before[sw.name]['IsEnabled']=='true':
+                sw.props['Type']=before[sw.name]['Type']
+                sw.props['IsEnabled']=False
+                assert sw.update()
+        for name,lo,hi in [('BridgeDirectV2',6.96,7.01),('EndpointDirectV2',15.,15.)]:
+            sw=setup.add_sweep(name,sweep_type='Discrete')
+            sw.props.update({'Type':'Discrete','IsEnabled':False,'RangeType':'SinglePoints' if lo==hi else 'LinearStep','RangeStart':f'{lo:g}GHz','RangeEnd':f'{hi:g}GHz','RangeStep':'0.01GHz','SaveFields':False,'SaveRadFields':False})
+            assert sw.update()
+        app.save_project()
+        after=b.persisted_sweeps()
+        assert after['BridgeDirectV2']['Type']==after['EndpointDirectV2']['Type']=='Discrete'
+        s.setdefault('failed_segment_attempts',[]).append({'segment':'Bridge','reason':'SweepHFSS reload overrides Type to Interpolating before update','record':s['segments'].pop('Bridge'),'archive':str(archive)})
+        s['sweep_names']={'Bridge':'BridgeDirectV2','Endpoint':'EndpointDirectV2'}
+        s.update(status='prepared',active_segment=None)
+        s.pop('error',None)
+        s['sweep_type_repair']={'before':before,'after':after,'at_utc':b.now(),'source_unchanged':b.sha(b.SOURCE)==s['source_sha256']}
+        b.save(s)
+        print(json.dumps(s['sweep_type_repair'],indent=2))
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+if __name__=='__main__':main()

@@ -1,0 +1,53 @@
+{
+  "frozen_at": "2026-10-02T18:07:10+08:00",
+  "case": "T_G035",
+  "parent": "G035",
+  "method": "Transfer the historical B0 Q1/Q2 single-Ls1 finite-difference response slope to G035.",
+  "parent_curve_sha256": "ea2717c548e7a32ff8ba24cdb2041332c8ad76e2495a43390d0395d6a5150e28",
+  "slope_training": [
+    {
+      "case": "Q1",
+      "curve_sha256": "cbb8cb36c5602483edb2ae546dd966e2b70dcc707335978bd2f2318f3f5fddca"
+    },
+    {
+      "case": "Q2",
+      "curve_sha256": "5da2de1416c9f1b8abd1a840a640acc2bcebf0a33e7fba1553b44eea25b07def"
+    }
+  ],
+  "geometry": {
+    "Wm": 1.103314,
+    "Lm": 6.499465,
+    "Ws": 0.437335,
+    "Ls1": 12.103300611623029,
+    "Ls2": 1.22467,
+    "Ls3": 2.24
+  },
+  "delta_Ls1_mm": 0.1426406116230273,
+  "slopes_per_mm": {
+    "BW_2dB_GHz": -0.21109921224978123,
+    "f_low_GHz": -0.1314493094884206,
+    "f_high_GHz": -0.3425485217382018,
+    "signed_peak_difference_dB": 7.316150424602732,
+    "peak_level_dB": -0.6881105544011223,
+    "central_valley_GHz": 0.3500000000000014,
+    "S21_at_9p5GHz_dB": -0.1576019140688334
+  },
+  "prediction": {
+    "BW_2dB_GHz": 6.750371785328449,
+    "f_low_GHz": 3.2386129307080305,
+    "f_high_GHz": 9.98898471603648,
+    "signed_peak_difference_dB": 0.0,
+    "peak_level_dB": -13.64326196049262,
+    "central_valley_GHz": 6.74992421406806,
+    "S21_at_9p5GHz_dB": -1.0940702192762801
+  },
+  "acceptance": {
+    "absolute_peak_difference_max_dB": 0.5,
+    "central_valley_target_GHz": 6.74,
+    "central_valley_deviation_max_GHz": 0.03,
+    "three_valleys": true,
+    "solver_and_sweep_converged": true
+  },
+  "bandwidth_prediction_tolerance_GHz": 0.05,
+  "limitation": "A single local transfer check; this is not a guaranteed equal-ripple root or a universal law."
+}

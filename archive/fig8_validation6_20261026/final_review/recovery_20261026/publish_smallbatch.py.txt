@@ -1,0 +1,22 @@
+"""One completion/failure notice per aggregate case, not per four-point chunk."""
+import traceback
+import recovery_control as pc
+from phase_publish import hook
+async def publish(run,case,status,summary,artifacts):
+    cfg=hook.load_config(pc.FINAL/'hook/config.json');assert cfg['authorized_threads']==[pc.TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Bounded V6 same-mesh direct continuation in4-point chunks, original failures preserved')
+    def prompt(event,event_path):
+        return (f'[Fig8 V6 小批次同网格复核]\n事件：{event_path}\n状态：{status}\n{summary}\n'
+            f'先读{pc.HERE/"CONTINUATION.md"}、continuation_plan.json、case_work_ledger.json与当前实际状态。'
+            '原63点整批扫频发生真实挂起，单独9.82GHz成功；当前在同一网格以每批4点直接求解，保留原失败记录，全部新增Analyze计数。'
+            '运行review_smallbatch.py --run事件目录，核验所有批次、来源哈希、端口/网格及完整频点；实际看叠图后用acknowledge_smallbatch.py记录。'
+            '尚有未复核配置时，用dispatch_smallbatch.py --case CASE --solve按序16核串行接续，并用supervise_smallbatch.py保存真实启动证据。无需再次询问启动。'
+            '每配置最多原定70以内频点，不能重跑已有有效点、不能新自适应或无界重试。数值未过如实记录。'
+            '六项均审查后运行finish_smallbatch_report.py并实际看总图/报告；全部通过才完成收尾。正常求解不周期发消息，完成送达5分钟无下一真实求解才检查AI中断。')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg);pc.write(run/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception:pc.write(run/'heartbeat_start_error.json',dict(at=pc.now(),error=traceback.format_exc()))
+

@@ -1,0 +1,122 @@
+"""One evidence-triggered 9.82GHz same-mesh diagnostic, never a broad retry."""
+import argparse,asyncio,json,os,shutil,sys,traceback
+from pathlib import Path
+import numpy as np
+ROOT=Path(__file__).resolve().parent
+sys.path.insert(0,str(ROOT.parent))
+import phase_control as pc
+from solver_runtime import dc,solve_stage,passes,canonical_ports,snapshot
+from preserve_discrete_ranges import restore_properties
+from case_reference import apply_reference
+from phase_publish import hook
+
+CASE='V01G02';FREQUENCY=9.82;SWEEP='V6_Diagnostic982'
+RUN=pc.BASE/CASE/'recovery_single_982'
+
+def prepare():
+    assert pc.read(pc.HERE/'authorization.json')['execution_authorized']
+    failed=pc.BASE/CASE/'final_direct';partial=pc.read(failed/'diagnosis_partial_arrays.json')
+    assert partial['mesh_identical'] and FREQUENCY in partial['missing_frequencies_GHz']
+    assert len(partial['available_frequencies_GHz'])==6 and len(partial['missing_frequencies_GHz'])==57
+    assert not dc.solvers() and not (RUN/'input.json').exists()
+    state=pc.read(failed/'state.json');source=Path(state['project'])
+    assert not (failed/'continuation_resolution.json').exists()
+    pc.write(ROOT/'budget_ledger.json',dict(at=pc.now(),new_geometry_reserved=0,new_cached_diagnostic_reserved=1,
+        maximum_diagnostic_launches=1,frequency_GHz=FREQUENCY,missing_original_points=57,
+        authority='Existing human instruction to finish these6 with hook; one bounded diagnostic after real solver-hang evidence. Original failed attempt remains counted and immutable.'))
+    p=dict(case=CASE,role='cached_phase_direct',run_dir=str(RUN),input_path=str(RUN/'input.json'),
+        source=str(failed),project_source=str(source),project_source_sha256=pc.sha(source),project_name=CASE+'_V6Diag982',
+        source_geometry=pc.read(failed/'input.json')['source_geometry'],frequencies_GHz=[FREQUENCY],
+        geometry_budget_increment=0,adaptive_allowed=False,created_at=pc.now(),worker_sha256=pc.sha(Path(__file__).resolve()),
+        evidence_hashes={str(failed/f):pc.sha(failed/f) for f in ['input.json','state.json','completion_event.json','worker_error.json','diagnosis_messages.json','diagnosis_partial_arrays.json','diagnosis_convergence.txt']})
+    pc.write(RUN/'input.json',p)
+    release=dict(case=CASE,input_path=str(RUN/'input.json'),input_sha256=pc.sha(RUN/'input.json'),bulk_dispatch_released=False,at=pc.now())
+    pc.write(pc.HERE/'supervised_release.json',release);pc.write(pc.PARENT/'supervised_release.json',release)
+    print(dict(prepared=str(RUN/'input.json'),diagnostic_points=1,solve_started=False))
+
+async def publish(status,artifacts,summary):
+    cfg=hook.load_config(pc.HERE/'hook/config.json')
+    event=hook.create_event(RUN,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='One bounded V6 single-frequency solver-hang diagnostic; not final acceptance')
+    def prompt(payload,path):
+        return (f'[Fig8 V6 单频恢复诊断]\n事件：{path}\n状态：{status}\n{summary}\n'
+            f'先读{ROOT/"budget_ledger.json"}、{RUN/"input.json"}、diagnostic_result.json或worker_error.json。'
+            '原63点直接扫频在9.82GHz附近挂起，6点有效、57点缺失；原失败记录保持不变。'
+            '本工作项只测试同网格9.82GHz，不能当作整项验收。若成功，按实际证据制定仅补缺失点的小批次方案，记录全部新增Analyze次数，保持16核串行和原数值标准。'
+            '若用户暂停则停止，不清锁、不重复启动已有工作项。继续完成原6配置并使用完成hook接续。')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(event,config=cfg);pc.write(RUN/'notification_receipt.json',receipt)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(event)
+        except Exception:pc.write(RUN/'heartbeat_start_error.json',dict(error=traceback.format_exc(),at=pc.now()))
+
+async def execute(path):
+    p=pc.read(path);assert Path(path).resolve()==(RUN/'input.json').resolve()
+    assert p['frequencies_GHz']==[FREQUENCY] and p['worker_sha256']==pc.sha(Path(__file__).resolve())
+    assert pc.read(ROOT/'budget_ledger.json')['maximum_diagnostic_launches']==1
+    assert not (RUN/'state.json').exists() and not dc.solvers()
+    for f,h in p['evidence_hashes'].items():assert pc.sha(f)==h,f
+    locks=[pc.HERE/'worker.lock',pc.PARENT/'worker.lock',pc.OLD/'protocol.lock']
+    assert all(not f.exists() for f in locks)
+    acquired=[];status='failed';artifacts=[]
+    try:
+        for f in locks:
+            with f.open('x') as h:h.write(str(os.getpid()))
+            acquired.append(f)
+        source=Path(p['project_source']);assert pc.sha(source)==p['project_source_sha256']
+        cache=source.with_suffix('.aedtresults');files=[f for f in cache.rglob('*') if f.is_file() and not f.name.endswith(('.lock','.semaphore'))]
+        assert shutil.disk_usage(pc.BASE).free>sum(f.stat().st_size for f in files)+15*1024**3
+        project=RUN/(p['project_name']+'.aedt');assert not project.exists();shutil.copy2(source,project)
+        for f in files:
+            dest=project.with_suffix('.aedtresults')/f.relative_to(cache);dest.parent.mkdir(parents=True,exist_ok=True);shutil.copy2(f,dest)
+        state=dict(case=CASE,input_sha256=pc.sha(path),status='preparing',project=str(project),segments=[],actual_elements=100114)
+        pc.write(RUN/'state.json',state)
+        pc.write(pc.HERE/'active.json',dict(case=CASE,stage='candidate_cached_direct',pid=os.getpid(),run_dir=str(RUN),started_at=pc.now(),diagnostic=True));pc.status_report()
+        app=dc.app_for(project)
+        try:
+            assert not app.are_there_simulations_running and app.get_setup('Setup19').is_solved
+            app.export_convergence('Setup19',output_file=str(RUN/'convergence_before.txt'))
+            assert passes(RUN/'convergence_before.txt')==passes(Path(p['source'])/'convergence_before.txt')
+            ports=canonical_ports({b.name:snapshot(b.props) for b in app.boundaries if b.type=='Wave Port'})
+            assert ports==pc.read(Path(p['source'])/'input.json')['expected_ports']
+            setup=app.get_setup('Setup19')
+            for sw in setup.sweeps:sw.props['IsEnabled']=False;assert sw.update()
+            sw=setup.add_sweep(SWEEP,sweep_type='Discrete');sw.auto_update=False;restore_properties(sw,[FREQUENCY])
+            sw.props.update({'IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+            app.odesktop.ClearMessages(app.project_name,app.design_name,3);app.save_project();assert setup.is_solved
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        segment=await solve_stage(project,RUN,state,'diagnostic_9p82_only',False)
+        app=dc.app_for(project)
+        try:
+            messages=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));pc.write(RUN/'solver_messages.json',messages)
+            assert not any('[error]' in m.lower() for m in messages)
+            assert any('Discrete frequency sweep complete.' in m for m in messages)
+            dc.SWEEP=SWEEP;dc.export(app,RUN,[FREQUENCY]);state['reference_treatment']=apply_reference(RUN,CASE)
+            app.export_convergence('Setup19',output_file=str(RUN/'convergence_after.txt'))
+            assert passes(RUN/'convergence_before.txt')==passes(RUN/'convergence_after.txt')
+            app.save_project()
+        finally:app.release_desktop(close_projects=False,close_desktop=False)
+        assert segment['observed_16core_process'] and not segment['observed_adaptive_process']
+        original=np.genfromtxt(pc.BASE/CASE/'g01_initial/sparams.csv',delimiter=',',names=True)
+        direct=np.atleast_1d(np.genfromtxt(RUN/'sparams.csv',delimiter=',',names=True))
+        i=int(round(FREQUENCY*100))-1
+        err=max(float(abs(original[k+'_real'][i]+1j*original[k+'_imag'][i]-(direct[k+'_real'][0]+1j*direct[k+'_imag'][0]))) for k in ['S11','S21'])
+        result=dict(at=pc.now(),single_frequency_GHz=FREQUENCY,same_mesh_verified=True,actual_elements=100114,max_complex_error=err,
+            single_point_numerical_pass=err<=.005,complete_case_acceptance=False,observed_16core_process=True,new_geometry=0)
+        pc.write(RUN/'diagnostic_result.json',result);state.update(status='completed',finished_at=pc.now());pc.write(RUN/'state.json',state)
+        status='completed';summary=f'9.82GHz同网格单频诊断完成，复数差{err:.6g}；仍需补齐其余缺失点并验收。'
+        artifacts=['input.json','state.json','diagnostic_result.json','solver_messages.json','sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv','reference_review.json','convergence_before.txt','convergence_after.txt']
+    except BaseException:
+        pc.write(RUN/'worker_error.json',dict(at=pc.now(),error=traceback.format_exc(),solvers=dc.solvers()))
+        summary='9.82GHz单频诊断异常；保留已有结果，检查错误和真实进程，不自动重复。';artifacts=['input.json','worker_error.json']
+    finally:
+        for f in acquired:
+            if f.exists() and f.read_text()==str(os.getpid()):f.unlink()
+        pc.write(pc.HERE/'active.json',dict(case=CASE,stage='awaiting_single_diagnostic_review',run_dir=str(RUN),operation_status=status,at=pc.now()));pc.status_report()
+    await publish(status,artifacts,summary)
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('--prepare',action='store_true');ap.add_argument('--spec',type=Path)
+    args=ap.parse_args();assert bool(args.prepare)!=bool(args.spec)
+    if args.prepare:prepare()
+    else:asyncio.run(execute(args.spec.resolve()))

@@ -1,0 +1,14 @@
+from pathlib import Path
+import json
+src=Path(r'F:\hfss_f8x_261002\R_tri_diagC\R_tri_diagC.aedt'); dst_dir=Path(r'F:\hfss_f8x_261002\R_tri_linealign'); dst_dir.mkdir(exist_ok=True); dst=dst_dir/'R_tri_linealign.aedt'
+t=src.read_text(errors='ignore'); begin="$begin 'HFSSModel'"; end="$end 'HFSSModel'"; st=t.rfind(begin); en=t.find(end,st); block=t[st:en+len(end)]
+if "Name='Wideband vertical transition'" in block: raise RuntimeError('bad marker')
+# active design block contains only one final Boundaries section; replace only within active HFSSModel.
+block=block.replace("UseLineModeAlignment=false","UseLineModeAlignment=true")
+block=block.replace("EntityID=12113\n\t\t\t\t\t\t\t\t\t\tFacetedBodyTriangleIndex=-1", "EntityID=12393\n\t\t\t\t\t\t\t\t\t\tFacetedBodyTriangleIndex=-1", 1)
+block=block.replace("ZPosition='0.883'", "ZPosition='6.504'", 1)
+block=block.replace("EntityID=12152\n\t\t\t\t\t\t\t\t\t\tFacetedBodyTriangleIndex=-1", "EntityID=19893\n\t\t\t\t\t\t\t\t\t\tFacetedBodyTriangleIndex=-1", 1)
+block=block.replace("ZPosition='-0.883'", "ZPosition='-6.504'", 1)
+block=block.replace("AlignmentGroup=0","AlignmentGroup=1")
+dst.write_text(t[:st]+block+t[en+len(end):],encoding='utf-8')
+print(json.dumps({'dst':str(dst),'line_align_flags':block.count('UseLineModeAlignment=true'),'groups':block.count('AlignmentGroup=1')},indent=2))

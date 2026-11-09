@@ -1,0 +1,25 @@
+"""Actual terminal-only B6 notifications; completion+5min state-aware recovery."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+
+def prompt(event,path):
+    return (f'[Fig8有界长度校正完成事件]\n{path}\n状态：{event["status"]}\n{event["summary"]}\n'
+       f'先读{HERE/"CONTINUATION.md"}和authorization/plan/budget_ledger。'
+       '用户已要求达到均匀模型同类理论加学习修正效果。本阶段是开发探针/候选，不是新的盲测。'
+       '完成后review_phase_geometry.py --run RUN，实际看S11/S21图，再acknowledge_review.py --run RUN --visual-reviewed --note实际观察。'
+       '用launch_one.py --case下一项启动唯一后继，先监督实际16核1组。正常运行不要重复Analyze。'
+       '所有探针完成后执行主研究目录prepare_candidates.py，最多3候选，开发总计9几何；完整达标需同网格直接复核。'
+       '不得把基准design_passed当联合-20dB达标；保留原B6首次结果。失败先检查真实进程与缓存，不清工程锁。')
+
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] and case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json');assert cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():
+        path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='Bounded length development after human instruction;16cores serial;6probes+3candidates cap')
+    hook.prompt_for=prompt;receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

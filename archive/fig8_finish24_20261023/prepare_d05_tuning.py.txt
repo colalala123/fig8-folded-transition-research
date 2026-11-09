@@ -1,0 +1,110 @@
+"""D05-only adapter for the already reviewed, cached 111552-element center.
+
+No old result is rewritten. The original dispatcher remains frozen on disk.
+Only this process enables D05G02 after independent evidence and visual approval.
+"""
+import argparse
+from pathlib import Path
+import numpy as np
+import prepare_tuning as core
+from control import HERE, BASE, OLD, read, sha
+from geometry_worker import passes, analyze
+
+TRIAL = BASE / 'D05G02_mesh_control_trial'
+DECISION = HERE / 'cases/D05G02/trial_center_reuse.json'
+SOURCE = Path('F:/hfss_f8_261002/B0/B0.aedt')
+ORIGINAL_REVIEWED = core.reviewed
+
+
+def check_eligibility(case, state, addon, comparison, geometry):
+    assert case == 'D05G02' and state['case'] == case
+    assert addon['user_authorized'] is True and addon['reviewed_exception_upper'] == 112000
+    assert state['geometry'] == geometry
+    assert state['status'] == 'completed' and 100000 <= state['actual_elements'] <= 112000
+    for key in ['history_prefix_preserved', 'one_new_pass_verified', 'sweep_converged',
+                'observed_16core_process', 'observed_adaptive_process', 'source_unchanged']:
+        assert state[key] is True, key
+    assert state['cad_verification']['passed']
+    sw = state['sweep_after']
+    assert sw['InterpTolerance'] == 1.0 and sw['EnforcePassivity'] is False
+    assert (sw['RangeStart'], sw['RangeEnd'], sw['RangeStep']) == ('0.01GHz', '15GHz', '0.01GHz')
+    assert len(state['ports']) == 2 and all(p['NumModes'] == 2 for p in state['ports'].values())
+    assert comparison['error_budgets']['tuning'] is True
+    # Strict-response / original mesh-control failure remain intact; not acceptance.
+
+
+def audit_trial():
+    event = read(TRIAL/'completion_event.json'); ack = read(TRIAL/'receiver_ack.json')
+    assert event['status'] == 'completed' and event['verified_success']
+    assert ack['event_sha256'] == sha(TRIAL/'completion_event.json')
+    assert ack['artifacts_verified'] and ack['operation_success']
+    assert sha(ack['review_path']) == ack['review_sha256']
+    parents = {}
+    for item in event['artifacts']:
+        p = (TRIAL/item['path']).resolve()
+        assert p.is_relative_to(TRIAL.resolve()) and sha(p) == item['sha256']
+        parents[str(p)] = item['sha256']
+    plan = read(TRIAL/'plan.json'); state = read(TRIAL/'state.json')
+    assert sha(plan['source_project']) == plan['source_sha256']
+    assert sha(HERE/'policy.json') == plan['policy_sha256']
+    row = next(c for c in read(HERE/'plan.json')['cases'] if c['case']=='D05G02')
+    comparison = read(TRIAL/'comparison.json')
+    for p, digest in comparison['source_hashes'].items():
+        assert sha(p) == digest; parents[p] = digest
+    check_eligibility('D05G02', state, read(HERE/'mesh_policy_addendum_v2.json'), comparison, row['initial_geometry'])
+    before, after = passes(TRIAL/'convergence_before.txt'), passes(TRIAL/'convergence.txt')
+    assert after[:-1] == before and after[-1][:2] == [23,111552]
+    assert state['actual_history'] == after
+    for name in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+        data = np.genfromtxt(TRIAL/name, delimiter=',', skip_header=1)
+        assert len(data)==1500 and np.isfinite(data).all()
+        assert np.allclose(data[:,0],np.arange(1,1501)/100)
+    metrics = analyze(TRIAL/'sparams.csv',f0=6.85)
+    old = read(TRIAL/'response_metrics.json')
+    for key in ['signed_peak_difference_dB','central_valley_GHz']:
+        assert abs(metrics[key]-old[key])<1e-12
+    assert abs(metrics['passband_2dB']['BW_GHz']-old['passband_2dB']['BW_GHz'])<1e-12
+    legacy = read(OLD/'D05G02/i00/state.json')
+    assert legacy['geometry']==state['geometry'] and legacy['source_sha256']==sha(SOURCE)
+    for p in [TRIAL/'completion_event.json', TRIAL/'receiver_ack.json', Path(ack['review_path']),
+              HERE/'mesh_policy_addendum_v2.json', HERE/'policy.json', HERE/'mesh_trial_response.png',
+              OLD/'D05G02/i00/state.json', Path(__file__).resolve(), HERE/'prepare_tuning.py']:
+        parents[str(p)] = sha(p)
+    # This is an in-memory compatibility view, not a fabricated solver input/event.
+    spec={'case':'D05G02','role':'reviewed_cached_trial_center','geometry':state['geometry'],
+          'source':str(SOURCE),'source_sha256':sha(SOURCE)}
+    return spec, old, parents
+
+
+def reviewed(run,case):
+    assert case=='D05G02'
+    if Path(run).resolve()!=TRIAL.resolve():
+        return ORIGINAL_REVIEWED(run,case)
+    spec,metrics,parents=audit_trial()
+    d=read(DECISION)
+    assert d['case']==case and Path(d['center']).resolve()==TRIAL.resolve()
+    assert d['visual_review_completed'] and d['eligible_as_tuning_center']
+    assert d['not_design_acceptance'] and d['geometry_iterations_added']==0
+    for p,h in d['evidence_hashes'].items():assert sha(p)==h
+    assert all(d['evidence_hashes'].get(p)==h for p,h in parents.items())
+    parents[str(DECISION)]=sha(DECISION)
+    return spec,metrics,parents
+
+
+def prepare(case,center,cycle,step):
+    assert case=='D05G02'
+    # Reviewed c02 centers must be descendants of this explicit reuse decision.
+    reviewed(TRIAL,case)
+    if cycle=='c01':assert Path(center).resolve()==TRIAL.resolve()
+    else:
+        assert Path(center).resolve()==(BASE/case/'c01_candidate').resolve()
+    core.ALLOWED={'D05G02'}
+    core.reviewed=reviewed
+    core.prepare(case,center,cycle,step)
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('--case',choices=['D05G02'],required=True)
+    p.add_argument('--center',type=Path,required=True);p.add_argument('--cycle',choices=['c01','c02'],default='c01')
+    p.add_argument('--step',choices=['probe_Ls1','probe_Lm','candidate'],required=True)
+    a=p.parse_args();prepare(a.case,a.center,a.cycle,a.step)

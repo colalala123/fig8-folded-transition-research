@@ -1,0 +1,166 @@
+{
+  "at": "2026-10-27T13:04:41.408814+00:00",
+  "stage": "PR18_edge_repair",
+  "bounded_execution_complete": true,
+  "all_corrected_local_edge_labels_accepted": true,
+  "original18_interpolating_sweep_consistency_passed": 16,
+  "corrected_direct_label_addenda": 2,
+  "original_failures_preserved": true,
+  "full_matrix_approved": false,
+  "new_geometry": 0,
+  "new_adaptive_meshes": 0,
+  "new_native_points": 24,
+  "new_Analyze_launches": 6,
+  "accumulated_final_review_points": 382,
+  "accumulated_final_review_Analyze": 100,
+  "source_curve_files_modified": false,
+  "fullcurve_proxy_training_rows_still": 50,
+  "local_PR_formula_unchanged": true,
+  "remaining_original_curve_caveat": "P04G05/P05G05 original interpolating curves are not re-certified. Use corrected direct edge labels; do not relabel old failed review as passed.",
+  "cases": [
+    {
+      "case": "P04G05",
+      "actual_elements": 103880,
+      "new_native_points": 12,
+      "Analyze_launches": 3,
+      "comparison": {
+        "case": "P04G05",
+        "points": 12,
+        "prior_direct_run": "J:\\f8_PR18_261027\\P04G05\\direct_smallbatch",
+        "numerical_review_passed": true,
+        "repaired_direct_labels_accepted": true,
+        "original_interpolation_consistency_passed": false,
+        "old_review_rewritten": false,
+        "geometry_changed": false,
+        "new_adaptive_mesh": false,
+        "full_matrix_approved": false,
+        "sampled_design_supported": true,
+        "both_sampled_inner_peaks_le_minus20": false,
+        "preserved_other_metric_checks": true,
+        "other_S21_condition_verified": true,
+        "max_complex_error": 0.0005328509798783822,
+        "max_nearband_S21_error_dB": 0.0007963807789840294,
+        "direct_peak_difference_dB": 0.0516810825230003,
+        "corrected_edge_GHz": 8.50880511020405,
+        "corrected_high_band_width_GHz": 1.0991746965181761,
+        "corrected_joint20_intervals_GHz": [
+          [
+            3.540570221539458,
+            4.82639436433756
+          ],
+          [
+            5.329807620002285,
+            8.057313869491582
+          ],
+          [
+            8.50880511020405,
+            9.607979806722225
+          ]
+        ],
+        "edge_refinement": {
+          "passed": true,
+          "fine_edge_GHz": 8.50880511020405,
+          "coarse_edge_GHz": 8.50875476473304,
+          "fine_bracket_GHz": [
+            8.5075,
+            8.5125
+          ],
+          "coarse_bracket_GHz": [
+            8.505,
+            8.515
+          ],
+          "fine_bracket_width_GHz": 0.004999999999999005,
+          "coarse_fine_shift_GHz": 5.034547100990494e-05,
+          "actual_sign_values": [
+            0.0028648586332487014,
+            -0.0081106843682619
+          ]
+        },
+        "coarse_fine_width_shift_GHz": 5.034547100990494e-05,
+        "original_interpolation_edge_GHz": 8.486966414853336,
+        "corrected_vs_original_edge_shift_MHz": 21.83869535071281,
+        "corrected_vs_original_width_shift_MHz": 21.49338641638643,
+        "limits": {
+          "max_complex_error": 0.005,
+          "max_inband_S21_error_dB": 0.05,
+          "max_peak_error_dB": 0.1,
+          "max_edge_shift_GHz": 0.02,
+          "max_BW_shift_GHz": 0.02
+        },
+        "scope": "Corrected local direct label with nested bracket stability; other metrics inherit prior finite direct review. NOT old interpolation acceptance, full-curve validation, independent mesh convergence or scientific -20dB design approval."
+      },
+      "receiver_ack_sha256": "db46c65bef5e7ed4be2713a5e35773acfbaf6d2f3027bc1c3d91a1d1949d50d2",
+      "event_sha256": "f2c4daede96c1c30d788e67abe0008d7783db3708ccd8400dc2b4ea7cd02d297"
+    },
+    {
+      "case": "P05G05",
+      "actual_elements": 100922,
+      "new_native_points": 12,
+      "Analyze_launches": 3,
+      "comparison": {
+        "case": "P05G05",
+        "points": 12,
+        "prior_direct_run": "J:\\f8_PR18_261027\\P05G05\\direct_smallbatch",
+        "numerical_review_passed": true,
+        "repaired_direct_labels_accepted": true,
+        "original_interpolation_consistency_passed": false,
+        "old_review_rewritten": false,
+        "geometry_changed": false,
+        "new_adaptive_mesh": false,
+        "full_matrix_approved": false,
+        "sampled_design_supported": true,
+        "both_sampled_inner_peaks_le_minus20": false,
+        "preserved_other_metric_checks": true,
+        "other_S21_condition_verified": true,
+        "max_complex_error": 0.0010416895871518913,
+        "max_nearband_S21_error_dB": 0.0015823332582676208,
+        "direct_peak_difference_dB": 0.38829292290281003,
+        "corrected_edge_GHz": 8.38096417583202,
+        "corrected_high_band_width_GHz": 1.1857031774768938,
+        "corrected_joint20_intervals_GHz": [
+          [
+            3.643984955236122,
+            8.073583600390176
+          ],
+          [
+            8.38096417583202,
+            9.566667353308913
+          ]
+        ],
+        "edge_refinement": {
+          "passed": true,
+          "fine_edge_GHz": 8.38096417583202,
+          "coarse_edge_GHz": 8.380786568176681,
+          "fine_bracket_GHz": [
+            8.38,
+            8.385
+          ],
+          "coarse_bracket_GHz": [
+            8.375,
+            8.39
+          ],
+          "fine_bracket_width_GHz": 0.004999999999999005,
+          "coarse_fine_shift_GHz": 0.0001776076553383632,
+          "actual_sign_values": [
+            0.0014092168905115443,
+            -0.005898666400653951
+          ]
+        },
+        "coarse_fine_width_shift_GHz": 0.0001776076553383632,
+        "original_interpolation_edge_GHz": 8.317946947597461,
+        "corrected_vs_original_edge_shift_MHz": 63.01722823455869,
+        "corrected_vs_original_width_shift_MHz": 66.61814285148004,
+        "limits": {
+          "max_complex_error": 0.005,
+          "max_inband_S21_error_dB": 0.05,
+          "max_peak_error_dB": 0.1,
+          "max_edge_shift_GHz": 0.02,
+          "max_BW_shift_GHz": 0.02
+        },
+        "scope": "Corrected local direct label with nested bracket stability; other metrics inherit prior finite direct review. NOT old interpolation acceptance, full-curve validation, independent mesh convergence or scientific -20dB design approval."
+      },
+      "receiver_ack_sha256": "18bd8a55eea95edac2525c1d6b0dd0fa8c0221d176bf15cf67f048c41883b5a5",
+      "event_sha256": "e0bd0ed31360101490778a83266048319f0c38c9eb82559e70ba1062225807a1"
+    }
+  ]
+}

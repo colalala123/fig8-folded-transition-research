@@ -1,0 +1,13 @@
+import json, sys
+from pathlib import Path
+sys.path.insert(0, r"${WORKSPACE}\output\folded_simulation_plan_20260920")
+from response_metrics import analyze
+
+path = Path(r"F:\hfss_f8x_261002\R_B0_discrete26b\sparams_mixed_discrete26_verified.csv")
+metrics = analyze(path, f0=6.85)
+metrics["solver_convergence_verified"] = False
+metrics["formal_response_PR"] = None
+metrics["curve_role"] = "mixed verified curve with 26-point discrete HFSS replacement in 6.25-6.50 GHz"
+out = path.with_name("metrics_mixed_discrete26.json")
+out.write_text(json.dumps(metrics, indent=2), encoding="utf-8")
+print(json.dumps(metrics, indent=2))

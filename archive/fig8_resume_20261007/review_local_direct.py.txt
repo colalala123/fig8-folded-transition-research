@@ -1,0 +1,41 @@
+"""Compare targeted direct samples with original interpolation; no acceptance override."""
+import argparse,csv,json
+from pathlib import Path
+import numpy as np
+from broadband_recovery import ROOT,read,sha,write_json
+from audit_existing import touchstone
+from check_external_normalization import impedance,transform
+from check_legacy_scalar_reference import load_modal
+
+def main(case):
+    run=ROOT/'local_repair'/case;s=read(run/'local_state.json');assert s['status']=='exported_review_required'
+    snapshot=read(run/'snapshot.json');original=Path(snapshot['original_run'])
+    nf=run/'native_direct.s4p';rf=run/'50ohm_original_direct.s4p'
+    assert sha(nf)==s['native']['sha256'] and sha(rf)==s['50ohm_original']['sha256']
+    for path in [nf,rf]:
+        header=[x.strip() for x in path.read_text().splitlines() if x.startswith('! Port[')]
+        assert header==['! Port[1] = 1:1','! Port[2] = 1:2','! Port[3] = 2:1','! Port[4] = 2:2']
+    f,direct=touchstone(nf,4);ff,direct50=touchstone(rf,4);z=impedance(nf,4)
+    assert np.allclose(f,ff,rtol=0,atol=1e-9) and z.shape==(len(f),4)
+    recovered=transform(direct,z,'traveling');oldf,old,oldz,modes=load_modal(original);old50=transform(old,oldz,'traveling')
+    rows=[]
+    for i,freq in enumerate(f):
+        ix=np.flatnonzero(abs(oldf-freq)<1e-8);assert len(ix)==1;j=ix[0]
+        delta=abs(direct[i]-old[j]);which=np.unravel_index(delta.argmax(),delta.shape)
+        rows.append({'GHz':float(freq),'direct_max_sv':float(np.linalg.svd(recovered[i],compute_uv=False)[0]),
+           'direct_HFSS50_max_sv':float(np.linalg.svd(direct50[i],compute_uv=False)[0]),
+           'direct_reciprocity_error':float(abs(recovered[i]-recovered[i].T).max()),
+           'HFSS50_vs_scalar_max_complex_error':float(abs(recovered[i]-direct50[i]).max()),
+           'original_max_sv':float(np.linalg.svd(old50[j],compute_uv=False)[0]),
+           'original_reciprocity_error':float(abs(old50[j]-old50[j].T).max()),
+           'S11_magnitude_difference':float(abs(abs(direct[i,0,0])-abs(old[j,0,0]))),
+           'S21_magnitude_difference':float(abs(abs(direct[i,2,0])-abs(old[j,2,0]))),
+           'native_matrix_max_complex_difference':float(delta.max()),'largest_difference_channel':f'S({modes[which[0]]},{modes[which[1]]})',
+           'modal_Zo_max_complex_difference':float(abs(z[i]-oldz[j]).max())})
+    out={'case':case,'direct_samples':rows,'direct_matrix_checks_passed':all(x['direct_max_sv']<=1.001 and x['direct_reciprocity_error']<=1e-6 for x in rows),
+       'normalization_calibration_passed':all(x['HFSS50_vs_scalar_max_complex_error']<=1e-8 for x in rows),
+       'production_approved':False,'scope':'Only the requested direct samples. Unmeasured frequencies and the complete curve are not promoted by this check.',
+       'evidence_hashes':{str(p):sha(p) for p in [nf,rf,run/'local_state.json',original/'all_modes_sparams.csv',original/'mode_impedance_gamma.csv']}}
+    write_json(run/'direct_comparison.json',out);print(json.dumps(out,indent=2))
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('case');a=p.parse_args();main(a.case)

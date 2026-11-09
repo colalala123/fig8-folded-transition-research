@@ -1,0 +1,113 @@
+"""Fill the two diagnosed narrow windows with new direct frequencies only.
+
+Existing V1/V2 direct samples are reused, not solved again. Original mesh,
+geometry and all earlier sweeps remain intact. No pilot acceptance is written.
+"""
+import asyncio,json
+import numpy as np
+import local_direct_check as direct
+from broadband_recovery import ROOT,read,sha,write_json,now
+from pilot_worker import convergence
+from audit_existing import touchstone
+from check_external_normalization import impedance,transform
+from export_modal_segment import export,load_segment
+
+BASE=ROOT/'local_repair/D04G05'
+RUN=BASE/'recovery_fill'
+PROJECT=BASE/'D04G05_repair.aedt'
+NAME='RecoveryFillV1'
+
+def frequency_plan():
+    existing={}
+    for folder,sweep in [(BASE,'RecoveryDirectV1'),(BASE/'cutoff_check','RecoveryDirectV2')]:
+        f,_=touchstone(folder/'native_direct.s4p',4)
+        for x in f:
+            key=round(float(x)*100)
+            assert key not in existing,'Unexpected duplicate prior direct point'
+            existing[key]={'run':str(folder),'sweep':sweep}
+    target=set(range(930,966))|set(range(1420,1461))|{1480}
+    new=sorted(target-set(existing))
+    assert len(new)==60
+    return {'windows_GHz':[[9.30,9.65],[14.20,14.60]],'upper_interior_check_GHz':14.80,
+            'all_window_frequencies_GHz':[i/100 for i in sorted(target)],
+            'new_frequencies_GHz':[i/100 for i in new],
+            'reused_points':{str(i/100):existing[i] for i in sorted(target&set(existing))},
+            'prior_evidence_hashes':{str(folder/name):sha(folder/name) for folder in [BASE,BASE/'cutoff_check']
+                for name in ['native_direct.s4p','50ohm_original_direct.s4p','direct_comparison.json']}}
+
+def prepare():
+    direct.idle();assert not (ROOT/'protocol.lock').exists()
+    assert not (RUN/'local_state.json').exists(),'Recover existing direct fill, never repeat it'
+    high=read(BASE/'high_segment/high_review.json')
+    assert high['matrix_passed'] and high['all_sample_full_matrix_errors_le_0p005']
+    for f,h in high['evidence_hashes'].items():assert sha(f)==h
+    plan=frequency_plan();RUN.mkdir(exist_ok=True)
+    write_json(RUN/'frequency_plan.json',plan)
+    write_json(RUN/'snapshot.json',read(BASE/'snapshot.json'))
+    # Explicit old direct exports are recovered before launching anything new.
+    for folder,sweep in [(BASE,'RecoveryDirectV1'),(BASE/'cutoff_check','RecoveryDirectV2')]:
+        f,s=touchstone(folder/'native_direct.s4p',4)
+        out=folder/'explicit_modal'
+        if not (out/'all_modes_sparams.csv').exists():
+            export(PROJECT,'Setup19 : '+sweep,out,f)
+        ff,ss,zz,_=load_segment(out)
+        assert np.allclose(ff,f,rtol=0,atol=1e-9)
+        assert abs(ss-s).max()<1e-10
+        assert abs(zz-impedance(folder/'native_direct.s4p',4)).max()<1e-8
+    app=direct.connect(PROJECT,7990)
+    try:
+        assert not app.are_there_simulations_running
+        setup=app.get_setup('Setup19');assert setup.is_solved
+        saved=direct.persisted_sweeps(PROJECT);assert NAME not in saved
+        for sw in setup.sweeps:
+            if saved[sw.name]['IsEnabled']=='false':continue
+            sw.props['Type']=saved[sw.name]['Type'];sw.props['IsEnabled']=False;assert sw.update()
+        sw=setup.add_sweep(NAME,sweep_type='Discrete')
+        sw.props.update({'Type':'Discrete','IsEnabled':True,'SaveFields':False,'SaveRadFields':False});assert sw.update()
+        for i,freq in enumerate(plan['new_frequencies_GHz']):
+            assert sw.add_subrange('SinglePoints',freq,unit='GHz',clear=(i==0))
+        app.export_convergence('Setup19',output_file=str(RUN/'convergence_before.txt'))
+        conv=convergence(RUN/'convergence_before.txt')
+        assert conv==read(BASE/'zo_fullband/state.json')['adaptive_convergence_before']
+        app.odesktop.ClearMessages(app.project_name,app.design_name,3)
+        app.save_project();assert setup.is_solved
+        saved=direct.persisted_sweeps(PROJECT)
+        assert saved[NAME]['Type']=='Discrete' and saved[NAME]['IsEnabled']=='true'
+        assert all(v['IsEnabled']=='false' for k,v in saved.items() if k!=NAME)
+        write_json(RUN/'local_state.json',{
+            'case':'D04G05','project':str(PROJECT),'status':'prepared',
+            'expected_frequencies_GHz':plan['new_frequencies_GHz'],'original_convergence':conv,
+            'frequency_plan_sha256':sha(RUN/'frequency_plan.json'),
+            'saved_sweeps':saved,'prepared_project_sha256':sha(PROJECT),'prepared_at_utc':now(),
+            'scope':'60 previously unmeasured direct frequencies including one upper interior check; reuse 18 successful samples; same mesh, no geometry/phase iteration.'})
+    finally:app.release_desktop(close_projects=False,close_desktop=False)
+
+def review():
+    state=read(RUN/'local_state.json');assert state['status']=='exported_review_required'
+    f,s=touchstone(RUN/'native_direct.s4p',4)
+    z=impedance(RUN/'native_direct.s4p',4);converted=transform(s,z,'traveling')
+    _,hf=touchstone(RUN/'50ohm_original_direct.s4p',4)
+    export(PROJECT,'Setup19 : '+NAME,RUN/'explicit_modal',f)
+    ff,ss,zz,_=load_segment(RUN/'explicit_modal')
+    assert np.allclose(f,ff,rtol=0,atol=1e-9)
+    assert abs(s-ss).max()<1e-10 and abs(z-zz).max()<1e-8
+    sv=np.linalg.svd(converted,compute_uv=False)[:,0]
+    rec=float(abs(converted-converted.transpose(0,2,1)).max())
+    error=float(abs(converted-hf).max())
+    result={'points':len(f),'max_sv':float(max(sv)),'reciprocity_error':rec,
+            'passivity_violations':int(sum(sv>1.001)),'normalization_calibration_error':error,
+            'passed':bool(max(sv)<=1.001 and rec<=1e-6 and error<=1e-10),
+            'mesh_reuse_verified':state['convergence_after']==state['original_convergence'],
+            'reviewed_at_utc':now(),'production_approved':False}
+    files=[RUN/n for n in ['local_state.json','frequency_plan.json','native_direct.s4p','50ohm_original_direct.s4p']]
+    files += list((RUN/'explicit_modal').glob('*.csv'))+[RUN/'explicit_modal/mode_map.json']
+    result['evidence_hashes']={str(p):sha(p) for p in files}
+    write_json(RUN/'fill_review.json',result);print(json.dumps(result,indent=2))
+
+if __name__=='__main__':
+    import argparse
+    parser=argparse.ArgumentParser();parser.add_argument('--run',action='store_true');a=parser.parse_args()
+    if not a.run:print(json.dumps(frequency_plan(),indent=2))
+    else:
+        prepare();direct.NAME=NAME
+        asyncio.run(direct.solve('D04G05',RUN));review()

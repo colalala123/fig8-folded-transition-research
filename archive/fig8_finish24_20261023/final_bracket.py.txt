@@ -1,0 +1,77 @@
+"""One last-budget interpolation INSIDE two reviewed opposite-sign candidates.
+
+Interpolation is a proposal, not proof of monotonicity or design success. No
+extra probes, no extrapolation, no expansion of the eight-geometry limit.
+"""
+import numpy as np
+from pathlib import Path
+from control import HERE,BASE,OLD,read,write,sha,now
+from prepare_tuning import reviewed,attempt_ledger
+from geometry_worker import dc,geometry_gate
+
+
+def proposal(ga,gb,ma,mb,direct,initial,used):
+    if used!=7:return {'action':'stop','reason':'requires_exactly_one_geometry_slot_remaining'}
+    if not direct['numerical_review_passed']:return {'action':'stop','reason':'direct_audit_not_passed'}
+    if not all(p['interior'] for p in direct['direct_peaks']) or not direct['direct_central_valley']['interior']:
+        return {'action':'stop','reason':'unbracketed_sample_extrema'}
+    for k in ['Wm','Ws','Ls2','Ls3']:
+        if ga[k]!=gb[k]:return {'action':'stop','reason':'different_fixed_geometry'}
+    if abs(ga['Ls1']-gb['Ls1'])>.3 or abs(ga['Lm']-gb['Lm'])>.1:
+        return {'action':'stop','reason':'endpoints_outside_local_step_bounds'}
+    pa=ma['signed_peak_difference_dB'];pb=mb['signed_peak_difference_dB']
+    pd=direct['direct_peaks'][0]['dB']-direct['direct_peaks'][1]['dB']
+    fa=ma['central_valley_GHz'];fb=mb['central_valley_GHz'];fd=direct['direct_central_valley']['GHz']
+    if not np.isfinite([pa,pb,pd,fa,fb,fd]).all() or pa*pb>=0 or pa*pd>=0:
+        return {'action':'stop','reason':'no_reliable_opposite_sign_bracket'}
+    # Reuse interpolation endpoints; the direct endpoint supplies an additional
+    # conservative objective, not a newly measured independent sensitivity.
+    t=np.linspace(0,1,10001)
+    curves=[((1-t)*pa+t*pb)/.5,((1-t)*pa+t*pd)/.5,
+            ((1-t)*fa+t*fb-6.72)/.03,((1-t)*fa+t*fd-6.72)/.03]
+    loss=np.max(np.abs(curves),axis=0);i=int(np.argmin(loss));fraction=float(t[i])
+    if not .1<=fraction<=.9 or loss[i]>.8:return {'action':'stop','reason':'no_interior_prediction_with_margin'}
+    g={k:ga[k]+fraction*(gb[k]-ga[k]) for k in ga}
+    if not geometry_gate(g,initial)['passed']:return {'action':'stop','reason':'geometry_gate'}
+    return {'action':'candidate','method':'last_slot_bracketed_minimax_interpolation','fraction_from_left':fraction,
+      'geometry':g,'predicted_signed_peak_dB':[(1-fraction)*pa+fraction*x for x in [pb,pd]],
+      'predicted_central_GHz':[(1-fraction)*fa+fraction*x for x in [fb,fd]],
+      'predicted_max_normalized_error':float(loss[i]),'prediction_not_validation':True,
+      'rule':'Only interpolate between the two actual candidates; next geometry is ordinal8, no further probes.'}
+
+
+def prepare():
+    case='D10G05';left=BASE/case/'c01_candidate';right=BASE/case/'c02_candidate_recovery1'
+    direct=BASE/case/'c02_candidate_recovery1_direct';run=BASE/case/'final_bracket'
+    assert not dc.solvers() and not any(p.exists() for p in [HERE/'worker.lock',OLD/'protocol.lock',OLD/'pilot_queue.lock'])
+    assert not run.exists()
+    sa,ma,ha=reviewed(left,case);sb,mb,hb=reviewed(right,case);parents={**ha,**hb}
+    ack=read(direct/'receiver_ack.json');event=read(direct/'completion_event.json')
+    assert event['status']=='completed' and ack['event_sha256']==sha(direct/'completion_event.json')
+    assert ack['artifacts_verified'] and ack['visual_review_completed']
+    assert ack['verification_sha256']==sha(direct/'receiver_verification.json')
+    for a in event['artifacts']:
+        p=(direct/a['path']).resolve();assert p.is_relative_to(direct.resolve()) and sha(p)==a['sha256'];parents[str(p)]=a['sha256']
+    for p in [direct/'completion_event.json',direct/'receiver_ack.json',direct/'receiver_verification.json']:parents[str(p)]=sha(p)
+    assert read(direct/'input.json')['source']==str(right.resolve())
+    ledger=attempt_ledger(case);used=ledger['attempts_used_or_reserved']
+    initial=next(c['initial_geometry'] for c in read(HERE/'plan.json')['cases'] if c['case']==case)
+    result=proposal(sa['geometry'],sb['geometry'],ma,mb,read(direct/'comparison.json'),initial,used)
+    assert result['action']=='candidate',result
+    prev=read(HERE/'supervised_release.json');assert prev['input_sha256']==sha(direct/'input.json')
+    archive=HERE/'supervised_releases/D10G05_c02_candidate_recovery1_direct.json';assert not archive.exists()
+    write(run/'budget_before.json',ledger);write(run/'proposal.json',result)
+    for p in [run/'budget_before.json',run/'proposal.json']:parents[str(p)]=sha(p)
+    spec={'case':case,'role':'candidate','geometry':result['geometry'],'source':sb['source'],'source_sha256':sb['source_sha256'],
+      'run_dir':str(run),'project_name':'D10G05_final_bracket','phase_solve_ordinal_including_history':8,
+      'policy_sha256':sha(HERE/'policy.json'),'mesh_addendum_sha256':sha(HERE/'mesh_policy_addendum_v2.json'),
+      'worker_sha256':sha(HERE/'geometry_worker.py'),'controller_sha256':sha(HERE/'mesh_budget.py'),
+      'parent_evidence_hashes':parents,'created_at':now(),'tuning_cycle':'final_bracket',
+      'tuning_centers':[str(left),str(right)],'last_geometry_attempt':True,'method':result['method']}
+    write(run/'input.json',spec);write(archive,prev)
+    write(HERE/'supervised_release.json',{'case':case,'input_path':str((run/'input.json').resolve()),'input_sha256':sha(run/'input.json'),
+      'bulk_dispatch_released':False,'at':now(),'reason':'Final ordinal8, bounded interpolation between opposite-sign reviewed candidates; no new probe cycle.'})
+    print(run/'input.json');print(result)
+
+
+if __name__=='__main__':prepare()

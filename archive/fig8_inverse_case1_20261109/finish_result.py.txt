@@ -1,0 +1,53 @@
+"""Finalize only after independent review and an actual visual ACK. Never Analyze."""
+import sys,json,hashlib
+from pathlib import Path
+from datetime import datetime,timezone
+import numpy as np
+import psutil
+R=Path(__file__).resolve().parent;M=R.parent/'fig8_response_v2_20261109';C=R.parent/'fig8_inverse_case1_runtime_20261109';RUN=R/'data/INV01_A14/g01_initial'
+sys.path.insert(0,str(M));from lib import read,sha,label,load_curve
+sys.path.insert(0,str(R));from tuning_budget import validate_campaign
+
+def now():return datetime.now(timezone.utc).isoformat()
+def new(p,d):
+ with Path(p).open('x',encoding='utf8') as h:json.dump(d,h,ensure_ascii=False,indent=2,allow_nan=False)
+def update(p,d):Path(p).write_text(json.dumps(d,ensure_ascii=False,indent=2,allow_nan=False)+'\n',encoding='utf8')
+assert not (R/'closure.json').exists();b=validate_campaign()
+fr=read(R/'PREDICTION_FROZEN.json');st=read(RUN/'state.json');a=read(RUN/'receiver_ack.json');rv=read(RUN/'receiver_verification.json');ev=read(RUN/'completion_event.json');receipt=read(RUN/'notification_receipt.json')
+assert st['status']=='completed' and st['geometry']==fr['geometry']
+assert a['visual_review_completed'] and a['operation_success'] and a['artifacts_verified']
+assert a['event_sha256']==sha(RUN/'completion_event.json') and a['verification_sha256']==sha(RUN/'receiver_verification.json') and a['plot_sha256']==sha(rv['plot'])
+assert receipt['state']=='accepted' and ev['target_thread_id']=='REDACTED-ID'
+for p,h in read(RUN/'input.json')['parent_evidence_hashes'].items():assert sha(p)==h,p
+for p,h in rv['verified_hashes'].items():assert sha(p)==h,p
+assert not any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name']))
+assert not read(C/'hook/heartbeat/monitor.json')['enabled']
+f,z=load_curve(RUN/'sparams.csv');actual=label(f,z);pred=fr['predicted'];assert actual['passed']==rv['design_passed']==a['design_passed']
+formula=np.load(M/'complex_formula.npz');zp=formula['intercept']+np.einsum('i,ifk->fk',fr['features'],formula['coefficients']);band=(f>=3.92)&(f<=9.52)
+assert abs(label(f,zp)['worst_S11_dB']-pred['worst_S11_dB'])<1e-10
+keys=['worst_S11_dB','min_S21_dB','central_valley_GHz','peak_difference_dB','S21_BW_GHz'];diff={k:actual[k]-pred[k] if k in actual and k in pred else None for k in keys}
+nearest=sorted([{'case':rr['case'],'distance_raw_mm':float(np.linalg.norm([rr['geometry'][k]-fr['geometry'][k] for k in ['Wm','Ws','Lm','Ls1','Ls2','Ls3']]))} for rr in read(M/'DATASET.json')['rows']],key=lambda x:x['distance_raw_mm'])[:3]
+result={'at':now(),'case':fr['case'],'operation_completed':True,'design_passed':actual['passed'],'geometry':fr['geometry'],'P':fr['P'],'R':fr['R'],'target':fr['target'],'predicted':pred,'actual':actual,'actual_minus_predicted':diff,'actual_elements':st['actual_elements'],'Analyze_requests':len(st['segments']),'budget':b,'source_curve_sha256':sha(RUN/'sparams.csv'),'ACK_sha256':sha(RUN/'receiver_ack.json'),'frozen_prediction_sha256':sha(R/'PREDICTION_FROZEN.json'),'plot':rv['plot'],'hook_receipt_state':receipt['state'],'nominal_interpolated_only':True,'no_refit_after_result':True,'nearest_existing_geometries':nearest,'in_band_complex_RMSE_S11_S21':np.sqrt(np.mean(abs(z[band]-zp[band])**2,axis=0)).tolist(),'scope':'one model-guided new geometry in sampled domain, not wide-domain independent family validation','old_campaign_paused':True,'new_successor':None}
+new(R/'FINAL_RESULTS.json',result)
+import matplotlib
+matplotlib.use('Agg');import matplotlib.pyplot as plt
+fig,ax=plt.subplots(figsize=(10,4.8));realdb=20*np.log10(np.maximum(abs(z),1e-15));prdb=20*np.log10(np.maximum(abs(zp),1e-15))
+for j,name,color in [(0,'S11','tab:blue'),(1,'S21','tab:orange')]:ax.plot(f,realdb[:,j],color=color,label='HFSS '+name);ax.plot(f,prdb[:,j],color=color,ls='--',alpha=.65,label='Frozen prediction '+name)
+ax.axhline(-20,color='red',lw=.8,ls=':');ax.axhline(-2,color='gray',lw=.8,ls=':');ax.axvspan(3.92,9.52,color='green',alpha=.07);ax.set(xlim=(2,11),ylim=(-60,2),xlabel='Frequency (GHz)',ylabel='S parameters (dB)',title='INV01_A14 - frozen inverse prediction vs new HFSS');ax.grid(alpha=.2);ax.legend(ncol=2);fig.tight_layout();fig.savefig(R/'prediction_vs_HFSS.png',dpi=170);plt.close(fig)
+lines=['# Fig8 单例逆向设计验证结果','',f"唯一候选 INV01_A14 已完成真实HFSS及独立审核/实际看图ACK。原3.92–9.52GHz完整目标：{'名义插值通过' if actual['passed'] else '未通过'}。模型和候选参数在仿真前冻结，结果出来后没有重新拟合、换点或放宽阈值。",'', '|指标|冻结预测|HFSS实测|实测减预测|','|---|---:|---:|---:|']
+for k in keys:
+ if k in actual:lines.append(f"|{k}|{pred[k]:.6f}|{actual[k]:.6f}|{diff[k]:+.6f}|")
+lines+=['',f"网格{st['actual_elements']:,}；14核/1任务/1组串行；本例{len(st['segments'])}次Analyze，旧285+本例={b['Analyze_used']}/2236。完成hook收据为accepted，目标为当前聊天。",'','## 联合带宽与研究意义',f"实测联合连续区间（GHz）：{actual['joint_intervals']}。S21带宽只反映传输幅度，不替代联合S11/S21条件。",'这次完成的是P/R和实际长度响应模型给出一个新几何、冻结预测、真实HFSS回代的闭环。该点在已有采样域内、靠近已有几何，不证明宽范围逆设计成功率，也不替代新家族独立盲测或制造公差认证。',f"原始六维尺寸欧氏距离最近的已测项：{nearest[0]['case']}，约{nearest[0]['distance_raw_mm']:.6f}mm（仅描述相近程度，不是误差界）。",'条件规律仍需按P/R、折臂、长度修正分开讨论。单点成功/失败都不能证明弯折损耗机理或所有固定P/R可达性。','', '## 参数 mm','|参数|数值|','|---|---:|']
+for k,v in fr['geometry'].items():lines.append(f'|{k}|{v:.9f}|')
+lines+=['',f"P={fr['P']:.9f}，R={fr['R']:.9f}；a=1.4mm，g=0.55mm，材料和数值策略保持原规范。",'','## 状态','本单例关闭，无后继；完成心跳已停。原48调谐批次、N15、均匀数据仍保持暂停/不操作。没有追加技术恢复、第二候选、直接频点或公差仿真。','',f'![实测与冻结预测]({R.as_posix()}/prediction_vs_HFSS.png)']
+(R/'FINAL_REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf8')
+new(R/'closure.json',{'at':now(),'case':fr['case'],'reason':'single authorized candidate independently reviewed; no successor','operation_completed':True,'design_passed':actual['passed'],'budget':b,'results_sha256':sha(R/'FINAL_RESULTS.json'),'old_pause_preserved':True})
+new(C/'closure.json',{'at':now(),'case':fr['case'],'root_closure':str(R/'closure.json'),'root_closure_sha256':sha(R/'closure.json'),'no_successor':True})
+status={'at':now(),'phase':'single_inverse_case_closed','active':0,'case':fr['case'],'operation_completed':True,'design_passed':actual['passed'],'budget':b,'old_campaign_paused':True,'automatic_continuation_enabled':False,'hook_reminders_enabled':False,'report':str(R/'FINAL_REPORT.md')}
+update(R/'CURRENT_STATUS.json',status);update(M/'CURRENT_STATUS.json',{**status,'development_rows':78,'diagnostic_holdouts':2,'validation_root':str(R),'new_HFSS_running':False,'new_HFSS_calls':len(st['segments'])})
+try:validate_campaign()
+except AssertionError:closed=True
+else:closed=False
+assert closed
+new(R/'CLOSURE_VERIFICATION.json',{'closure_blocks_launch':True,'ACK_hashes_verified':True,'old_source_hashes_verified_before_closure':True,'hook_receipt_accepted':True,'terminal_heartbeat_disabled':True,'hf3d_absent_at_close':True,'predictions_unchanged':True})
+print(json.dumps(result,ensure_ascii=False,indent=2))

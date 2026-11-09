@@ -1,0 +1,52 @@
+"""Stage B single cached-direct task per case; no geometry or adaptive release."""
+from pathlib import Path
+from phase_geometry_context import HERE,BASE,OLD,ORIGINAL,HISTORY,STEPS,CAPS,ORDER,job_name,read,write,sha,now,status_report
+
+def budget_guard(p,ledger,auth):
+    case=p['case']
+    assert auth['execution_authorized'] and auth['stage']=='P12' and auth['cases']==ORDER
+    assert case in HISTORY and p['role']=='cached_phase_direct'
+    assert p['cached_task_ordinal_for_case']==1 and p['geometry_budget_increment']==0 and p['adaptive_allowed'] is False
+    assert ledger['case_cumulative_geometry']==HISTORY
+    assert ledger['new_geometry_reserved']<=auth['geometry_cap']==2
+    assert ledger['new_cached_tasks_reserved']<=auth['cached_task_cap']==1
+    all_cached=[t for t in ledger['tasks'] if t['role']=='cached_phase_direct']
+    assert len(all_cached)==ledger['new_cached_tasks_reserved']
+    assert all(t['case'] in HISTORY for t in all_cached)
+    assert len({t['path'] for t in all_cached})==len(all_cached)
+    for c in HISTORY:assert len([t for t in all_cached if t['case']==c])<=1
+    own=[t for t in all_cached if t['case']==case]
+    assert len(own)==1 and own[0]['input_sha256']==sha(p['input_path'])
+    assert Path(own[0]['path']).resolve()==Path(p['input_path']).resolve()
+    geom=[t for t in ledger['tasks'] if t['case']==case and t.get('new_phase_geometry_ordinal')]
+    n=len(geom)
+    assert 1<=n<=CAPS[case] and all(t['status']=='reviewed' for t in geom)
+    assert p['historical_geometry_attempts']==HISTORY[case] and p['new_geometry_used']==n
+    assert p['lifetime_geometry_attempts']==HISTORY[case]+n
+    assert sorted(t['new_phase_geometry_ordinal'] for t in geom)==list(range(1,n+1))
+
+def validate_spec(path):
+    assert not (HERE/'stage_P12_closure.json').exists()
+    p=read(path);budget_guard(p,read(HERE/'budget_ledger.json'),read(HERE/'authorization.json'))
+    assert Path(path).resolve()==Path(p['input_path']).resolve()
+    assert Path(p['run_dir']).resolve()==(BASE/p['case']/'final_direct').resolve()
+    source=Path(p['source']).resolve()
+    assert source.parent==(BASE/p['case']).resolve() and source.name in [job_name(p['case'],n) for n in range(1,CAPS[p['case']]+1)]
+    spec=read(source/'input.json');state=read(source/'state.json');ack=read(source/'receiver_ack.json')
+    assert spec['case']==p['case'] and spec['geometry']==p['source_geometry'] and state['geometry']==p['source_geometry']
+    assert state['status']=='completed' and state['design_passed'] and ack['design_passed']
+    assert ack['event_sha256']==sha(source/'completion_event.json') and ack['artifacts_verified'] and ack['visual_review_completed']
+    assert ack['verification_sha256']==sha(source/'receiver_verification.json')
+    assert Path(state['project']).resolve()==Path(p['project_source']).resolve() and sha(p['project_source'])==p['project_source_sha256']
+    assert 100000<=state['actual_elements']<=112000
+    from case_reference import verify_reference
+    assert verify_reference(source)==state['reference_treatment']
+    f=p['frequencies_GHz']
+    assert 1<=len(f)<=70 and f==sorted(set(f)) and all(.01<=x<=15 for x in f)
+    assert all(x in f for x in [.1,3.,6.,10.19,12.,15.])
+    assert sha(HERE/'phase_final_direct.py')==p['worker_sha256']
+    rel=read(HERE/'supervised_release.json')
+    assert rel['case']==p['case'] and Path(rel['input_path']).resolve()==Path(path).resolve()
+    assert rel['input_sha256']==sha(path) and not rel['bulk_dispatch_released']
+    for file,h in p['parent_evidence_hashes'].items():assert sha(file)==h,file
+    return p

@@ -1,0 +1,54 @@
+{
+  "passed": true,
+  "prior_protocol_sha256": "4bbc2ff994665bed39928cad9389e89cabd6e3c4582118d9a911d4828eba5271",
+  "physical_keys_verified": [
+    "modes",
+    "adaptive_method",
+    "sweep_method",
+    "baseline_run",
+    "central_valley_target_GHz",
+    "f0_reference_GHz",
+    "material",
+    "cores",
+    "tasks",
+    "port",
+    "normalization",
+    "source_B0_sha256",
+    "source_T_F3_sha256",
+    "reference_review",
+    "collector_review",
+    "pilot_matrix_sha256"
+  ],
+  "physical_values": {
+    "modes": 2,
+    "adaptive_method": "Broadband0p1to15",
+    "sweep_method": "original_fullband_scalar_audited_v1",
+    "baseline_run": "J:\\f8_261007\\B0BC",
+    "central_valley_target_GHz": 6.72,
+    "f0_reference_GHz": 6.85,
+    "material": {
+      "er": 3.55,
+      "tand": 0.0027,
+      "h_mm": 0.813
+    },
+    "cores": 16,
+    "tasks": 1,
+    "port": 7990,
+    "normalization": "Original native Zpi S11/S21 for metrics. Full complex matrix plus explicit scalar modal Zo converted to real 50ohm by independently calibrated traveling-wave formula; original HFSS full-Z exports/warnings retained. No passivity clipping or fitting.",
+    "source_B0_sha256": "95ab17f8078e39ad35884a824360e7b5dd3f26afa404089077c3b0d65b9bf06b",
+    "source_T_F3_sha256": "3d7ede1c6f6af59b4c9a9abc567acc6637150c2bfa5dc77dcd5db3fb8347ab44",
+    "reference_review": {
+      "path": "J:\\f8_261007\\reference_review.json",
+      "sha256": "f287a2fb0f2db04df2ba342d02ff6570b71c0803f073596182df69729b6d1cf0"
+    },
+    "collector_review": {
+      "path": "J:\\f8_261007\\broadband_collector_review.json",
+      "sha256": "d1ae07e01d17827d12a05f0619b3f7ec4397e8825d4fbcf80f94f6f77386a651"
+    },
+    "pilot_matrix_sha256": "ec1f55c9d18edd4bff5c9965af5c69f72667a67bc51dcd3ba2d424665df6c001"
+  },
+  "evidence_hashes": {
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\recovery_selection_regression\\fixture_iu4gnizk\\prior_protocol.json": "4bbc2ff994665bed39928cad9389e89cabd6e3c4582118d9a911d4828eba5271"
+  },
+  "scope": "Synthetic metadata for offline regression only."
+}

@@ -1,0 +1,15 @@
+import shutil
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+root = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+project = root / "R_B0_rebuild_max500.aedt"
+shutil.copy2(project, root / "R_B0_rebuild_max500.before_remove_nofullbasis.aedt")
+app = Hfss(project=str(project), design="Wideband vertical transition", version="2024.2", machine="localhost", port=7393, non_graphical=False, new_desktop=False, close_on_exit=False)
+try:
+    setup = app.get_setup("ModalRepairBB")
+    print("delete", setup.delete_sweep("SweepRepairBBNoFullBasis"), flush=True)
+    app.save_project()
+    print([s.name for s in setup.sweeps], flush=True)
+finally:
+    app.release_desktop(close_projects=False, close_desktop=False)

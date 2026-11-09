@@ -1,0 +1,187 @@
+{
+  "case": "D02G02",
+  "selected_run": "F:\\hfss_f8x_261002\\D02G02\\i03",
+  "original_design_status": "accepted",
+  "phase_solves_used": 4,
+  "original_convergence": {
+    "converged": true,
+    "passes": 24.0,
+    "final_delta_s": 0.0027809
+  },
+  "original_sweep_converged": true,
+  "original_passivity_messages": [
+    "Project: i03, Design: Wideband vertical transition, [info] The interpolating frequency sweep converged but had one or more non passive basis solutions.  Passivity cannot be enforced for the sweep. (09:22:03 AM  Oct 03, 2026)\r\n"
+  ],
+  "production_approved": false,
+  "source_curve_geometry_verified": true,
+  "recovered_matrix": {
+    "max_sv": 0.9999305957166017,
+    "passivity_violations": 0,
+    "reciprocity_error": 1.482538565102508e-07,
+    "strict_diagnostic_screen_passed": true,
+    "note": "The 1e-6 reciprocity screen is diagnostic, not an original universal acceptance limit."
+  },
+  "boundaries": {
+    "run": "${WORKSPACE}\\output\\fig8_resume_20261007\\historical_selected_review\\D02G02",
+    "ports": [
+      {
+        "port": "1",
+        "integration_endpoints_mm": [
+          [
+            0.0,
+            -25.0,
+            0.883
+          ],
+          [
+            0.0,
+            -25.0,
+            -1.38140158943821e-15
+          ]
+        ],
+        "invariant_settings": {
+          "Objects": true,
+          "DoDeembed": true,
+          "DeembedDist": true,
+          "UseLineModeAlignment": true,
+          "UseAnalyticAlignment": true,
+          "RenormalizeAllTerminals": true
+        },
+        "passed": true
+      },
+      {
+        "port": "2",
+        "integration_endpoints_mm": [
+          [
+            0.0,
+            25.0,
+            -0.883
+          ],
+          [
+            0.0,
+            25.0,
+            -1.38140158943821e-15
+          ]
+        ],
+        "invariant_settings": {
+          "Objects": true,
+          "DoDeembed": true,
+          "DeembedDist": true,
+          "UseLineModeAlignment": true,
+          "UseAnalyticAlignment": true,
+          "RenormalizeAllTerminals": true
+        },
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "auxiliary": {
+    "reference": "F:\\hfss_f8x_261002\\M_B0_2",
+    "candidate": "${WORKSPACE}\\output\\fig8_resume_20261007\\historical_selected_review\\D02G02",
+    "quantities": {
+      "Zo(1:1)": {
+        "max_relative_drift": 0.002548802588990782,
+        "max_relative_adjacent_step": 1.574382558098149e-05,
+        "passed": true
+      },
+      "Zo(2:1)": {
+        "max_relative_drift": 0.0002529886552245443,
+        "max_relative_adjacent_step": 1.5782597213685645e-05,
+        "passed": true
+      },
+      "Gamma(1:1)": {
+        "max_relative_drift": 0.0006224280626181001,
+        "max_relative_adjacent_step": 0.003148415813079953,
+        "passed": true
+      },
+      "Gamma(2:1)": {
+        "max_relative_drift": 0.0006907799091154448,
+        "max_relative_adjacent_step": 0.0031484915190531453,
+        "passed": true
+      }
+    },
+    "passed": true,
+    "screening_thresholds": {
+      "max_relative_drift": 0.02,
+      "max_adjacent_step_per_0p01GHz": 0.02
+    },
+    "scope": "Fundamental continuity in 3.2–10.2 GHz; interpreted jointly with native port-field identity."
+  },
+  "fields": {
+    "passed": true,
+    "evidence": [
+      {
+        "GHz": 8.0,
+        "port": "1",
+        "scores": {
+          "1": 0.999162764418878,
+          "2": 0.02230527885938226
+        },
+        "margin": 0.9768574855594957,
+        "passed": true
+      },
+      {
+        "GHz": 8.0,
+        "port": "2",
+        "scores": {
+          "1": 0.9990669438153826,
+          "2": -0.02358226037011917
+        },
+        "margin": 0.9754846834452635,
+        "passed": true
+      },
+      {
+        "GHz": 0.55,
+        "port": "1",
+        "scores": {
+          "1": 0.9991619772052382,
+          "2": 0.023924312545711153
+        },
+        "margin": 0.9752376646595271,
+        "passed": true
+      },
+      {
+        "GHz": 0.55,
+        "port": "2",
+        "scores": {
+          "1": 0.9990711823933862,
+          "2": -0.025009281001209773
+        },
+        "margin": 0.9740619013921764,
+        "passed": true
+      },
+      {
+        "GHz": 15.0,
+        "port": "1",
+        "scores": {
+          "1": 0.9992141743595057,
+          "2": 0.027286587043699493
+        },
+        "margin": 0.9719275873158062,
+        "passed": true
+      },
+      {
+        "GHz": 15.0,
+        "port": "2",
+        "scores": {
+          "1": 0.9991119068274458,
+          "2": -0.029001011600382435
+        },
+        "margin": 0.9701108952270633,
+        "passed": true
+      }
+    ],
+    "scope": "Common saved adaptive frequencies; combined with full passband Zo/Gamma continuity"
+  },
+  "eligible_for_protocol_review": true,
+  "next_action": "review_against_frozen_protocol_and_design_target",
+  "evidence_hashes": {
+    "F:\\hfss_f8x_261002\\D02G02\\i03\\manifest.json": "d2e415d085a706dde28575a77a1e90c7a2998287264022c2d0e67b6639c00d05",
+    "F:\\hfss_f8x_261002\\D02G02\\i03\\sparams.csv": "b6a58f79667a8cbb58932bec35b68acca26384794044f65bea2e9f99c1a5075f",
+    "F:\\hfss_f8x_261002\\D02G02\\i03\\response_metrics.json": "d61a9a247b56ace089a9c56682773ab7f5c2238924cb7465dcda6de583074d1f",
+    "F:\\hfss_f8x_261002\\D02G02\\i03\\all_modes_sparams.csv": "d568d814db1949c5fee6ee840624091b1ae4f7c677f33c84a3daf33bc8c0f1b3",
+    "F:\\hfss_f8x_261002\\D02G02\\i03\\mode_impedance_gamma.csv": "4a8a9c1625efa174a79809d2eb33e190629d5a78be83b5ee2993d21109fdb1e3",
+    "F:\\hfss_f8x_261002\\D02G02\\i03\\mode_map.json": "e2fd01627e61da65efab4e459233aa23402596f93bfa05c8e4613ee8f4a21088",
+    "${WORKSPACE}\\output\\fig8_resume_20261007\\external_normalization_diagnostic.json": "ab8244296582d4c5fd7e77b2f6bf378aad335f59e9cf7c959e8888543c1cdc7e"
+  }
+}

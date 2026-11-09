@@ -1,0 +1,66 @@
+import copy,tempfile,unittest
+from pathlib import Path
+from unittest.mock import patch
+import numpy as np
+import recovery_control as pc
+import merge_native as merge
+import smallbatch_worker as worker
+
+class NativeMergeTests(unittest.TestCase):
+    def test_real_partial_prefix_and_diagnostic_are_disjoint_and_finite(self):
+        failed=pc.BASE/'V01G02/final_direct';diag=pc.BASE/'V01G02/recovery_single_982'
+        rows=merge.partial_rows(pc.read(failed/'diagnosis_partial_arrays.json'))
+        self.assertEqual(len(rows),6);self.assertNotIn(9.82,rows)
+        merge.add_disjoint(rows,merge.exported_rows(diag));self.assertEqual(len(rows),7)
+        self.assertEqual(sorted(rows),[.1,9.82,9.83,9.84,10.19,12.,15.])
+    def test_duplicates_and_missing_or_unexpected_points_rejected(self):
+        row={e:complex(.2,.1) for e in merge.EXPRESSIONS}
+        with self.assertRaises(AssertionError):merge.add_disjoint({3.:row},{3.:row})
+        with tempfile.TemporaryDirectory() as temp:
+            for expected in [[3.,4.],[4.]]:
+                with self.assertRaises(AssertionError):merge.export(Path(temp),{3.:row},expected)
+    def test_native_roundtrip_does_not_fit_or_interpolate(self):
+        rows={3.:{e:complex((i+1)/20,.03) for i,e in enumerate(merge.EXPRESSIONS)}}
+        with tempfile.TemporaryDirectory() as temp:
+            folder=Path(temp);merge.export(folder,rows,[3.])
+            self.assertEqual(rows,merge.exported_rows(folder))
+            rows[3.][merge.EXPRESSIONS[0]]=complex(np.nan,0)
+            with self.assertRaises(AssertionError):merge.export(folder,rows,[3.])
+
+class WorkerGuards(unittest.TestCase):
+    def setUp(self):
+        self.path=pc.BASE/'V01G02/direct_smallbatch/input.json'
+        self.p=dict(case='V01G02',run_dir=str(self.path.parent),input_path=str(self.path),role='cached_missing_smallbatches',
+            geometry_budget_increment=0,adaptive_allowed=False,worker_sha256='digest',requested_frequencies_GHz=[3.,3.3],
+            chunks=[[3.],[3.3]],existing_frequencies_GHz=[],max_analyze_launches=2,input_parent_hashes={},source='synthetic')
+        self.ledger=dict(new_geometry_reserved=0,tasks=[dict(case='V01G02',status='reserved',input_sha256='digest',analyzes_used=0)])
+    def validate(self,p):
+        def read(path):return p if Path(path)==self.path else self.ledger
+        with patch.object(worker.pc,'read',side_effect=read),patch.object(worker.pc,'sha',return_value='digest'),patch.object(worker,'reviewed_source'):
+            return worker.validate(self.path)
+    def test_valid_finite_partition_allowed(self):self.validate(self.p)
+    def test_adaptive_and_geometry_changes_rejected(self):
+        for change in [{'adaptive_allowed':True},{'geometry_budget_increment':1}]:
+            with self.subTest(change=change),self.assertRaises(AssertionError):self.validate({**self.p,**change})
+    def test_duplicate_or_previously_valid_point_rejected(self):
+        for change in [{'chunks':[[3.],[3.]]},{'existing_frequencies_GHz':[3.]}]:
+            with self.subTest(change=change),self.assertRaises(AssertionError):self.validate({**self.p,**change})
+    def test_chunk_larger_than_four_rejected(self):
+        p={**self.p,'requested_frequencies_GHz':[3.,4.,5.,6.,7.],'chunks':[[3.,4.,5.,6.,7.]],'max_analyze_launches':1}
+        with self.assertRaises(AssertionError):self.validate(p)
+    def test_each_analyze_is_counted_before_launch_and_budget_is_finite(self):
+        ledger=dict(analyze_launches_reserved=0,tasks=[dict(case='V01G02',analyzes_used=0,max_analyzes=1)])
+        def read(path):return ledger if Path(path)==pc.ledger_path() else dict(maximum_new_analyze_launches=1)
+        with patch.object(worker.pc,'read',side_effect=read),patch.object(worker.pc,'write'):
+            worker.reserve_launch('V01G02',0)
+            self.assertEqual(ledger['analyze_launches_reserved'],1)
+            with self.assertRaises(AssertionError):worker.reserve_launch('V01G02',1)
+    def test_runtime_handoff_accepts_phase_without_overwriting_or_duplicate_keywords(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root=Path(temp)
+            for name in ['r','f','p']:(root/name).mkdir()
+            with patch.object(pc,'HERE',root/'r'),patch.object(pc,'FINAL',root/'f'),patch.object(pc,'PARENT',root/'p'):
+                pc.active(dict(case='V01G02',stage='candidate_cached_direct',phase='V6R'))
+            for name in ['r','f','p']:self.assertEqual(pc.read(root/name/'active.json')['phase'],'V6R')
+
+if __name__=='__main__':unittest.main()

@@ -1,0 +1,15 @@
+"""Version only the observer registration step; the original frozen launcher is not edited."""
+from pathlib import Path
+import ast,hashlib,json
+ROOT=Path(__file__).resolve().parent
+p=ROOT/'run_context.py';s=p.read_text(encoding='utf-8')
+start=s.index('    for attempt in range(30):');end=s.index("    (ROOT/'decisions').mkdir(exist_ok=True)",start)
+s=s[:start]+'''    time.sleep(1)  # Let the legacy ensure release its startup mutex.
+    from finish_start_and_monitor_v2 import ensure_observer
+    observer=ensure_observer(ctx,path.parent)
+'''+s[end:]
+s=s.replace("ROOT/'run_context.py']","ROOT/'run_context.py',ROOT/'run_context_v2.py',ROOT/'finish_start_and_monitor_v2.py',ROOT/'observer_retry_v2.py']")
+dest=ROOT/'run_context_v2.py';assert not dest.exists();dest.write_text(s,encoding='utf-8');ast.parse(s)
+(ROOT/'launcher_v2_provenance.json').write_text(json.dumps(dict(source=str(p),source_sha256=hashlib.sha256(p.read_bytes()).hexdigest(),adapted=str(dest),
+    adapted_sha256=hashlib.sha256(dest.read_bytes()).hexdigest(),scope='Observer registration only; preparation/freeze/release/Analyze dispatch guards unchanged; old frozen files not modified.'),indent=2),encoding='utf-8')
+print('v2 launcher prepared; old frozen launcher unchanged')

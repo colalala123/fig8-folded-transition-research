@@ -1,0 +1,72 @@
+"""Compact read-only status, including adaptive convergence files."""
+import json
+import re
+import sys
+from datetime import datetime
+from pathlib import Path
+
+ROOT=Path('F:/hfss_f8_261002')
+batch=json.loads((ROOT/'batch_status.json').read_text(encoding='utf-8'))
+rows=[]
+cases=['B0','G035','F2','F3','G2']
+if (ROOT/'T_G035/manifest.json').exists():cases.append('T_G035')
+for case in cases:
+    run=ROOT/case
+    row={'case':case,'status':'queued'}
+    path=run/'manifest.json'
+    if path.exists():
+        m=json.loads(path.read_text(encoding='utf-8'))
+        if m.get('started_at','')>=batch['started_at']:
+            row['status']=m['status']
+            if m.get('solve_wall_seconds') is not None:
+                row['solve_minutes']=round(m['solve_wall_seconds']/60,1)
+            elif m.get('solve_started_at'):
+                start=datetime.fromisoformat(m['solve_started_at'])
+                row['elapsed_solve_minutes']=round((datetime.now(start.tzinfo)-start).total_seconds()/60,1)
+            if 'response_metrics.json' in [p.name for p in run.iterdir()]:
+                metrics=json.loads((run/'response_metrics.json').read_text(encoding='utf-8'))
+                row['BW_GHz']=metrics['passband_2dB']['BW_GHz']
+                row['signed_peak_difference_dB']=metrics.get('signed_peak_difference_dB')
+                row['converged']=metrics.get('convergence',{}).get('converged')
+            convroot=run/(case+'.aedtresults')/'Wideband vertical transition.results'
+            if convroot.exists():
+                for conv in convroot.glob('*.EMConvData'):
+                    text=conv.read_text(encoding='utf-8',errors='replace')
+                    groups=re.findall(r"\$begin 'QuantityValues'(.*?)\$end 'QuantityValues'",text,re.S)
+                    passes=[]
+                    for group in groups:
+                        if "Intrinsics=''" not in group:
+                            continue
+                        p=re.search(r'PassNo=(\d+)',group)
+                        d=re.search(r'MaxMagDeltaS\(([^,]+),',group)
+                        if p and d:passes.append((int(p.group(1)),float(d.group(1))))
+                    if passes:
+                        latest=max(p for p,d in passes)
+                        row['adaptive_pass']=latest
+                        row['latest_max_delta_s']=max(d for p,d in passes if p==latest)
+                        by_pass={number:max(value for p,value in passes if p==number) for number in {p for p,d in passes}}
+                        threshold=m.get('settings',{}).get('setup',{}).get('MaxDeltaS',.005)
+                        required=m.get('settings',{}).get('setup',{}).get('MinimumConvergedPasses',2)
+                        consecutive=0
+                        for number in range(latest,0,-1):
+                            if number not in by_pass or by_pass[number]>threshold:break
+                            consecutive+=1
+                        row['consecutive_converged_passes']=consecutive
+                        row['adaptive_converged']='IsConverged=true' in text and consecutive>=required
+                        if row['adaptive_converged'] and row['status']=='solving':
+                            row['stage']='frequency_sweep_after_adaptive_convergence'
+                if row.get('stage')=='frequency_sweep_after_adaptive_convergence':
+                    profiles=sorted(convroot.glob('*.profile'),key=lambda p:p.stat().st_mtime,reverse=True)
+                    if profiles:
+                        profile=profiles[0].read_text(encoding='utf-8',errors='replace')
+                        matches=re.findall(r'Basis Element #\s*(\d+),\s*Frequency:\s*([\d.eE+-]+)GHz;\s*S Matrix Error\s*=\s*([\d.eE+-]+)%',profile)
+                        if matches:
+                            number,frequency,error=matches[-1]
+                            row['sweep_basis_elements']=int(number)
+                            row['latest_sweep_sample_GHz']=float(frequency)
+                            row['latest_sweep_S_error_percent']=float(error)
+    rows.append(row)
+payload={'batch_status':batch['status'],'fresh_completed':sum(r['case']!='T_G035' and r['status']=='completed' for r in rows),
+         'fresh_total':5,'cases':rows}
+if '--active' in sys.argv:payload['cases']=[r for r in rows if r['status']!='completed']
+print(json.dumps(payload,indent=2))

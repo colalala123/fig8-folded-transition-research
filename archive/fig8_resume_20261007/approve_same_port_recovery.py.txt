@@ -1,0 +1,273 @@
+"""Explicit acceptance of one same-port numerical recovery, never design release.
+
+Default read-only. --apply binds every source/export/resource record before
+the existing queue is allowed to select the candidate. No solve is started.
+"""
+import argparse,json,re
+from datetime import datetime
+from pathlib import Path
+from broadband_recovery import ROOT,HERE,read,sha,write_json,now
+from recovery_selection import DATA_FILES,hashes,validate_data,resolve_attempt,compatible_protocol
+from run_broadband_case import solvers
+from approve_d04_recovery import request_ok
+
+def schema_review(r,p):
+    method=r.get('review_method')
+    if method is None:
+        assert not p.get('recovery_recipe_version'),'Versioned recipe requires explicit schema review'
+        return
+    assert method in ['explicit_scalar_modal_with_independent_impedance_route',
+                      'explicit_scalar_modal_with_independent_impedance_route_v2'],'Unknown direct-review method'
+    schema=read(r['schema_review']);hashes(schema['evidence_hashes'])
+    count=len(p['direct_frequencies_GHz'])
+    assert schema['method']==method and schema['passed'] and schema['same_protocol_scalar_modal_convention']
+    assert r['points']==schema['independent_impedance_route_points']==count
+    exceptions=schema['retained_terminal_export_exception_GHz']
+    assert exceptions in [[],[15.]]
+    assert schema['HFSS_50ohm_calibrated_points']==count-len(exceptions)
+    if exceptions:assert schema['endpoint_cached_native_S_Zo_unchanged'] is True
+    assert schema['HFSS_50ohm_calibration_error']<1e-10 and schema['independent_impedance_route_error']<1e-10
+    assert schema['native_S_vs_explicit_error']<1e-10 and schema['modal_Zo_vs_diagonal_error']<1e-8
+    assert schema['max_sv']<=1.001 and schema['reciprocity_error']<=1e-6
+    assert r['max_sv']==schema['max_sv'] and r['reciprocity_error']==schema['reciprocity_error']
+    if method.endswith('_v2'):
+        assert schema['points']==count and schema['Gamma_vs_explicit_error']<1e-8
+        assert len(schema['terminal_50ohm_errors_at_exceptions'])==len(exceptions)
+        assert p['recovery_recipe_version']=='same_port_recovery_v2_scalar_schema_20261008'
+        for name in ['run_same_port_recovery_v2.py','review_same_port_direct.py']:
+            assert p['implementation_hashes'][str(HERE/name)]==sha(HERE/name)
+        assert schema['evidence_hashes'][str(HERE/'review_same_port_direct.py')]==sha(HERE/'review_same_port_direct.py')
+        assert set(schema['impedance_comment_formats']) <= {'scalar_vector','full_matrix'}
+    else:
+        assert count==104 and exceptions==[15.] and schema['terminal_50ohm_error_at_exception']>1e-10
+
+def timeout_review(base,p,project,intervals,observations):
+    path=base/'status_query_fallbacks.json'
+    if not path.exists():return None
+    record=read(path)
+    assert record['recipe_version']==p['recovery_recipe_version']=='same_port_recovery_v2_scalar_schema_20261008'
+    assert record['events']
+    stage_names={'direct_check':'direct',**{'checking_'+n:n for n in ['Low','Middle','Upper']}}
+    for event in record['events']:
+        assert event['operation']=='get_analysis_status'
+        args=event['arguments']
+        assert args['port']==7990 and args['project_name']==project.stem
+        assert args['design_name']=='Wideband vertical transition' and args['setup_name']=='Setup19'
+        assert 'get_analysis_status' in event['error'] and 'AEDT broker timed out after 120s for port:7990' in event['error']
+        assert event['action']=='Continue observing the existing solve; no solver dispatch or restart'
+        assert event['single_16_core_task_verified'] and event['processes']
+        matched=[x for x in observations if x['processes']==event['processes'] and x['stage']==event['stage']]
+        assert matched and all(x['single_16_core_task_verified'] for x in matched)
+        commands=[' '.join(x['cmdline'] or []) for x in event['processes']]
+        assert sum(bool(re.search(r'-max_processors\s+16(?:\s|$)',c) and re.search(r'-numParallelGroups\s+1(?:\s|$)',c)) for c in commands)==1
+        assert not any('-solve_broadband_adapt ' in c or '-solve_adapt ' in c for c in commands)
+        stage=stage_names[event['stage']]
+        bounds=[x for x in intervals if x[2]==stage];assert len(bounds)==1
+        timestamp=datetime.fromisoformat(event['observed_at_utc'])
+        assert datetime.fromisoformat(bounds[0][0])<=timestamp<=datetime.fromisoformat(bounds[0][1])
+    return {'evidence':str(path),'events':len(record['events']),
+            'scope':'Read-only status-query errors retained; existing serial solver observed. Versioned implementation never retries solver dispatch.'}
+
+def review(attempt):
+    attempt=Path(attempt).resolve();assert attempt.parent==ROOT/'D04G05'
+    assert attempt.name in [f'i{i:02d}' for i in range(1,8)]
+    assert not solvers() and not (ROOT/'protocol.lock').exists() and not (ROOT/'pilot_queue.lock').exists()
+    protocol=read(ROOT/'production_protocol.json');hashes(protocol['implementation_hashes'])
+    assert protocol['protocol_id']=='fig8_mode2_broadband_recovery_v2_20261007'
+    base=ROOT/'local_repair'/('D04G05_'+attempt.name);candidate=attempt/'verified_recovery'
+    assert read(base/'flow.json')['status']=='candidate_ready_review_required'
+    p=read(base/'plan.json');hashes(p['implementation_hashes'])
+    assert p['attempt']==str(attempt) and p['source_prediction_sha256']==sha(attempt/'prediction_frozen.json')
+    assert p['layout_evidence']['original_export_available']
+    assert sha(p['layout_evidence']['source'])==p['layout_evidence']['sha256']
+    assert p['basis_acceptance_sha256']==sha(ROOT/'D04G05/i00/recovery_acceptance.json')
+    basis=resolve_attempt(ROOT/'D04G05/i00');assert p['basis']==str(basis)
+    spec=read(attempt/'prediction_frozen.json');compatible_protocol(spec['protocol_sha256'])
+    original=read(attempt/'state.json');manifest=read(attempt/'manifest.json')
+    assert spec['geometry']==p['geometry']==manifest['geometry']==original['geometry']
+    assert original['source_unchanged'] and original['cad_verification']['passed']
+    assert original['cores']==16 and original['tasks']==1;request_ok(original)
+    original_observed=read(attempt/'observed_solver_commands.json')
+    assert original_observed['case']=='D04G05' and original_observed['run']==str(attempt)
+    assert original_observed['observations']
+    for sample in original_observed['observations']:
+        assert sample['project']==original['project'] and len(sample['processes'])==1
+        command=' '.join(sample['processes'][0]['cmdline'])
+        assert re.search(r'-max_processors\s+16(?:\s|$)',command)
+        assert re.search(r'-numParallelGroups\s+1(?:\s|$)',command)
+    assert original['settings']==read(Path(protocol['baseline_run'])/'manifest.json')['settings']
+    assert manifest['status']=='numerical_or_port_review_required' and read(attempt/'port_review.json')['passed']
+    assert not read(attempt/'normalization_recovery_review.json')['passed']
+    snap=read(base/'snapshot.json')
+    assert snap['original_run']==str(attempt) and snap['original_project']==manifest['project']
+    assert sha(snap['original_project'])==snap['original_project_sha256']
+    assert snap['cached_curve_verified'] and len(snap['cutoff_checks'])==2
+    assert all(9.3<=x['crossing_GHz']<=9.65 for x in snap['cutoff_checks'])
+    expected=manifest['convergence'];assert expected==original['convergence']==snap['original_convergence']
+    assert expected['converged'] and expected['final_delta_s']<=.005
+    assert all(manifest['geometry'][k]==read(basis/'manifest.json')['geometry'][k] for k in ['Wm','Ws','Ls2','Ls3'])
+    data=validate_data(candidate)
+    assert data['geometry']==spec['geometry'] and data['convergence']==expected
+    assert data['phase_solve_ordinal_including_history']==int(attempt.name[1:])+1
+    assert data['project']==snap['project']
+    verdict=read(candidate/'recovery_candidate_review.json');hashes(verdict['evidence_hashes'])
+    assert verdict['numerical_and_port_passed'] and verdict['seams_passed'] and verdict['phase_geometry_unchanged']
+    assert verdict['phase_solves_added']==0
+    recipe=read(candidate/'assembly_recipe.json');hashes(recipe['input_hashes'])
+    assert set(recipe['per_frequency_source'])=={str(k/100) for k in range(1,1501)}
+    assert [x['GHz'] for x in recipe['seams']]==[9.30,9.65,*p['windows_GHz'][1]]
+    assert all(x['full_50ohm_complex_error']<=.005 for x in recipe['seams'])
+    files=[attempt/n for n in DATA_FILES+['state.json','prediction_frozen.json','observed_solver_commands.json']]
+    files += [base/n for n in ['plan.json','snapshot.json','flow.json','observed_solver_commands.json']]
+    for name in ['preparation_repair_review.json','preparation_failed_plan.json']:
+        if (base/name).exists():files.append(base/name)
+    schema_failure_archive=base/'export_schema_failure'
+    if schema_failure_archive.exists():files += [f for f in schema_failure_archive.iterdir() if f.is_file()]
+    internal=base/'internal_resource_sample/review.json'
+    if internal.exists():
+        resource=read(internal)
+        assert resource['values']['NumCores']=='16' and resource['values']['NumTasks']=='1'
+        assert sha(resource['file'])==resource['sha256']
+        files += [internal,Path(resource['file'])]
+    profile_path=base/'internal_solver_profiles/review.json'
+    profile_review=None
+    if profile_path.exists():
+        profiles=read(profile_path)
+        assert profiles['plan_sha256']==sha(base/'plan.json')
+        assert profiles['all_profile_resource_checks_passed'] and profiles['records']
+        for rec in profiles['records']:
+            assert rec['resource_checks_passed'] and sha(rec['file'])==rec['sha256']
+            assert rec['GHz'] in p['direct_frequencies_GHz']
+            assert all(rec['values'][k]==v for k,v in {
+                'nummpitasks':'1','factorizationnumcores':'16','fbsnumcores':'16',
+                'analysysstatus':'valid','fatorizationstatus':'valid','fbstatus':'valid',
+                'matrixdim':'1186566','solverprecision':'double'}.items())
+        files += [profile_path,*[Path(x['file']) for x in profiles['records']]]
+        profile_review={'evidence':str(profile_path),'frequency_count':profiles['profile_frequency_count'],
+            'scope':profiles['scope']}
+        dispatch_path=base/'internal_solver_profiles/dispatch_evidence.json'
+        if dispatch_path.exists():
+            dispatch=read(dispatch_path)
+            assert sha(dispatch['file'])==dispatch['sha256']
+            assert set(dispatch['dispatched_frequencies_GHz'])<=set(p['direct_frequencies_GHz'])
+            assert set(dispatch['requested_but_not_listed_GHz'])==set(p['direct_frequencies_GHz'])-set(dispatch['dispatched_frequencies_GHz'])
+            files += [dispatch_path,Path(dispatch['file'])]
+            profile_review['dispatch_evidence']=str(dispatch_path)
+        endpoint_path=base/'internal_solver_profiles/endpoint_cache/review.json'
+        if endpoint_path.exists():
+            endpoints=read(endpoint_path);hashes(endpoints['evidence_hashes'])
+            assert endpoints['low_endpoint']['GHz']==.01 and endpoints['high_endpoint']['GHz']==15.
+            assert all(endpoints['low_endpoint']['values'][k]==v for k,v in {
+                'Success':'1','NumCores':'16','NumTasks':'1','NumTets':'181340','MatrixSize':'1186566'}.items())
+            files += [endpoint_path,*map(Path,endpoints['evidence_hashes'])]
+            profile_review['cached_endpoint_evidence']=str(endpoint_path)
+    files += [candidate/n for n in DATA_FILES+['assembly_recipe.json','recovery_candidate_review.json']]
+    files += [Path(f) for f in recipe['input_hashes']]
+    intervals=[(original['started_at_utc'],original['finished_at_utc'],'original_phase')]
+    s=read(base/'direct/local_state.json');request_ok(s)
+    assert s['status']=='exported_review_required' and s['source_unchanged']
+    assert s['original_convergence']==s['convergence_after']==expected
+    assert s['expected_frequencies_GHz']==p['direct_frequencies_GHz']
+    intervals.append((s['started_at_utc'],s['finished_at_utc'],'direct'))
+    files.append(base/'direct/local_state.json')
+    state_adoption_path=base/'state_write_adoption.json'
+    if state_adoption_path.exists():
+        a=read(state_adoption_path)
+        assert a['status']=='direct_exports_recovered' and a['production_approved'] is False
+        assert a['repeated_solver_dispatches']==0 and a['aedt_idle_verified_at_utc']
+        hashes(a['implementation_hashes']);hashes(a['interrupted_evidence_hashes'])
+        assert a['original_started_at_utc']==s['started_at_utc']
+        assert a['direct_state_sha256']==sha(base/'direct/local_state.json')
+        old=read(base/'state_write_failure/local_state.json')
+        old_flow=read(base/'state_write_failure/flow.json')
+        assert old['status']==old_flow['status']=='review_required'
+        for error in [old['error'],old_flow['error']]:
+            assert 'PermissionError: [WinError 5]' in error and 'local_state.json.tmp' in error
+        assert old['error'] in s['observation_error_history']
+        assert old['mcp_request']==s['mcp_request'] and old['mcp_response']==s['mcp_response']
+        assert old['started_at_utc']==s['started_at_utc']
+        assert any(x['pid']==a['wrapper_pid'] for x in old['solver_processes'])
+        assert '-UseSolverWrapper' in a['wrapper_command']
+        assert re.search(r'-max_processors\s+16(?:\s|$)',a['wrapper_command'])
+        assert re.search(r'-numParallelGroups\s+1(?:\s|$)',a['wrapper_command'])
+        files += [state_adoption_path,*map(Path,a['implementation_hashes']),*map(Path,a['interrupted_evidence_hashes'])]
+    adoption_path=base/'direct_adoption.json'
+    adoption_review=None
+    if adoption_path.exists():
+        adoption=read(adoption_path)
+        assert adoption['status'] in ['candidate_ready_review_required','direct_exports_recovered']
+        assert adoption['production_approved'] is False
+        assert adoption['original_started_at_utc']==s['started_at_utc']
+        assert adoption['direct_state_sha256']==sha(base/'direct/local_state.json')
+        if adoption.get('direct_review'):
+            assert sha(adoption['direct_review'])==adoption['direct_review_sha256']
+        hashes(adoption['interrupted_evidence_hashes'])
+        interrupted=read(base/'status_timeout/local_state.json')
+        assert interrupted['status']=='review_required'
+        assert 'get_analysis_status' in interrupted['error'] and 'broker timed out after 120s' in interrupted['error']
+        assert interrupted['error'] in s['observation_error_history']
+        command=adoption['wrapper_command']
+        assert '-UseSolverWrapper' in command
+        assert re.search(r'-max_processors\s+16(?:\s|$)',command)
+        assert re.search(r'-numParallelGroups\s+1(?:\s|$)',command)
+        assert any(x['pid']==adoption['wrapper_pid'] for x in interrupted['solver_processes'])
+        files += [adoption_path,HERE/'adopt_i01_direct.py',*map(Path,adoption['interrupted_evidence_hashes'])]
+        if adoption.get('finalization_archive_hashes'):
+            hashes(adoption['finalization_archive_hashes'])
+            assert sha(adoption['finalization_resume_script'])==adoption['finalization_resume_script_sha256']
+            assert adoption['aedT_idle_verified_at_utc']
+            assert any('are_there_simulations_running' in e for e in adoption['finalization_error_history'])
+            files += [Path(adoption['finalization_resume_script']),*map(Path,adoption['finalization_archive_hashes'])]
+        adoption_review={'evidence':str(adoption_path),'existing_wrapper_pid':adoption['wrapper_pid'],
+            'last_original_command_sample_utc':adoption['last_original_command_sample_utc'],
+            'scope':'Original live sweep adopted after a read-only MCP status timeout; no repeated direct solve. Command observation had an interruption; retained archived logs document that gap.'}
+    for name in ['Low','Middle','Upper']:
+        s=read(base/name/'state.json');rec=s['segments'][name];request_ok(rec)
+        assert s['mesh_reuse_verified'] and s['source_unchanged']
+        assert rec['status']=='exported' and rec['sweep_converged'] and rec['convergence']==expected
+        sweep=s['diagnostic_sweep'];original_sweep=manifest['settings']['sweep']
+        expected_sweep={**original_sweep,'IsEnabled':False,'InterpUsePortImped':True,
+            'RangeStart':f'{p["segments_GHz"][name][0]:g}GHz','RangeEnd':f'{p["segments_GHz"][name][1]:g}GHz'}
+        assert sweep==expected_sweep
+        saved=rec['settings_evidence']['saved_properties']
+        assert saved['InterpTolerance']=='0.5' and saved['InterpMaxSolns']=='250'
+        assert all(saved[k]=='true' for k in ['InterpUseS','InterpUsePortImped','InterpUsePropConst'])
+        intervals.append((rec['started_at_utc'],rec['finished_at_utc'],name));files.append(base/name/'state.json')
+    for name in ['direct','Low','Middle','Upper']:
+        r=read(base/name/'review.json');assert r['passed'];hashes(r['evidence_hashes'])
+        if name=='direct':schema_review(r,p)
+        files += [base/name/'review.json',*map(Path,r['evidence_hashes'])]
+    intervals.sort(key=lambda x:datetime.fromisoformat(x[0]))
+    assert all(datetime.fromisoformat(a[1])<=datetime.fromisoformat(b[0]) for a,b in zip(intervals,intervals[1:]))
+    observations=read(base/'observed_solver_commands.json')['observations']
+    assert observations and all(x['single_16_core_task_verified'] for x in observations)
+    assert any(x['stage']=='direct_check' for x in observations)
+    fallback_review=timeout_review(base,p,Path(snap['project']),intervals,observations)
+    if fallback_review:files.append(base/'status_query_fallbacks.json')
+    io_review=None
+    if (base/'metadata_io_adapter.json').exists():
+        from run_same_port_recovery_io import validate_record
+        io_review=validate_record(base)
+        files += [base/'metadata_io_adapter.json',*map(Path,io_review['implementation_hashes'])]
+    files += [Path(f) for f in p['implementation_hashes']]
+    return {'approved':True,'case':'D04G05','original_attempt':str(attempt),'candidate_run':str(candidate),
+        'protocol_sha256':sha(ROOT/'production_protocol.json'),'geometry':spec['geometry'],
+        'phase_solves_added':0,'phase_geometry_unchanged':True,'mesh_reuse_verified':True,
+        'resource_review':{'passed':True,'cores':16,'tasks':1,'serial_intervals':intervals,
+            'direct_adoption':adoption_review,
+            'status_query_fallbacks':fallback_review,
+            'metadata_io_adapter':io_review,
+            'internal_frequency_profiles':profile_review,
+            'original_phase_observations_verified':len(original_observed['observations']),
+            'observations_file':str(base/'observed_solver_commands.json'),
+            'scope':'Original and recovery stages retain 16/1 MCP evidence; actual diagnostic commands captured; original supervised commands preserved.'},
+        'evidence_hashes':{str(f):sha(f) for f in dict.fromkeys(files)},'finished_at_utc':now(),
+        'scope':'Numerical recovery only. Design/first-three acceptance and remaining queue release are separate.'}
+
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('attempt');ap.add_argument('--apply',action='store_true');a=ap.parse_args()
+    result=review(a.attempt)
+    if a.apply:
+        path=Path(a.attempt)/'recovery_acceptance.json';assert not path.exists()
+        write_json(path,result);assert resolve_attempt(Path(a.attempt))==Path(result['candidate_run'])
+    print(json.dumps({'ready':True,'written':a.apply,'phase_solves_added':0,'design_acceptance_not_evaluated':True},indent=2))

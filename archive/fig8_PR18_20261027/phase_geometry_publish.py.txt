@@ -1,0 +1,25 @@
+"""Completion-only current-chat hook for PR18. Configuration never sends a message."""
+from phase_control import HERE,TARGET,ORDER,read,now,write
+from phase_publish import hook
+def prompt(event,path):
+    return (f'[Fig8 PR18完成事件]\n事件ID：{hook.event_id(event)}\n状态：{event["status"]}\n摘要：{event["summary"]}\n事件：{path}\n'
+        f'人类已授权完成前三步和18个P/R补点，先读{HERE/"CONTINUATION.md"}及plan/authorization/execution_plan/budget_ledger/active。'
+        '核验真实完成/失败、原始S11/S21、实际网格及target20_metrics，实际看图后ACK，再按ORDER启动下一配置。'
+        '16核串行、目标10–11万网格；完成后用同一hook。前两配置监督后才放行其余。'
+        '旧design_passed仅基础调谐，不等于-20dB通过；科学负例必须保留，不调宽度强行过线。'
+        '初始18项，额外长度调谐共享12个，几何总上限30、每配置最多4；同网格直接抽查最多24点/配置、每次4点。'
+        '不重新跑原34项，不操作均匀数据，不自动启动第4步盲测。正常求解不周期通知；完成送达5分钟无下一仿真才检查对话中断。')
+async def publish(run,case,status,summary,artifacts):
+    assert read(HERE/'authorization.json')['execution_authorized'] is True
+    assert case in ORDER
+    cfg=hook.load_config(HERE/'hook/config.json')
+    assert cfg['default_thread_id']==TARGET and cfg['authorized_threads']==[TARGET]
+    path=run/'completion_event.json'
+    if not path.exists():path=hook.create_event(run,status,summary,artifacts,config=cfg,verified_success=status=='completed',purpose='PR18 initial validation after explicit launch instruction')
+    hook.prompt_for=prompt
+    receipt=await hook.deliver(path,config=cfg)
+    if receipt.get('state')=='accepted':
+        from phase_heartbeat import arm
+        try:arm(path)
+        except Exception as exc:write(run/'heartbeat_start_error.json',dict(at=now(),error=repr(exc)))
+    return receipt

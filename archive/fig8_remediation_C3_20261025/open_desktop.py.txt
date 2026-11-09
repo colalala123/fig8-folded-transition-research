@@ -1,0 +1,20 @@
+"""Visible AEDT startup and temp-path check only; no Analyze or project edit."""
+import sys
+from pathlib import Path
+import shutil
+import psutil
+import phase_control as pc
+sys.path.insert(0,str(pc.ORIGINAL))
+from ansys.aedt.core import Desktop
+assert not any((p.info['name'] or '').lower()=='hf3d.exe' for p in psutil.process_iter(['name']))
+existing=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower()=='ansysedt.exe']
+d=Desktop(version='2024.2',non_graphical=False,new_desktop=not bool(existing),close_on_exit=False,port=7990)
+try:
+    temp=Path(d.odesktop.GetTempDirectory())
+    info=dict(at=pc.now(),port=7990,visible_requested=True,temp_directory=str(temp),
+        temp_free_bytes=shutil.disk_usage(temp).free,analyze_requested=False,
+        desktop_processes=[p.info for p in psutil.process_iter(['pid','name','cmdline','create_time']) if (p.info['name'] or '').lower()=='ansysedt.exe'])
+    pc.write(pc.HERE/'desktop_start.json',info)
+    assert info['temp_free_bytes']>15*1024**3, 'Temp volume low; configure before solving'
+    print(info,flush=True)
+finally:d.release_desktop(close_projects=False,close_on_exit=False)

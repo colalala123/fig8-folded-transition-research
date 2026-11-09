@@ -1,0 +1,61 @@
+"""Run one frozen Fig8 case through the already visible AEDT MCP session."""
+import argparse,asyncio,json,os,shutil,subprocess,sys,time,traceback
+from pathlib import Path
+from datetime import datetime,timezone
+from mcp_call import call
+from pilot_worker import now,sha,write_json,set_modes,inspect_rebuilt_geometry,check_settings,export_data,convergence
+from response_metrics import analyze
+
+ROOT=Path('F:/hfss_f8x_261002');HERE=Path(__file__).resolve().parent
+def session():return json.loads((ROOT/'mcp_visible_session.json').read_text(encoding='utf-8'))
+def project_name(run):return run.name
+def connect(run,port):
+    from ansys.aedt.core import Hfss
+    return Hfss(project=str(run/(run.name+'.aedt')),design='Wideband vertical transition',version='2024.2',machine='localhost',port=port,non_graphical=False,new_desktop=False,close_on_exit=False)
+def prepare(run,spec,port):
+    project=run/(run.name+'.aedt');manifest=run/'manifest.json'
+    if project.exists() or manifest.exists():raise RuntimeError(f'Existing run is not new: {run}')
+    source=Path(spec['source'])
+    if sha(source)!=spec['source_sha256']:raise RuntimeError('Source changed since spec freeze')
+    shutil.copy2(source,project);m={**spec,'project':str(project),'status':'opening','started_at_utc':now(),'cores':16,'tasks':1,'execution_transport':'AEDT MCP stdio'};app=None
+    try:
+        app=connect(run,port);m['desktop_pid']=app.desktop_class.aedt_process_id
+        if spec.get('rebuild'):
+            g=spec['geometry'];m['build']=__import__('folded_transition',fromlist=['apply_folded_geometry']).apply_folded_geometry(app,wm=g['Wm'],lm=g['Lm'],ws=g['Ws'],ls1=g['Ls1'],ls2=g['Ls2'],ls3=g['Ls3']);m['cad_verification']=inspect_rebuilt_geometry(app,g)
+        m['port_settings']=set_modes(app,spec['modes'],spec.get('mode_impedance_overrides'));m['settings']=check_settings(app)
+        mat=app.materials['rogers ro4003 (tm)'];m['material']={'er':float(mat.permittivity.value),'tand':float(mat.dielectric_loss_tangent.value),'h_mm':.813}
+        if abs(m['material']['er']-3.55)>1e-10 or abs(m['material']['tand']-.0027)>1e-10:raise RuntimeError('Material mismatch')
+        m['microstrip_boxes']={n:list(app.modeler[n].bounding_box) for n in ('Substrate_3','Substrate_18')};app.save_project();m['status']='prepared';write_json(manifest,m);return m
+    except Exception:
+        m['status']='prepare_failed';m['error']=traceback.format_exc();write_json(manifest,m);raise
+    finally:
+        if app:app.release_desktop(close_projects=False,close_desktop=False)
+def collect(run,port):
+    manifest=run/'manifest.json';m=json.loads(manifest.read_text(encoding='utf-8'));app=None
+    try:
+        app=connect(run,port);m['messages']=list(app.odesktop.GetMessages(app.project_name,app.design_name,0));app.save_project();m['export']=export_data(app,run,m['modes']);app.export_convergence('Setup19',output_file=str(run/'convergence.txt'));app.export_mesh_stats('Setup19',output_file=str(run/'mesh_stats.txt'));m['convergence']=convergence(run/'convergence.txt');m['sweep_converged']=any('Interpolating frequency sweep complete. Converged.' in s for s in m['messages']);metrics=analyze(run/'sparams.csv',f0=6.85);metrics['convergence']=m['convergence'];metrics['validity']['solver_convergence_verified']=m['convergence']['converged'] and m['sweep_converged'];
+        m['passivity_failure_messages']=[s for s in m['messages'] if 'non passive' in s.lower() or 'non-passive' in s.lower() or 'passivity cannot' in s.lower()]
+        m['passivity_gate_passed']=m['sweep_converged'] and not m['passivity_failure_messages']
+        metrics['validity']['solver_convergence_verified']=metrics['validity']['solver_convergence_verified'] and m['passivity_gate_passed']
+        if not metrics['validity']['solver_convergence_verified']:metrics['formal_response_PR']=None
+        write_json(run/'response_metrics.json',metrics);m['curve_sha256']=sha(run/'sparams.csv');m['status']='completed' if metrics['validity']['solver_convergence_verified'] else 'unconverged';m.pop('error',None);m['finished_at_utc']=now();write_json(manifest,m);return m
+    except Exception:
+        m['status']='export_failed';m['error']=traceback.format_exc();write_json(manifest,m);raise
+    finally:
+        m['source_sha256_after']=sha(Path(m['source']));m['source_unchanged']=m['source_sha256_after']==m['source_sha256'];write_json(manifest,m)
+        if app:app.release_desktop(close_projects=False,close_desktop=False)
+async def run(spec_path):
+    spec=json.loads(Path(spec_path).read_text(encoding='utf-8'));run=Path(spec_path).parent;port=session()['port'];name=project_name(run)
+    prepare(run,spec,port)
+    started=await call('start_analysis',{'project_name':name,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':port,'concurrent_tasks':1,'cores_per_task':16,'blocking':False,'timeout':120})
+    if not started.get('started'):raise RuntimeError(f'MCP start_analysis failed: {started}')
+    m=json.loads((run/'manifest.json').read_text(encoding='utf-8'));m.update(status='solving',mcp_analysis_start=started,solve_started_at_utc=now());write_json(run/'manifest.json',m)
+    while True:
+        await asyncio.sleep(30);st=await call('get_analysis_status',{'project_name':name,'design_name':'Wideband vertical transition','setup_name':'Setup19','port':port,'timeout':120})
+        if not st.get('running'):break
+    m=json.loads((run/'manifest.json').read_text(encoding='utf-8'));m['solve_seconds']=(datetime.now(timezone.utc)-datetime.fromisoformat(m['solve_started_at_utc'])).total_seconds();write_json(run/'manifest.json',m)
+    await call('save_project',{'port':port,'timeout':120});collect(run,port);await call('close_projects',{'project_names':[name],'save':True,'port':port,'timeout':120})
+if __name__=='__main__':
+    ap=argparse.ArgumentParser();ap.add_argument('spec');args=ap.parse_args()
+    try:asyncio.run(run(args.spec))
+    except Exception:traceback.print_exc();sys.exit(1)

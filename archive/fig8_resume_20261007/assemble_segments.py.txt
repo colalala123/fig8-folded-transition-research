@@ -1,0 +1,58 @@
+"""Strict assembly/validation shared by clean reference and prospective pilot runs."""
+import argparse,csv,json
+from pathlib import Path
+import numpy as np
+from audit_existing import read,write,sha,touchstone,curve,analyze
+NAMES=['Low','Bridge','High','Endpoint']
+def require_direct_evidence(state):
+    for name in ['Bridge','Endpoint']:
+        rec=state['segments'][name]
+        assert rec.get('settings_evidence',{}).get('actual_type')=='Discrete',f'{name}: saved Discrete type evidence missing'
+        assert any('Discrete frequency sweep complete.' in x for x in rec.get('messages',[])),f'{name}: actual discrete completion missing'
+
+def assemble(run,modes):
+    run=Path(run);state=read(run/'state.json');n=2*modes
+    assert all(state['segments'].get(k,{}).get('status')=='exported' for k in NAMES)
+    require_direct_evidence(state)
+    for name in NAMES:
+        rec=state['segments'][name]
+        assert rec['convergence']['converged'] and rec['sweep_converged'] and not rec['errors'],f'{name}: convergence evidence missing'
+    assert sha(state['source'])==state['source_sha256']
+    grid=np.arange(1,1501)*.01;audit={'source_unchanged':True,'modes_per_port':modes,'checks':{}}
+    for label in ['native','50ohm']:
+        data={};provenance=[]
+        for k in NAMES:
+            p=run/f'{label}_{k}.s{n}p';head=p.read_text().splitlines()[:40]
+            assert sha(p)==state['segments'][k][label]['sha256'],'Segment hash changed'
+            mapping=[x.strip() for x in head if x.startswith('! Port[')]
+            expected=[f'! Port[{i+1}] = {port}:{mode}' for i,(port,mode) in enumerate((p,m) for p in [1,2] for m in range(1,modes+1))]
+            assert mapping==expected,(p,mapping,expected)
+            data[k]=touchstone(p,n)
+        matrices=[]
+        for ff in grid:
+            k='Bridge' if 6.96-1e-8<=ff<=7.01+1e-8 else 'Endpoint' if abs(ff-15)<1e-8 else 'Low' if ff<6.98 else 'High'
+            f,s=data[k];idx=np.flatnonzero(abs(f-ff)<1e-8);assert len(idx)==1
+            matrices.append(s[idx[0]]);provenance.append({'GHz':float(ff),'segment':k,'source_sha256':state['segments'][k][label]['sha256']})
+        s=np.asarray(matrices);assert np.isfinite(s).all()
+        curve(run/(label+'_sparams.csv'),grid,s)
+        metrics=analyze(run/(label+'_sparams.csv'));metrics['validity']['solver_convergence_verified']=True
+        checks={'finite':True,'points':len(grid),'max_adjacent_matrix_step':float(abs(np.diff(s,axis=0)).max())}
+        if label=='50ohm':
+            sv=np.linalg.svd(s,compute_uv=False)[:,0];checks.update(max_sv=float(max(sv)),passivity_violations=int(sum(sv>1.001)),reciprocity_error=float(abs(s-s.transpose(0,2,1)).max()))
+        overlaps=[]
+        for a,b in [('Low','Bridge'),('High','Bridge'),('High','Endpoint')]:
+            fa,sa=data[a];fb,sb=data[b]
+            for j,ff in enumerate(fb):
+                ix=np.flatnonzero(abs(fa-ff)<1e-8)
+                if len(ix):overlaps.append({'GHz':float(ff),'a':a,'b':b,'fundamental_magnitude_error':float(max(abs(abs(sa[ix[0],i,k])-abs(sb[j,i,k])) for i,k in [(0,0),(modes,0)]))})
+        checks['overlaps']=overlaps;checks['overlap_passed']=len(overlaps)>=4 and all(x['fundamental_magnitude_error']<=.02 for x in overlaps)
+        audit['checks'][label]=checks;write(run/(label+'_metrics.json'),metrics);write(run/(label+'_provenance.json'),provenance)
+    power=audit['checks']['50ohm'];audit['passed']=power['passivity_violations']==0 and power['reciprocity_error']<=1e-6 and all(x['overlap_passed'] for x in audit['checks'].values())
+    write(run/'numerical_review.json',audit)
+    (run/'sparams.csv').write_bytes((run/'native_sparams.csv').read_bytes())
+    metrics=read(run/'native_metrics.json');metrics['validity']['solver_convergence_verified']=audit['passed']
+    if not audit['passed']:metrics['formal_response_PR']=None
+    write(run/'response_metrics.json',metrics)
+    return audit
+if __name__=='__main__':
+    p=argparse.ArgumentParser();p.add_argument('run');p.add_argument('--modes',type=int,required=True);a=p.parse_args();print(json.dumps(assemble(a.run,a.modes),indent=2))

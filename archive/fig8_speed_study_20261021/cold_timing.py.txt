@@ -1,0 +1,21 @@
+"""One cold-start confirmation; no copied frequency or mesh cache."""
+import asyncio,os,traceback
+from run_study import HERE,ROOT,read,write,now,solvers,PROFILES,run_one
+async def main():
+    previous=read(HERE/'sweep_only_results.json')
+    assert all(x['strict_response_comparison_pass'] for x in previous),'No cold timing benchmark for a failed accuracy profile'
+    assert not solvers() and not (ROOT/'pilot_queue.lock').exists()
+    PROFILES['F']={'MaxDeltaS':.005,'InterpTolerance':1.0}
+    plan={'profile':'F','case':'D05G02','tolerances':PROFILES['F'],'EnforcePassivity':False,'cores':16,'tasks':1,
+      'fresh_mesh':True,'copy_frequency_cache':False,'reason':'Sweep-only trial reused existing frequency bases: accuracy evidence only. One cold full solve measures genuine wall-time savings.',
+      'source_sha256':read(HERE/'frozen_plan.json')['source_sha256']['D05G02']}
+    pf=HERE/'cold_timing_plan.json'
+    if pf.exists():assert read(pf)==plan
+    else:write(pf,plan)
+    lock=ROOT/'protocol.lock'
+    with lock.open('x') as h:h.write(str(os.getpid()))
+    try:write(HERE/'cold_timing_result.json',await run_one('F','D05G02'))
+    except BaseException:write(HERE/'cold_timing_error.json',{'at_utc':now(),'error':traceback.format_exc()});raise
+    finally:
+        if lock.exists() and lock.read_text()==str(os.getpid()):lock.unlink()
+if __name__=='__main__':asyncio.run(main())

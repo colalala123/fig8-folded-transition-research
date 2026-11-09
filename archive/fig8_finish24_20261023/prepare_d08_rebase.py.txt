@@ -1,0 +1,124 @@
+"""Explicit D08G05-only numerical-policy rebase; original results stay immutable.
+
+One additional budgeted center, never an automatic precision retry. Subsequent
+probes must use this center and the unchanged staged-count geometry worker.
+"""
+import argparse
+from pathlib import Path
+import numpy as np
+import prepare_tuning as core
+from control import HERE, BASE, OLD, read, write, sha, now
+from geometry_worker import dc, geometry_gate, analyze, passes
+
+CASE='D08G05'
+DECISION=HERE/'cases'/CASE/'rebase_decision.json'
+RUN=BASE/CASE/'g00_rebase'
+SOURCE=Path('F:/hfss_f8_261002/B0/B0.aedt')
+
+
+def check_decision(d,row,ledger):
+    assert d['case']==row['case']==CASE
+    assert d['action']=='one_same_policy_center' and d['old_results_preserved']
+    assert not d['reuse_old_sensitivities'] and d['count_as_additional_geometry_attempt']
+    assert d['geometry']==row['initial_geometry']==row['current_geometry']
+    assert d['legacy_coarse_comparison_passed'] is False
+    assert d['same_sweep_center_shift_GHz']>.03 or d['same_sweep_max_peak_shift_dB']>.15
+    assert ledger['attempts_used_or_reserved']==1 and not ledger['new_geometry_slots']
+    assert ledger['attempts_used_or_reserved']+1+3<=8
+
+
+def audit():
+    row=next(x for x in read(HERE/'plan.json')['cases'] if x['case']==CASE)
+    ledger=core.attempt_ledger(CASE);parents={};records={}
+    folders={'M':Path('J:/f8_speed_261021/M_D08G05'),
+             'I':Path('J:/f8_speed_261021/I_D08G05'),
+             'N090':Path('J:/f8_mesh100k_261022/N090_D08G05'),
+             'legacy':OLD/CASE/'i00'}
+    for name,folder in folders.items():
+        s=read(folder/'state.json');m=read(folder/'response_metrics.json')
+        assert s['geometry']==row['initial_geometry'] and s['sweep_converged'] and s['source_unchanged']
+        assert sha(s['source'])==s['source_sha256']
+        actual=analyze(folder/'sparams.csv',f0=6.85)
+        for k in ['signed_peak_difference_dB','central_valley_GHz']:
+            assert abs(actual[k]-m[k])<1e-12
+        assert abs(actual['passband_2dB']['BW_GHz']-m['passband_2dB']['BW_GHz'])<1e-12
+        for file in ['sparams.csv','all_modes_sparams.csv','mode_impedance_gamma.csv']:
+            data=np.genfromtxt(folder/file,delimiter=',',skip_header=1)
+            assert len(data)==1500 and np.isfinite(data).all()
+            assert np.allclose(data[:,0],np.arange(1,1501)/100)
+        for file in ['state.json','response_metrics.json','sparams.csv','all_modes_sparams.csv',
+                     'mode_impedance_gamma.csv','convergence.txt','manifest.json']:
+            p=folder/file;parents[str(p)]=sha(p)
+        if name in ('M','I'):
+            sw=s['sweep_after'];assert sw['InterpTolerance']==1. and not sw['EnforcePassivity']
+            assert s['cad_verification']['passed'] and len(s['ports'])==2
+            assert all(p['NumModes']==2 for p in s['ports'].values())
+        records[name]={'run':str(folder),'elements':passes(folder/'convergence.txt')[-1][1],
+                       'signed_peak_difference_dB':m['signed_peak_difference_dB'],
+                       'central_valley_GHz':m['central_valley_GHz'],'BW_GHz':m['passband_2dB']['BW_GHz'],
+                       'peak_levels_dB':[p['S11_dB'] for p in m['peaks']]}
+    comp=read(folders['M']/'comparison.json')
+    for p,h in comp['evidence_hashes'].items():assert sha(p)==h
+    parents[str(folders['M']/'comparison.json')]=sha(folders['M']/'comparison.json')
+    parents[str(HERE/'policy.json')]=sha(HERE/'policy.json')
+    parents[str(HERE/'mesh_policy_addendum_v2.json')]=sha(HERE/'mesh_policy_addendum_v2.json')
+    parents[str(Path(__file__).resolve())]=sha(Path(__file__).resolve())
+    m,i=records['M'],records['I']
+    d={'case':CASE,'created_at':now(),'action':'one_same_policy_center','geometry':row['initial_geometry'],
+       'old_results_preserved':True,'reuse_old_sensitivities':False,'count_as_additional_geometry_attempt':True,
+       'legacy_coarse_comparison_passed':comp['coarse_tuning_pass'],
+       'same_sweep_center_shift_GHz':abs(m['central_valley_GHz']-i['central_valley_GHz']),
+       'same_sweep_max_peak_shift_dB':max(abs(a-b) for a,b in zip(m['peak_levels_dB'],i['peak_levels_dB'])),
+       'same_sweep_BW_shift_GHz':abs(m['BW_GHz']-i['BW_GHz']),
+       'records':records,'budget_before':ledger,'evidence_hashes':parents,
+       'reason':'Existing M112136 vs I179560 curves at identical 1% sweep show center/peak discrepancy beyond earlier tuning budget; N090 is below current mesh target. No validated same-controller center or local probes exist. Establish one controlled center for subsequent consistent local finite differences, not a rerun merely to shave mesh count.',
+       'limitations':'Rebase does not guarantee agreement with strict-mesh results. Preserve and report mesh sensitivity. No automatic second rebase, mesh tightening, threshold change, or acceptance; future candidates require actual design checks and same-mesh direct samples. Cross-width final law still requires separate numerical/mode review.',
+       'budget_plan':'History1 + center1 + first local cycle3 =5; second local cycle only if needed and justified, at most8 total. No final ninth attempt.'}
+    check_decision(d,row,ledger)
+    return d
+
+
+def prepare_rebase():
+    assert not dc.solvers() and not any(p.exists() for p in [HERE/'worker.lock',OLD/'protocol.lock',OLD/'pilot_queue.lock'])
+    assert not RUN.exists() and not DECISION.exists(),'Inspect prior reserved work; never overwrite/retry'
+    d=audit();assert geometry_gate(d['geometry'],d['geometry'])['passed']
+    addon=read(HERE/'mesh_policy_addendum_v2.json');assert addon['user_authorized'] and addon['reviewed_exception_upper']==112000
+    prev=read(HERE/'supervised_release.json');ps=read(prev['input_path']);pr=Path(ps['run_dir'])
+    assert sha(prev['input_path'])==prev['input_sha256']
+    ack=read(pr/'receiver_ack.json');assert ack['event_sha256']==sha(pr/'completion_event.json')
+    assert ack['artifacts_verified'] and ack['visual_review_completed'] and ack['operation_success']
+    archive=HERE/'supervised_releases'/f"{prev['case']}_{pr.name}.json";assert not archive.exists()
+    assert sha(SOURCE)==read(OLD/CASE/'i00/state.json')['source_sha256']
+    write(DECISION,d)
+    parents={**d['evidence_hashes'],str(DECISION):sha(DECISION)}
+    spec={'case':CASE,'role':'initial_geometry','geometry':d['geometry'],'source':str(SOURCE),'source_sha256':sha(SOURCE),
+          'run_dir':str(RUN),'project_name':CASE+'_g00_rebase','policy_sha256':sha(HERE/'policy.json'),
+          'mesh_addendum_sha256':sha(HERE/'mesh_policy_addendum_v2.json'),'phase_solve_ordinal_including_history':2,
+          'created_at':now(),'worker_sha256':sha(HERE/'geometry_worker.py'),'controller_sha256':sha(HERE/'mesh_budget.py'),
+          'parent_evidence_hashes':parents,'rebase_decision':str(DECISION),'scope':'One budgeted same-policy center; no old acceptance altered.'}
+    path=RUN/'input.json';write(path,spec);write(archive,prev)
+    write(HERE/'supervised_release.json',{'case':CASE,'input_path':str(path.resolve()),'input_sha256':sha(path),
+          'bulk_dispatch_released':False,'at':now(),'reason':d['reason']})
+    print(path)
+
+
+def prepare_tuning(center,cycle,step):
+    d=read(DECISION)
+    for p,h in d['evidence_hashes'].items():assert sha(p)==h
+    assert d['case']==CASE and d['old_results_preserved'] and not d['reuse_old_sensitivities']
+    spec,metrics,parents=core.reviewed(RUN,CASE)
+    assert spec['parent_evidence_hashes'][str(DECISION)]==sha(DECISION)
+    expected=RUN if cycle=='c01' else BASE/CASE/'c01_candidate'
+    assert Path(center).resolve()==expected.resolve()
+    core.ALLOWED={CASE} # process-local only; original source file stays frozen
+    core.prepare(CASE,center,cycle,step)
+
+
+if __name__=='__main__':
+    p=argparse.ArgumentParser();subs=p.add_subparsers(dest='command',required=True)
+    subs.add_parser('rebase');t=subs.add_parser('tune')
+    t.add_argument('--center',type=Path,required=True);t.add_argument('--cycle',choices=['c01','c02'],required=True)
+    t.add_argument('--step',choices=['probe_Ls1','probe_Lm','candidate'],required=True)
+    a=p.parse_args()
+    if a.command=='rebase':prepare_rebase()
+    else:prepare_tuning(a.center,a.cycle,a.step)

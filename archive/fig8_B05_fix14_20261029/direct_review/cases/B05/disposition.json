@@ -1,0 +1,148 @@
+{
+  "case": "B05",
+  "state": "scoped_accepted",
+  "source": "D:\\hfss_fig8_B05_20261029\\candidate1\\B05N_C1\\g01_initial",
+  "direct_run": "D:\\hfss_fig8_B05_20261029\\direct\\B05\\direct_smallbatch",
+  "comparison": {
+    "points": 23,
+    "max_complex_error": 0.00035024047964030846,
+    "max_nearband_S21_error_dB": 0.0015821320778728332,
+    "peak_reviews": [
+      {
+        "reference_GHz": 5.19,
+        "actual_sampled_peak_GHz": 5.19,
+        "actual_sampled_peak_dB": -20.23092557574302,
+        "interior": true,
+        "source_sampled_peak_dB": -20.244034160216593,
+        "height_error_dB": 0.013108584473574325,
+        "points": [
+          5.18,
+          5.19,
+          5.2
+        ]
+      },
+      {
+        "reference_GHz": 8.23,
+        "actual_sampled_peak_GHz": 8.23,
+        "actual_sampled_peak_dB": -20.179284928015665,
+        "interior": true,
+        "source_sampled_peak_dB": -20.181995787495197,
+        "height_error_dB": 0.0027108594795315355,
+        "points": [
+          8.22,
+          8.23,
+          8.24
+        ]
+      }
+    ],
+    "edge_reviews": [
+      {
+        "kind": "S21",
+        "reference_GHz": 3.0198265496856296,
+        "points": [
+          3.0,
+          3.04
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.020285916221772,
+        "shift_GHz": 0.00045936653614253586
+      },
+      {
+        "kind": "S21",
+        "reference_GHz": 9.962220279050719,
+        "points": [
+          9.94,
+          9.98
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.962038461585623,
+        "shift_GHz": 0.0001818174650960458
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 3.633902409891675,
+        "points": [
+          3.614,
+          3.629,
+          3.639,
+          3.654
+        ],
+        "role": "f_low_GHz",
+        "direct_GHz": 3.6338941597006964,
+        "shift_GHz": 8.250190978387195e-06,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.00042603181933209555,
+        "other_condition_verified": true
+      },
+      {
+        "kind": "S11",
+        "reference_GHz": 9.529956991813345,
+        "points": [
+          9.51,
+          9.525,
+          9.535,
+          9.55
+        ],
+        "role": "f_high_GHz",
+        "direct_GHz": 9.52995957782334,
+        "shift_GHz": 2.586009994587357e-06,
+        "fine_bracket_width_GHz": 0.009999999999999787,
+        "coarse_fine_shift_GHz": 0.0005382531945414826,
+        "other_condition_verified": true
+      }
+    ],
+    "direct_bandwidths": {
+      "S21": {
+        "f_low_GHz": 3.020285916221772,
+        "f_high_GHz": 9.962038461585623,
+        "BW_GHz": 6.941752545363851,
+        "width_shift_GHz": 0.0006411840012381376
+      },
+      "S11": {
+        "f_low_GHz": 3.6338941597006964,
+        "f_high_GHz": 9.52995957782334,
+        "BW_GHz": 5.896065418122642,
+        "width_shift_GHz": 1.0836200972974552e-05
+      }
+    },
+    "direct_peak_difference_dB": 0.05164064772735344,
+    "requested_band_direct_worst_S11": {
+      "GHz": 8.23,
+      "dB": -20.179284928015665
+    },
+    "requested_band_direct_min_S21": {
+      "GHz": 9.52,
+      "dB": -1.0013830367930052
+    },
+    "direct_target_violations": [],
+    "dense_target_covered": true,
+    "target_finite_direct_failure_confirmed": false,
+    "numerical_review_passed": true,
+    "sampled_design_supported": true,
+    "needs_reserved_points": false,
+    "needs_peak_expansion": false,
+    "full_matrix_approved": false,
+    "limits": {
+      "max_complex_error": 0.005,
+      "max_inband_S21_error_dB": 0.05,
+      "max_peak_error_dB": 0.1,
+      "max_edge_shift_GHz": 0.02,
+      "max_BW_shift_GHz": 0.02
+    },
+    "scope": "Finite native direct target review, not continuous-extrema proof. Failed direct witnesses retained; reserved8 points require explicit bound plan before further Analyze.",
+    "baseline_tuning_passed": true,
+    "central_valley_finite_review": {
+      "points_GHz": [
+        6.73,
+        6.74,
+        6.75
+      ],
+      "minimum_GHz": 6.74,
+      "interior": true,
+      "within_tolerance": true
+    }
+  },
+  "actual_elements": 103496,
+  "event_sha256": "c2728dbbecf36e4b758d36e3f77889042070184222230fc6430732cf3413ea70",
+  "ack_sha256": "8ea4267287fc4b85c57c16fe8f2c17001c64a2cefa2d983d487b07a535fe6260"
+}

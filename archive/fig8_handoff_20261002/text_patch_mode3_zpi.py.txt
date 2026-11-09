@@ -1,0 +1,12 @@
+import shutil
+from pathlib import Path
+
+root = Path(r"F:/hfss_f8x_261002/R_B0_rebuild_max500")
+p = root / "R_B0_rebuild_max500.aedt"
+shutil.copy2(p, root / "R_B0_rebuild_max500.before_text_mode3_zpi.aedt")
+t = p.read_text(encoding="utf-8", errors="ignore")
+n = t.count("CharImp='Zwave'")
+if n != 2:
+    raise RuntimeError(f"expected exactly 2 mode-3 Zwave entries, found {n}")
+p.write_text(t.replace("CharImp='Zwave'", "CharImp='Zpi'"), encoding="utf-8")
+print({"replaced": n}, flush=True)

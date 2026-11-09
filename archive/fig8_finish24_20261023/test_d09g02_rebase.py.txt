@@ -1,0 +1,59 @@
+import copy
+import unittest
+from prepare_d09g02_rebase import check_decision
+
+
+class ThreeHistoryBudgetTests(unittest.TestCase):
+    def setUp(self):
+        self.row = dict(case='D09G02')
+        self.ledger = dict(attempts_used_or_reserved=3, new_geometry_slots={})
+        self.d = dict(case='D09G02', action='one_same_policy_center',
+            old_results_preserved=True, count_as_additional_geometry_attempt=True,
+            reuse_old_sensitivities=False, mesh_count_is_failure=False,
+            geometry={'Ls1':12.18066}, history_best_geometry={'Ls1':12.18066},
+            legacy_sweep=dict(InterpTolerance=.5, EnforcePassivity=True),
+            same_controller_center_available=False, design_already_passed=False,
+            history_audit=[dict(run_name='i00', normalized_error=7.4),
+                           dict(run_name='i01', normalized_error=6.1),
+                           dict(run_name='i02', normalized_error=9.3)])
+
+    def check(self):
+        check_decision(self.d, self.row, self.ledger)
+
+    def test_valid_best_history(self):
+        self.check()
+
+    def test_no_history_reset(self):
+        self.ledger['attempts_used_or_reserved'] = 1
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_no_second_center(self):
+        self.ledger['attempts_used_or_reserved'] = 4
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_missing_legacy_probe(self):
+        self.d['history_audit'].pop()
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_do_not_choose_worse_center(self):
+        self.d['history_audit'][2]['normalized_error'] = 2
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_no_unmeasured_geometry(self):
+        self.d['geometry'] = {'Ls1':12.5}
+        with self.assertRaises(AssertionError): self.check()
+
+    def test_scope_and_redundancy_guards(self):
+        for key, value in [('case','D09G05'), ('same_controller_center_available',True),
+                           ('design_already_passed',True), ('mesh_count_is_failure',True),
+                           ('reuse_old_sensitivities',True),
+                           ('count_as_additional_geometry_attempt',False)]:
+            with self.subTest(key=key):
+                saved = copy.deepcopy(self.d)
+                self.d[key] = value
+                with self.assertRaises(AssertionError): self.check()
+                self.d = saved
+
+
+if __name__ == '__main__':
+    unittest.main()

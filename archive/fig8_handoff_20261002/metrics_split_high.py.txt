@@ -1,0 +1,17 @@
+import numpy as np
+from pathlib import Path
+R=Path(r'F:\hfss_f8x_261002\R_tri_diagC')
+def parse(p):
+ vals=[];u=1;fmt='RI'
+ for ln in Path(p).read_text(errors='ignore').splitlines():
+  ln=ln.strip()
+  if not ln or ln.startswith('!'):continue
+  if ln.startswith('#'):
+   t=ln.upper().split();u={'HZ':1,'KHZ':1e3,'MHZ':1e6,'GHZ':1e9}.get(next((x for x in t if x in ('HZ','KHZ','MHZ','GHZ')),'GHZ'),1e9);fmt=next((x for x in ('RI','MA','DB') if x in t),'RI');continue
+  vals += [float(x.replace('D','E')) for x in ln.split()]
+ st=73;ch=[vals[i:i+st] for i in range(0,len(vals)-st+1,st)];f=np.array([c[0]*u/1e9 for c in ch]);s=np.zeros((len(ch),6,6),complex)
+ for k,c in enumerate(ch):
+  x=np.array(c[1:]).reshape(36,2);z=x[:,0]*np.exp(1j*np.deg2rad(x[:,1])) if fmt=='MA' else x[:,0]+1j*x[:,1];s[k]=z.reshape(6,6)
+ return f,s
+f,s=parse(R/'50ohm_split_high.s6p');sv=np.linalg.svd(s,compute_uv=False);mx=sv.max(1);d=np.max(np.abs(s[1:]-s[:-1]),axis=(1,2));print('points',len(f),'range',f[0],f[-1],'maxsv',mx.max(),'freq',f[mx.argmax()],'viol',(mx>1+1e-9).sum(),'recip',np.max(np.abs(s-np.transpose(s,(0,2,1)))));print('jumps',[(float(f[i+1]),float(d[i])) for i in np.argsort(d)[-10:][::-1]])
+

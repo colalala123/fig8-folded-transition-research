@@ -1,0 +1,15 @@
+import json
+from pathlib import Path
+from ansys.aedt.core import Hfss
+
+R = Path(r"F:\hfss_f8x_261002\R_tri_diagC")
+app = Hfss(project=str(R / "R_tri_diagC.aedt"), design="Wideband vertical transition", version="2024.2", machine="localhost", port=7990, non_graphical=False, new_desktop=False, close_on_exit=False)
+out = {}
+try:
+    out["messages"] = list(app.odesktop.GetMessages(app.project_name, app.design_name, 0)[-8:])
+    for renorm, name in [(False, "native_endpoint_direct.s6p"), (True, "50ohm_endpoint_direct.s6p")]:
+        out[name] = app.export_touchstone(setup="TriDiagE", sweep="SweepEndpointDirect", output_file=str(R / name), renormalization=renorm, impedance=50, gamma_impedance_comments=True)
+finally:
+    app.release_desktop(close_projects=False, close_desktop=False)
+(R / "post_endpoint.json").write_text(json.dumps(out, indent=2), encoding="utf-8")
+print(json.dumps(out, indent=2))

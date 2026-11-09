@@ -1,0 +1,33 @@
+import tempfile
+import unittest
+from contextlib import asynccontextmanager
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import AsyncMock, patch
+import geometry_worker as worker
+
+@asynccontextmanager
+async def client():yield object()
+
+class TestStatusFallback(unittest.IsolatedAsyncioTestCase):
+    async def test_timeout_after_real_solver_does_not_restart(self):
+        process={'pid':1,'cmdline':['-solve_broadband_adapt 23 -max_processors 16 -numParallelGroups 1']}
+        call=AsyncMock(side_effect=[{'started':True},RuntimeError('broker timed out')])
+        released=[]
+        app=SimpleNamespace(are_there_simulations_running=False,
+            odesktop=SimpleNamespace(GetMessages=lambda *args:['Normal completion']),project_name='test',design_name='test',
+            release_desktop=lambda **kwargs:released.append(True))
+        with tempfile.TemporaryDirectory() as tmp:
+            with patch.object(worker.dc,'solvers',side_effect=[[],[process],[]]),patch.object(worker.dc,'connected_client',client),\
+                 patch.object(worker.dc,'session_call',call),patch.object(worker.dc,'app_for',return_value=app),\
+                 patch.object(worker.asyncio,'sleep',AsyncMock()):
+                result=await worker.solve_stage(Path(tmp)/'test.aedt',Path(tmp),{'segments':[]},'adaptive_test',True)
+        names=[c.args[1] for c in call.await_args_list]
+        self.assertEqual(names,['start_analysis','get_analysis_status'])
+        self.assertTrue(result['observed_16core_process'])
+        self.assertTrue(result['observed_adaptive_process'])
+        self.assertFalse(result['last_status']['running'])
+        self.assertEqual(result['last_status']['source'],'direct_aedt_after_broker_timeout')
+        self.assertEqual(released,[True])
+
+if __name__=='__main__':unittest.main()

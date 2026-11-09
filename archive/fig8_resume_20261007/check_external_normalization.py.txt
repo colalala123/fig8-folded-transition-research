@@ -1,0 +1,39 @@
+"""Diagnostic only: compare scalar-reference transformations to healthy HFSS export.
+No transformed result from this experiment is approved for production.
+"""
+import json
+from pathlib import Path
+import numpy as np
+from audit_existing import touchstone,write,HERE
+ROOT=Path('F:/hfss_f8x_261002/R_tri_diagC')
+def impedance(path,n):
+    arr=[]
+    for line in Path(path).read_text().splitlines():
+        if line.startswith('! Port Impedance '):
+            x=np.array([float(v) for v in line[len('! Port Impedance '):].split()]);assert len(x)==2*n
+            arr.append(x[::2]+1j*x[1::2])
+    return np.array(arr)
+def transform(s,z,definition):
+    n=s.shape[1];eye=np.eye(n)[None,:,:]
+    if definition=='traveling':
+        d=np.sqrt(z/50);a=(d+1/d)[:,:,None]*eye+(d-1/d)[:,:,None]*s
+        b=(d-1/d)[:,:,None]*eye+(d+1/d)[:,:,None]*s
+    elif definition=='power':
+        scale=1/np.sqrt(z.real.astype(complex));a=scale[:,:,None]*((z.conj()+50)[:,:,None]*eye+(z-50)[:,:,None]*s)
+        b=scale[:,:,None]*((z.conj()-50)[:,:,None]*eye+(z+50)[:,:,None]*s)
+    else:
+        v=abs(z)/np.sqrt(z.real.astype(complex));i=v/z
+        a=(v+50*i)[:,:,None]*eye+(v-50*i)[:,:,None]*s
+        b=(v-50*i)[:,:,None]*eye+(v+50*i)[:,:,None]*s
+    return np.linalg.solve(a.transpose(0,2,1),b.transpose(0,2,1)).transpose(0,2,1)
+def main():
+    report={}
+    for seg in ['split_low','split_high','band_direct']:
+        f,s=touchstone(ROOT/f'native_{seg}.s6p');ff,t=touchstone(ROOT/f'50ohm_{seg}.s6p');z=impedance(ROOT/f'native_{seg}.s6p',6)
+        assert z.shape==(len(f),6) and np.allclose(f,ff)
+        results={}
+        for definition in ['traveling','power','pseudo']:
+            x=transform(s,z,definition);results[definition]={'max_complex_error':float(abs(x-t).max()),'fundamental_max_error':float(max(abs(x[:,0,0]-t[:,0,0]).max(),abs(x[:,3,0]-t[:,3,0]).max()))}
+        report[seg]=results
+    write(HERE/'external_normalization_diagnostic.json',{'status':'diagnostic_only','comparisons':report});print(json.dumps(report,indent=2))
+if __name__=='__main__':main()

@@ -1,0 +1,87 @@
+{
+  "at": "2026-10-30T21:32:34.229629+00:00",
+  "passed": true,
+  "Analyze_requested": false,
+  "tests": [
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_N17_A14_probes_20261031",
+      "modules": [
+        "test_phase_heartbeat",
+        "test_lifecycle_watch"
+      ],
+      "returncode": 0,
+      "output": "............................\n----------------------------------------------------------------------\nRan 28 tests in 0.998s\n\nOK\n"
+    },
+    {
+      "folder": "${WORKSPACE}\\output\\fig8_tune48_fixedPR_20261031",
+      "modules": [
+        "test_tuning_contract",
+        "test_launch_context_v4"
+      ],
+      "returncode": 0,
+      "output": "${WORKSPACE}\\.venv\\Lib\\site-packages\\defusedxml\\__init__.py:30: DeprecationWarning: defusedxml.cElementTree is deprecated, import from defusedxml.ElementTree instead.\n  from . import cElementTree\n..............\n----------------------------------------------------------------------\nRan 14 tests in 1.928s\n\nOK\n"
+    }
+  ],
+  "geometry_contract": {
+    "geometries_started": 15,
+    "new_geometries_declared": 17,
+    "geometry_cap": 172,
+    "Analyze_used": 126,
+    "Analyze_cap": 2236,
+    "per_case_Analyze": {
+      "N17_A18_S": 10,
+      "N17_A18_M": 7,
+      "N17_A18_C1": 11,
+      "N11_A18_S": 9,
+      "N11_A18_M": 7,
+      "N11_A18_C1": 1,
+      "N11_A18_C2": 7,
+      "N11_A14_S": 10,
+      "N11_A14_M": 8,
+      "N11_A14_C1": 9,
+      "N19_A14_S": 7,
+      "N19_A14_M": 10,
+      "N10_A18_S": 11,
+      "N10_A18_M": 11,
+      "N10_A18_C1": 8,
+      "N17_A14_S": 0,
+      "N17_A14_M": 0
+    },
+    "per_parent_declared": {
+      "N17_A18": 3,
+      "N11_A18": 4,
+      "N11_A14": 3,
+      "N19_A14": 2,
+      "N10_A18": 3,
+      "N17_A14": 2
+    },
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "historical_acquisition_budget_not_reused": true
+  },
+  "native": [
+    {
+      "name": "ansysedt.exe",
+      "create_time": 1793355858.6193893,
+      "cmdline": [
+        "D:/Program Files/AnsysEM/v242/Win64/ansysedt.exe",
+        "-grpcsrv",
+        "7990"
+      ],
+      "pid": 85208
+    }
+  ],
+  "projects": [
+    {
+      "case": "N17_A14_S",
+      "configuration_sha256": "0fc0a5156d9fd46f8d4c34b5c377ecf7b69ab0facc1f9ec871778013b08981c0",
+      "project_sha256": "951dca8258fca8644ef22b83629bf1b2a1130984c8de3631c33104abfa895ed0"
+    },
+    {
+      "case": "N17_A14_M",
+      "configuration_sha256": "afd3aaafc0c2ac150d6f55b66830bbd661c82849040b08105bb4d86eb2bae329",
+      "project_sha256": "6aea4dc441135f212ec0d5610dadccd87e62b2b68f093027dbd90a564702c3d5"
+    }
+  ]
+}

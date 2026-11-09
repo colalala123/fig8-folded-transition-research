@@ -1,0 +1,28 @@
+{
+  "purpose": "law research and inverse design, not tune all to pass",
+  "development": "all accepted pre-diagnostic geometries",
+  "diagnostic_holdout": "N19/N22 D1; retrospective known outcomes, not independent new blind test",
+  "outer": "6 deterministic family folds",
+  "inner": "3 family folds; train-only preprocessing; family-balanced fit/metrics",
+  "models": [
+    "A same five-indicator Ridge without actual length",
+    "B five-indicator Ridge with actual length",
+    "C full complex-curve Ridge with actual length"
+  ],
+  "hyperparameters": {
+    "degree": [
+      1,
+      2
+    ],
+    "alpha": [
+      0.001,
+      0.01,
+      0.1,
+      1,
+      10
+    ]
+  },
+  "new_HFSS": "at most one N19 candidate only if grouped validation improves and in-domain candidate exists; 14 cores serial, hook, <=13 Analyze; old pause untouched",
+  "selection_gate": "B family-balanced worstS11 MAE improves >=10% over A, B false pass count <=A; C independently must improve >=10% and no more false passes before curve inverse enabled",
+  "limitations": "small selective data; folds are development not a new prospective test; no MLP/NN claim"
+}
