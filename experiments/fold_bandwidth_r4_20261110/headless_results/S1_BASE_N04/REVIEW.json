@@ -1,0 +1,45 @@
+{
+  "at": "2026-11-10T13:30:44.839187+00:00",
+  "case": "S1_BASE_N04",
+  "source_case": "N04_A18",
+  "solve_completed": true,
+  "numerical_pass": false,
+  "design_pass": true,
+  "archive_baseline_comparison_pass": false,
+  "comparisons": {
+    "inner_peak_low_dB": {
+      "archive": -20.8541350204918,
+      "new": -20.543586852262973,
+      "delta": 0.31054816822882714,
+      "limit": 0.1,
+      "passed": false
+    },
+    "inner_peak_high_dB": {
+      "archive": -20.432493835805804,
+      "new": -20.33903539254933,
+      "delta": 0.09345844325647334,
+      "limit": 0.1,
+      "passed": true
+    },
+    "central_valley_GHz": {
+      "archive": 6.74,
+      "new": 6.73,
+      "delta": -0.009999999999999787,
+      "limit": 0.01,
+      "passed": true
+    },
+    "BW15_GHz": {
+      "archive": 6.324986594300855,
+      "new": 6.319223735836263,
+      "delta": -0.00576285846459168,
+      "limit": 0.01,
+      "passed": true
+    }
+  },
+  "mesh_cells": 96396,
+  "delta_s": 0.0045884,
+  "full_mode_power_certified": false,
+  "new_Analyze_requests": 1,
+  "result_level": "nominal interpolated, not direct-frequency/manufacturing certification",
+  "scratch_isolation_pass": false
+}

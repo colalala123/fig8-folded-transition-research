@@ -1,0 +1,206 @@
+{
+  "setup": {
+    "ID": 55,
+    "SetupType": "HfssDriven",
+    "SolveType": "Broadband",
+    "MultipleAdaptiveFreqsSetup": {
+      "Low": "0.1GHz",
+      "High": "15GHz"
+    },
+    "MaxDeltaS": 0.005,
+    "MaximumPasses": 32,
+    "MinimumPasses": 32,
+    "MinimumConvergedPasses": 2,
+    "PercentRefinement": 15,
+    "IsEnabled": true,
+    "MeshLink": {
+      "ImportMesh": false
+    },
+    "BasisOrder": 1,
+    "DoLambdaRefine": true,
+    "DoMaterialLambda": true,
+    "SetLambdaTarget": false,
+    "Target": 0.3333,
+    "UseMaxTetIncrease": false,
+    "PortAccuracy": 2,
+    "UseABCOnPort": false,
+    "SetPortMinMaxTri": false,
+    "PortMinTri": 100,
+    "PortMaxTri": 500,
+    "DrivenSolverType": "Direct Solver",
+    "EnhancedLowFreqAccuracy": false,
+    "SaveRadFieldsOnly": false,
+    "SaveAnyFields": true,
+    "IESolverType": "Auto",
+    "LambdaTargetForIESolver": 0.15,
+    "UseDefaultLambdaTgtForIESolver": true,
+    "IE Solver Accuracy": "Balanced",
+    "InfiniteSphereSetup": -1,
+    "MaxPass": 10,
+    "MinPass": 1,
+    "MinConvPass": 1,
+    "PerError": 1,
+    "PerRefine": 30
+  },
+  "sweep": {
+    "Type": "Interpolating",
+    "IsEnabled": true,
+    "RangeType": "LinearStep",
+    "RangeStart": "0.01GHz",
+    "RangeEnd": "15GHz",
+    "SaveSingleField": false,
+    "RangeCount": 401,
+    "RangeStep": "0.01GHz",
+    "RangeSamples": 11,
+    "SaveFields": false,
+    "SaveRadFields": false,
+    "GenerateFieldsForAllFreqs": false,
+    "InterpTolerance": 1,
+    "InterpMaxSolns": 250,
+    "InterpMinSolns": 0,
+    "InterpMinSubranges": 1,
+    "InterpUseS": true,
+    "InterpUsePortImped": false,
+    "InterpUsePropConst": true,
+    "UseDerivativeConvergence": false,
+    "InterpDerivTolerance": 0.2,
+    "EnforcePassivity": false,
+    "UseFullBasis": true,
+    "PassivityErrorTolerance": 0.0001,
+    "EnforceCausality": false,
+    "UseQ3DForDCSolve": false,
+    "SMatrixOnlySolveMode": "Auto",
+    "SMatrixOnlySolveAbove": "1MHz"
+  },
+  "ports": {
+    "1": {
+      "ID": 43,
+      "BoundType": "Wave Port",
+      "IsComponent": false,
+      "Objects": [
+        12391
+      ],
+      "WavePortType": "Modal",
+      "NumModes": 2,
+      "PECCapPartID": -1,
+      "UseLineModeAlignment": false,
+      "DoDeembed": false,
+      "DeembedDist": "0mm",
+      "ParentBndID": -1,
+      "Modes": {
+        "Mode1": {
+          "ModeNum": 1,
+          "UseIntLine": true,
+          "IntLine": {
+            "GeometryPosition": [
+              {
+                "IsAttachedToEntity": true,
+                "EntityID": 12113,
+                "FacetedBodyTriangleIndex": -1,
+                "TriangleVertexIndex": -1,
+                "hasXYZ": true,
+                "PositionType": "EdgeCenter",
+                "UParam": 0,
+                "VParam": 0,
+                "XPosition": "0",
+                "YPosition": "-25",
+                "ZPosition": "0.883"
+              },
+              {
+                "IsAttachedToEntity": true,
+                "EntityID": 12395,
+                "FacetedBodyTriangleIndex": -1,
+                "TriangleVertexIndex": -1,
+                "hasXYZ": true,
+                "PositionType": "EdgeCenter",
+                "UParam": 0,
+                "VParam": 0,
+                "XPosition": "0",
+                "YPosition": "-25",
+                "ZPosition": "-1.38140158943821e-15"
+              }
+            ]
+          },
+          "AlignmentGroup": 0,
+          "CharImp": "Zpi"
+        },
+        "Mode2": {
+          "ModeNum": 2,
+          "UseIntLine": false,
+          "CharImp": "Zpi"
+        }
+      },
+      "UseAnalyticAlignment": false,
+      "ShowReporterFilter": false,
+      "ReporterFilter": [
+        true,
+        true
+      ]
+    },
+    "2": {
+      "ID": 48,
+      "BoundType": "Wave Port",
+      "IsComponent": false,
+      "Objects": [
+        19891
+      ],
+      "WavePortType": "Modal",
+      "NumModes": 2,
+      "PECCapPartID": -1,
+      "UseLineModeAlignment": false,
+      "DoDeembed": false,
+      "DeembedDist": "0mm",
+      "ParentBndID": -1,
+      "Modes": {
+        "Mode1": {
+          "ModeNum": 1,
+          "UseIntLine": true,
+          "IntLine": {
+            "GeometryPosition": [
+              {
+                "IsAttachedToEntity": true,
+                "EntityID": 12152,
+                "FacetedBodyTriangleIndex": -1,
+                "TriangleVertexIndex": -1,
+                "hasXYZ": true,
+                "PositionType": "EdgeCenter",
+                "UParam": 0,
+                "VParam": 0,
+                "XPosition": "0",
+                "YPosition": "25",
+                "ZPosition": "-0.883"
+              },
+              {
+                "IsAttachedToEntity": true,
+                "EntityID": 19895,
+                "FacetedBodyTriangleIndex": -1,
+                "TriangleVertexIndex": -1,
+                "hasXYZ": true,
+                "PositionType": "EdgeCenter",
+                "UParam": 0,
+                "VParam": 0,
+                "XPosition": "0",
+                "YPosition": "25",
+                "ZPosition": "-1.38140158943821e-15"
+              }
+            ]
+          },
+          "AlignmentGroup": 0,
+          "CharImp": "Zpi"
+        },
+        "Mode2": {
+          "ModeNum": 2,
+          "UseIntLine": false,
+          "CharImp": "Zpi"
+        }
+      },
+      "UseAnalyticAlignment": false,
+      "ShowReporterFilter": false,
+      "ReporterFilter": [
+        true,
+        true
+      ]
+    }
+  },
+  "project_sha256": "2d16edd5aa142525d743330ecbede6ccf29057797d5dcac7ae2fa0b50926296c"
+}
