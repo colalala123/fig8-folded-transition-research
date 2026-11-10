@@ -1,0 +1,348 @@
+{
+ "weekly_report_check": {
+  "evidence": "retrospective, descriptive; archived 80 curves only; the 4 weekly points are not in this repository",
+  "weekly": {
+   "R_start": 0.825,
+   "R_end": 0.91,
+   "BW_start_GHz": 7.16,
+   "BW_end_GHz": 6.92,
+   "arm_increase_mm": 0.6,
+   "dlnR": 0.09806121317621473,
+   "BW_change_MHz": -240.00000000000023,
+   "slope_GHz_per_lnR": -2.4474508546893388
+  },
+  "across_designs_widths_vary": {
+   "nominal_R, a=1.4": {
+    "n": 40,
+    "slope_GHz_per_lnR": -2.131371027831262,
+    "correlation": -0.8189466929124815,
+    "BW_change_for_weekly_R_change_MHz": -209.00482871776927
+   },
+   "nominal_R, a=1.8": {
+    "n": 40,
+    "slope_GHz_per_lnR": -1.9441517456621147,
+    "correlation": -0.8087806239717305,
+    "BW_change_for_weekly_R_change_MHz": -190.64587877828262
+   },
+   "circuit_R_eff, a=1.4": {
+    "n": 40,
+    "slope_GHz_per_lnR": -2.0432692721643306,
+    "correlation": -0.9005629122395536,
+    "BW_change_for_weekly_R_change_MHz": -200.36546367411555
+   },
+   "circuit_R_eff, a=1.8": {
+    "n": 40,
+    "slope_GHz_per_lnR": -1.891446839751878,
+    "correlation": -0.8829597454164566,
+    "BW_change_for_weekly_R_change_MHz": -185.47757176438657
+   }
+  },
+  "fixed_width_pairs_a14_to_a18": {
+   "n": 24,
+   "dlnR_eff_mean": 0.022978314340345293,
+   "dlnR_eff_range": [
+    0.020430127520707112,
+    0.024952128542174806
+   ],
+   "dBW_S21_mean_MHz": -1.7015925956530935,
+   "dBW_S21_range_MHz": [
+    -7.68142094418689,
+    5.2240845925410895
+   ],
+   "linear_scaling_to_weekly_arm_increase": {
+    "dlnR_eff": 0.03446747151051793,
+    "dBW_S21_MHz": -2.5523888934796397,
+    "share_of_weekly_R_change": 0.3514893441974895
+   }
+  },
+  "caveat": "R conventions differ (weekly: uniform-model label; here: nominal ratio and circuit fit), so only relative changes are compared."
+ },
+ "stage3_retarget": {
+  "evidence": "uncalibrated prior from the R1 chain; lossless circuit; not an HFSS prediction",
+  "aim_dB": -20.3,
+  "BW20_change_per_dB_of_ripple_MHz": 150.66563021337132,
+  "families": {
+   "N04": {
+    "Wm": 1.936496,
+    "old_target": [
+     {
+      "a_mm": 0,
+      "target_dB": -21.0,
+      "Ws": 0.294,
+      "Lm": 6.704,
+      "Ls1": 16.376,
+      "prior_lossless_BW20_GHz": 6.077990755559845,
+      "tip_to_line_mm": null,
+      "tip_to_tip_mm": null,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 0.6,
+      "target_dB": -21.0,
+      "Ws": 0.319,
+      "Lm": 6.658,
+      "Ls1": 13.837,
+      "prior_lossless_BW20_GHz": 6.0600058604477045,
+      "tip_to_line_mm": 5.031251999999999,
+      "tip_to_tip_mm": 11.998999999999999,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 1.4,
+      "target_dB": -21.0,
+      "Ws": 0.355,
+      "Lm": 6.596,
+      "Ls1": 12.704,
+      "prior_lossless_BW20_GHz": 6.0360491714760816,
+      "tip_to_line_mm": 3.6287520000000004,
+      "tip_to_tip_mm": 9.194,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 2.2,
+      "target_dB": -21.0,
+      "Ws": 0.394,
+      "Lm": 6.533,
+      "Ls1": 11.571,
+      "prior_lossless_BW20_GHz": 6.012153816153988,
+      "tip_to_line_mm": 2.2232519999999996,
+      "tip_to_tip_mm": 6.382999999999999,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 3.0,
+      "target_dB": -21.0,
+      "Ws": 0.436,
+      "Lm": 6.468,
+      "Ls1": 10.439,
+      "prior_lossless_BW20_GHz": 5.988345842736677,
+      "tip_to_line_mm": 0.8152520000000001,
+      "tip_to_tip_mm": 3.567,
+      "screen_pass": true,
+      "reasons": []
+     }
+    ],
+    "new_target": [
+     {
+      "a_mm": 0,
+      "target_dB": -20.3,
+      "Ws": 0.316,
+      "Lm": 6.695,
+      "Ls1": 16.443,
+      "prior_lossless_BW20_GHz": 6.183328064463417,
+      "tip_to_line_mm": null,
+      "tip_to_tip_mm": null,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 0.6,
+      "target_dB": -20.3,
+      "Ws": 0.342,
+      "Lm": 6.649,
+      "Ls1": 13.86,
+      "prior_lossless_BW20_GHz": 6.165317407250771,
+      "tip_to_line_mm": 5.0197519999999995,
+      "tip_to_tip_mm": 11.975999999999999,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 1.4,
+      "target_dB": -20.3,
+      "Ws": 0.38,
+      "Lm": 6.586,
+      "Ls1": 12.727,
+      "prior_lossless_BW20_GHz": 6.141255182836853,
+      "tip_to_line_mm": 3.615252000000001,
+      "tip_to_tip_mm": 9.167000000000002,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 2.2,
+      "target_dB": -20.3,
+      "Ws": 0.421,
+      "Lm": 6.523,
+      "Ls1": 11.595,
+      "prior_lossless_BW20_GHz": 6.11726944650158,
+      "tip_to_line_mm": 2.2082520000000003,
+      "tip_to_tip_mm": 6.353000000000001,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 3.0,
+      "target_dB": -20.3,
+      "Ws": 0.465,
+      "Lm": 6.457,
+      "Ls1": 10.463,
+      "prior_lossless_BW20_GHz": 6.093383375727518,
+      "tip_to_line_mm": 0.7982519999999997,
+      "tip_to_tip_mm": 3.5329999999999995,
+      "screen_pass": false,
+      "reasons": [
+       "tip_line_clearance_below_0.813mm",
+       "tip_tip_clearance_below_line_width_plus_1.626mm"
+      ]
+     },
+     {
+      "a_mm": 2.9,
+      "target_dB": -20.3,
+      "Ws": 0.459,
+      "Lm": 6.466,
+      "Ls1": 10.604,
+      "prior_lossless_BW20_GHz": 6.096396294935654,
+      "tip_to_line_mm": 0.9747519999999996,
+      "tip_to_tip_mm": 3.8859999999999992,
+      "screen_pass": true,
+      "reasons": []
+     }
+    ]
+   },
+   "N14": {
+    "Wm": 1.810636,
+    "old_target": [
+     {
+      "a_mm": 0,
+      "target_dB": -21.0,
+      "Ws": 0.262,
+      "Lm": 6.722,
+      "Ls1": 16.227,
+      "prior_lossless_BW20_GHz": 5.918625462261484,
+      "tip_to_line_mm": null,
+      "tip_to_tip_mm": null,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 0.6,
+      "target_dB": -21.0,
+      "Ws": 0.285,
+      "Lm": 6.676,
+      "Ls1": 13.751,
+      "prior_lossless_BW20_GHz": 5.900744780670544,
+      "tip_to_line_mm": 5.0805,
+      "tip_to_tip_mm": 11.981,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 1.4,
+      "target_dB": -21.0,
+      "Ws": 0.318,
+      "Lm": 6.616,
+      "Ls1": 12.617,
+      "prior_lossless_BW20_GHz": 5.876949095252507,
+      "tip_to_line_mm": 3.6805000000000003,
+      "tip_to_tip_mm": 9.181000000000001,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 2.2,
+      "target_dB": -21.0,
+      "Ws": 0.355,
+      "Lm": 6.553,
+      "Ls1": 11.484,
+      "prior_lossless_BW20_GHz": 5.85307074963484,
+      "tip_to_line_mm": 2.2769999999999997,
+      "tip_to_tip_mm": 6.374,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 3.0,
+      "target_dB": -21.0,
+      "Ws": 0.395,
+      "Lm": 6.49,
+      "Ls1": 10.353,
+      "prior_lossless_BW20_GHz": 5.829277493874603,
+      "tip_to_line_mm": 0.8714999999999998,
+      "tip_to_tip_mm": 3.5629999999999997,
+      "screen_pass": true,
+      "reasons": []
+     }
+    ],
+    "new_target": [
+     {
+      "a_mm": 0,
+      "target_dB": -20.3,
+      "Ws": 0.283,
+      "Lm": 6.714,
+      "Ls1": 16.292,
+      "prior_lossless_BW20_GHz": 6.023252232724461,
+      "tip_to_line_mm": null,
+      "tip_to_tip_mm": null,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 0.6,
+      "target_dB": -20.3,
+      "Ws": 0.307,
+      "Lm": 6.668,
+      "Ls1": 13.774,
+      "prior_lossless_BW20_GHz": 6.005325915399117,
+      "tip_to_line_mm": 5.069999999999999,
+      "tip_to_tip_mm": 11.959999999999999,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 1.4,
+      "target_dB": -20.3,
+      "Ws": 0.342,
+      "Lm": 6.607,
+      "Ls1": 12.641,
+      "prior_lossless_BW20_GHz": 5.981392350834512,
+      "tip_to_line_mm": 3.6685,
+      "tip_to_tip_mm": 9.157,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 2.2,
+      "target_dB": -20.3,
+      "Ws": 0.38,
+      "Lm": 6.544,
+      "Ls1": 11.508,
+      "prior_lossless_BW20_GHz": 5.95751273833254,
+      "tip_to_line_mm": 2.2639999999999993,
+      "tip_to_tip_mm": 6.347999999999999,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 3.0,
+      "target_dB": -20.3,
+      "Ws": 0.421,
+      "Lm": 6.48,
+      "Ls1": 10.376,
+      "prior_lossless_BW20_GHz": 5.933714668863373,
+      "tip_to_line_mm": 0.8569999999999999,
+      "tip_to_tip_mm": 3.534,
+      "screen_pass": true,
+      "reasons": []
+     },
+     {
+      "a_mm": 2.9,
+      "target_dB": -20.3,
+      "Ws": 0.416,
+      "Lm": 6.488,
+      "Ls1": 10.517,
+      "prior_lossless_BW20_GHz": 5.9366534547594645,
+      "tip_to_line_mm": 1.0324999999999998,
+      "tip_to_tip_mm": 3.885,
+      "screen_pass": true,
+      "reasons": []
+     }
+    ]
+   }
+  }
+ }
+}
