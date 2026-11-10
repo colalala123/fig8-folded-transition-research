@@ -1,0 +1,31 @@
+{
+  "source": "installed mcp.client.stdio",
+  "sha256": "a23227cfe1e3456f16ab41311486a399cf547fcc6b645399bf9bf3a6dc6cf654",
+  "excerpt": [
+    {
+      "line": 48,
+      "text": "PROCESS_TERMINATION_TIMEOUT = 2.0"
+    },
+    {
+      "line": 204,
+      "text": "                with anyio.fail_after(PROCESS_TERMINATION_TIMEOUT):"
+    },
+    {
+      "line": 209,
+      "text": "                await _terminate_process_tree(process)"
+    },
+    {
+      "line": 246,
+      "text": "    Windows: Creates process in a Job Object for reliable child termination"
+    },
+    {
+      "line": 267,
+      "text": "    Windows: Uses Job Objects via pywin32 for reliable child process cleanup"
+    },
+    {
+      "line": 274,
+      "text": "        await terminate_windows_process_tree(process, timeout_seconds)"
+    }
+  ],
+  "interpretation": "Consistent with child exit on closing short-lived stdio client; independent native desktop survived two subsequent clients."
+}
