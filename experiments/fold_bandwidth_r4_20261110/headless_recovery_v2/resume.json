@@ -1,0 +1,48 @@
+{
+  "at": "2026-11-10T13:11:26.945860+00:00",
+  "human_authorized": true,
+  "mode": "per_case_headless_blocking",
+  "direct_user_request": "Read wideband_resolve.py; one Python per point, own headless AEDT, blocking solve, file markers; fix then start background simulation.",
+  "source_example_sha256": "9be9e84aeae41e2a0a483f15bec302535bf9924efb4d9ad41a9c8cb9130c3bd3",
+  "supersedes_stop_sha256": "42bdba74a03bf1baa686d8385002f8c245e9e9abd7725eff0dd89eb23a4071b7",
+  "resolution": "Latest direct human instruction replaces GUI initialization prerequisite with isolated headless PyAEDT lifecycle. Old STOP preserved.",
+  "python_requested": "D:/miniconda3/envs/fxl/python.exe",
+  "python_requested_exists": false,
+  "python_actual": "F:/2026-1/circuit/test/.venv/Scripts/python.exe",
+  "python_version": "3.12.13",
+  "pyaedt_version": "0.26.3",
+  "aedt_install": "D:/Program Files/AnsysEM/v242/Win64",
+  "cores": 14,
+  "tasks": 1,
+  "serial": true,
+  "hook_enabled": false,
+  "batch_limits": {
+    "1a": 3,
+    "1b": 9,
+    "2a": 45,
+    "2b": 66,
+    "3": 42,
+    "4": 8,
+    "5": 12
+  },
+  "total_limit": 185,
+  "geometry_scope": "batch1a only in this worker; no implicit authorization of dispatch past gates",
+  "setup_policy": {
+    "MaximumPasses": 32,
+    "MinimumPasses": 32,
+    "PercentRefinement": 15,
+    "MaxDeltaS": 0.005
+  },
+  "setup_rationale": "Cold-start single-call heuristic, frozen before solve. Archived final22passes/5percent assumes cached staged refinement and cannot be reused as a cold-start mesh policy. 32/15 is NOT a mesh guarantee. Actual100000-112000 and delta<=.005 gates unchanged; fail => stop, not another Analyze.",
+  "code_hashes": {
+    "experiments/fold_bandwidth_r4_20261110/headless_worker_v2.py": "cc574565cd3d5f24efc59cd1cd2ba0f1b57a4162ec4b814259c22c4ef599511d",
+    "experiments/fold_bandwidth_r4_20261110/native_geometry.py": "766c19577cb1fdb548a4cbe0954c75a1645c07ff1f0df096f8a1a7a57f884087"
+  },
+  "resolved_preflight_stop_sha256": "7a61f4cd703cab313fc58d6f3de789e3d410a9e89d3854b3688ec6af1770b763",
+  "preflight_fix": "Native Wave Port label normalized; no physics/settings changes; previous attempt0Analyze, fully closed.",
+  "attempt_directories": {
+    "S1_BASE_N04": "attempt_002",
+    "S1_BASE_N14": "attempt_002",
+    "S1_BASE_N08": "attempt_002"
+  }
+}
