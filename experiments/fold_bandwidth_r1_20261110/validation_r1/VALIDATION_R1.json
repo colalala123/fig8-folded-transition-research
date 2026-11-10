@@ -1,0 +1,57 @@
+{
+  "actual_execution": true,
+  "all_passed": true,
+  "environment": {
+    "python": "3.12.13",
+    "numpy": "2.2.6",
+    "scipy": "1.17.1"
+  },
+  "runs": [
+    {
+      "command": [
+        "python",
+        "experiments/fold_bandwidth_r1_20261110/test_r1.py"
+      ],
+      "started_at_UTC": "2026-11-10T03:46:21.771231+00:00",
+      "finished_at_UTC": "2026-11-10T03:46:23.461199+00:00",
+      "exit_code": 0,
+      "output": "test_1.txt",
+      "output_sha256": "895fdafcb36466aa51df725798bf860dfbfa6dfd0fa34292c092ba38359b83c4"
+    },
+    {
+      "command": [
+        "python",
+        "experiments/fold_bandwidth_phase0_20261110/test_phase0.py"
+      ],
+      "started_at_UTC": "2026-11-10T03:46:23.461199+00:00",
+      "finished_at_UTC": "2026-11-10T03:46:24.823031+00:00",
+      "exit_code": 0,
+      "output": "test_2.txt",
+      "output_sha256": "effbb60cb20485b439bcd797713a3eb01de44d1bf547fd0088efb6e3c2e261bd"
+    },
+    {
+      "command": [
+        "python",
+        "tests/test_research.py"
+      ],
+      "started_at_UTC": "2026-11-10T03:46:24.823031+00:00",
+      "finished_at_UTC": "2026-11-10T03:46:30.172425+00:00",
+      "exit_code": 0,
+      "output": "test_3.txt",
+      "output_sha256": "1ac358a53a688e5734c5506e0c561fff44b5a2f404a8a5cbb2561049772c36e2"
+    },
+    {
+      "command": [
+        "python",
+        "tools/verify_archive.py"
+      ],
+      "started_at_UTC": "2026-11-10T03:46:30.173425+00:00",
+      "finished_at_UTC": "2026-11-10T03:46:31.903180+00:00",
+      "exit_code": 0,
+      "output": "test_4.txt",
+      "output_sha256": "9e1442701bd8ecdd6f21e3a4530addbdda5e91134be283bf9460466b8addd3e1"
+    }
+  ],
+  "new_Analyze_requests": 0,
+  "hook_messages": 0
+}

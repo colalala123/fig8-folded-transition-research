@@ -1,0 +1,70 @@
+{
+  "revision": "R1",
+  "generated_at_UTC": "2026-11-10T03:50:38.638337+00:00",
+  "base_branch": "claude/fold-bandwidth-plan",
+  "base_commit": "c0160d68a782ada10185af45271af8c1a6e462b4",
+  "delivery_branch": "codex/fold-bandwidth-r1-offline",
+  "offline_tasks_complete": true,
+  "solver_release_allowed": false,
+  "old_batch_remains_paused": true,
+  "new_HFSS_projects": 0,
+  "new_Analyze_requests": 0,
+  "hook_messages": 0,
+  "other_chat_messages": 0,
+  "automation_changes": 0,
+  "tasks": {
+    "R1-1": {
+      "completed": true,
+      "evidence": "freeze_r1/predictions_frozen.json",
+      "original_folded_pass": 70,
+      "total_registry": 79,
+      "stage2a": 15,
+      "stage2b": 22
+    },
+    "R1-2": {
+      "completed": true,
+      "evidence": "evidence_r1/LENGTH_EQUIVALENCE_CHECK.json",
+      "max_fs_difference_GHz": 1.7763568394002505e-15
+    },
+    "R1-3": {
+      "completed": true,
+      "evidence": "replay_r1/REPLAY_CHECK.json",
+      "cases": 80,
+      "legacy_numeric_fields": 3120,
+      "full_modal_power_evidence": "synthetic_only; missing in actual archive"
+    },
+    "R1-4": {
+      "completed": true,
+      "evidence": "STAGE1_CRITERIA.json",
+      "real_stage1_data_available": false
+    },
+    "R1-5": {
+      "completed": true,
+      "evidence": "evidence_r1/INV01_BOX_COMPARISON.json",
+      "designs": 79,
+      "boxes": 726,
+      "native_reference_boxes": 10
+    },
+    "R1-6": {
+      "completed": true,
+      "evidence": "validation_final_r1/VALIDATION_R1.json",
+      "R1_tests": 30,
+      "phase0_tests": 21,
+      "repository_tests": 11,
+      "archive_hashes": 8765
+    }
+  },
+  "pending_before_any_solver": [
+    "Direct human authorization for each batch; none granted here",
+    "Resolve desktop initialization only under later authorization",
+    "Generate new project and compare real native operands against R1 tables",
+    "Verify actual full-modal export ordering, power-wave normalization and propagation flags",
+    "Verify serial resources and new per-batch Analyze accounting; no old queues or locks"
+  ],
+  "pending_future_model_freezes": [
+    "2b predictions after 2a",
+    "stage4 predictions after stages2/3",
+    "parent-final geometry for lossless/boundary controls"
+  ],
+  "stopped_at": "Completed section4 offline tasks; after push stop for review; do not enter section5"
+}

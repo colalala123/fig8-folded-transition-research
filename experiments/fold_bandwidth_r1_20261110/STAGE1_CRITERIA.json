@@ -1,0 +1,24 @@
+{
+  "revision": "R1-fixed-before-data",
+  "baseline_ids": ["S1_BASE_N04", "S1_BASE_N14", "S1_BASE_N08"],
+  "width_delta_mm": [-0.02, -0.01, -0.005, -0.002, 0.0, 0.002, 0.005, 0.01, 0.02],
+  "mesh_cells_min": 100000,
+  "mesh_cells_max": 112000,
+  "MaxDeltaS": 0.005,
+  "sweep_low_GHz": 0.01,
+  "sweep_high_GHz": 15.0,
+  "baseline_max_abs_difference": {
+    "inner_peak_low_dB": 0.1,
+    "inner_peak_high_dB": 0.1,
+    "central_valley_GHz": 0.01,
+    "BW15_GHz": 0.01
+  },
+  "noise_metrics": ["inner_peak_low_dB", "inner_peak_high_dB", "inner_peak_mean_dB", "central_valley_GHz", "BW15_GHz", "BW20_GHz", "BW_S21_GHz", "BW_joint_GHz", "N1", "N2", "P_eff", "R_eff", "fm_GHz", "fs_GHz"],
+  "linear_residual_dof": 7,
+  "quadratic_residual_dof": 6,
+  "small_pair_correction": "OLS slope on the full fixed symmetric 9-point grid; linear and quadratic slopes coincide; report both and the signed corrected +/-0.002 difference, not an independently estimated sigma",
+  "noise_pass_threshold": null,
+  "zero_repeat_pass_threshold": null,
+  "null_policy": "No interpolation/imputation/dropping of missing metric samples; report unavailable for that metric",
+  "failure_policy": "Any baseline mismatch, missing required record or bad numerical setting blocks readiness; no additional simulations authorized"
+}
