@@ -1,0 +1,69 @@
+{
+  "revision": "R2",
+  "created_at_UTC": "2026-11-10T07:28:42.421112+00:00",
+  "base_commit": "5ad28a85f7ad837698793316bb10e6ea524c912b",
+  "branch": "codex/fold-bandwidth-r2-offline",
+  "all_four_offline_tasks_complete": true,
+  "tasks": {
+    "R2-1": {
+      "complete": true,
+      "valid": 27,
+      "split": 53,
+      "restored": [
+        "N04_A18",
+        "N10_A18",
+        "N10_A18_M",
+        "N10_A18_S",
+        "N11_A18_S",
+        "N17_A18_C1",
+        "N21_A18"
+      ],
+      "comparison": "replay_r2/REVIEWER_COMPARISON.json"
+    },
+    "R2-2": {
+      "complete": true,
+      "nonunique": 0,
+      "independent_starts": 5,
+      "refinement_starts": 1,
+      "min_other_cost_ratio": 2.960705732705703
+    },
+    "R2-3": {
+      "complete": true,
+      "implementation": "presubmit.py",
+      "real_dispatch_connected": false,
+      "synthetic_maximal_arm_mm": 2.992
+    },
+    "R2-4": {
+      "complete": true,
+      "original_30_under_R2_passed": true,
+      "new_tests": 13,
+      "floating_rtol": 1e-09,
+      "floating_atol": 1e-12
+    }
+  },
+  "validation": {
+    "R2": 43,
+    "phase0": 21,
+    "repository": 11,
+    "total_tests_passed": 75,
+    "archive_files": 8765,
+    "archive_errors": 0
+  },
+  "new_HFSS_projects": 0,
+  "new_Analyze_requests": 0,
+  "hook_messages": 0,
+  "other_chat_messages": 0,
+  "automation_changes": 0,
+  "solver_authorized": false,
+  "old_batch_remains_paused": true,
+  "stage1_criteria_changed": false,
+  "R1_frozen_registry_changed": false,
+  "stop": "Push completed offline work then wait for review; no section5 or batch1a dispatch",
+  "known_limits": [
+    "R1 exact-equality test_11 remains unchanged; portable replacement is in R2",
+    "R2 main-band validity is not full design/manufacturing certification",
+    "Zero nonunique flags is not a proof of global physical uniqueness",
+    "Full-modal archive data remains unavailable; no fabricated channels",
+    "Geometry gate has no solver authority; recheck native CAD/resources and human authorization separately"
+  ]
+}

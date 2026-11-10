@@ -1,0 +1,85 @@
+{
+  "label": "SYNTHETIC tuning perturbation, not a new design or solve",
+  "source": "S3_EQ_N04_04",
+  "original_geometry_mm": {
+    "Wm": 1.936496,
+    "Ws": 0.436,
+    "Lm": 6.468,
+    "Ls1": 10.439,
+    "Ls2": 1.422,
+    "Ls3": 3.436
+  },
+  "synthetic_change": "Ls1 minus 0.020mm; all else fixed",
+  "result": {
+    "input_geometry_mm": {
+      "Wm": 1.936496,
+      "Ws": 0.436,
+      "Lm": 6.468,
+      "Ls1": 10.419,
+      "Ls2": 1.422,
+      "Ls3": 3.436
+    },
+    "geometry_mm": {
+      "Wm": 1.936496,
+      "Ws": 0.436,
+      "Lm": 6.468,
+      "Ls1": 10.419,
+      "Ls2": 1.422,
+      "Ls3": 3.428
+    },
+    "nominal_a_mm": 3.0,
+    "input_a_mm": 3.0,
+    "actual_a_mm": 2.992,
+    "adjusted": true,
+    "adjustment_step_mm": 0.001,
+    "additional_attempts": 0,
+    "can_submit": true,
+    "decision_scope": "geometry_only_not_solver_authorization",
+    "solver_authorized": false,
+    "must_recheck_every_attempt": true,
+    "screen_before": {
+      "a_mm": 3.0,
+      "g_mm": 0.5499999999999999,
+      "L_parameter_sum_mm": 20.134999999999998,
+      "L_centerline_mm": 18.391,
+      "rho": 0.4825428358579588,
+      "central_line_width_mm": 1.936496,
+      "tip_to_line_x_mm": 0.8052520000000003,
+      "tip_to_tip_x_mm": 3.5470000000000006,
+      "min_tip_to_tip_x_mm": 3.562496,
+      "slot_to_board_edge_x_mm": 9.7905,
+      "board_half_x_mm": 15.0,
+      "screen_pass": false,
+      "reasons": [
+        "tip_line_clearance_below_0.813mm",
+        "tip_tip_clearance_below_line_width_plus_1.626mm"
+      ],
+      "rho_is_gate": false,
+      "long_arm_direct_coupling_flag": true,
+      "full_CAD_verified": false
+    },
+    "screen_after": {
+      "a_mm": 2.992,
+      "g_mm": 0.5499999999999999,
+      "L_parameter_sum_mm": 20.119,
+      "L_centerline_mm": 18.375,
+      "rho": 0.4821313186540086,
+      "central_line_width_mm": 1.936496,
+      "tip_to_line_x_mm": 0.8132520000000003,
+      "tip_to_tip_x_mm": 3.5630000000000006,
+      "min_tip_to_tip_x_mm": 3.562496,
+      "slot_to_board_edge_x_mm": 9.7905,
+      "board_half_x_mm": 15.0,
+      "screen_pass": true,
+      "reasons": [],
+      "rho_is_gate": false,
+      "long_arm_direct_coupling_flag": true,
+      "full_CAD_verified": false
+    },
+    "reason": "tuning_clearance_failure_reduce_a_to_largest_passing_grid_value",
+    "analytic_upper_bound_mm": 2.9922520000000006,
+    "analysis_arm_field": "actual_a_mm",
+    "next_grid_a_mm": 2.993,
+    "next_grid_allowed": false
+  }
+}
