@@ -1,0 +1,374 @@
+{
+  "at": "2026-11-10T15:37:06.367533+00:00",
+  "case": "S1_BASE_N04",
+  "original_n04_cache_unchanged": true,
+  "cache_reopened": true,
+  "record": {
+    "case": "S1_BASE_N04",
+    "solve_completed": true,
+    "numerical_pass": true,
+    "design_pass": null,
+    "Analyze_requested": 8,
+    "inherited_Analyze_requests": 1,
+    "passes": 22,
+    "mesh_cells": 100374,
+    "delta_s": 0.0015121,
+    "new_Analyze_requested": 7,
+    "finished_at": "2026-11-10T15:35:45.965949+00:00"
+  },
+  "cleanup": {
+    "app_created": true,
+    "released": true,
+    "scratch_restored": true
+  },
+  "baseline_pass": true,
+  "stages": [
+    {
+      "stage": "adaptive_01",
+      "os_samples": 3,
+      "owned_14core_and_isolated": true,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 17,
+          "MaximumPasses": 17,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 10,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": false
+        },
+        "project_sha256": "af5fd78bc369ca97ad991660199fb33b3b831a45d8a9c0e8711699dbbb1fe172",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": true
+      },
+      "result": {
+        "passes": 17,
+        "mesh_cells": 70472,
+        "delta_s": 0.010168,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      },
+      "independent_observer_sha256": "80cee2ce72105394ce4f89c0740ca14bc7fb9f68a7355f21d88da80977cd2dab"
+    },
+    {
+      "stage": "adaptive_02",
+      "os_samples": 3,
+      "owned_14core_and_isolated": true,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 18,
+          "MaximumPasses": 18,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 10,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": false
+        },
+        "project_sha256": "5f514c6c2d3f2646bcacea7e4416e9c9d849e98ddb827c6367c907fdf5fe9eb9",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": true
+      },
+      "result": {
+        "passes": 18,
+        "mesh_cells": 77050,
+        "delta_s": 0.0067663,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      },
+      "independent_observer_sha256": "7e070567025813eda40d6faadf651b963736cd512895610ff405d1bff89da74a"
+    },
+    {
+      "stage": "adaptive_03",
+      "os_samples": 3,
+      "owned_14core_and_isolated": true,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 19,
+          "MaximumPasses": 19,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 10,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": false
+        },
+        "project_sha256": "85b639f6e4c6a5e24aef7723f84c7a92d8fa5effb46b09bd375ba7e2696f2af5",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": true
+      },
+      "result": {
+        "passes": 19,
+        "mesh_cells": 84152,
+        "delta_s": 0.0050467,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      },
+      "independent_observer_sha256": "84b1413eb6f153106e65599a136912ceb53eccbbfd3bd37bc841f374afe504d0"
+    },
+    {
+      "stage": "adaptive_04",
+      "os_samples": 3,
+      "owned_14core_and_isolated": true,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 20,
+          "MaximumPasses": 20,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 5,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": false
+        },
+        "project_sha256": "5784719c4e6a92130cd200bf5eca0376c0e793a129b05de208f58f8903719a17",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": true
+      },
+      "result": {
+        "passes": 20,
+        "mesh_cells": 91831,
+        "delta_s": 0.0036887,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      },
+      "independent_observer_sha256": "f169fb60c06eb4dd55c7a4eeb8013e7e07662c55caa5965a65f4cd615665b680"
+    },
+    {
+      "stage": "adaptive_05",
+      "os_samples": 3,
+      "owned_14core_and_isolated": true,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 21,
+          "MaximumPasses": 21,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 5,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": false
+        },
+        "project_sha256": "c25bf4aab82e9986d0f67702d7dd20055d3ed77ece339e5dc110eefe1a45a5bd",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": true
+      },
+      "result": {
+        "passes": 21,
+        "mesh_cells": 96058,
+        "delta_s": 0.0022926,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      },
+      "independent_observer_sha256": "2dadb5ef373ef7088e76fd217e4857ac294fb9898e17fc8e57083dcadc95f8da"
+    },
+    {
+      "stage": "adaptive_06",
+      "os_samples": 3,
+      "owned_14core_and_isolated": true,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 22,
+          "MaximumPasses": 22,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 5,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": false
+        },
+        "project_sha256": "a5df0d901d485a3df5bc177d35a9540df543c395867d924c247ace1886f4db8b",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": true
+      },
+      "result": {
+        "passes": 22,
+        "mesh_cells": 100374,
+        "delta_s": 0.0015121,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      },
+      "independent_observer_sha256": "a4c44510aa3f6704a268ff0f341cbe3563679b54634e6312e1323f96075a4ee6"
+    },
+    {
+      "stage": "final_sweep",
+      "os_samples": 31,
+      "owned_14core_and_isolated": true,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 22,
+          "MaximumPasses": 22,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 5,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": true
+        },
+        "project_sha256": "5c4fe5e9c7cb6b58a4a7f2eef3e70128295d0f87d0dec334abfbda1b20e9f7b3",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": true
+      },
+      "result": {
+        "passes": 22,
+        "mesh_cells": 100374,
+        "delta_s": 0.0015121,
+        "prior_history_unchanged": true,
+        "solver_process_count": 31
+      },
+      "independent_observer_sha256": "6cb43033ae5968a991406ea22c746f0771afb9b36ac895732a5f6f5fe68d430c"
+    }
+  ],
+  "budget": {
+    "geometry_total": 2,
+    "batch_1a_limit": 4,
+    "total_geometry_limit": 186,
+    "actual_Analyze_total": 9,
+    "case_Analyze_calls": [
+      {
+        "at": "2026-11-10T15:02:52.351739+00:00",
+        "case": "S1_BASE_N04",
+        "index": 0,
+        "stage": "adaptive_00",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      },
+      {
+        "at": "2026-11-10T15:21:49.523208+00:00",
+        "case": "S1_BASE_N04",
+        "index": 1,
+        "stage": "adaptive_01",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      },
+      {
+        "at": "2026-11-10T15:22:37.983766+00:00",
+        "case": "S1_BASE_N04",
+        "index": 2,
+        "stage": "adaptive_02",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      },
+      {
+        "at": "2026-11-10T15:23:35.815945+00:00",
+        "case": "S1_BASE_N04",
+        "index": 3,
+        "stage": "adaptive_03",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      },
+      {
+        "at": "2026-11-10T15:24:38.950783+00:00",
+        "case": "S1_BASE_N04",
+        "index": 4,
+        "stage": "adaptive_04",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      },
+      {
+        "at": "2026-11-10T15:25:49.640701+00:00",
+        "case": "S1_BASE_N04",
+        "index": 5,
+        "stage": "adaptive_05",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      },
+      {
+        "at": "2026-11-10T15:26:57.670154+00:00",
+        "case": "S1_BASE_N04",
+        "index": 6,
+        "stage": "adaptive_06",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      },
+      {
+        "at": "2026-11-10T15:28:15.719280+00:00",
+        "case": "S1_BASE_N04",
+        "index": 7,
+        "stage": "final_sweep",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      }
+    ]
+  }
+}
