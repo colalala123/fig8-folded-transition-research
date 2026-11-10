@@ -1,0 +1,74 @@
+{
+  "at": "2026-11-10T15:44:41.786444+00:00",
+  "case": "S1_BASE_N14",
+  "original_n04_cache_unchanged": true,
+  "cache_reopened": false,
+  "record": {
+    "case": "S1_BASE_N14",
+    "solve_completed": false,
+    "numerical_pass": null,
+    "design_pass": null,
+    "Analyze_requested": 1,
+    "inherited_Analyze_requests": 0,
+    "new_Analyze_requested": 1,
+    "finished_at": "2026-11-10T15:43:26.441438+00:00"
+  },
+  "cleanup": {
+    "app_created": true,
+    "released": true,
+    "scratch_restored": true
+  },
+  "baseline_pass": null,
+  "stages": [
+    {
+      "stage": "adaptive_00",
+      "os_samples": 49,
+      "owned_14core_and_isolated": false,
+      "settings": {
+        "setup": {
+          "MinimumPasses": 16,
+          "MaximumPasses": 16,
+          "UseMaxTetIncrease": false,
+          "MaxDeltaS": 0.005,
+          "MinimumConvergedPasses": 2
+        },
+        "percent": 30,
+        "sweep": {
+          "RangeStart": "0.01GHz",
+          "RangeEnd": "15GHz",
+          "RangeStep": "0.01GHz",
+          "Type": "Interpolating",
+          "InterpTolerance": 1.0,
+          "EnforcePassivity": false,
+          "IsEnabled": false
+        },
+        "project_sha256": "cdc711456617f4313515052962da4b9351b696d9f055119f693249247d8af7a3",
+        "scratch": {
+          "verified": true
+        },
+        "pre_history_verified": false
+      },
+      "result": null,
+      "independent_observer_sha256": "b3e0d471566a2f0722fe7609f4224f55868cfd62ffe6aa7308cd9e7d4cc54de0"
+    }
+  ],
+  "budget": {
+    "geometry_total": 3,
+    "batch_1a_limit": 4,
+    "total_geometry_limit": 186,
+    "actual_Analyze_total": 10,
+    "case_Analyze_calls": [
+      {
+        "at": "2026-11-10T15:38:13.584258+00:00",
+        "case": "S1_BASE_N14",
+        "index": 0,
+        "stage": "adaptive_00",
+        "cores": 14,
+        "tasks": 1,
+        "blocking": true,
+        "setup": "Setup19"
+      }
+    ]
+  },
+  "terminal_failure_last_line": "RuntimeError: Missing or mismatched real solver evidence: adaptive_00"
+}
