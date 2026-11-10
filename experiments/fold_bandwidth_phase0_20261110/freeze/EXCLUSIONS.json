@@ -1,0 +1,714 @@
+[
+  {
+    "id": "S2_E2_N04_g2.00",
+    "stage": 2,
+    "experiment": "E2",
+    "family": "N04",
+    "source_case": "N04_A18",
+    "data_role": "planned_training",
+    "parent": null,
+    "geometry_mm": {
+      "Wm": 1.936496,
+      "Ws": 0.393861,
+      "Lm": 6.557,
+      "Ls1": 9.255,
+      "Ls2": 2.787722,
+      "Ls3": 2.193861
+    },
+    "unrounded_initial_geometry_mm": {
+      "Wm": 1.936496,
+      "Ws": 0.393861,
+      "Lm": 6.5569768736404335,
+      "Ls1": 9.255468536925648,
+      "Ls2": 2.787722,
+      "Ls3": 2.193861
+    },
+    "rounding": "Fixed archived widths exact; new Lm/Ls1 and tuned Ws on 0.001mm grid; dependent a/g exact. Baseline-grid exception requires review.",
+    "topology": "folded",
+    "screen": {
+      "a_mm": 1.8,
+      "g_mm": 2.0,
+      "L_parameter_sum_mm": 19.218166,
+      "L_polyline_center_mm": 17.642722,
+      "rho_parameter_sum": 0.5184243907561211,
+      "eta": 0.5596056514565751,
+      "arm_tip_to_microstrip_x_mm": 1.4653910000000003,
+      "arm_tip_to_arm_tip_x_mm": 4.867278000000001,
+      "screen_pass": false,
+      "reasons": [
+        "rho_ge_0p5"
+      ],
+      "full_CAD_verified": false,
+      "manufacturing_limits_confirmed": false
+    },
+    "prediction": {
+      "parameters": {
+        "Zm_ohm": 47.52083021465868,
+        "Zs_ohm": 110.50895931841724,
+        "P": 2.1005909971876515,
+        "R": 0.43001789635656207,
+        "N1": 1.009798674727433,
+        "N2": 0.8429256288964398,
+        "zm_eff": 0.9691335039401631,
+        "zs_eff": 1.570384507175861,
+        "P_eff": 1.5219122399726883,
+        "R_eff": 0.6171313455473575,
+        "fm_GHz": 6.6219775238508305,
+        "fs_GHz": 6.588169521866858,
+        "deltaLm_mm": 0.1712289107,
+        "deltaLs_parameter_sum_mm": -1.8362352030000004,
+        "supported_calibration_box": false,
+        "warnings": [
+          "gap_effect_unidentified"
+        ],
+        "gap_model": "constant at g=0.55; off-gap is a null-effect hypothesis only",
+        "validated_prediction": false
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.431454547408667,
+          "high_GHz": 9.74891302652238,
+          "BW_GHz": 6.317458479113714,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.431454547408667,
+              9.74891302652238
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW20": {
+          "low_GHz": 4.948260782606767,
+          "high_GHz": 9.577201541992064,
+          "BW_GHz": 4.628940759385297,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.5937768832101553,
+              4.853285600064662
+            ],
+            [
+              4.948260782606767,
+              9.577201541992064
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_S21": {
+          "low_GHz": 2.8273481713808355,
+          "high_GHz": 10.37355802381046,
+          "BW_GHz": 7.546209852429625,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.8273481713808355,
+              10.37355802381046
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_joint": {
+          "low_GHz": 4.948260782606767,
+          "high_GHz": 9.577201541992064,
+          "BW_GHz": 4.628940759385297,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.5937768832101553,
+              4.853285600064662
+            ],
+            [
+              4.948260782606767,
+              9.577201541992064
+            ]
+          ],
+          "edge_censored": false
+        }
+      },
+      "equal_frequency_inner_peak_dB": -20.45221760098788,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "Ideal lossless S21 bandwidth above is not a calibrated lossy-HFSS prediction; unknown gap effect is set to zero ONLY as a prior."
+    },
+    "validity": "exploratory_prior_not_validated",
+    "blocking_reasons": [
+      "gap_effect_unidentified",
+      "rho_ge_0p5"
+    ],
+    "release_status": "excluded_from_proposed_runlist",
+    "solver_authorized": false,
+    "future_run_directory": "runs/S2_E2_N04_g2.00/attempt_001",
+    "initial_prediction_stage": "phase0_prior",
+    "future_prospective_freeze_required": false,
+    "max_geometry_attempts": 3
+  },
+  {
+    "id": "S2_E2_N14_g2.00",
+    "stage": 2,
+    "experiment": "E2",
+    "family": "N14",
+    "source_case": "N14_A18",
+    "data_role": "planned_training",
+    "parent": null,
+    "geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.563,
+      "Ls1": 9.205,
+      "Ls2": 2.788356,
+      "Ls3": 2.194178
+    },
+    "unrounded_initial_geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.562685521446463,
+      "Ls1": 9.20519648042889,
+      "Ls2": 2.788356,
+      "Ls3": 2.194178
+    },
+    "rounding": "Fixed archived widths exact; new Lm/Ls1 and tuned Ws on 0.001mm grid; dependent a/g exact. Baseline-grid exception requires review.",
+    "topology": "folded",
+    "screen": {
+      "a_mm": 1.8,
+      "g_mm": 2.0,
+      "L_parameter_sum_mm": 19.170068,
+      "L_polyline_center_mm": 17.593356,
+      "rho_parameter_sum": 0.519824342824449,
+      "eta": 0.5596260858430671,
+      "arm_tip_to_microstrip_x_mm": 1.5030040000000002,
+      "arm_tip_to_arm_tip_x_mm": 4.816644,
+      "screen_pass": false,
+      "reasons": [
+        "rho_ge_0p5"
+      ],
+      "full_CAD_verified": false,
+      "manufacturing_limits_confirmed": false
+    },
+    "prediction": {
+      "parameters": {
+        "Zm_ohm": 49.538979937129206,
+        "Zs_ohm": 110.53153848945897,
+        "P": 2.190247867059733,
+        "R": 0.4481886402210314,
+        "N1": 1.0084386759388642,
+        "N2": 0.8419623549896773,
+        "zm_eff": 1.0075718893191246,
+        "zs_eff": 1.567117495042242,
+        "P_eff": 1.5789835352647656,
+        "R_eff": 0.6429459772523088,
+        "fm_GHz": 6.621695271189896,
+        "fs_GHz": 6.588071085624948,
+        "deltaLm_mm": 0.1870677314,
+        "deltaLs_parameter_sum_mm": -1.7873293816,
+        "supported_calibration_box": false,
+        "warnings": [
+          "gap_effect_unidentified"
+        ],
+        "gap_model": "constant at g=0.55; off-gap is a null-effect hypothesis only",
+        "validated_prediction": false
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.4421785188385896,
+          "high_GHz": 9.739645509272814,
+          "BW_GHz": 6.2974669904342235,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.4421785188385896,
+              9.739645509272814
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW20": {
+          "low_GHz": 5.348113030737853,
+          "high_GHz": 9.578638093991932,
+          "BW_GHz": 4.230525063254079,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.594741576709711,
+              4.4897122087140815
+            ],
+            [
+              5.348113030737853,
+              9.578638093991932
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_S21": {
+          "low_GHz": 2.8595829650184243,
+          "high_GHz": 10.34144275483547,
+          "BW_GHz": 7.481859789817046,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.8595829650184243,
+              10.34144275483547
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_joint": {
+          "low_GHz": 5.348113030737853,
+          "high_GHz": 9.578638093991932,
+          "BW_GHz": 4.230525063254079,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.594741576709711,
+              4.4897122087140815
+            ],
+            [
+              5.348113030737853,
+              9.578638093991932
+            ]
+          ],
+          "edge_censored": false
+        }
+      },
+      "equal_frequency_inner_peak_dB": -19.430403602464004,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "Ideal lossless S21 bandwidth above is not a calibrated lossy-HFSS prediction; unknown gap effect is set to zero ONLY as a prior."
+    },
+    "validity": "exploratory_prior_not_validated",
+    "blocking_reasons": [
+      "gap_effect_unidentified",
+      "rho_ge_0p5"
+    ],
+    "release_status": "excluded_from_proposed_runlist",
+    "solver_authorized": false,
+    "future_run_directory": "runs/S2_E2_N14_g2.00/attempt_001",
+    "initial_prediction_stage": "phase0_prior",
+    "future_prospective_freeze_required": false,
+    "max_geometry_attempts": 3
+  },
+  {
+    "id": "S2_E2_N08_g2.00",
+    "stage": 2,
+    "experiment": "E2",
+    "family": "N08",
+    "source_case": "N08_A18",
+    "data_role": "planned_training",
+    "parent": null,
+    "geometry_mm": {
+      "Wm": 1.71161,
+      "Ws": 0.360281,
+      "Lm": 6.581,
+      "Ls1": 9.134,
+      "Ls2": 2.720562,
+      "Ls3": 2.160281
+    },
+    "unrounded_initial_geometry_mm": {
+      "Wm": 1.71161,
+      "Ws": 0.360281,
+      "Lm": 6.580969082463977,
+      "Ls1": 9.134009414573615,
+      "Ls2": 2.720562,
+      "Ls3": 2.160281
+    },
+    "rounding": "Fixed archived widths exact; new Lm/Ls1 and tuned Ws on 0.001mm grid; dependent a/g exact. Baseline-grid exception requires review.",
+    "topology": "folded",
+    "screen": {
+      "a_mm": 1.7999999999999998,
+      "g_mm": 2.0,
+      "L_parameter_sum_mm": 18.895686,
+      "L_polyline_center_mm": 17.454562000000003,
+      "rho_parameter_sum": 0.5166092408605859,
+      "eta": 0.5573959252530761,
+      "arm_tip_to_microstrip_x_mm": 1.5509140000000001,
+      "arm_tip_to_arm_tip_x_mm": 4.8134380000000005,
+      "screen_pass": false,
+      "reasons": [
+        "rho_ge_0p5"
+      ],
+      "full_CAD_verified": false,
+      "manufacturing_limits_confirmed": false
+    },
+    "prediction": {
+      "parameters": {
+        "Zm_ohm": 51.26076768936458,
+        "Zs_ohm": 108.06776708062631,
+        "P": 2.2158546812113387,
+        "R": 0.4743391028993906,
+        "N1": 1.0068536622999067,
+        "N2": 0.837750906435879,
+        "zm_eff": 1.0393164705462068,
+        "zs_eff": 1.5168966302360594,
+        "P_eff": 1.5765356519203757,
+        "R_eff": 0.6851597200690389,
+        "fm_GHz": 6.621970112486515,
+        "fs_GHz": 6.588003417016712,
+        "deltaLm_mm": 0.18672131409999998,
+        "deltaLs_parameter_sum_mm": -1.5708862528000003,
+        "supported_calibration_box": false,
+        "warnings": [
+          "gap_effect_unidentified"
+        ],
+        "gap_model": "constant at g=0.55; off-gap is a null-effect hypothesis only",
+        "validated_prediction": false
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.5099476352202137,
+          "high_GHz": 9.671758167328715,
+          "BW_GHz": 6.161810532108501,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.5099476352202137,
+              9.671758167328715
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW20": {
+          "low_GHz": 5.3826402408008045,
+          "high_GHz": 9.51090477722836,
+          "BW_GHz": 4.128264536427555,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.662214890239739,
+              4.551709234515807
+            ],
+            [
+              5.3826402408008045,
+              9.51090477722836
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_S21": {
+          "low_GHz": 2.925580129087339,
+          "high_GHz": 10.275560066684497,
+          "BW_GHz": 7.3499799375971575,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.925580129087339,
+              10.275560066684497
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_joint": {
+          "low_GHz": 5.3826402408008045,
+          "high_GHz": 9.51090477722836,
+          "BW_GHz": 4.128264536427555,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.662214890239739,
+              4.551709234515807
+            ],
+            [
+              5.3826402408008045,
+              9.51090477722836
+            ]
+          ],
+          "edge_censored": false
+        }
+      },
+      "equal_frequency_inner_peak_dB": -19.47165538366015,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "Ideal lossless S21 bandwidth above is not a calibrated lossy-HFSS prediction; unknown gap effect is set to zero ONLY as a prior."
+    },
+    "validity": "exploratory_prior_not_validated",
+    "blocking_reasons": [
+      "gap_effect_unidentified",
+      "rho_ge_0p5"
+    ],
+    "release_status": "excluded_from_proposed_runlist",
+    "solver_authorized": false,
+    "future_run_directory": "runs/S2_E2_N08_g2.00/attempt_001",
+    "initial_prediction_stage": "phase0_prior",
+    "future_prospective_freeze_required": false,
+    "max_geometry_attempts": 3
+  },
+  {
+    "id": "S2_E3_03",
+    "stage": 2,
+    "experiment": "E3",
+    "family": "N14",
+    "source_case": "N14_A18",
+    "data_role": "planned_training",
+    "parent": null,
+    "geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.514,
+      "Ls1": 9.636,
+      "Ls2": 1.988356,
+      "Ls3": 2.9941780000000002
+    },
+    "unrounded_initial_geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.514125521446463,
+      "Ls1": 9.636316480428892,
+      "Ls2": 1.988356,
+      "Ls3": 2.9941780000000002
+    },
+    "rounding": "Fixed archived widths exact; new Lm/Ls1 and tuned Ws on 0.001mm grid; dependent a/g exact. Baseline-grid exception requires review.",
+    "topology": "folded",
+    "screen": {
+      "a_mm": 2.6,
+      "g_mm": 1.2000000000000002,
+      "L_parameter_sum_mm": 19.601067999999998,
+      "L_polyline_center_mm": 18.024355999999997,
+      "rho_parameter_sum": 0.5083941344420622,
+      "eta": 0.3990652146076675,
+      "arm_tip_to_microstrip_x_mm": 0.9185039999999994,
+      "arm_tip_to_arm_tip_x_mm": 3.6476439999999988,
+      "screen_pass": false,
+      "reasons": [
+        "rho_ge_0p5"
+      ],
+      "full_CAD_verified": false,
+      "manufacturing_limits_confirmed": false
+    },
+    "prediction": {
+      "parameters": {
+        "Zm_ohm": 49.538979937129206,
+        "Zs_ohm": 110.53153848945897,
+        "P": 2.190247867059733,
+        "R": 0.4481886402210314,
+        "N1": 1.0107586759388643,
+        "N2": 0.8246823549896773,
+        "zm_eff": 1.01221323385674,
+        "zs_eff": 1.5034521676111756,
+        "P_eff": 1.5218141805266336,
+        "R_eff": 0.6732593531492514,
+        "fm_GHz": 6.622121637740073,
+        "fs_GHz": 6.588114501789428,
+        "deltaLm_mm": 0.23562773139999998,
+        "deltaLs_parameter_sum_mm": -2.2184493816,
+        "supported_calibration_box": false,
+        "warnings": [
+          "arm_not_observed",
+          "gap_effect_unidentified"
+        ],
+        "gap_model": "constant at g=0.55; off-gap is a null-effect hypothesis only",
+        "validated_prediction": false
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.5224426388951544,
+          "high_GHz": 9.657843838658605,
+          "BW_GHz": 6.135401199763451,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.5224426388951544,
+              9.657843838658605
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW20": {
+          "low_GHz": 5.044559811186505,
+          "high_GHz": 9.487026561154856,
+          "BW_GHz": 4.442466749968351,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.683813294139555,
+              4.890155438364927
+            ],
+            [
+              5.044559811186505,
+              9.487026561154856
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_S21": {
+          "low_GHz": 2.9169209049361084,
+          "high_GHz": 10.284029545315677,
+          "BW_GHz": 7.367108640379569,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.9169209049361084,
+              10.284029545315677
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_joint": {
+          "low_GHz": 5.044559811186505,
+          "high_GHz": 9.487026561154856,
+          "BW_GHz": 4.442466749968351,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.683813294139555,
+              4.890155438364927
+            ],
+            [
+              5.044559811186505,
+              9.487026561154856
+            ]
+          ],
+          "edge_censored": false
+        }
+      },
+      "equal_frequency_inner_peak_dB": -20.45408907400233,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "Ideal lossless S21 bandwidth above is not a calibrated lossy-HFSS prediction; unknown gap effect is set to zero ONLY as a prior."
+    },
+    "validity": "exploratory_prior_not_validated",
+    "blocking_reasons": [
+      "arm_not_observed",
+      "gap_effect_unidentified",
+      "rho_ge_0p5"
+    ],
+    "release_status": "excluded_from_proposed_runlist",
+    "solver_authorized": false,
+    "future_run_directory": "runs/S2_E3_03/attempt_001",
+    "initial_prediction_stage": "phase0_prior",
+    "future_prospective_freeze_required": false,
+    "max_geometry_attempts": 3
+  },
+  {
+    "id": "S4_RESERVED_04",
+    "stage": 4,
+    "experiment": "prospective_reservation",
+    "family": "N14",
+    "source_case": "N14_A18",
+    "data_role": "prospective_reserved",
+    "parent": null,
+    "geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.502,
+      "Ls1": 9.844,
+      "Ls2": 1.738356,
+      "Ls3": 3.194178
+    },
+    "unrounded_initial_geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.501985521446463,
+      "Ls1": 9.844096480428894,
+      "Ls2": 1.738356,
+      "Ls3": 3.194178
+    },
+    "rounding": "Fixed archived widths exact; new Lm/Ls1 and tuned Ws on 0.001mm grid; dependent a/g exact. Baseline-grid exception requires review.",
+    "topology": "folded",
+    "screen": {
+      "a_mm": 2.8,
+      "g_mm": 0.9500000000000001,
+      "L_parameter_sum_mm": 19.709068000000002,
+      "L_polyline_center_mm": 18.132356,
+      "rho_parameter_sum": 0.5005344747909947,
+      "eta": 0.35242656208755985,
+      "arm_tip_to_microstrip_x_mm": 0.8225039999999998,
+      "arm_tip_to_arm_tip_x_mm": 3.4556439999999995,
+      "screen_pass": false,
+      "reasons": [
+        "rho_ge_0p5"
+      ],
+      "full_CAD_verified": false,
+      "manufacturing_limits_confirmed": false
+    },
+    "prediction": {
+      "parameters": {
+        "Zm_ohm": 49.538979937129206,
+        "Zs_ohm": 110.53153848945897,
+        "P": 2.190247867059733,
+        "R": 0.4481886402210314,
+        "N1": 1.011338675938864,
+        "N2": 0.8203623549896772,
+        "zm_eff": 1.0133752364824284,
+        "zs_eff": 1.4877421141317992,
+        "P_eff": 1.5076410167331802,
+        "R_eff": 0.6811497952881459,
+        "fm_GHz": 6.621985969708366,
+        "fs_GHz": 6.588034905934921,
+        "deltaLm_mm": 0.24776773139999997,
+        "deltaLs_parameter_sum_mm": -2.3262293816,
+        "supported_calibration_box": false,
+        "warnings": [
+          "arm_not_observed",
+          "gap_effect_unidentified"
+        ],
+        "gap_model": "constant at g=0.55; off-gap is a null-effect hypothesis only",
+        "validated_prediction": false
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.5429629217277796,
+          "high_GHz": 9.636711296465352,
+          "BW_GHz": 6.093748374737572,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.5429629217277796,
+              9.636711296465352
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW20": {
+          "low_GHz": 3.7066725502963855,
+          "high_GHz": 9.463322528599118,
+          "BW_GHz": 5.7566499783027325,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.7066725502963855,
+              9.463322528599118
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_S21": {
+          "low_GHz": 2.9314790049012,
+          "high_GHz": 10.269163042152197,
+          "BW_GHz": 7.337684037250997,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.9314790049012,
+              10.269163042152197
+            ]
+          ],
+          "edge_censored": false
+        },
+        "BW_joint": {
+          "low_GHz": 3.7066725502963855,
+          "high_GHz": 9.463322528599118,
+          "BW_GHz": 5.7566499783027325,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.7066725502963855,
+              9.463322528599118
+            ]
+          ],
+          "edge_censored": false
+        }
+      },
+      "equal_frequency_inner_peak_dB": -20.72916856956937,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "Ideal lossless S21 bandwidth above is not a calibrated lossy-HFSS prediction; unknown gap effect is set to zero ONLY as a prior."
+    },
+    "validity": "exploratory_prior_not_validated",
+    "blocking_reasons": [
+      "arm_not_observed",
+      "gap_effect_unidentified",
+      "final_post_stage3_model_and_prospective_prediction_not_available",
+      "rho_ge_0p5"
+    ],
+    "release_status": "excluded_from_proposed_runlist",
+    "solver_authorized": false,
+    "future_run_directory": "runs/S4_RESERVED_04/attempt_001",
+    "initial_prediction_stage": "phase0_prior",
+    "future_prospective_freeze_required": true,
+    "max_geometry_attempts": 1
+  }
+]

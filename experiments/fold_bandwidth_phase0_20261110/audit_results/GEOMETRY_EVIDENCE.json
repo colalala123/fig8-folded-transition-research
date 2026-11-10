@@ -1,0 +1,137 @@
+{
+  "project": "hfss/INV01_A14.aedt",
+  "sha256": "ee640438d8d1be88ecc4c6928a487bd9683493a3d06323d4d655d23534e6b4ee",
+  "method": "static AEDT operand records; no GUI/COM open",
+  "blocks": [
+    {
+      "name": "StructureBSlot_top_main",
+      "name_line": 114386,
+      "parameters": {
+        "XPosition": "-6.30999735mm",
+        "YPosition": "-0.172983509mm",
+        "ZPosition": "-0.01mm",
+        "XSize": "12.6199947mm",
+        "YSize": "0.345967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_connector",
+      "name_line": 114456,
+      "parameters": {
+        "XPosition": "5.96403033mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.01mm",
+        "XSize": "0.345967019mm",
+        "YSize": "0.895967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_leg",
+      "name_line": 114526,
+      "parameters": {
+        "XPosition": "4.56403033mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.01mm",
+        "XSize": "1.4mm",
+        "YSize": "0.345967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_connector",
+      "name_line": 114596,
+      "parameters": {
+        "XPosition": "-6.30999735mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.01mm",
+        "XSize": "0.345967019mm",
+        "YSize": "0.895967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_leg",
+      "name_line": 114666,
+      "parameters": {
+        "XPosition": "-5.96403033mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.01mm",
+        "XSize": "1.4mm",
+        "YSize": "0.345967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_main",
+      "name_line": 114736,
+      "parameters": {
+        "XPosition": "-6.30999735mm",
+        "YPosition": "-0.172983509mm",
+        "ZPosition": "-0.045mm",
+        "XSize": "12.6199947mm",
+        "YSize": "0.345967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_connector",
+      "name_line": 114806,
+      "parameters": {
+        "XPosition": "5.96403033mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.045mm",
+        "XSize": "0.345967019mm",
+        "YSize": "0.895967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_leg",
+      "name_line": 114876,
+      "parameters": {
+        "XPosition": "4.56403033mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.045mm",
+        "XSize": "1.4mm",
+        "YSize": "0.345967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_connector",
+      "name_line": 114946,
+      "parameters": {
+        "XPosition": "-6.30999735mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.045mm",
+        "XSize": "0.345967019mm",
+        "YSize": "0.895967019mm",
+        "ZSize": "0.055mm"
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_leg",
+      "name_line": 115016,
+      "parameters": {
+        "XPosition": "-5.96403033mm",
+        "YPosition": "-1.06895053mm",
+        "ZPosition": "-0.045mm",
+        "XSize": "1.4mm",
+        "YSize": "0.345967019mm",
+        "ZSize": "0.055mm"
+      }
+    }
+  ],
+  "live_CAD_verified": false,
+  "formulas": {
+    "L_parameter_sum": "Ls1+2*Ls2+2*Ls3",
+    "L_polyline_center": "L_parameter_sum-4*Ws",
+    "g": "Ls2-2*Ws",
+    "a": "Ls3-Ws",
+    "tip_microstrip_x": "(Ls1-2*Ls3-Wm)/2",
+    "tips_x": "Ls1-2*Ls3"
+  },
+  "caveat": "Operand geometry is not a live final-solid/topology verification. Centreline is a geometrical polyline, not electrical length."
+}

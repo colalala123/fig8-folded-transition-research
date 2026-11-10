@@ -1,0 +1,29 @@
+{
+  "tested_at_UTC": "2026-11-10T02:24:39.716250+00:00",
+  "checks": [
+    {
+      "name": "phase0",
+      "command": "python experiments/fold_bandwidth_phase0_20261110/test_phase0.py",
+      "returncode": 0,
+      "output": "validation/phase0.txt",
+      "output_sha256": "a1ece7756b34ecf7f3e6090d0d319f565fc000c0c99357e409bb009c7bdcbdfc"
+    },
+    {
+      "name": "archive_tests",
+      "command": "python tests/test_research.py",
+      "returncode": 0,
+      "output": "validation/archive_tests.txt",
+      "output_sha256": "4c779c0184bef3ab2cd44c07efad5f6ed6e211a7d2e57169d3b629b44a5c4688"
+    },
+    {
+      "name": "archive_hashes",
+      "command": "python tools/verify_archive.py",
+      "returncode": 0,
+      "output": "validation/archive_hashes.txt",
+      "output_sha256": "9e1442701bd8ecdd6f21e3a4530addbdda5e91134be283bf9460466b8addd3e1"
+    }
+  ],
+  "all_passed": true,
+  "solver_calls": 0,
+  "network_messages": 0
+}

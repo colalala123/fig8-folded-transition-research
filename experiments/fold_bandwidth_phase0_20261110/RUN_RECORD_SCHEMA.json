@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Fig8 prospective run record v1 (not execution authorization)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "run_id", "stage", "experiment", "family", "data_role", "parent_run_id", "topology", "geometry_mm", "derived", "material", "target", "authorization", "budget", "frozen_prediction", "solver", "curve_evidence", "results", "status", "events"],
+  "properties": {
+    "schema_version": {"const": "fig8-fold-run-v1"},
+    "run_id": {"type": "string", "pattern": "^[A-Za-z0-9_.-]+$"},
+    "stage": {"type": "integer", "minimum": 1, "maximum": 5},
+    "experiment": {"type": "string", "minLength": 1},
+    "family": {"type": "string", "minLength": 1},
+    "data_role": {"enum": ["training", "retrospective_holdout", "prospective_test", "tuned", "uniform_control", "lossless_control"]},
+    "parent_run_id": {"type": ["string", "null"]},
+    "topology": {"enum": ["folded", "straight"]},
+    "geometry_mm": {
+      "type": "object", "additionalProperties": false,
+      "required": ["Wm", "Ws", "Lm", "Ls1", "Ls2", "Ls3"],
+      "properties": {
+        "Wm": {"type": "number", "exclusiveMinimum": 0},
+        "Ws": {"type": "number", "exclusiveMinimum": 0},
+        "Lm": {"type": "number", "exclusiveMinimum": 0},
+        "Ls1": {"type": "number", "exclusiveMinimum": 0},
+        "Ls2": {"type": "number", "minimum": 0},
+        "Ls3": {"type": "number", "minimum": 0}
+      }
+    },
+    "derived": {
+      "type": "object", "additionalProperties": false,
+      "required": ["a_mm", "g_mm", "L_parameter_sum_mm", "L_polyline_center_mm", "rho_parameter_sum", "eta", "tip_microstrip_x_mm", "tip_tip_x_mm"],
+      "properties": {
+        "a_mm": {"type": ["number", "null"]}, "g_mm": {"type": ["number", "null"]},
+        "L_parameter_sum_mm": {"type": "number"}, "L_polyline_center_mm": {"type": "number"},
+        "rho_parameter_sum": {"type": ["number", "null"]}, "eta": {"type": ["number", "null"]},
+        "tip_microstrip_x_mm": {"type": ["number", "null"]}, "tip_tip_x_mm": {"type": ["number", "null"]}
+      }
+    },
+    "material": {
+      "type": "object", "required": ["er", "tan_delta", "h_mm", "t_mm", "metal"], "additionalProperties": false,
+      "properties": {"er": {"const": 3.55}, "tan_delta": {"type": "number", "minimum": 0}, "h_mm": {"const": 0.813}, "t_mm": {"const": 0.035}, "metal": {"enum": ["copper", "PEC"]}}
+    },
+    "target": {
+      "type": "object", "required": ["low_GHz", "high_GHz", "S11_max_dB", "S21_min_dB", "center_GHz", "center_tolerance_GHz", "peak_gap_max_dB", "n_valleys"], "additionalProperties": false,
+      "properties": {"low_GHz": {"type": "number"}, "high_GHz": {"type": "number"}, "S11_max_dB": {"type": "number"}, "S21_min_dB": {"type": "number"}, "center_GHz": {"const": 6.72}, "center_tolerance_GHz": {"const": 0.03}, "peak_gap_max_dB": {"const": 0.5}, "n_valleys": {"const": 3}}
+    },
+    "authorization": {
+      "type": "object", "required": ["solver_authorized", "user_message_reference", "hook_target_authorized"], "additionalProperties": false,
+      "properties": {"solver_authorized": {"type": "boolean"}, "user_message_reference": {"type": ["string", "null"]}, "hook_target_authorized": {"type": ["string", "null"]}}
+    },
+    "budget": {
+      "type": "object", "required": ["Analyze_limit", "Analyze_requested", "geometry_attempt", "geometry_attempt_limit"], "additionalProperties": false,
+      "properties": {"Analyze_limit": {"type": ["integer", "null"], "minimum": 0}, "Analyze_requested": {"type": "integer", "minimum": 0}, "geometry_attempt": {"type": "integer", "minimum": 1}, "geometry_attempt_limit": {"type": "integer", "minimum": 1}}
+    },
+    "frozen_prediction": {
+      "type": "object", "required": ["file", "sha256", "model_hashes", "frozen_at_UTC", "kind"], "additionalProperties": false,
+      "properties": {"file": {"type": "string"}, "sha256": {"$ref": "#/$defs/hash"}, "model_hashes": {"type": "object", "additionalProperties": {"$ref": "#/$defs/hash"}}, "frozen_at_UTC": {"type": "string", "format": "date-time"}, "kind": {"enum": ["exploratory_prior", "prospective_final"]}}
+    },
+    "solver": {
+      "type": "object", "required": ["AEDT_version", "cores_requested", "cores_observed", "tasks", "groups", "serial", "mesh_cells", "adaptive_passes", "final_deltaS", "elapsed_seconds", "mesh_evidence", "process_evidence", "sweep_settings"], "additionalProperties": false,
+      "properties": {
+        "AEDT_version": {"type": ["string", "null"]}, "cores_requested": {"const": 14}, "cores_observed": {"type": ["integer", "null"]}, "tasks": {"const": 1}, "groups": {"const": 1}, "serial": {"const": true},
+        "mesh_cells": {"type": ["integer", "null"], "minimum": 1}, "adaptive_passes": {"type": ["integer", "null"], "minimum": 0}, "final_deltaS": {"type": ["number", "null"], "minimum": 0}, "elapsed_seconds": {"type": ["number", "null"], "minimum": 0},
+        "mesh_evidence": {"type": ["string", "null"]}, "process_evidence": {"type": ["string", "null"]}, "sweep_settings": {"type": "object"}
+      }
+    },
+    "curve_evidence": {"type": "array", "items": {"type": "object", "required": ["file", "sha256", "ports_and_modes", "kind"], "additionalProperties": false, "properties": {"file": {"type": "string"}, "sha256": {"$ref": "#/$defs/hash"}, "ports_and_modes": {"type": "string"}, "kind": {"enum": ["native_complex", "direct_frequency", "port_power", "radiation_flux"]}}}},
+    "results": {
+      "oneOf": [{"type": "null"}, {"type": "object", "required": ["circuit_fit", "bandwidths", "inner_peaks", "central_valley_GHz", "peak_gap_dB", "min_S21_dB", "worst_S11_dB", "remaining_power", "certification"], "additionalProperties": false,
+        "properties": {
+          "circuit_fit": {"type": "object", "required": ["zm_eff", "zs_eff", "fm_GHz", "fs_GHz", "N1", "N2", "P_eff", "R_eff", "fit_RMS_linear", "fit_target", "multistart_status"], "properties": {"fit_target": {"type": "string"}, "multistart_status": {"type": "string"}}, "additionalProperties": {"type": "number"}},
+          "bandwidths": {"type": "object", "required": ["BW15", "BW20", "BW_S21", "BW_joint", "BW_circ15", "BW_circ20"], "additionalProperties": {"$ref": "#/$defs/band"}},
+          "inner_peaks": {"type": "array", "items": {"type": "object"}}, "central_valley_GHz": {"type": ["number", "null"]}, "peak_gap_dB": {"type": ["number", "null"]}, "min_S21_dB": {"type": "number"}, "worst_S11_dB": {"type": "number"},
+          "remaining_power": {"type": "object", "required": ["6.72_GHz", "8.5_GHz", "9.5_GHz", "interpretation"], "properties": {"interpretation": {"const": "unaccounted fundamental-mode power; NOT radiation alone"}}, "additionalProperties": {"type": "number"}},
+          "certification": {"const": "nominal_only_unless_separately_certified"}
+        }
+      }]
+    },
+    "status": {"type": "object", "required": ["lifecycle", "solve_completed", "numerical_pass", "design_pass", "visual_ACK", "failure_kind"], "additionalProperties": false,
+      "properties": {"lifecycle": {"enum": ["planned", "running", "completed", "failed", "paused"]}, "solve_completed": {"type": ["boolean", "null"]}, "numerical_pass": {"type": ["boolean", "null"]}, "design_pass": {"type": ["boolean", "null"]}, "visual_ACK": {"type": ["string", "null"]}, "failure_kind": {"enum": [null, "solve", "export", "delivery", "continuation", "numerical", "design"]}}},
+    "events": {"type": "array", "items": {"type": "object", "required": ["at_UTC", "type", "evidence"], "properties": {"at_UTC": {"type": "string", "format": "date-time"}, "type": {"type": "string"}, "evidence": {"type": "string"}}, "additionalProperties": false}}
+  },
+  "allOf": [
+    {"if": {"properties": {"data_role": {"const": "prospective_test"}}}, "then": {"properties": {"frozen_prediction": {"properties": {"kind": {"const": "prospective_final"}}}}}},
+    {"if": {"properties": {"status": {"properties": {"lifecycle": {"enum": ["running", "completed"]}}}}}, "then": {"properties": {"authorization": {"properties": {"solver_authorized": {"const": true}, "user_message_reference": {"type": "string", "minLength": 1}}}, "budget": {"properties": {"Analyze_limit": {"type": "integer", "minimum": 1}}}}}},
+    {"if": {"properties": {"status": {"properties": {"lifecycle": {"const": "completed"}}}}}, "then": {"properties": {"results": {"type": "object"}, "curve_evidence": {"minItems": 1}, "status": {"properties": {"solve_completed": {"const": true}}}}}},
+    {"if": {"properties": {"topology": {"const": "straight"}}}, "then": {"properties": {"geometry_mm": {"properties": {"Ls2": {"const": 0}, "Ls3": {"const": 0}}}}}},
+    {"if": {"properties": {"data_role": {"const": "lossless_control"}}}, "then": {"properties": {"parent_run_id": {"type": "string", "minLength": 1}, "material": {"properties": {"tan_delta": {"const": 0}, "metal": {"const": "PEC"}}}}}}
+  ],
+  "$defs": {
+    "hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "band": {"type": "object", "required": ["low_GHz", "high_GHz", "BW_GHz", "components", "edge_censored", "definition"], "additionalProperties": false,
+      "properties": {"low_GHz": {"type": ["number", "null"]}, "high_GHz": {"type": ["number", "null"]}, "BW_GHz": {"type": ["number", "null"]}, "components": {"type": "integer", "minimum": 0}, "edge_censored": {"type": "boolean"}, "definition": {"type": "string"}}}
+  }
+}
