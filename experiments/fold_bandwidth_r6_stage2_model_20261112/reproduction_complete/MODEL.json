@@ -1,0 +1,901 @@
+{
+  "schema": "R6-stage2a-model-v1",
+  "reference_widths_mm": {
+    "Wm": 1.810636,
+    "Ws": 0.394178
+  },
+  "kappa": {
+    "kind": "ka",
+    "A_N14": 1.7263756771427048,
+    "k": 0.060185231959554275,
+    "training_case_ids": [
+      "N14_A14",
+      "N14_A18",
+      "S2_E1_N14_a0.6__T2",
+      "S2_E1_N14_a1.0__T1",
+      "S2_E1_N14_a2.2__T2",
+      "S2_E1_N14_a2.6__T3",
+      "S2_E2_N14_g0.25__T2",
+      "S2_E2_N14_g0.40__T2",
+      "S2_E2_N14_g0.80__T2",
+      "S2_E2_N14_g1.20__T2",
+      "S2_E3_00__T2",
+      "S2_E3_01__T2"
+    ],
+    "relative_RMSE": 0.02043820947715923,
+    "relative_MAE": 0.01622780826384899,
+    "relative_max": 0.041788413592055554,
+    "active_bounds": [
+      0,
+      0
+    ],
+    "jacobian_rank": 2,
+    "parameter_count": 2,
+    "A_is_unvalidated_straight_extrapolation": true
+  },
+  "slot_length": {
+    "delta_intercept_mm": -0.13722654864805536,
+    "delta_a_coefficient": 0.1353385592934045,
+    "g_minus_0p55_coefficient": 0.61447057599311,
+    "training_case_ids": [
+      "N14_A14",
+      "N14_A18",
+      "S2_E1_N14_a0.6__T2",
+      "S2_E1_N14_a1.0__T1",
+      "S2_E1_N14_a2.2__T2",
+      "S2_E1_N14_a2.6__T3",
+      "S2_E2_N14_g0.25__T2",
+      "S2_E2_N14_g0.40__T2",
+      "S2_E2_N14_g0.80__T2",
+      "S2_E2_N14_g1.20__T2",
+      "S2_E3_00__T2",
+      "S2_E3_01__T2"
+    ],
+    "prior_Wm_coefficient": -0.4017,
+    "prior_Ws_coefficient": -1.2118,
+    "residual_mm": {
+      "n": 12,
+      "MAE": 0.14875802221014578,
+      "RMSE": 0.18976909263903557,
+      "max_abs": 0.37979396754752814
+    },
+    "width_coefficients_refitted": false
+  },
+  "candidate_CV": [
+    {
+      "kind": "ka",
+      "folds": [
+        {
+          "held_group": "E1",
+          "training_case_ids": [
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "held_case_ids": [
+            "N14_A14",
+            "N14_A18",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3"
+          ],
+          "fit": {
+            "kind": "ka",
+            "A_N14": 1.6785701928179597,
+            "k": 0.03947070888150096,
+            "training_case_ids": [
+              "S2_E2_N14_g0.25__T2",
+              "S2_E2_N14_g0.40__T2",
+              "S2_E2_N14_g0.80__T2",
+              "S2_E2_N14_g1.20__T2",
+              "S2_E3_00__T2",
+              "S2_E3_01__T2"
+            ],
+            "relative_RMSE": 0.01558422383113632,
+            "relative_MAE": 0.013485583122800316,
+            "relative_max": 0.0264177856295628,
+            "active_bounds": [
+              0,
+              0
+            ],
+            "jacobian_rank": 2,
+            "parameter_count": 2,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            -0.00848563657995871,
+            -0.004213591112440795,
+            0.009524883817765062,
+            -0.004753502542603982,
+            0.018448069666626488,
+            0.07761515059770785
+          ],
+          "n": 6,
+          "MAE": 0.020506805719517147,
+          "RMSE": 0.03308454436017925,
+          "max_abs": 0.07761515059770785
+        },
+        {
+          "held_group": "E2",
+          "training_case_ids": [
+            "N14_A14",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "held_case_ids": [
+            "N14_A18",
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2"
+          ],
+          "fit": {
+            "kind": "ka",
+            "A_N14": 1.7259448189336366,
+            "k": 0.06601434038653925,
+            "training_case_ids": [
+              "N14_A14",
+              "S2_E1_N14_a0.6__T2",
+              "S2_E1_N14_a1.0__T1",
+              "S2_E1_N14_a2.2__T2",
+              "S2_E1_N14_a2.6__T3",
+              "S2_E3_00__T2",
+              "S2_E3_01__T2"
+            ],
+            "relative_RMSE": 0.016479450805667286,
+            "relative_MAE": 0.014723596885285267,
+            "relative_max": 0.022815038765232748,
+            "active_bounds": [
+              0,
+              0
+            ],
+            "jacobian_rank": 2,
+            "parameter_count": 2,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            -0.028770761465095496,
+            -0.045525802580017594,
+            -0.03716687941600494,
+            -0.018384630242956557,
+            0.0011052123811907677
+          ],
+          "n": 5,
+          "MAE": 0.02619065721705307,
+          "RMSE": 0.03040048836758312,
+          "max_abs": 0.045525802580017594
+        },
+        {
+          "held_group": "E3",
+          "training_case_ids": [
+            "N14_A14",
+            "N14_A18",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2"
+          ],
+          "held_case_ids": [
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "fit": {
+            "kind": "ka",
+            "A_N14": 1.7361646423093917,
+            "k": 0.06249370722157565,
+            "training_case_ids": [
+              "N14_A14",
+              "N14_A18",
+              "S2_E1_N14_a0.6__T2",
+              "S2_E1_N14_a1.0__T1",
+              "S2_E1_N14_a2.2__T2",
+              "S2_E1_N14_a2.6__T3",
+              "S2_E2_N14_g0.25__T2",
+              "S2_E2_N14_g0.40__T2",
+              "S2_E2_N14_g0.80__T2",
+              "S2_E2_N14_g1.20__T2"
+            ],
+            "relative_RMSE": 0.021901674726063143,
+            "relative_MAE": 0.01820508565358114,
+            "relative_max": 0.04024075048943627,
+            "active_bounds": [
+              0,
+              0
+            ],
+            "jacobian_rank": 2,
+            "parameter_count": 2,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            0.0024826799529125143,
+            0.016460782770418403
+          ],
+          "n": 2,
+          "MAE": 0.009471731361665459,
+          "RMSE": 0.011771173882911956,
+          "max_abs": 0.016460782770418403
+        }
+      ],
+      "group_balanced_RMSE_relative": 0.026816271820730868,
+      "max_relative_error": 0.07761515059770785,
+      "within_1percent_every_point": false
+    },
+    {
+      "kind": "krho",
+      "folds": [
+        {
+          "held_group": "E1",
+          "training_case_ids": [
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "held_case_ids": [
+            "N14_A14",
+            "N14_A18",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3"
+          ],
+          "fit": {
+            "kind": "krho",
+            "A_N14": 1.7774319071867195,
+            "k": 0.31359533204641693,
+            "training_case_ids": [
+              "S2_E2_N14_g0.25__T2",
+              "S2_E2_N14_g0.40__T2",
+              "S2_E2_N14_g0.80__T2",
+              "S2_E2_N14_g1.20__T2",
+              "S2_E3_00__T2",
+              "S2_E3_01__T2"
+            ],
+            "relative_RMSE": 0.00787517607297022,
+            "relative_MAE": 0.005685737420199181,
+            "relative_max": 0.017017817773385426,
+            "active_bounds": [
+              0,
+              0
+            ],
+            "jacobian_rank": 2,
+            "parameter_count": 2,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            -0.004119540763518725,
+            0.003313244286202943,
+            0.007588157801358353,
+            -0.0031748785014824588,
+            0.029414863009401326,
+            0.08982553049861264
+          ],
+          "n": 6,
+          "MAE": 0.022906035810096075,
+          "RMSE": 0.03879318731284931,
+          "max_abs": 0.08982553049861264
+        },
+        {
+          "held_group": "E2",
+          "training_case_ids": [
+            "N14_A14",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "held_case_ids": [
+            "N14_A18",
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2"
+          ],
+          "fit": {
+            "kind": "krho",
+            "A_N14": 1.920886239444682,
+            "k": 0.5470017389858449,
+            "training_case_ids": [
+              "N14_A14",
+              "S2_E1_N14_a0.6__T2",
+              "S2_E1_N14_a1.0__T1",
+              "S2_E1_N14_a2.2__T2",
+              "S2_E1_N14_a2.6__T3",
+              "S2_E3_00__T2",
+              "S2_E3_01__T2"
+            ],
+            "relative_RMSE": 0.022518747169925368,
+            "relative_MAE": 0.019291203936095364,
+            "relative_max": 0.039841713379296394,
+            "active_bounds": [
+              0,
+              0
+            ],
+            "jacobian_rank": 2,
+            "parameter_count": 2,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            -0.021697938823584617,
+            -0.012617864336542217,
+            -0.016683262857126735,
+            -0.03107069310010513,
+            -0.04519891755700978
+          ],
+          "n": 5,
+          "MAE": 0.025453735334873696,
+          "RMSE": 0.02798811328837182,
+          "max_abs": 0.04519891755700978
+        },
+        {
+          "held_group": "E3",
+          "training_case_ids": [
+            "N14_A14",
+            "N14_A18",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2"
+          ],
+          "held_case_ids": [
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "fit": {
+            "kind": "krho",
+            "A_N14": 1.9020405190233394,
+            "k": 0.5026419872002265,
+            "training_case_ids": [
+              "N14_A14",
+              "N14_A18",
+              "S2_E1_N14_a0.6__T2",
+              "S2_E1_N14_a1.0__T1",
+              "S2_E1_N14_a2.2__T2",
+              "S2_E1_N14_a2.6__T3",
+              "S2_E2_N14_g0.25__T2",
+              "S2_E2_N14_g0.40__T2",
+              "S2_E2_N14_g0.80__T2",
+              "S2_E2_N14_g1.20__T2"
+            ],
+            "relative_RMSE": 0.021025334714280045,
+            "relative_MAE": 0.015773767090335407,
+            "relative_max": 0.04898124376574377,
+            "active_bounds": [
+              0,
+              0
+            ],
+            "jacobian_rank": 2,
+            "parameter_count": 2,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            0.01898031318975746,
+            -0.03003653690217012
+          ],
+          "n": 2,
+          "MAE": 0.02450842504596379,
+          "RMSE": 0.025124150113553175,
+          "max_abs": 0.03003653690217012
+        }
+      ],
+      "group_balanced_RMSE_relative": 0.031195452586666658,
+      "max_relative_error": 0.08982553049861264,
+      "within_1percent_every_point": false
+    },
+    {
+      "kind": "ka_exp",
+      "folds": [
+        {
+          "held_group": "E1",
+          "training_case_ids": [
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "held_case_ids": [
+            "N14_A14",
+            "N14_A18",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3"
+          ],
+          "fit": {
+            "kind": "ka_exp",
+            "A_N14": 1.6783971047288198,
+            "k": 0.039435135339428794,
+            "g0_mm": 999.9999999999989,
+            "training_case_ids": [
+              "S2_E2_N14_g0.25__T2",
+              "S2_E2_N14_g0.40__T2",
+              "S2_E2_N14_g0.80__T2",
+              "S2_E2_N14_g1.20__T2",
+              "S2_E3_00__T2",
+              "S2_E3_01__T2"
+            ],
+            "relative_RMSE": 0.01560952177481943,
+            "relative_MAE": 0.013509393330060342,
+            "relative_max": 0.026476739209912788,
+            "active_bounds": [
+              0,
+              0,
+              1
+            ],
+            "jacobian_rank": 3,
+            "parameter_count": 3,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            -0.00850375832736383,
+            -0.004205807126748673,
+            0.009456304221779233,
+            -0.004796808493724991,
+            0.01848352488649141,
+            0.0776827806256315
+          ],
+          "n": 6,
+          "MAE": 0.02052149728028994,
+          "RMSE": 0.033112658401527426,
+          "max_abs": 0.0776827806256315
+        },
+        {
+          "held_group": "E2",
+          "training_case_ids": [
+            "N14_A14",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "held_case_ids": [
+            "N14_A18",
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2"
+          ],
+          "fit": {
+            "kind": "ka_exp",
+            "A_N14": 1.725927427739764,
+            "k": 0.06604665027214865,
+            "g0_mm": 999.9999999997697,
+            "training_case_ids": [
+              "N14_A14",
+              "S2_E1_N14_a0.6__T2",
+              "S2_E1_N14_a1.0__T1",
+              "S2_E1_N14_a2.2__T2",
+              "S2_E1_N14_a2.6__T3",
+              "S2_E3_00__T2",
+              "S2_E3_01__T2"
+            ],
+            "relative_RMSE": 0.01648344618528748,
+            "relative_MAE": 0.014733792816135181,
+            "relative_max": 0.022817592307692883,
+            "active_bounds": [
+              0,
+              0,
+              1
+            ],
+            "jacobian_rank": 3,
+            "parameter_count": 3,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            -0.028772600665845083,
+            -0.04556622619461803,
+            -0.03718817842044353,
+            -0.01835340302765409,
+            0.001191030871643406
+          ],
+          "n": 5,
+          "MAE": 0.02621428783604083,
+          "RMSE": 0.03041502947609532,
+          "max_abs": 0.04556622619461803
+        },
+        {
+          "held_group": "E3",
+          "training_case_ids": [
+            "N14_A14",
+            "N14_A18",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2"
+          ],
+          "held_case_ids": [
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "fit": {
+            "kind": "ka_exp",
+            "A_N14": 1.7361245143178377,
+            "k": 0.06251935479862156,
+            "g0_mm": 999.9999999999989,
+            "training_case_ids": [
+              "N14_A14",
+              "N14_A18",
+              "S2_E1_N14_a0.6__T2",
+              "S2_E1_N14_a1.0__T1",
+              "S2_E1_N14_a2.2__T2",
+              "S2_E1_N14_a2.6__T3",
+              "S2_E2_N14_g0.25__T2",
+              "S2_E2_N14_g0.40__T2",
+              "S2_E2_N14_g0.80__T2",
+              "S2_E2_N14_g1.20__T2"
+            ],
+            "relative_RMSE": 0.021913959927583052,
+            "relative_MAE": 0.018215647402469934,
+            "relative_max": 0.04024489441320194,
+            "active_bounds": [
+              0,
+              0,
+              1
+            ],
+            "jacobian_rank": 3,
+            "parameter_count": 3,
+            "A_is_unvalidated_straight_extrapolation": true
+          },
+          "errors_relative": [
+            0.0024487956743461936,
+            0.016490773225358968
+          ],
+          "n": 2,
+          "MAE": 0.00946978444985258,
+          "RMSE": 0.011788600464535916,
+          "max_abs": 0.016490773225358968
+        }
+      ],
+      "group_balanced_RMSE_relative": 0.026835879374203786,
+      "max_relative_error": 0.0776827806256315,
+      "within_1percent_every_point": false
+    }
+  ],
+  "length_CV": {
+    "folds": [
+      {
+        "held_group": "E1",
+        "training_case_ids": [
+          "S2_E2_N14_g0.25__T2",
+          "S2_E2_N14_g0.40__T2",
+          "S2_E2_N14_g0.80__T2",
+          "S2_E2_N14_g1.20__T2",
+          "S2_E3_00__T2",
+          "S2_E3_01__T2"
+        ],
+        "held_case_ids": [
+          "N14_A14",
+          "N14_A18",
+          "S2_E1_N14_a0.6__T2",
+          "S2_E1_N14_a1.0__T1",
+          "S2_E1_N14_a2.2__T2",
+          "S2_E1_N14_a2.6__T3"
+        ],
+        "fit": {
+          "delta_intercept_mm": -0.06425471372354803,
+          "delta_a_coefficient": 0.022461822467260514,
+          "g_minus_0p55_coefficient": 0.6798395370550195,
+          "training_case_ids": [
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "prior_Wm_coefficient": -0.4017,
+          "prior_Ws_coefficient": -1.2118,
+          "residual_mm": {
+            "n": 6,
+            "MAE": 0.1407935984811637,
+            "RMSE": 0.14885729545380486,
+            "max_abs": 0.1855889238354156
+          },
+          "width_coefficients_refitted": false
+        },
+        "errors_MHz": [
+          10.16119778483926,
+          6.742051167170082,
+          92.74427936004147,
+          42.54992946550562,
+          64.4800460574393,
+          224.65742091789843
+        ],
+        "n": 6,
+        "MAE": 73.55582079214902,
+        "RMSE": 104.23477999125146,
+        "max_abs": 224.65742091789843
+      },
+      {
+        "held_group": "E2",
+        "training_case_ids": [
+          "N14_A14",
+          "S2_E1_N14_a0.6__T2",
+          "S2_E1_N14_a1.0__T1",
+          "S2_E1_N14_a2.2__T2",
+          "S2_E1_N14_a2.6__T3",
+          "S2_E3_00__T2",
+          "S2_E3_01__T2"
+        ],
+        "held_case_ids": [
+          "N14_A18",
+          "S2_E2_N14_g0.25__T2",
+          "S2_E2_N14_g0.40__T2",
+          "S2_E2_N14_g0.80__T2",
+          "S2_E2_N14_g1.20__T2"
+        ],
+        "fit": {
+          "delta_intercept_mm": -0.11647750712556643,
+          "delta_a_coefficient": 0.1949526541222952,
+          "g_minus_0p55_coefficient": 0.25368677406536044,
+          "training_case_ids": [
+            "N14_A14",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E3_00__T2",
+            "S2_E3_01__T2"
+          ],
+          "prior_Wm_coefficient": -0.4017,
+          "prior_Ws_coefficient": -1.2118,
+          "residual_mm": {
+            "n": 7,
+            "MAE": 0.11603060528475859,
+            "RMSE": 0.13940101249288533,
+            "max_abs": 0.20404827946992332
+          },
+          "width_coefficients_refitted": false
+        },
+        "errors_MHz": [
+          -86.48116889786817,
+          -198.8527418956183,
+          -134.96742828718223,
+          -18.66967740072223,
+          56.3596656293921
+        ],
+        "n": 5,
+        "MAE": 99.06613642215659,
+        "RMSE": 117.27112261414281,
+        "max_abs": 198.8527418956183
+      },
+      {
+        "held_group": "E3",
+        "training_case_ids": [
+          "N14_A14",
+          "N14_A18",
+          "S2_E1_N14_a0.6__T2",
+          "S2_E1_N14_a1.0__T1",
+          "S2_E1_N14_a2.2__T2",
+          "S2_E1_N14_a2.6__T3",
+          "S2_E2_N14_g0.25__T2",
+          "S2_E2_N14_g0.40__T2",
+          "S2_E2_N14_g0.80__T2",
+          "S2_E2_N14_g1.20__T2"
+        ],
+        "held_case_ids": [
+          "S2_E3_00__T2",
+          "S2_E3_01__T2"
+        ],
+        "fit": {
+          "delta_intercept_mm": -0.1127522885718144,
+          "delta_a_coefficient": 0.1169573980959103,
+          "g_minus_0p55_coefficient": 0.8833407421866676,
+          "training_case_ids": [
+            "N14_A14",
+            "N14_A18",
+            "S2_E1_N14_a0.6__T2",
+            "S2_E1_N14_a1.0__T1",
+            "S2_E1_N14_a2.2__T2",
+            "S2_E1_N14_a2.6__T3",
+            "S2_E2_N14_g0.25__T2",
+            "S2_E2_N14_g0.40__T2",
+            "S2_E2_N14_g0.80__T2",
+            "S2_E2_N14_g1.20__T2"
+          ],
+          "prior_Wm_coefficient": -0.4017,
+          "prior_Ws_coefficient": -1.2118,
+          "residual_mm": {
+            "n": 10,
+            "MAE": 0.14740373936684348,
+            "RMSE": 0.1844624230720222,
+            "max_abs": 0.403110726584772
+          },
+          "width_coefficients_refitted": false
+        },
+        "errors_MHz": [
+          73.52746958684264,
+          -128.77089967053303
+        ],
+        "n": 2,
+        "MAE": 101.14918462868783,
+        "RMSE": 104.85283349963069,
+        "max_abs": 128.77089967053303
+      }
+    ],
+    "group_balanced_RMSE_MHz": 108.9518582553891,
+    "max_abs_MHz": 224.65742091789843,
+    "within_15MHz_every_point": false
+  },
+  "selected_by": "minimum group-balanced relative RMSE; E1/E2/E3 whole-group holdout",
+  "H1_measured_straight_ratio_validated": false,
+  "all_candidates_exceed_1percent": true,
+  "eligible_case_ids": [
+    "N14_A14",
+    "N14_A18",
+    "S2_E1_N14_a0.6__T2",
+    "S2_E1_N14_a1.0__T1",
+    "S2_E1_N14_a2.2__T2",
+    "S2_E1_N14_a2.6__T3",
+    "S2_E2_N14_g0.25__T2",
+    "S2_E2_N14_g0.40__T2",
+    "S2_E2_N14_g0.80__T2",
+    "S2_E2_N14_g1.20__T2",
+    "S2_E3_00__T2",
+    "S2_E3_01__T2"
+  ],
+  "excluded_case_ids": [
+    "S2_E0_N14__T3",
+    "S2_E1_N14_a3.0__T3",
+    "S2_E2_N14_g2.00__T3",
+    "S2_E3_02__T3",
+    "S2_E3_03__T3"
+  ],
+  "old_N1_and_microstrip_length_coefficients_unchanged": true,
+  "evidence": "单家族回顾性拟合；待冻结后的2b跨家族前瞻检验；不构成达标保证",
+  "fit_source_sha256": {
+    "archive_R2/EXTRACTED_80.json": "3e4d7a4ceb4a51e8a22c1bbc6a868da9bad53b66ad8ce6f04b5f9c2b95a2e44b",
+    "S2_E0_N14__T3/decision": "e6983c0d870ffb1f1c1773406bbb9e42e760226dda274087e51f1a6cce466792",
+    "S2_E0_N14__T3/review": "5031a467c14f6e63f57d0e80aa4a9a74865a022dde5e7132fc958e330792568f",
+    "S2_E0_N14__T3/extraction": "03ae6a35053d7b173f1c3cb3bfcb3975057cb22b829ba0b2dd23bbd0f8b6640f",
+    "S2_E0_N14__T3/ack": "c668cd11e385dd46ad5936003fcb929f2238ee2540e76f86de25a1481aa93809",
+    "S2_E0_N14__T3/freeze": "18afb4f89a9e51ee9bad38517cf1be28683b622012203c927d1ac25f4baf62a4",
+    "S2_E1_N14_a0.6__T2/decision": "ada562a0bd2985ecbb1a318e72eb498f8c75f2a993470409c73f2e4ab4130c52",
+    "S2_E1_N14_a0.6__T2/review": "c57ac0fa302faa3c32a067aad693e9c5e0ecc9169273ef43c9dce603a376f03b",
+    "S2_E1_N14_a0.6__T2/extraction": "a8719d7aa3ed1f742302e742ec74579fc36dc355de6bf515622ab03579bd7d4b",
+    "S2_E1_N14_a0.6__T2/ack": "87065067aa4fd234332c9ed03fa2b918034dab5804e1bc2e5b2f4045029087cf",
+    "S2_E1_N14_a0.6__T2/freeze": "1b1e36aeaca82076276fd2afec06cf394a12f8f3baca95ae4610acec8c929584",
+    "S2_E1_N14_a1.0__T1/decision": "37d1c43005e0d855df0fb28c654c7c842e091b05b920ac3cf2f19917cb91e494",
+    "S2_E1_N14_a1.0__T1/review": "bd8c67edceda0f8e5dcf9db647a768baf1515123ee711b211ca8fb42929a7d7a",
+    "S2_E1_N14_a1.0__T1/extraction": "aa9a1b572bc04e5f69254641d0dd489fbdb3f039780ebfa341ed8f68dd1fc33c",
+    "S2_E1_N14_a1.0__T1/ack": "4b840494cd05ecd773032a31804e495f26e7c35b4f9eda7f999bbdf3d7447dd4",
+    "S2_E1_N14_a1.0__T1/freeze": "6022358547572a8fc926e9096d22c71b7ac85dd2bf0ec4e16a0ea61994e67153",
+    "S2_E1_N14_a2.2__T2/decision": "a3f8b37a39ac00299e6c628b26b2fd1cb874f8926331cb5ce4dc97fc841f0606",
+    "S2_E1_N14_a2.2__T2/review": "538c36f1be7ebc02c7a70f1809692d6c3028ed122b6a0cd26843c893d4a0d918",
+    "S2_E1_N14_a2.2__T2/extraction": "ff17c1b0e01d5813f1d2a954b3488a30d0a6dede8a70bf54e51517ccf591611a",
+    "S2_E1_N14_a2.2__T2/ack": "8eb8fe91e3487b0b2ccc43c54c78d501f620726002e44a303dfc96cf44910955",
+    "S2_E1_N14_a2.2__T2/freeze": "83eb0df1a93d0a3e75ca236487d9b180274a82897a5c7698730413a2a8404262",
+    "S2_E1_N14_a2.6__T3/decision": "e7792e62849c8532500fe94078b0be33a68a0e80091cba07336c4ace2bb6a463",
+    "S2_E1_N14_a2.6__T3/review": "3059f9863892221c8094d631470922876b547058a0654f8ceb9a21d64b5b08a8",
+    "S2_E1_N14_a2.6__T3/extraction": "40c1d437782e5daa4c6b009240aada4accc1f896f8283ff76f3788ef2e5a3a15",
+    "S2_E1_N14_a2.6__T3/ack": "b6f07dea5f6b5a3e0eeeca0cc76f82f2c62cdf676e148055b699c7b3e1e46959",
+    "S2_E1_N14_a2.6__T3/freeze": "4a94c82c95e5ec6fb663641be2f85e2d7c1ebe8ec6c47122aeb76d683787ea2b",
+    "S2_E1_N14_a3.0__T3/decision": "63a10e4cdad76a550652d1e15b33d0f0173bc4e9a47abbec8ec5d7363fd697b8",
+    "S2_E1_N14_a3.0__T3/review": "4d7486428f12481af6901f25a2fa2d27fbbcc553da770756acede53a596631d5",
+    "S2_E1_N14_a3.0__T3/extraction": "b5d699a2aea23e57cebb9d96102d4e2e202313b4ed51592bceeda4149b3a3382",
+    "S2_E1_N14_a3.0__T3/ack": "8b313adb22779c4b438e104a3f1c7bf10fc16c0266443edeb18a426962198eef",
+    "S2_E1_N14_a3.0__T3/freeze": "9ac8b0f1f53d28b915bd80ab0154f71495ec4c165fba71fb67b6cc1e09cd1e68",
+    "S2_E2_N14_g0.25__T2/decision": "a0efffef1ba9f0a45a40a0c578122df2e214749e38713492dc5ade194ec5d47e",
+    "S2_E2_N14_g0.25__T2/review": "f1c33bba47afc18664cfda8de3558c9e5e3293fad6b5027635e16e27104182c0",
+    "S2_E2_N14_g0.25__T2/extraction": "aa85dd3aa4d1e6e197b9ddf51d49a9b5a369885085e49260372084ae1e7cca76",
+    "S2_E2_N14_g0.25__T2/ack": "c7716aba3dc916ff2521362a48f083f40b27bed7be3d83fe8807a6de498c334e",
+    "S2_E2_N14_g0.25__T2/freeze": "9653f109b773ad49be7320b6c83b4bbfe64de5e202fecb85dd91ed2f9ac43d11",
+    "S2_E2_N14_g0.40__T2/decision": "c9ac5d4505007aaea49b6b69da2fdfe123fc9f032af6062b9a64134b4961f933",
+    "S2_E2_N14_g0.40__T2/review": "08363ac6d9bbc5969a8ab3de06738501740e435bb4b89a106d512ffed33ab400",
+    "S2_E2_N14_g0.40__T2/extraction": "e8c34dbe453b1a9a4837b42181212d9c04efb9e7646a94018cdb57e0360d6f15",
+    "S2_E2_N14_g0.40__T2/ack": "ec982a67c22dabe2418e2c4b7dd00055496826f4be40e26b7f26157bdaf5b5ae",
+    "S2_E2_N14_g0.40__T2/freeze": "467de3ff811587373300e383ee6b72e55523214675b0ce471a1ef9e11eee68ce",
+    "S2_E2_N14_g0.80__T2/decision": "a80394aedbee479cc452341d7d0ec065378b294fccd8abec2801d433a14456d5",
+    "S2_E2_N14_g0.80__T2/review": "03109e7d347b919bdcd2ec1d93326f620284a8bfb0be13d91f7c5f9a32c975f2",
+    "S2_E2_N14_g0.80__T2/extraction": "8f4e15785ab70715c900cfe93d63f17b6021d99353a19728e810fe16452129fa",
+    "S2_E2_N14_g0.80__T2/ack": "382cdcc4f4fcd92ceb5b0ba9d4b4a18ef0c9f0fb93573636029ae83d55909fdf",
+    "S2_E2_N14_g0.80__T2/freeze": "adbeeba7e749203757987561e6af2e6fed9f6b0bf59e9eb342df76743e74b394",
+    "S2_E2_N14_g1.20__T2/decision": "dea7336b5629ec0fcd7f767638649efe55a18ffb4be04e4297ac6e1f8ad63333",
+    "S2_E2_N14_g1.20__T2/review": "030f330dc16aa7ca700d97944508025e16da75c25e5496044bd6c8bed96a8507",
+    "S2_E2_N14_g1.20__T2/extraction": "ec2b26d36aeebb864c54b7d35c7ce3f8ee8f437e301583a76b7cf6a8fdc39309",
+    "S2_E2_N14_g1.20__T2/ack": "88da56fe3de1090dd7fb484988d7105f63a6b4fd7443151fae8df282de0afe02",
+    "S2_E2_N14_g1.20__T2/freeze": "f969af222b22709556b50c3d400b5313ac04358a42efaebbb746fddde0605790",
+    "S2_E2_N14_g2.00__T3/decision": "8479605c883182ccf53511e41b34216ccd386852bd9d9be18d11f59db5490c0b",
+    "S2_E2_N14_g2.00__T3/review": "ae55f5618e9139a9a58f7a0948205d932329fc866a471089fc52c9ccab6ad559",
+    "S2_E2_N14_g2.00__T3/extraction": "c61571d972b63963d2d5b90d4ceb56ac12fb419971f291677a8fd26f155e63f2",
+    "S2_E2_N14_g2.00__T3/ack": "700c1a06db1f9f799d428b5a96fb065e01f9efac83ccb7b187691497adaf7d7a",
+    "S2_E2_N14_g2.00__T3/freeze": "0a5b69894dc628af3eceb9e8c6ca2ea44990ee3183169a7b65aac978f50cf927",
+    "S2_E3_00__T2/decision": "79ce385a6dca996224120e618d660fa7868e1d93bfa859b6df198f41926ed356",
+    "S2_E3_00__T2/review": "8cff1479defed0d9b7b46f635c605a090fed7fce6b0bcb772dbf33bb2235f07c",
+    "S2_E3_00__T2/extraction": "40557c927089506d367043171f561405b6934191708d1d173c3aae8cf2c85a3f",
+    "S2_E3_00__T2/ack": "37435508a55800b5ee2e5654932a68ca5cffbdd3c932c5c84c494c98a54a1524",
+    "S2_E3_00__T2/freeze": "5af7b59d2c28e355320ba40d7fd7650780fa7e137ddc7f8155871fd3d1e015ce",
+    "S2_E3_01__T2/decision": "946a43c0564d65cc76492e19a65e3c728986e60485428721becef0f5de4adab9",
+    "S2_E3_01__T2/review": "c1528947c45ea1affa121e00c5f57d776a0c8a499594e12b66c49a8dd28c8721",
+    "S2_E3_01__T2/extraction": "4174801b29b1e8b0e2e41b24b0881d99e35d55fbcad1aabf165d9c76dae2151f",
+    "S2_E3_01__T2/ack": "fd1acf36a363c226a31df2c3806ac3f55b2f1643fec7ea97798bd14bba837d04",
+    "S2_E3_01__T2/freeze": "deee8873258f8447a751f5919aba9684f9124c9a19a9e8e3262787ab4f2596f0",
+    "S2_E3_02__T3/decision": "551d874f5f2cac658a69be57309d6f9932a5f281893735fdc8f614bc1c890705",
+    "S2_E3_02__T3/review": "d546b956f3748291b35ee5f40ec3619587c92a6ff6637443c76486b4e06138e4",
+    "S2_E3_02__T3/extraction": "30e8d5a96832ebbc8d28d797648d056fc96cdffb31016768f41dbeb827b2b84e",
+    "S2_E3_02__T3/ack": "0d613656a061f4dc1ae96157f0ca043978167b1ab582de42a630033ed9baec47",
+    "S2_E3_02__T3/freeze": "ac545108f9fb67b161c3a27628508fe4dbbb872c2e95163a0ef2420c38641d57",
+    "S2_E3_03__T3/decision": "e8a71bfa20ae6a86dee090e7e7d3d4d7eca79a8eb843ec968eb430bf2f544c9f",
+    "S2_E3_03__T3/review": "1cf0a64ac7b2d7967cc58ff478ac52336edf72a7925dc223012732089eca29c0",
+    "S2_E3_03__T3/extraction": "5e7119d29d1ac3e960e817b16486dd11d1b8374fdead5f990d951df045d546d3",
+    "S2_E3_03__T3/ack": "50901801b385b07c2b5e66763588a4e0ff1f49dab93a923a4b2723428328055b",
+    "S2_E3_03__T3/freeze": "b5d09b359202025953db7efe20592ecb971a1508455dc889d7080a3141eb843d"
+  },
+  "new_Analyze_requests": 0,
+  "hook_messages": 0,
+  "excluded_diagnostics": [
+    {
+      "case": "S2_E0_N14__T3",
+      "length_calibrated": false,
+      "predicted_zs": 1.7263756771427048,
+      "extracted_zs": 1.6299298090048888,
+      "relative_zs_error": 0.059171792309693716,
+      "fs_error_MHz": 308.7381521273498,
+      "not_used_for_fitting": true
+    },
+    {
+      "case": "S2_E1_N14_a3.0__T3",
+      "length_calibrated": false,
+      "predicted_zs": 1.4681784105059617,
+      "extracted_zs": 1.4211883274077268,
+      "relative_zs_error": 0.03306393824944065,
+      "fs_error_MHz": 99.71675525065481,
+      "not_used_for_fitting": true
+    },
+    {
+      "case": "S2_E2_N14_g2.00__T3",
+      "length_calibrated": false,
+      "predicted_zs": 1.543923202207445,
+      "extracted_zs": 1.267922403685201,
+      "relative_zs_error": 0.21767956597347826,
+      "fs_error_MHz": 319.23037943411447,
+      "not_used_for_fitting": true
+    },
+    {
+      "case": "S2_E3_02__T3",
+      "length_calibrated": false,
+      "predicted_zs": 1.4562296436394724,
+      "extracted_zs": 1.4706562117996065,
+      "relative_zs_error": -0.00980961290911131,
+      "fs_error_MHz": -96.43076617697321,
+      "not_used_for_fitting": true
+    },
+    {
+      "case": "S2_E3_03__T3",
+      "length_calibrated": false,
+      "predicted_zs": 1.5229349334506554,
+      "extracted_zs": 1.4544405453186886,
+      "relative_zs_error": 0.04709328844855509,
+      "fs_error_MHz": 97.2229752644198,
+      "not_used_for_fitting": true
+    }
+  ]
+}
