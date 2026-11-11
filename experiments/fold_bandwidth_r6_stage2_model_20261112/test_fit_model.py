@@ -84,4 +84,17 @@ class Tests(unittest.TestCase):
         self.assertEqual(q["max_abs"],.03)
         self.assertLess(q["MAE"],q["max_abs"])
 
+    def test_h2_difference_preserves_reference(self):
+        from report_model import h2_h3
+        rows=fixtures()
+        for r in rows:
+            r["circuit"]["zm_eff"]=1.
+            b=m.chain.closed_band(r["circuit"]["zs_eff"],1.,6.72,-15)["BW_GHz"]
+            r["bandwidths"]={"BW15":{"BW_GHz":b},"BW_S21":{"BW_GHz":7.}}
+        q=h2_h3({"rows":rows},{"kappa":m.fit_kappa(rows,"ka")})
+        self.assertLess(q["H2_error_MHz"]["max_abs"],1e-6)
+        self.assertTrue(q["H2_independent_validation_pending_2b"])
+        rows[0]["bandwidths"]["BW15"]["BW_GHz"]=None
+        with self.assertRaises(ValueError):h2_h3({"rows":rows},{"kappa":m.fit_kappa(rows,"ka")})
+
 if __name__=="__main__":unittest.main()
