@@ -79,6 +79,15 @@ def prepare(previous,dest,analysis):
     write(dest/'PREPARED.json',dict(at=now(),authorization_sha256=sha(dest/'authorization.json'),
          initial_count=15,solver_started=False,new_Analyze=0))
 
+def tuned_design(prior,suggestion,parent,curve_sha,path,nominal_a):
+    pred=copy.deepcopy(prior)
+    pred.update(geometry_mm=suggestion['geometry_mm'],prediction=suggestion['prediction'],
+        data_role='tuned_data',parent=parent,initial_prediction_stage='R2_length_update_after_prior_curve',
+        tuning=suggestion,prior_curve_sha256=curve_sha,
+        initial_screen=copy.deepcopy(prior['screen']),screen=suggestion['screen']['screen_after'],
+        nominal_a_mm=nominal_a,actual_a_mm=suggestion['actual_a_mm'],future_run_directory=path)
+    return pred
+
 def prepare_attempt(root,parent,ordinal):
     cfg=read(root/'authorization.json')
     if (root/'STOP.json').exists():raise RuntimeError('停止记录有效')
@@ -97,9 +106,7 @@ def prepare_attempt(root,parent,ordinal):
         p=old/'review/extraction_R2.json'
         suggestion=propose(read(p),nominal_a,prior['topology'])
         if not suggestion['needs_solve']:raise RuntimeError('没有符合规则的下一次调参')
-        pred.update(geometry_mm=suggestion['geometry_mm'],prediction=suggestion['prediction'],
-           data_role='tuned_data',parent=parent,initial_prediction_stage='R2_length_update_after_prior_curve',
-           tuning=suggestion,prior_curve_sha256=read(old/'done.json')['native_sha256'])
+        pred=tuned_design(prior,suggestion,parent,read(old/'done.json')['native_sha256'],cfg['case_paths'][case],nominal_a)
         previous_hash=sha(p)
     for name in ('input','evidence','native'):(w/name).mkdir(parents=True)
     source_hashes={**read(REGISTRY)['source_hashes'],REGISTRY.relative_to(REPO).as_posix():sha(REGISTRY),

@@ -40,6 +40,7 @@ def verify_release(root,case):
     for rel,h in f['source_hashes'].items():
         if sha(REPO/rel)!=h:raise RuntimeError('输入来源变化：'+rel)
     prior=cfg['designs'][parent];pred=f['design']
+    if f['nominal_a_mm']!=prior['screen']['a_mm']:raise RuntimeError('名义折臂来源不符')
     if pred['topology']!=prior['topology']:raise RuntimeError('拓扑被改变')
     if ordinal==1:
         if pred!=prior:raise RuntimeError('首次几何或预测偏离原冻结')
@@ -52,7 +53,7 @@ def verify_release(root,case):
         qp=old/'review/extraction_R2.json'
         if f['previous_extraction_sha256']!=sha(qp):raise RuntimeError('调参的前次曲线提取不符')
         suggestion=propose(read(qp),f['nominal_a_mm'],prior['topology'])
-        if not suggestion['needs_solve'] or suggestion['geometry_mm']!=pred['geometry_mm'] or suggestion['prediction']!=pred['prediction']:
+        if not suggestion['needs_solve'] or suggestion['geometry_mm']!=pred['geometry_mm'] or suggestion['prediction']!=pred['prediction'] or suggestion['screen']['screen_after']!=pred.get('screen'):
             raise RuntimeError('调参不符合冻结长度规程')
     if any(pred['geometry_mm'][k]!=prior['geometry_mm'][k] for k in ('Wm','Ws','Ls2')):
         raise RuntimeError('固定P/R或间隔被改变')

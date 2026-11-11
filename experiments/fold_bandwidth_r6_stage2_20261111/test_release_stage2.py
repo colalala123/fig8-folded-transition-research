@@ -4,7 +4,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from common_stage2 import *
-from prepare_stage2 import initial_designs,prepare
+from prepare_stage2 import initial_designs,prepare,tuned_design
 from runtime_stage2 import verify_release
 import geometry
 
@@ -22,7 +22,7 @@ class Release(unittest.TestCase):
         self.w=case_dir(self.r,self.case,self.cfg);(self.w/'input').mkdir(parents=True)
         write(self.r/'authorization.json',self.cfg)
         self.f=dict(authorization_sha256=sha(self.r/'authorization.json'),resume=False,inherited_Analyze=0,
-            parent_id=self.parent,attempt_ordinal=1,source_hashes={},design=copy.deepcopy(self.pred),
+            parent_id=self.parent,attempt_ordinal=1,source_hashes={},design=copy.deepcopy(self.pred),nominal_a_mm=self.pred['screen']['a_mm'],
             expected_boxes=geometry.slot_boxes(self.pred['geometry_mm'],self.pred['topology']))
         self.save()
     def tearDown(self):self.tmp.cleanup()
@@ -52,6 +52,20 @@ class Release(unittest.TestCase):
         dest=self.r/'not_created'
         with self.assertRaises(RuntimeError):prepare(self.r,dest,self.analysis)
         self.assertFalse(dest.exists())
+    def test_tuned_record_uses_actual_screen_and_path(self):
+        from presubmit import presubmit
+        g={**self.pred['geometry_mm'],'Lm':6.7,'Ls1':16.5}
+        screen=presubmit(g,0.,topology='straight_control')
+        suggestion=dict(geometry_mm=g,prediction={'test_only':True},screen=screen,actual_a_mm=0.)
+        q=tuned_design(self.pred,suggestion,self.parent,'test_curve_sha','uniform_control/TEST/attempt_002',0.)
+        self.assertEqual(q['screen'],screen['screen_after'])
+        self.assertEqual(q['initial_screen'],self.pred['screen'])
+        self.assertEqual(q['future_run_directory'],'uniform_control/TEST/attempt_002')
+        self.assertEqual(q['data_role'],'tuned_data')
+        self.assertNotEqual(q['geometry_mm'],self.pred['geometry_mm'])
+    def test_wrong_nominal_arm_rejected(self):
+        self.f['nominal_a_mm']=1.;self.save()
+        with self.assertRaises(RuntimeError):verify_release(self.r,self.case)
     def test_fifteen_only(self):
         a=initial_designs()
         self.assertEqual(len(a),15);self.assertEqual(sum(r['topology']=='straight_control' for r in a),1)
