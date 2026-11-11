@@ -1,0 +1,62 @@
+"""阶段2a独立求解入口的门槛。导入不连接HFSS；没有授权冻结不得运行。"""
+import json
+import os
+import subprocess
+import sys
+import time
+from common_stage2 import *
+from budget_stage2 import charge
+from tuning import propose
+import geometry
+
+def verify_release(root,case):
+    if (root/'STOP.json').exists():raise RuntimeError('2a停止记录有效')
+    cfg=read(root/'authorization.json')
+    if cfg.get('human_authorized') is not True or cfg.get('batch')!='2a' or cfg.get('limits')!=LIMITS:
+        raise RuntimeError('2a授权不符')
+    if cfg['total_geometry_limit']!=187:raise RuntimeError('总上限不符')
+    for rel,h in cfg['code_hashes'].items():
+        if sha(REPO/rel)!=h:raise RuntimeError('执行代码冻结变化：'+rel)
+    for path,h in cfg['historical_hashes'].items():
+        if sha(path)!=h:raise RuntimeError('前批冻结证据变化')
+    for rel,h in cfg['plan_hashes'].items():
+        if sha(REPO/rel)!=h:raise RuntimeError('计划文本变化')
+    if read(cfg['stage1_analysis'])['batch1b_outputs_complete'] is not True:
+        raise RuntimeError('1b输出门槛未过')
+    w=case_dir(root,case,cfg)
+    for name in ('worker_started.json','done.json','failure.txt'):
+        if (w/name).exists():raise RuntimeError('已有尝试记录，不重复派发：'+case)
+    f=read(w/'input/freeze.json')
+    if f['authorization_sha256']!=sha(root/'authorization.json'):raise RuntimeError('输入授权绑定不符')
+    if f.get('resume') is not False or f.get('inherited_Analyze')!=0:
+        raise RuntimeError('该冷启动入口不执行缓存恢复；恢复须另建保留记录的版本')
+    parent=f['parent_id'];ordinal=f['attempt_ordinal']
+    if cfg['case_specs'][case] != dict(parent_id=parent,attempt_ordinal=ordinal):
+        raise RuntimeError('案例映射或尝试序号不符')
+    if not 1<=ordinal<=3:raise RuntimeError('每设计最多三个几何尝试')
+    for prev in cfg['parent_order'][:cfg['parent_order'].index(parent)]:
+        if read(root/'decisions'/(prev+'_FINAL.json')).get('complete') is not True:
+            raise RuntimeError('前一设计尚未闭合')
+    for rel,h in f['source_hashes'].items():
+        if sha(REPO/rel)!=h:raise RuntimeError('输入来源变化：'+rel)
+    prior=cfg['designs'][parent];pred=f['design']
+    if pred['topology']!=prior['topology']:raise RuntimeError('拓扑被改变')
+    if ordinal==1:
+        if pred!=prior:raise RuntimeError('首次几何或预测偏离原冻结')
+    else:
+        previous=parent+f'__T{ordinal-1}'
+        old=case_dir(root,previous,cfg)
+        r=read(old/'review/REVIEW_STAGE2.json')
+        if r['numerical_pass'] is not True or r['solve_completed'] is not True:
+            raise RuntimeError('前次未通过数值验收，不作为设计调参')
+        qp=old/'review/extraction_R2.json'
+        if f['previous_extraction_sha256']!=sha(qp):raise RuntimeError('调参的前次曲线提取不符')
+        suggestion=propose(read(qp),f['nominal_a_mm'],prior['topology'])
+        if not suggestion['needs_solve'] or suggestion['geometry_mm']!=pred['geometry_mm'] or suggestion['prediction']!=pred['prediction']:
+            raise RuntimeError('调参不符合冻结长度规程')
+    if any(pred['geometry_mm'][k]!=prior['geometry_mm'][k] for k in ('Wm','Ws','Ls2')):
+        raise RuntimeError('固定P/R或间隔被改变')
+    expected=geometry.slot_boxes(pred['geometry_mm'],pred['topology'])
+    if expected!=f['expected_boxes']:raise RuntimeError('冻结槽盒不一致')
+    return cfg,f
+
