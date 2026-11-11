@@ -1,0 +1,90 @@
+{
+  "at": "2026-11-11T19:14:26.140385+00:00",
+  "threshold": 420,
+  "prior_closed_Analyze_requests": 415,
+  "this_batch_validated_completed": 5,
+  "cumulative_checkpoint_count": 420,
+  "requested_total": 421,
+  "geometry_total": 50,
+  "geometry_limits": {
+    "1a": 5,
+    "1b": 9,
+    "2a": 45,
+    "2b": 66,
+    "3": 42,
+    "4": 8,
+    "5": 12
+  },
+  "batch": "2b",
+  "states": [
+    {
+      "case": "S2_E0_N04__T1",
+      "done": false,
+      "failure": false,
+      "passed_roles": 5
+    }
+  ],
+  "completed_this_batch": [
+    {
+      "case": "S2_E0_N04__T1",
+      "stage": "adaptive_00",
+      "role_check_sha256": "dcb71ee34a143de83616c93c7768c558eaaf21140285b717055efecc8009706b",
+      "native_result": {
+        "passes": 16,
+        "mesh_cells": 48979,
+        "delta_s": 0.007455,
+        "prior_history_unchanged": true,
+        "solver_process_count": 49
+      }
+    },
+    {
+      "case": "S2_E0_N04__T1",
+      "stage": "adaptive_01",
+      "role_check_sha256": "7f51a13ac538c8f45437410a221abf8431b19dcc833e2eeda73d2d59b65e36f5",
+      "native_result": {
+        "passes": 17,
+        "mesh_cells": 62228,
+        "delta_s": 0.0084256,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      }
+    },
+    {
+      "case": "S2_E0_N04__T1",
+      "stage": "adaptive_02",
+      "role_check_sha256": "7f51a13ac538c8f45437410a221abf8431b19dcc833e2eeda73d2d59b65e36f5",
+      "native_result": {
+        "passes": 18,
+        "mesh_cells": 67980,
+        "delta_s": 0.0046182,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      }
+    },
+    {
+      "case": "S2_E0_N04__T1",
+      "stage": "adaptive_03",
+      "role_check_sha256": "7f51a13ac538c8f45437410a221abf8431b19dcc833e2eeda73d2d59b65e36f5",
+      "native_result": {
+        "passes": 19,
+        "mesh_cells": 74199,
+        "delta_s": 0.0040341,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      }
+    },
+    {
+      "case": "S2_E0_N04__T1",
+      "stage": "adaptive_04",
+      "role_check_sha256": "7f51a13ac538c8f45437410a221abf8431b19dcc833e2eeda73d2d59b65e36f5",
+      "native_result": {
+        "passes": 20,
+        "mesh_cells": 80953,
+        "delta_s": 0.0028001,
+        "prior_history_unchanged": true,
+        "solver_process_count": 3
+      }
+    }
+  ],
+  "note": "历史累计为前批实际请求数；本批完成数只计原生结果及角色核验已闭合的阶段。请求数可能包含在算的下一段，不把Python启动当成HFSS完成。"
+}
