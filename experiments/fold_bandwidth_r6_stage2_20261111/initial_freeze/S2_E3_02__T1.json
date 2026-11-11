@@ -1,0 +1,309 @@
+{
+  "at": "2026-11-11T06:37:17.712892+00:00",
+  "parent_id": "S2_E3_02",
+  "attempt_ordinal": 1,
+  "design": {
+    "id": "S2_E3_02",
+    "stage": 2,
+    "experiment": "E3",
+    "family": "N14",
+    "source_case": "N14_A18",
+    "data_role": "planned_training",
+    "parent": null,
+    "geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.514,
+      "Ls1": 11.536,
+      "Ls2": 1.0383559999999998,
+      "Ls3": 2.9941780000000002
+    },
+    "rounding": "Fixed archived widths exact; new Lm/Ls1 and stage3 new Ws rounded to .001mm; dependent a/g exact; exact stage1 replay exception.",
+    "topology": "folded",
+    "screen": {
+      "a_mm": 2.6,
+      "g_mm": 0.2499999999999999,
+      "L_parameter_sum_mm": 19.601067999999998,
+      "L_centerline_mm": 18.024355999999997,
+      "rho": 0.4114606408181432,
+      "central_line_width_mm": 1.82,
+      "tip_to_line_x_mm": 1.8638219999999994,
+      "tip_to_tip_x_mm": 5.547643999999999,
+      "min_tip_to_tip_x_mm": 3.4459999999999997,
+      "slot_to_board_edge_x_mm": 9.232,
+      "board_half_x_mm": 15.0,
+      "screen_pass": true,
+      "reasons": [],
+      "rho_is_gate": false,
+      "long_arm_direct_coupling_flag": true,
+      "full_CAD_verified": false
+    },
+    "prediction": {
+      "parameters": {
+        "Zm_ohm": 49.538979937129206,
+        "Zs_ohm": 110.53153848945897,
+        "P": 2.190247867059733,
+        "R": 0.4481886402210314,
+        "N1": 1.0107586759388643,
+        "N2": 0.8246823549896773,
+        "zm_eff": 1.01221323385674,
+        "zs_eff": 1.5034521676111756,
+        "P_eff": 1.5218141805266336,
+        "R_eff": 0.6732593531492514,
+        "fm_GHz": 6.622121637740073,
+        "fs_GHz": 6.588114501789428,
+        "length_form": "centerline",
+        "gap_effect": "unidentified; zero extra effect prior only",
+        "evidence": "rounded_law_prior",
+        "validated_prediction": false
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.5224426388951544,
+          "high_GHz": 9.657843838658605,
+          "BW_GHz": 6.135401199763451,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.5224426388951544,
+              9.657843838658605
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.5224426388951544,
+            9.657843838658605
+          ],
+          "outer_span_GHz": 6.135401199763451,
+          "center_component_BW_GHz": 6.135401199763451,
+          "fit_eligible": true
+        },
+        "BW20": {
+          "low_GHz": null,
+          "high_GHz": null,
+          "BW_GHz": null,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.683813294139555,
+              4.890155438364927
+            ],
+            [
+              5.044559811186505,
+              9.487026561154856
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.683813294139555,
+            9.487026561154856
+          ],
+          "outer_span_GHz": 5.803213267015301,
+          "center_component_BW_GHz": 4.442466749968351,
+          "fit_eligible": false,
+          "hard_constraint_valid": false,
+          "exclusion_reason": "R1_multiple_components"
+        },
+        "BW_S21": {
+          "low_GHz": 2.9169209049361084,
+          "high_GHz": 10.284029545315677,
+          "BW_GHz": 7.367108640379569,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.9169209049361084,
+              10.284029545315677
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            2.9169209049361084,
+            10.284029545315677
+          ],
+          "outer_span_GHz": 7.367108640379569,
+          "center_component_BW_GHz": 7.367108640379569,
+          "fit_eligible": true
+        },
+        "BW_joint": {
+          "low_GHz": 5.044559811186505,
+          "high_GHz": 9.487026561154856,
+          "BW_GHz": 4.442466749968351,
+          "components": 2,
+          "intervals_GHz": [
+            [
+              3.683813294139555,
+              4.890155438364927
+            ],
+            [
+              5.044559811186505,
+              9.487026561154856
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.683813294139555,
+            9.487026561154856
+          ],
+          "outer_span_GHz": 5.803213267015301,
+          "center_component_BW_GHz": 4.442466749968351,
+          "fit_eligible": true
+        }
+      },
+      "equal_frequency_inner_peak_dB": -20.45408907400233,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "Uncalibrated prior; g extra effect set to zero. Ideal circuit S21 is not a lossy-HFSS prediction."
+    },
+    "validity": "exploratory_prior_not_validated",
+    "blocking_reasons": [
+      "human_batch_authorization_required",
+      "native_generated_CAD_box_comparison_required",
+      "solver_resource_and_Analyze_budget_preflight_required"
+    ],
+    "release_status": "review_only_not_authorized",
+    "solver_authorized": false,
+    "future_run_directory": "runs/S2_E3_02/attempt_001",
+    "initial_prediction_stage": "R1_prior_not_prospective_prediction",
+    "future_prospective_freeze_required": false,
+    "batch": "2a",
+    "boundary_half_x_mm": 15.0,
+    "material_role": "archived_lossy",
+    "first_attempt_role": "planned_training",
+    "subsequent_attempt_role": "tuned_data",
+    "first_attempt_role_immutable": true,
+    "max_Analyze_requests_proposed": 3
+  },
+  "nominal_a_mm": 2.6,
+  "expected_boxes": [
+    {
+      "name": "StructureBSlot_top_main",
+      "parameters_mm": {
+        "XPosition": -5.768,
+        "YPosition": -0.197089,
+        "ZPosition": -0.01,
+        "XSize": 11.536,
+        "YSize": 0.394178,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_connector",
+      "parameters_mm": {
+        "XPosition": 5.373822,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.01,
+        "XSize": 0.394178,
+        "YSize": 0.6441779999999999,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_leg",
+      "parameters_mm": {
+        "XPosition": 2.7738219999999996,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.01,
+        "XSize": 2.6,
+        "YSize": 0.394178,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_connector",
+      "parameters_mm": {
+        "XPosition": -5.768,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.01,
+        "XSize": 0.394178,
+        "YSize": 0.6441779999999999,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_leg",
+      "parameters_mm": {
+        "XPosition": -5.373822,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.01,
+        "XSize": 2.6,
+        "YSize": 0.394178,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_main",
+      "parameters_mm": {
+        "XPosition": -5.768,
+        "YPosition": -0.197089,
+        "ZPosition": -0.045,
+        "XSize": 11.536,
+        "YSize": 0.394178,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_connector",
+      "parameters_mm": {
+        "XPosition": 5.373822,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.045,
+        "XSize": 0.394178,
+        "YSize": 0.6441779999999999,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_leg",
+      "parameters_mm": {
+        "XPosition": 2.7738219999999996,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.045,
+        "XSize": 2.6,
+        "YSize": 0.394178,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_connector",
+      "parameters_mm": {
+        "XPosition": -5.768,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.045,
+        "XSize": 0.394178,
+        "YSize": 0.6441779999999999,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_leg",
+      "parameters_mm": {
+        "XPosition": -5.373822,
+        "YPosition": -0.8412669999999999,
+        "ZPosition": -0.045,
+        "XSize": 2.6,
+        "YSize": 0.394178,
+        "ZSize": 0.055
+      }
+    }
+  ],
+  "source_hashes": {
+    "experiments/fold_bandwidth_r1_20261110/chain.py": "c65aed604089c19a89575d90c3534187bc4fcde4753f6b2da6978184356cbc49",
+    "experiments/fold_bandwidth_r1_20261110/geometry.py": "3dc0cd6849e4ca1cdec3853324cb876a71f43d94530442f8bd1cd2fdbc54b875",
+    "experiments/fold_bandwidth_r1_20261110/prepare_designs.py": "3040a5c2407fbe771fd55a0f36cf841ed61c283f000b56b914c089abbeb7efad",
+    "experiments/fold_bandwidth_r1_20261110/common.py": "41ddc5230cd0d5923bbfbcdfeacb03345a1a142b23f5fc4feb8cbfbfefe5d2f9",
+    "experiments/fold_bandwidth_phase0_20261110/chain.py": "0b061e467d02328350d25f8e03ec3eaa7d96fc21d15b1abeee5bcce31177a9c1",
+    "experiments/fold_bandwidth_phase0_20261110/freeze/predictions_frozen.json": "e3094c8298c435571d0685ae27501f50a2025edbf1abe1dc0c4276df460b366e",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R1.md": "5bac2ae8f1e51fb27883175ca5890622422bc4a73ad72da9cfd324235a7d4876",
+    "analysis/line_models.py": "d032f6086f80832344148ddd6d93dd0656e6f1ab7e24f945af59e5e75c575713",
+    "model/DATASET.json": "57e422f9b95f304c151d82a5ef5278ff538d9981d41b33305eef9c76a25623cd",
+    "model/dataset.npz": "f79fcb02d264b32de39c60499b197ff019baf34b0478d7226e7092933a6ca837",
+    "hfss/INV01_A14.aedt": "ee640438d8d1be88ecc4c6928a487bd9683493a3d06323d4d655d23534e6b4ee",
+    "experiments/fold_bandwidth_r1_20261110/freeze_r1/predictions_frozen.json": "afc36bfc83e0fed17dffde90f4f426f2a09c86cd066796d1d51c351e4cdd935f",
+    "experiments/fold_bandwidth_r1_20261110/freeze_r1/SLOT_BOXES.json": "8f54eeeba4cf223ed700c42b864a83f40a2d5c574b619e201a7645f468543686"
+  },
+  "authorization_sha256": "597847d210fed547182282caba2a9b23efe1e04e5198ed1f4fe7fef265ea24b9",
+  "resume": false,
+  "inherited_Analyze": 0,
+  "previous_extraction_sha256": null,
+  "prediction_level": "冻结理论先验，不是已验证预测",
+  "solver_started": false
+}
