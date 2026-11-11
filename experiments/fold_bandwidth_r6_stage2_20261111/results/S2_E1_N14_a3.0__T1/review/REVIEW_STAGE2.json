@@ -1,0 +1,301 @@
+{
+  "at": "2026-11-11T10:38:00.104552+00:00",
+  "case": "S2_E1_N14_a3.0__T1",
+  "parent_id": "S2_E1_N14_a3.0",
+  "attempt_ordinal": 1,
+  "solve_completed": true,
+  "numerical_pass": true,
+  "design_pass": false,
+  "tuning_status": {
+    "length_calibrated": false,
+    "equivalent_fit_unique_under_R2": true,
+    "usable_for_law": false,
+    "design_pass": false,
+    "note": "阶段2调准指中央谷和内峰平衡，不要求固定宽度设计达到−20dB；等效电路多起点检查也单独记录。"
+  },
+  "next_suggestion": {
+    "status": {
+      "length_calibrated": false,
+      "equivalent_fit_unique_under_R2": true,
+      "usable_for_law": false,
+      "design_pass": false,
+      "note": "阶段2调准指中央谷和内峰平衡，不要求固定宽度设计达到−20dB；等效电路多起点检查也单独记录。"
+    },
+    "needs_solve": true,
+    "reason": "R4_length_correction_then_R2_screen",
+    "previous_geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.49,
+      "Ls1": 10.352,
+      "Ls2": 1.338356,
+      "Ls3": 3.394178
+    },
+    "geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.394178,
+      "Lm": 6.375,
+      "Ls1": 9.206,
+      "Ls2": 1.338356,
+      "Ls3": 2.879178
+    },
+    "screen": {
+      "input_geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.394178,
+        "Lm": 6.375,
+        "Ls1": 9.206,
+        "Ls2": 1.338356,
+        "Ls3": 3.394178
+      },
+      "geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.394178,
+        "Lm": 6.375,
+        "Ls1": 9.206,
+        "Ls2": 1.338356,
+        "Ls3": 2.879178
+      },
+      "nominal_a_mm": 3.0,
+      "input_a_mm": 3.0,
+      "actual_a_mm": 2.485,
+      "adjusted": true,
+      "adjustment_step_mm": 0.001,
+      "additional_attempts": 0,
+      "can_submit": true,
+      "decision_scope": "geometry_only_not_solver_authorization",
+      "solver_authorized": false,
+      "must_recheck_every_attempt": true,
+      "screen_before": {
+        "a_mm": 3.0,
+        "g_mm": 0.5500000000000002,
+        "L_parameter_sum_mm": 18.671067999999998,
+        "L_centerline_mm": 17.094355999999998,
+        "rho": 0.5069376856214117,
+        "central_line_width_mm": 1.82,
+        "tip_to_line_x_mm": 0.2988219999999996,
+        "tip_to_tip_x_mm": 2.4176439999999992,
+        "min_tip_to_tip_x_mm": 3.4459999999999997,
+        "slot_to_board_edge_x_mm": 10.397,
+        "board_half_x_mm": 15.0,
+        "screen_pass": false,
+        "reasons": [
+          "tip_line_clearance_below_0.813mm",
+          "tip_tip_clearance_below_line_width_plus_1.626mm"
+        ],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": true,
+        "full_CAD_verified": false
+      },
+      "screen_after": {
+        "a_mm": 2.485,
+        "g_mm": 0.5500000000000002,
+        "L_parameter_sum_mm": 17.641068,
+        "L_centerline_mm": 16.064356,
+        "rho": 0.47814950886193514,
+        "central_line_width_mm": 1.82,
+        "tip_to_line_x_mm": 0.8138219999999997,
+        "tip_to_tip_x_mm": 3.4476439999999995,
+        "min_tip_to_tip_x_mm": 3.4459999999999997,
+        "slot_to_board_edge_x_mm": 10.397,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "reason": "tuning_clearance_failure_reduce_a_to_largest_passing_grid_value",
+      "analytic_upper_bound_mm": 2.4858219999999998,
+      "analysis_arm_field": "actual_a_mm",
+      "next_grid_a_mm": 2.486,
+      "next_grid_allowed": false
+    },
+    "deltaLm_unrounded_mm": -0.11514453420780264,
+    "deltaLs1_unrounded_mm": -1.1463095894472648,
+    "targets_GHz": {
+      "fm": 6.622,
+      "fs": 6.588
+    },
+    "actual_a_mm": 2.485,
+    "prediction": {
+      "Zm_ohm": 49.538979937129206,
+      "Zs_ohm": 110.53153848945897,
+      "P": 2.190247867059733,
+      "R": 0.4481886402210314,
+      "N1": 1.010425175938864,
+      "N2": 0.8271663549896773,
+      "zm_eff": 1.0115453841902022,
+      "zs_eff": 1.5125228105331028,
+      "P_eff": 1.5299854674771518,
+      "R_eff": 0.6687802505495264,
+      "fm_GHz": 6.766671712727989,
+      "fs_GHz": 7.356846568637815,
+      "length_form": "centerline",
+      "gap_effect": "unidentified; zero extra effect prior only",
+      "evidence": "rounded_law_prior",
+      "validated_prediction": false
+    },
+    "data_role": "tuned_data",
+    "solver_started": false
+  },
+  "metrics": {
+    "inner_peak_low_dB": null,
+    "inner_peak_high_dB": null,
+    "inner_peak_mean_dB": null,
+    "central_valley_GHz": null,
+    "BW15_GHz": null,
+    "BW20_GHz": null,
+    "BW_S21_GHz": 6.29138647431599,
+    "BW_joint_GHz": null,
+    "N1": 1.0073056609105677,
+    "N2": 0.7690382958878171,
+    "P_eff": 1.314352178287397,
+    "R_eff": 0.7689311592196393,
+    "fm_GHz": 6.510952266481289,
+    "fs_GHz": 6.181588400402098
+  },
+  "mesh_cells": 101977,
+  "delta_s": 0.0013428,
+  "passes": 25,
+  "Analyze_requests": 11,
+  "native_sha256": "0b7f04f52a3e786815516cd53a840727a191c4efb4399303a94c78f17bda4f6e",
+  "final_sweep_history_unchanged": true,
+  "role_checks": {
+    "adaptive_00": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 48,
+        "-solve": 0,
+        "-port_adapt": 1,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_01": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_02": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_03": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_04": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_05": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_06": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_07": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_08": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_09": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "final_sweep": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 0,
+        "-solve": 31,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    }
+  },
+  "topology": "folded",
+  "data_role": "planned_training",
+  "result_level": "名义插值结果；不是直接频点、全模式功率或制造公差认证"
+}
