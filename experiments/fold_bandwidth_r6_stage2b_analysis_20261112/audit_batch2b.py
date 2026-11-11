@@ -1,6 +1,7 @@
 """阶段2b结项只读交叉审计：逐尝试、账本、原生历史、角色、图ACK与公开哈希。"""
 import argparse,json
 from collections import Counter
+from datetime import datetime
 from pathlib import Path
 import sys
 import numpy as np
@@ -78,7 +79,11 @@ def audit(root,public):
         for rel,h in manifest.items():require(m.sha(pub/rel)==h,"公开结果文件改变："+case+"/"+rel)
         require(m.sha(pub/"native/full_modes.npz")==m.sha(w/"native/full_modes.npz"),"公开/本机原生数据不一致")
         require(m.sha(pub/"review/extraction_R2.json")==m.sha(w/"review/extraction_R2.json"),"公开/本机提取不一致")
-        rows.append(dict(case=case,parent_id=g["parent_id"],mesh_cells=hist[-1][1],passes=hist[-1][0],
+        started=read(w/"worker_started.json")["at"]
+        finished=record["finished_at"]
+        elapsed=(datetime.fromisoformat(finished)-datetime.fromisoformat(started)).total_seconds()
+        require(elapsed>=0,"时间戳顺序不符")
+        rows.append(dict(case=case,parent_id=g["parent_id"],started_at=started,finished_at=finished,wall_seconds=elapsed,mesh_cells=hist[-1][1],passes=hist[-1][0],
             delta_s=hist[-1][2],Analyze=n,design_pass=q["shape"]["passed"],numerical_pass=True,
             extracted_parameters_max_abs_recompute_difference=diff,mesh_history_unchanged=True,
             curve_sha256=m.sha(w/"native/full_modes.npz"),public_manifest_sha256=m.sha(pub/"MANIFEST.json")))
