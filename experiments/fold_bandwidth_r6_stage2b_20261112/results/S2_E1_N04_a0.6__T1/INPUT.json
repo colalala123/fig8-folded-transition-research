@@ -1,0 +1,631 @@
+{
+  "parent_id": "S2_E1_N04_a0.6",
+  "attempt_ordinal": 1,
+  "design": {
+    "id": "S2_E1_N04_a0.6",
+    "stage": 2,
+    "experiment": "E1",
+    "family": "N04",
+    "source_case": "N04_A18",
+    "data_role": "prospective_test",
+    "parent": null,
+    "geometry_mm": {
+      "Wm": 1.936496,
+      "Ws": 0.393861,
+      "Lm": 6.63,
+      "Ls1": 13.909,
+      "Ls2": 1.337722,
+      "Ls3": 0.993861
+    },
+    "rounding": "Fixed archived widths exact; new Lm/Ls1 and stage3 new Ws rounded to .001mm; dependent a/g exact; exact stage1 replay exception.",
+    "topology": "folded",
+    "screen": {
+      "a_mm": 0.6,
+      "g_mm": 0.55,
+      "L_parameter_sum_mm": 18.572166000000003,
+      "L_centerline_mm": 16.996722000000002,
+      "rho": 0.25108358389646096,
+      "central_line_width_mm": 1.936496,
+      "tip_to_line_x_mm": 4.9923910000000005,
+      "tip_to_tip_x_mm": 11.921278000000001,
+      "min_tip_to_tip_x_mm": 3.562496,
+      "slot_to_board_edge_x_mm": 8.0455,
+      "board_half_x_mm": 15.0,
+      "screen_pass": true,
+      "reasons": [],
+      "rho_is_gate": false,
+      "long_arm_direct_coupling_flag": false,
+      "full_CAD_verified": false
+    },
+    "prediction": {
+      "parameters": {
+        "Zm_ohm": 47.52083021465868,
+        "Zs_ohm": 110.50895931841724,
+        "P": 2.1005909971876515,
+        "R": 0.43001789635656207,
+        "N1": 1.0063186747274333,
+        "N2": 0.8685557646392403,
+        "zm_eff": 0.9624652970503271,
+        "zs_eff": 1.6673351232426687,
+        "P_eff": 1.604752194674199,
+        "R_eff": 0.5772476592339183,
+        "fm_GHz": 6.621822026513141,
+        "fs_GHz": 6.608256350627099,
+        "A_is_unvalidated_straight_extrapolation": true,
+        "cross_family_transfer_validated": false,
+        "lossless_equivalent_circuit_only": true,
+        "geometry_mm": {
+          "Wm": 1.936496,
+          "Ws": 0.393861,
+          "Lm": 6.63,
+          "Ls1": 13.909,
+          "Ls2": 1.337722,
+          "Ls3": 0.993861
+        },
+        "topology": "folded"
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.3247548140164946,
+          "high_GHz": 9.894421603522622,
+          "BW_GHz": 6.569666789506127,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.3247548140164946,
+              9.894421603522622
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.3247548140164946,
+            9.894421603522622
+          ],
+          "outer_span_GHz": 6.569666789506127,
+          "definition": "R2_main_component_contains_central_valley_and_both_inner_peaks",
+          "central_valley_GHz": 6.64,
+          "main_component_GHz": [
+            3.3247548140164946,
+            9.894421603522622
+          ],
+          "main_component_BW_GHz": 6.569666789506127,
+          "secondary_components": [],
+          "secondary_component_count": 0,
+          "main_band_valid": true,
+          "exclusion_reason": null,
+          "exclusion_detail": null,
+          "fit_eligible": true
+        },
+        "BW20": {
+          "low_GHz": null,
+          "high_GHz": null,
+          "BW_GHz": null,
+          "components": 3,
+          "intervals_GHz": [
+            [
+              3.47576192881806,
+              4.351510760628828
+            ],
+            [
+              5.300794637199424,
+              8.048913274169607
+            ],
+            [
+              8.78655569636634,
+              9.740150491627789
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.47576192881806,
+            9.740150491627789
+          ],
+          "outer_span_GHz": 6.264388562809729,
+          "definition": "R2_main_component_contains_central_valley_and_both_inner_peaks",
+          "central_valley_GHz": 6.64,
+          "main_component_GHz": [
+            5.300794637199424,
+            8.048913274169607
+          ],
+          "main_component_BW_GHz": 2.748118636970183,
+          "secondary_components": [
+            [
+              3.47576192881806,
+              4.351510760628828
+            ],
+            [
+              8.78655569636634,
+              9.740150491627789
+            ]
+          ],
+          "secondary_component_count": 2,
+          "main_band_valid": false,
+          "exclusion_reason": "主通带在内峰处断开",
+          "exclusion_detail": "inner_peak_outside_main_component",
+          "fit_eligible": false,
+          "hard_constraint_valid": false
+        },
+        "BW_S21": {
+          "low_GHz": 2.7506939747757944,
+          "high_GHz": 10.475969666815956,
+          "BW_GHz": 7.725275692040162,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.7506939747757944,
+              10.475969666815956
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            2.7506939747757944,
+            10.475969666815956
+          ],
+          "outer_span_GHz": 7.725275692040162,
+          "definition": "R1_S21_only_component_containing_6.72GHz",
+          "fit_eligible": true
+        },
+        "BW_joint": {
+          "low_GHz": null,
+          "high_GHz": null,
+          "BW_GHz": null,
+          "components": 3,
+          "intervals_GHz": [
+            [
+              3.47576192881806,
+              4.351510760628828
+            ],
+            [
+              5.300794637199424,
+              8.048913274169607
+            ],
+            [
+              8.78655569636634,
+              9.740150491627789
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.47576192881806,
+            9.740150491627789
+          ],
+          "outer_span_GHz": 6.264388562809729,
+          "definition": "R2_main_component_contains_central_valley_and_both_inner_peaks",
+          "central_valley_GHz": 6.64,
+          "main_component_GHz": [
+            5.300794637199424,
+            8.048913274169607
+          ],
+          "main_component_BW_GHz": 2.748118636970183,
+          "secondary_components": [
+            [
+              3.47576192881806,
+              4.351510760628828
+            ],
+            [
+              8.78655569636634,
+              9.740150491627789
+            ]
+          ],
+          "secondary_component_count": 2,
+          "main_band_valid": false,
+          "exclusion_reason": "主通带在内峰处断开",
+          "exclusion_detail": "inner_peak_outside_main_component",
+          "fit_eligible": false
+        }
+      },
+      "lossless_circuit_shape": {
+        "worst_S11_dB": -18.854967379175957,
+        "min_S21_dB": -0.056902268471387976,
+        "shape_valid": true,
+        "passed": false,
+        "central_valley_GHz": 6.64,
+        "peak_difference_dB": 0.43278044046971686,
+        "inner_peaks": [
+          {
+            "GHz": 4.78,
+            "S11_dB": -18.854967379175957
+          },
+          {
+            "GHz": 8.45,
+            "S11_dB": -19.287747819645674
+          }
+        ],
+        "objective": 156.1099702751178,
+        "nominal_buffer_satisfied": false
+      },
+      "equal_frequency_inner_peak_dB": -19.008783337239137,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "单家族模型向新宽度外推；理想电路S21不是含损耗HFSS预测；直槽尺度未经调准对照验证。"
+    },
+    "validity": "unvalidated_cross_family_prospective_prediction",
+    "blocking_reasons": [
+      "push_before_first_Analyze",
+      "batch2b_budget_and_native_CAD_resource_preflight"
+    ],
+    "release_status": "prediction_only_not_native_release",
+    "solver_authorized": false,
+    "future_run_directory": "runs/S2_E1_N04_a0.6/attempt_001",
+    "initial_prediction_stage": "post_2a_model_frozen_before_2b",
+    "future_prospective_freeze_required": false,
+    "batch": "2b",
+    "boundary_half_x_mm": 15.0,
+    "material_role": "archived_lossy",
+    "first_attempt_role": "prospective_test",
+    "subsequent_attempt_role": "tuned_data",
+    "first_attempt_role_immutable": true,
+    "max_Analyze_requests_proposed": 3,
+    "prior_R1_prediction": {
+      "parameters": {
+        "Zm_ohm": 47.52083021465868,
+        "Zs_ohm": 110.50895931841724,
+        "P": 2.1005909971876515,
+        "R": 0.43001789635656207,
+        "N1": 1.0063186747274333,
+        "N2": 0.8688456288964398,
+        "zm_eff": 0.9624652970503271,
+        "zs_eff": 1.6684481928301294,
+        "P_eff": 1.605823485525332,
+        "R_eff": 0.5768625607833417,
+        "fm_GHz": 6.621822026513141,
+        "fs_GHz": 6.587923493231589,
+        "length_form": "centerline",
+        "gap_effect": "unidentified; zero extra effect prior only",
+        "evidence": "rounded_law_prior",
+        "validated_prediction": false
+      },
+      "lossless_circuit_bandwidths": {
+        "BW15": {
+          "low_GHz": 3.314331213158,
+          "high_GHz": 9.867967348438324,
+          "BW_GHz": 6.553636135280324,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              3.314331213158,
+              9.867967348438324
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.314331213158,
+            9.867967348438324
+          ],
+          "outer_span_GHz": 6.553636135280324,
+          "center_component_BW_GHz": 6.553636135280324,
+          "fit_eligible": true
+        },
+        "BW20": {
+          "low_GHz": null,
+          "high_GHz": null,
+          "BW_GHz": null,
+          "components": 3,
+          "intervals_GHz": [
+            [
+              3.4635282055011585,
+              4.303496149015094
+            ],
+            [
+              5.358056476539763,
+              8.17940640103869
+            ],
+            [
+              8.647606097615247,
+              9.710622078320844
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.4635282055011585,
+            9.710622078320844
+          ],
+          "outer_span_GHz": 6.247093872819685,
+          "center_component_BW_GHz": 2.8213499244989277,
+          "fit_eligible": false,
+          "hard_constraint_valid": false,
+          "exclusion_reason": "R1_multiple_components"
+        },
+        "BW_S21": {
+          "low_GHz": 2.7445932074752126,
+          "high_GHz": 10.456537784037696,
+          "BW_GHz": 7.711944576562484,
+          "components": 1,
+          "intervals_GHz": [
+            [
+              2.7445932074752126,
+              10.456537784037696
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            2.7445932074752126,
+            10.456537784037696
+          ],
+          "outer_span_GHz": 7.711944576562484,
+          "center_component_BW_GHz": 7.711944576562484,
+          "fit_eligible": true
+        },
+        "BW_joint": {
+          "low_GHz": 5.358056476539763,
+          "high_GHz": 8.17940640103869,
+          "BW_GHz": 2.8213499244989277,
+          "components": 3,
+          "intervals_GHz": [
+            [
+              3.4635282055011585,
+              4.303496149015094
+            ],
+            [
+              5.358056476539763,
+              8.17940640103869
+            ],
+            [
+              8.647606097615247,
+              9.710622078320844
+            ]
+          ],
+          "edge_censored": false,
+          "outer_envelope_GHz": [
+            3.4635282055011585,
+            9.710622078320844
+          ],
+          "outer_span_GHz": 6.247093872819685,
+          "center_component_BW_GHz": 2.8213499244989277,
+          "fit_eligible": true
+        }
+      },
+      "equal_frequency_inner_peak_dB": -18.991737626683104,
+      "BW_S21_HFSS_prediction_GHz": null,
+      "caveat": "Uncalibrated prior; g extra effect set to zero. Ideal circuit S21 is not a lossy-HFSS prediction."
+    },
+    "prior_R1_data_role": "planned_training",
+    "control_type": "folded",
+    "source_geometry_unchanged": true,
+    "expected_boxes": [
+      {
+        "name": "StructureBSlot_top_main",
+        "parameters_mm": {
+          "XPosition": -6.9545,
+          "YPosition": -0.1969305,
+          "ZPosition": -0.01,
+          "XSize": 13.909,
+          "YSize": 0.393861,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_top_right_connector",
+        "parameters_mm": {
+          "XPosition": 6.560639,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.01,
+          "XSize": 0.393861,
+          "YSize": 0.9438610000000001,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_top_right_leg",
+        "parameters_mm": {
+          "XPosition": 5.9606390000000005,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.01,
+          "XSize": 0.6,
+          "YSize": 0.393861,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_top_left_connector",
+        "parameters_mm": {
+          "XPosition": -6.9545,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.01,
+          "XSize": 0.393861,
+          "YSize": 0.9438610000000001,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_top_left_leg",
+        "parameters_mm": {
+          "XPosition": -6.560639,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.01,
+          "XSize": 0.6,
+          "YSize": 0.393861,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_bottom_main",
+        "parameters_mm": {
+          "XPosition": -6.9545,
+          "YPosition": -0.1969305,
+          "ZPosition": -0.045,
+          "XSize": 13.909,
+          "YSize": 0.393861,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_bottom_right_connector",
+        "parameters_mm": {
+          "XPosition": 6.560639,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.045,
+          "XSize": 0.393861,
+          "YSize": 0.9438610000000001,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_bottom_right_leg",
+        "parameters_mm": {
+          "XPosition": 5.9606390000000005,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.045,
+          "XSize": 0.6,
+          "YSize": 0.393861,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_bottom_left_connector",
+        "parameters_mm": {
+          "XPosition": -6.9545,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.045,
+          "XSize": 0.393861,
+          "YSize": 0.9438610000000001,
+          "ZSize": 0.055
+        }
+      },
+      {
+        "name": "StructureBSlot_bottom_left_leg",
+        "parameters_mm": {
+          "XPosition": -6.560639,
+          "YPosition": -1.1407915000000002,
+          "ZPosition": -0.045,
+          "XSize": 0.6,
+          "YSize": 0.393861,
+          "ZSize": 0.055
+        }
+      }
+    ]
+  },
+  "expected_boxes": [
+    {
+      "name": "StructureBSlot_top_main",
+      "parameters_mm": {
+        "XPosition": -6.9545,
+        "YPosition": -0.1969305,
+        "ZPosition": -0.01,
+        "XSize": 13.909,
+        "YSize": 0.393861,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_connector",
+      "parameters_mm": {
+        "XPosition": 6.560639,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.01,
+        "XSize": 0.393861,
+        "YSize": 0.9438610000000001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_leg",
+      "parameters_mm": {
+        "XPosition": 5.9606390000000005,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.01,
+        "XSize": 0.6,
+        "YSize": 0.393861,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_connector",
+      "parameters_mm": {
+        "XPosition": -6.9545,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.01,
+        "XSize": 0.393861,
+        "YSize": 0.9438610000000001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_leg",
+      "parameters_mm": {
+        "XPosition": -6.560639,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.01,
+        "XSize": 0.6,
+        "YSize": 0.393861,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_main",
+      "parameters_mm": {
+        "XPosition": -6.9545,
+        "YPosition": -0.1969305,
+        "ZPosition": -0.045,
+        "XSize": 13.909,
+        "YSize": 0.393861,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_connector",
+      "parameters_mm": {
+        "XPosition": 6.560639,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.045,
+        "XSize": 0.393861,
+        "YSize": 0.9438610000000001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_leg",
+      "parameters_mm": {
+        "XPosition": 5.9606390000000005,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.045,
+        "XSize": 0.6,
+        "YSize": 0.393861,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_connector",
+      "parameters_mm": {
+        "XPosition": -6.9545,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.045,
+        "XSize": 0.393861,
+        "YSize": 0.9438610000000001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_leg",
+      "parameters_mm": {
+        "XPosition": -6.560639,
+        "YPosition": -1.1407915000000002,
+        "ZPosition": -0.045,
+        "XSize": 0.6,
+        "YSize": 0.393861,
+        "ZSize": 0.055
+      }
+    }
+  ],
+  "source_hashes": {
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/freeze_2b.py": "ee513aa633eadd3e000cc2e6242137db52b88e09d49cd85a4f0e58a033543572",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/fit_model.py": "21d20439eb62058fe05f87d71b8caa5be66c15bd704795d6a666ed19e357b258",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/METHODS.md": "20222a59df0e06ffa0cd0f9ab9af664e50959e6f347821a80acc33c209afb25e",
+    "experiments/fold_bandwidth_r6_stage2_analysis_20261111/gate_v2.py": "7193475c18d1d37990e1cd9a5484c5419e51009c37d135830f8af2edcdd736e6",
+    "experiments/fold_bandwidth_r2_20261110/chain.py": "3148d305025e305bfaba6a7d993a84c0a0e0afdecd472be425e07f43945a8b07",
+    "experiments/fold_bandwidth_r2_20261110/presubmit.py": "3c2eb0167f37cc51bc08bfae895b1fa453992b30de15e6cc3e6d1506e6b8c8b3",
+    "experiments/fold_bandwidth_r2_20261110/geometry.py": "fdea9993907aba246913f5cd7cb5c1e3f8933308dce08ba29887c3e9179a4dba",
+    "experiments/fold_bandwidth_phase0_20261110/chain.py": "0b061e467d02328350d25f8e03ec3eaa7d96fc21d15b1abeee5bcce31177a9c1",
+    "analysis/line_models.py": "d032f6086f80832344148ddd6d93dd0656e6f1ab7e24f945af59e5e75c575713",
+    "analysis/lib.py": "e1bbd6d4818eb87a00daf1ff9d8fc16effb1161e73e1d7ca39d81fb8d14c65dd",
+    "experiments/fold_bandwidth_r1_20261110/freeze_r1/predictions_frozen.json": "afc36bfc83e0fed17dffde90f4f426f2a09c86cd066796d1d51c351e4cdd935f",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/fit_complete/MODEL.json": "d4131d99296588c9b13be925dae66eedcbdbcbd74c28b1aeeb3f6cd8ba756a7e",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/fit_complete/SNAPSHOT.json": "ea5dce142d6b59f5cf7b938c34b022f83ba25f3641fc3af5853a022f0c1afa48",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/prospective_22/PREDICTIONS_22.json": "5f48726146f2d440ace35b7ad011e0acc59194cd348793528ba6adbbac865795",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/prospective_22/MANIFEST.json": "37ed59ee351b68c7730da2479ff97f98ea3249c7b3ef35ceb498161d6035927e",
+    "experiments/fold_bandwidth_r1_20261110/freeze_r1/SLOT_BOXES.json": "8f54eeeba4cf223ed700c42b864a83f40a2d5c574b619e201a7645f468543686",
+    "hfss/INV01_A14.aedt": "ee640438d8d1be88ecc4c6928a487bd9683493a3d06323d4d655d23534e6b4ee"
+  },
+  "nominal_a_mm": 0.6,
+  "authorization_sha256": "7c383eccfe79f4027eeb8ccd24d3bcd2bba66ea61ca5df0d9d37283f73bb8dc3",
+  "previous_extraction_sha256": null
+}
