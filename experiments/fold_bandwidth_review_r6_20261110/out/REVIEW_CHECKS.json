@@ -1,0 +1,61 @@
+{
+ "n04_redo_vs_archive": {
+  "archive_BW15_band_GHz": [
+   3.43101472103764,
+   9.756001315338494
+  ],
+  "max_abs_dS11": 0.003149389091963133,
+  "max_abs_dS21": 0.0005121745209498631,
+  "peaks_new": [
+   [
+    5.18,
+    -20.675810164878378
+   ],
+   [
+    8.28,
+    -20.32137722526748
+   ]
+  ],
+  "peaks_archive": [
+   [
+    5.19,
+    -20.8541350204918
+   ],
+   [
+    8.25,
+    -20.432493835805804
+   ]
+  ],
+  "BW20_new_GHz": 6.004205191264785,
+  "BW20_archive_GHz": 6.001732796944351,
+  "BW15_new_GHz": 6.325672076362967,
+  "BW15_archive_GHz": 6.324986594300855
+ },
+ "archive_process_roles": [
+  {
+   "role": "-port_adapt",
+   "max_processors": "none",
+   "observations": 3
+  },
+  {
+   "role": "-port_solve",
+   "max_processors": "2",
+   "observations": 2
+  },
+  {
+   "role": "-solve",
+   "max_processors": "14",
+   "observations": 2410
+  },
+  {
+   "role": "-solve",
+   "max_processors": "2",
+   "observations": 1
+  },
+  {
+   "role": "-solve_broadband_adapt",
+   "max_processors": "14",
+   "observations": 4176
+  }
+ ]
+}
