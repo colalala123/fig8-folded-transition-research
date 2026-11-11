@@ -1,0 +1,15 @@
+{
+  "at": "2026-11-11T23:56:58.729649+00:00",
+  "phase": "finish_current_then_user_pause",
+  "human_request": "当前这一项继续算完，但不要启动下一项。保存并汇总当前进度、预算和接续入口，我准备切换模型。不要关闭正在运行的 HFSS。",
+  "current_case": "S2_E1_N04_a3.0__T3",
+  "allowed_remaining_work": "仅当前几何既定自适应/最终扫频、导出、离线审核、保存和汇总；不得启动其他几何。",
+  "allow_next_geometry": false,
+  "allow_restart": false,
+  "no_external_hfss_close": true,
+  "require_explicit_human_resume": true,
+  "enforcement_note": "正在运行worker的每段记账会检查PAUSE.json，因此不能提前写该文件，否则会中断当前几何。终态后写正式PAUSE.json阻止后续Analyze；本文件记录立即生效的人工接续限制。",
+  "frozen_runner_unchanged": true,
+  "model_switch_is_not_resume_authorization": true,
+  "runtime_file_not_public": true
+}
