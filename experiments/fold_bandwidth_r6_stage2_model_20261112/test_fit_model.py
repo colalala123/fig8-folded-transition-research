@@ -97,4 +97,23 @@ class Tests(unittest.TestCase):
         rows[0]["bandwidths"]["BW15"]["BW_GHz"]=None
         with self.assertRaises(ValueError):h2_h3({"rows":rows},{"kappa":m.fit_kappa(rows,"ka")})
 
+    def test_all_22_predictions_keep_geometry_and_prospective_role(self):
+        import json
+        import freeze_2b
+        reg=json.loads(freeze_2b.REGISTRY.read_text(encoding="utf-8-sig"))
+        before=copy.deepcopy(reg)
+        r=fixtures()
+        model=dict(reference_widths_mm=m.REFERENCE_WIDTHS,kappa=m.fit_kappa(r,"ka"),slot_length=m.fit_length(r))
+        rows=freeze_2b.prepare_rows(reg,model)
+        self.assertEqual(len(rows),22)
+        original={r["id"]:r for r in reg["designs"] if r["batch"]=="2b"}
+        for row in rows:
+            self.assertEqual(row["geometry_mm"],original[row["id"]]["geometry_mm"])
+            self.assertEqual(row["data_role"],"prospective_test")
+            self.assertTrue(row["first_attempt_role_immutable"])
+            self.assertIsNone(row["prediction"]["BW_S21_HFSS_prediction_GHz"])
+            self.assertFalse(row["solver_authorized"])
+        self.assertEqual(reg,before)
+        json.dumps(rows,allow_nan=False)
+
 if __name__=="__main__":unittest.main()
