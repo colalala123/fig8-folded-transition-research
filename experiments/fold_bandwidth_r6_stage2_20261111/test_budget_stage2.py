@@ -39,6 +39,11 @@ class Budget(unittest.TestCase):
         r=dict(Analyze_requested=0);charge(self.r,'D__T1','adaptive_00',r,self.freeze())
         with self.assertRaises(RuntimeError):charge(self.r,'D__T1','adaptive_02',r,self.freeze())
         self.assertEqual(len(list((self.r/'ledger').glob('Analyze_*.json'))),1)
+    def test_pause_prevents_next_stage_and_charging(self):
+        r=dict(Analyze_requested=0);charge(self.r,'D__T1','adaptive_00',r,self.freeze())
+        write(self.r/'PAUSE.json',dict(reason='test pause'))
+        with self.assertRaises(RuntimeError):charge(self.r,'D__T1','adaptive_01',r,self.freeze())
+        self.assertEqual(len(list((self.r/'ledger').glob('Analyze_*.json'))),1)
     def test_path_escape_rejected(self):
         with self.assertRaises(ValueError):case_dir(self.r,'E',dict(case_paths={'E':'../outside'}))
 if __name__=='__main__':unittest.main()

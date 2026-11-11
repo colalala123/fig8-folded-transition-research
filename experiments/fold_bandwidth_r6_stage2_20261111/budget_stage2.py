@@ -2,6 +2,8 @@
 from common_stage2 import *
 
 def charge(root,case,label,record,freeze):
+    if (root/'STOP.json').exists() or (root/'PAUSE.json').exists():
+        raise RuntimeError('本批停止或用户暂停，不提交新的Analyze')
     cfg=read(root/'authorization.json')
     if cfg['batch']!='2a' or cfg['limits']!=LIMITS or sum(cfg['limits'].values())!=187:
         raise RuntimeError('预算授权不符')

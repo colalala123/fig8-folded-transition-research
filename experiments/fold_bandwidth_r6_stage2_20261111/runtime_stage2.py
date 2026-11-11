@@ -10,7 +10,7 @@ from tuning import propose
 import geometry
 
 def verify_release(root,case):
-    if (root/'STOP.json').exists():raise RuntimeError('2a停止记录有效')
+    if (root/'STOP.json').exists() or (root/'PAUSE.json').exists():raise RuntimeError('2a停止或用户暂停记录有效')
     cfg=read(root/'authorization.json')
     if cfg.get('human_authorized') is not True or cfg.get('batch')!='2a' or cfg.get('limits')!=LIMITS:
         raise RuntimeError('2a授权不符')
