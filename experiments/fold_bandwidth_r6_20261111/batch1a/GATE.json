@@ -1,0 +1,304 @@
+{
+  "passed": true,
+  "reasons": [],
+  "design_pass_is_not_baseline_gate": true,
+  "at": "2026-11-11T03:33:50.442258+00:00",
+  "baselines": [
+    {
+      "at": "2026-11-10T15:36:04.082757+00:00",
+      "case": "S1_BASE_N04",
+      "source": "N04_A18",
+      "baseline_pass": true,
+      "numerical_pass": true,
+      "design_pass": true,
+      "solve_completed": true,
+      "Analyze_requests": 8,
+      "archive_mesh_cells": 101852,
+      "archive_delta_s": 0.0021061,
+      "redo_mesh_cells": 100374,
+      "redo_delta_s": 0.0015121,
+      "archive_BW15_band_GHz": [
+        3.43101472103764,
+        9.756001315338494
+      ],
+      "max_abs_dS11": 0.003149389091963133,
+      "max_abs_dS21": 0.0005121745209498631,
+      "metrics": {
+        "central_valley_GHz": {
+          "archive": 6.74,
+          "redo": 6.73,
+          "delta": -0.009999999999999787,
+          "limit": 0.01,
+          "passed": true
+        },
+        "BW15_GHz": {
+          "archive": 6.324986594300855,
+          "redo": 6.325672076362967,
+          "delta": 0.0006854820621118307,
+          "limit": 0.01,
+          "passed": true
+        },
+        "BW20_GHz": {
+          "archive": 6.001732796944351,
+          "redo": 6.004205191264785,
+          "delta": 0.0024723943204341126,
+          "limit": null,
+          "passed": null
+        },
+        "inner_peak_low_dB": {
+          "archive": -20.8541350204918,
+          "redo": -20.675810164878378,
+          "delta": 0.17832485561342182,
+          "limit": null,
+          "passed": null
+        },
+        "inner_peak_high_dB": {
+          "archive": -20.432493835805804,
+          "redo": -20.32137722526748,
+          "delta": 0.11111661053832478,
+          "limit": null,
+          "passed": null
+        }
+      },
+      "prior_R4": {
+        "status": {
+          "at": "2026-11-10T13:30:44.839187+00:00",
+          "case": "S1_BASE_N04",
+          "source_case": "N04_A18",
+          "solve_completed": true,
+          "numerical_pass": false,
+          "design_pass": true,
+          "archive_baseline_comparison_pass": false,
+          "comparisons": {
+            "inner_peak_low_dB": {
+              "archive": -20.8541350204918,
+              "new": -20.543586852262973,
+              "delta": 0.31054816822882714,
+              "limit": 0.1,
+              "passed": false
+            },
+            "inner_peak_high_dB": {
+              "archive": -20.432493835805804,
+              "new": -20.33903539254933,
+              "delta": 0.09345844325647334,
+              "limit": 0.1,
+              "passed": true
+            },
+            "central_valley_GHz": {
+              "archive": 6.74,
+              "new": 6.73,
+              "delta": -0.009999999999999787,
+              "limit": 0.01,
+              "passed": true
+            },
+            "BW15_GHz": {
+              "archive": 6.324986594300855,
+              "new": 6.319223735836263,
+              "delta": -0.00576285846459168,
+              "limit": 0.01,
+              "passed": true
+            }
+          },
+          "mesh_cells": 96396,
+          "delta_s": 0.0045884,
+          "full_mode_power_certified": false,
+          "new_Analyze_requests": 1,
+          "result_level": "nominal interpolated, not direct-frequency/manufacturing certification",
+          "scratch_isolation_pass": false
+        },
+        "metrics": {
+          "inner_peak_low_dB": -20.543586852262973,
+          "inner_peak_high_dB": -20.33903539254933,
+          "inner_peak_mean_dB": -20.44131112240615,
+          "central_valley_GHz": 6.73,
+          "BW15_GHz": 6.319223735836263,
+          "BW20_GHz": 5.9955902041715845,
+          "BW_S21_GHz": 7.078425195583099,
+          "BW_joint_GHz": 5.9955902041715845,
+          "N1": 1.01012741037259,
+          "N2": 0.8425373968308547,
+          "P_eff": 1.5215008002380832,
+          "R_eff": 0.6181024561944007,
+          "fm_GHz": 6.631286555051275,
+          "fs_GHz": 6.605283178218016
+        },
+        "data_role": "diagnostic only; excluded from training and stage1 noise"
+      },
+      "native_sha256": "8003405f8b69b7f23be6e33d0d63644edee78a1fc21531dca45a17e09ed86d6e",
+      "criteria_sha256": "6f4fd1ab911bf578225fe736f4a26e2f839ca788a13c88a9d66b62a6affa4388"
+    },
+    {
+      "at": "2026-11-11T03:13:42.983601+00:00",
+      "case": "S1_BASE_N14",
+      "solve_completed": true,
+      "numerical_pass": true,
+      "design_pass": false,
+      "baseline_pass": true,
+      "metrics": {
+        "inner_peak_low_dB": -19.69389544139527,
+        "inner_peak_high_dB": -19.417028797766548,
+        "inner_peak_mean_dB": -19.55546211958091,
+        "central_valley_GHz": 6.72,
+        "BW15_GHz": 6.3155572182386575,
+        "BW20_GHz": null,
+        "BW_S21_GHz": 7.037702510736908,
+        "BW_joint_GHz": null,
+        "N1": 1.0085127364358455,
+        "N2": 0.8418239460379168,
+        "P_eff": 1.5786963001301377,
+        "R_eff": 0.6432518866730665,
+        "fm_GHz": 6.6437195246831955,
+        "fs_GHz": 6.6192115181282585
+      },
+      "comparisons": {
+        "max_abs_dS11": 0.0025510589466472447,
+        "max_abs_dS21": 0.0020997572465615076,
+        "archive_BW15_band_GHz": [
+          3.451004639609956,
+          9.76278498148318
+        ],
+        "metrics": {
+          "central_valley_GHz": {
+            "archive": 6.71,
+            "new": 6.72,
+            "delta": 0.009999999999999787,
+            "limit": 0.01,
+            "passed": true
+          },
+          "BW15_GHz": {
+            "archive": 6.3117803418732255,
+            "new": 6.3155572182386575,
+            "delta": 0.0037768763654320026,
+            "limit": 0.01,
+            "passed": true
+          },
+          "BW20_GHz": {
+            "archive": null,
+            "new": null,
+            "delta": null,
+            "limit": null,
+            "passed": null
+          },
+          "inner_peak_low_dB": {
+            "archive": -19.708321765805888,
+            "new": -19.69389544139527,
+            "delta": 0.014426324410617752,
+            "limit": null,
+            "passed": null
+          },
+          "inner_peak_high_dB": {
+            "archive": -19.36076208828095,
+            "new": -19.417028797766548,
+            "delta": -0.0562667094855982,
+            "limit": null,
+            "passed": null
+          }
+        }
+      },
+      "mesh_cells": 101707,
+      "delta_s": 0.0022545,
+      "Analyze_requests": 7,
+      "new_Analyze_requests": 7,
+      "native_sha256": "aa10bd10054c74bddefe5be2e93dd41aa94dd806d010cf786abc6a40b445868f",
+      "result_level": "名义插值结果，不是直接频点或制造公差认证"
+    },
+    {
+      "at": "2026-11-11T03:32:55.668215+00:00",
+      "case": "S1_BASE_N08",
+      "solve_completed": true,
+      "numerical_pass": true,
+      "design_pass": false,
+      "baseline_pass": true,
+      "metrics": {
+        "inner_peak_low_dB": -19.651310059054573,
+        "inner_peak_high_dB": -19.337546223140237,
+        "inner_peak_mean_dB": -19.494428141097405,
+        "central_valley_GHz": 6.72,
+        "BW15_GHz": 6.1800289460723805,
+        "BW20_GHz": null,
+        "BW_S21_GHz": 6.916695739239845,
+        "BW_joint_GHz": null,
+        "N1": 1.006680288389554,
+        "N2": 0.8373405859565771,
+        "P_eff": 1.5744493323508577,
+        "R_eff": 0.6855952083070334,
+        "fm_GHz": 6.647388769048799,
+        "fs_GHz": 6.62398800199589
+      },
+      "comparisons": {
+        "max_abs_dS11": 0.0023059667290038044,
+        "max_abs_dS21": 0.001731846106001525,
+        "archive_BW15_band_GHz": [
+          3.51693175583581,
+          9.702313172832877
+        ],
+        "metrics": {
+          "central_valley_GHz": {
+            "archive": 6.73,
+            "new": 6.72,
+            "delta": -0.010000000000000675,
+            "limit": 0.01,
+            "passed": true
+          },
+          "BW15_GHz": {
+            "archive": 6.185381416997068,
+            "new": 6.1800289460723805,
+            "delta": -0.005352470924687047,
+            "limit": 0.01,
+            "passed": true
+          },
+          "BW20_GHz": {
+            "archive": null,
+            "new": null,
+            "delta": null,
+            "limit": null,
+            "passed": null
+          },
+          "inner_peak_low_dB": {
+            "archive": -19.734845905362032,
+            "new": -19.651310059054573,
+            "delta": 0.08353584630745914,
+            "limit": null,
+            "passed": null
+          },
+          "inner_peak_high_dB": {
+            "archive": -19.24993813987806,
+            "new": -19.337546223140237,
+            "delta": -0.08760808326217528,
+            "limit": null,
+            "passed": null
+          }
+        }
+      },
+      "mesh_cells": 103253,
+      "delta_s": 0.0019393,
+      "Analyze_requests": 8,
+      "new_Analyze_requests": 8,
+      "native_sha256": "04bc4c447022aac55f9e7db0041f970890d3c86658df5255460a2328ec4bf52e",
+      "result_level": "名义插值结果，不是直接频点或制造公差认证"
+    }
+  ],
+  "evidence": {
+    "S1_BASE_N04": {
+      "review_sha256": "1c15ea866308ec4c2c6a6d6809fe6267521cdf5fa249424ef39108c2e24b702d",
+      "native_sha256": "8003405f8b69b7f23be6e33d0d63644edee78a1fc21531dca45a17e09ed86d6e"
+    },
+    "S1_BASE_N14": {
+      "review_sha256": "e3d8227192c30b63a0ba6a5d8da65156d55f0d768776b3877036dbcf84a807b8",
+      "native_sha256": "aa10bd10054c74bddefe5be2e93dd41aa94dd806d010cf786abc6a40b445868f"
+    },
+    "S1_BASE_N08": {
+      "review_sha256": "fabe76c06f4c3c628398b244b0068676e759077205a522b7afa0a4b9e4be9043",
+      "native_sha256": "04bc4c447022aac55f9e7db0041f970890d3c86658df5255460a2328ec4bf52e"
+    }
+  },
+  "n08_first_role": {
+    "first_role": "-port_adapt",
+    "port_preparation_observed": true,
+    "note": "N14历史首进程只作推断，不回写其未知命令。"
+  },
+  "hypothesis_sha256": "eb7019657e26f17e952ce4ecf17506ea246a2b2ab21ddde889dd7624cd1b0743",
+  "authority": "R6接受N04；N14、N08按R5 3.3比较。旧R1内峰0.1dB门槛不再作为判据。",
+  "total_geometry": 5,
+  "total_Analyze": 25
+}
