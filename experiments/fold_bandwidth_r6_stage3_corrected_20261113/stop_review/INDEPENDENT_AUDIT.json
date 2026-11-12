@@ -1,0 +1,240 @@
+{
+  "at": "2026-11-12T16:55:18.934738+00:00",
+  "passed": true,
+  "stop_reason": "阶段3进入阶段4的数量条件在原父项次数上限内已不可达",
+  "stage3_geometry": 6,
+  "stage3_geometry_cap": 42,
+  "stage3_actual_Analyze": 57,
+  "cumulative_geometry": 106,
+  "cumulative_geometry_cap": 187,
+  "cumulative_actual_Analyze": 961,
+  "full_numerical_pass": 5,
+  "controlled_software_stop": 1,
+  "R3_tuned": 0,
+  "completed_EQ_parents": 2,
+  "unstarted_EQ_parents": 8,
+  "lossless_solved": 0,
+  "boundary_solved": 0,
+  "unresolved_parents": [
+    "S3R3_EQ_N04_00",
+    "S3R3_EQ_N04_01"
+  ],
+  "maximum_remaining_possible_tuned_by_family": {
+    "N04": 3,
+    "N14": 5
+  },
+  "required_by_family": 4,
+  "stage4_gate": false,
+  "stage4_started": false,
+  "stage5_started": false,
+  "phase3_not_all_simulated": true,
+  "not_physical_impossibility": true,
+  "native_processes": [],
+  "original_frozen_code_unchanged": true,
+  "source_case_intervals": [
+    [
+      "2026-11-12T14:45:14.195569+00:00",
+      "2026-11-12T15:06:03.509740+00:00",
+      "S3R3_EQ_N04_00__T1"
+    ],
+    [
+      "2026-11-12T15:07:23.438794+00:00",
+      "2026-11-12T15:28:52.097749+00:00",
+      "S3R3_EQ_N04_00__T2"
+    ],
+    [
+      "2026-11-12T15:30:20.641911+00:00",
+      "2026-11-12T15:51:51.629860+00:00",
+      "S3R3_EQ_N04_00__T3"
+    ],
+    [
+      "2026-11-12T15:53:09.356725+00:00",
+      "2026-11-12T16:16:58.610159+00:00",
+      "S3R3_EQ_N04_01__T1"
+    ],
+    [
+      "2026-11-12T16:18:00.021046+00:00",
+      "2026-11-12T16:23:39.346060+00:00",
+      "S3R3_EQ_N04_01__T2"
+    ],
+    [
+      "2026-11-12T16:30:35.908297+00:00",
+      "2026-11-12T16:51:41.150479+00:00",
+      "S3R3_EQ_N04_01__T3"
+    ]
+  ],
+  "rows": [
+    {
+      "case": "S3R3_EQ_N04_00__T1",
+      "parent_id": "S3R3_EQ_N04_00",
+      "software_affected": false,
+      "Analyze": 11,
+      "solve_completed": true,
+      "numerical_pass": true,
+      "cleanup_released": true,
+      "charged_stages_roles_pass": true,
+      "input_sha256": "0928a1790103cf27331e25607b7e29c16c0cd9c8fbca4eab8f34c16cbd413e41",
+      "mesh_cells": 103348,
+      "delta_s": 0.0014398,
+      "recomputed_parameter_max_abs_difference": 0.0,
+      "R3": {
+        "tuned": false,
+        "mean_inner_peak_dB": null,
+        "reasons": [
+          "missing_or_invalid_shape"
+        ]
+      },
+      "actually_viewed": true,
+      "curve_sha256": "a3a82183e0837b9eacff4e8604c6c62ee2513046aec501cc475f8d240d1f7da7",
+      "history_unchanged": true
+    },
+    {
+      "case": "S3R3_EQ_N04_00__T2",
+      "parent_id": "S3R3_EQ_N04_00",
+      "software_affected": false,
+      "Analyze": 10,
+      "solve_completed": true,
+      "numerical_pass": true,
+      "cleanup_released": true,
+      "charged_stages_roles_pass": true,
+      "input_sha256": "40edc7c27dedf0a6daeb1ed1e1a30aa7860418d4305d20f86e45f13b6ee23ab5",
+      "mesh_cells": 103259,
+      "delta_s": 0.0013668,
+      "recomputed_parameter_max_abs_difference": 0.0,
+      "R3": {
+        "tuned": false,
+        "mean_inner_peak_dB": -18.940319771925658,
+        "peak_difference_dB": 4.053037221402718,
+        "checks": {
+          "both_peaks_at_or_below_minus20": false,
+          "mean_at_or_above_minus20p6": true,
+          "center_within_30MHz": false,
+          "peak_gap_within_0p5dB": false,
+          "three_valley_shape": true
+        },
+        "reasons": [
+          "both_peaks_at_or_below_minus20",
+          "center_within_30MHz",
+          "peak_gap_within_0p5dB"
+        ]
+      },
+      "actually_viewed": true,
+      "curve_sha256": "1668a95e602be171323ddd5af99dc349cc51578bd86f3d3bece6beac969d41fc",
+      "history_unchanged": true
+    },
+    {
+      "case": "S3R3_EQ_N04_00__T3",
+      "parent_id": "S3R3_EQ_N04_00",
+      "software_affected": false,
+      "Analyze": 12,
+      "solve_completed": true,
+      "numerical_pass": true,
+      "cleanup_released": true,
+      "charged_stages_roles_pass": true,
+      "input_sha256": "17a4fba23981ef706120c0e2ecbd82f61c7e16edd2fcc0773bf7a6d7148cb127",
+      "mesh_cells": 102361,
+      "delta_s": 0.0015568,
+      "recomputed_parameter_max_abs_difference": 0.0,
+      "R3": {
+        "tuned": false,
+        "mean_inner_peak_dB": -20.056228630423266,
+        "peak_difference_dB": 1.5981545545551015,
+        "checks": {
+          "both_peaks_at_or_below_minus20": false,
+          "mean_at_or_above_minus20p6": true,
+          "center_within_30MHz": true,
+          "peak_gap_within_0p5dB": false,
+          "three_valley_shape": true
+        },
+        "reasons": [
+          "both_peaks_at_or_below_minus20",
+          "peak_gap_within_0p5dB"
+        ]
+      },
+      "actually_viewed": true,
+      "curve_sha256": "40f452f79240e15959f39a1d05eeb53d172683a1504b296e2c58193e17c6fc64",
+      "history_unchanged": true
+    },
+    {
+      "case": "S3R3_EQ_N04_01__T1",
+      "parent_id": "S3R3_EQ_N04_01",
+      "software_affected": false,
+      "Analyze": 13,
+      "solve_completed": true,
+      "numerical_pass": true,
+      "cleanup_released": true,
+      "charged_stages_roles_pass": true,
+      "input_sha256": "2f48c13096f6b12df26ac25a736f94b875223ce1f348777187fdcd01d309b407",
+      "mesh_cells": 101183,
+      "delta_s": 0.002021,
+      "recomputed_parameter_max_abs_difference": 0.0,
+      "R3": {
+        "tuned": false,
+        "mean_inner_peak_dB": -20.992419120951524,
+        "peak_difference_dB": 1.1139579682745904,
+        "checks": {
+          "both_peaks_at_or_below_minus20": true,
+          "mean_at_or_above_minus20p6": false,
+          "center_within_30MHz": false,
+          "peak_gap_within_0p5dB": false,
+          "three_valley_shape": true
+        },
+        "reasons": [
+          "mean_at_or_above_minus20p6",
+          "center_within_30MHz",
+          "peak_gap_within_0p5dB"
+        ]
+      },
+      "actually_viewed": true,
+      "curve_sha256": "857e73adffa48658c93eb030f7e23abdcc1f476520ad86feb020cfb37146287a",
+      "history_unchanged": true
+    },
+    {
+      "case": "S3R3_EQ_N04_01__T2",
+      "parent_id": "S3R3_EQ_N04_01",
+      "software_affected": true,
+      "Analyze": 1,
+      "solve_completed": false,
+      "numerical_pass": null,
+      "cleanup_released": true,
+      "charged_stages_roles_pass": true,
+      "input_sha256": "614f139649e5b5c492174e1d93943bc24d60de6feb793edfcd9d68f1388286f8",
+      "mesh_cells": 46640,
+      "delta_s": 0.011406,
+      "not_HFSS_solve_error": "原生16轮正常返回，因已确认程序缺陷阻止下一次API；不能作设计或数值失败结论。"
+    },
+    {
+      "case": "S3R3_EQ_N04_01__T3",
+      "parent_id": "S3R3_EQ_N04_01",
+      "software_affected": false,
+      "Analyze": 10,
+      "solve_completed": true,
+      "numerical_pass": true,
+      "cleanup_released": true,
+      "charged_stages_roles_pass": true,
+      "input_sha256": "6fb41a912c66dbd17896b8de8088a5a734d3bc9f387651aff9337b9ff9b68c0a",
+      "mesh_cells": 102707,
+      "delta_s": 0.0017025,
+      "recomputed_parameter_max_abs_difference": 0.0,
+      "R3": {
+        "tuned": false,
+        "mean_inner_peak_dB": -20.25020417473329,
+        "peak_difference_dB": 0.6082331165128956,
+        "checks": {
+          "both_peaks_at_or_below_minus20": false,
+          "mean_at_or_above_minus20p6": true,
+          "center_within_30MHz": true,
+          "peak_gap_within_0p5dB": false,
+          "three_valley_shape": true
+        },
+        "reasons": [
+          "both_peaks_at_or_below_minus20",
+          "peak_gap_within_0p5dB"
+        ]
+      },
+      "actually_viewed": true,
+      "curve_sha256": "c91c4cde8f17d8d4858889bdfc9b328e348a27e466dac3015ddb98e6d8f659f5",
+      "history_unchanged": true
+    }
+  ]
+}
