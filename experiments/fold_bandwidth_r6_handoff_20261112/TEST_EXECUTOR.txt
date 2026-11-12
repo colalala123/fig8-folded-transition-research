@@ -1,0 +1,36 @@
+test_duplicate_start_not_overwritten (test_budget_stage2.Budget.test_duplicate_start_not_overwritten) ... ok
+test_fourth_geometry_rejected (test_budget_stage2.Budget.test_fourth_geometry_rejected) ... ok
+test_geometry_only_once_across_stages (test_budget_stage2.Budget.test_geometry_only_once_across_stages) ... ok
+test_invalid_initial_stage_leaves_no_ledger (test_budget_stage2.Budget.test_invalid_initial_stage_leaves_no_ledger) ... ok
+test_max_fourteen_calls (test_budget_stage2.Budget.test_max_fourteen_calls) ... ok
+test_path_escape_rejected (test_budget_stage2.Budget.test_path_escape_rejected) ... ok
+test_pause_prevents_next_stage_and_charging (test_budget_stage2.Budget.test_pause_prevents_next_stage_and_charging) ... ok
+test_request_after_sweep_rejected (test_budget_stage2.Budget.test_request_after_sweep_rejected) ... ok
+test_skipped_adaptive_stage_rejected (test_budget_stage2.Budget.test_skipped_adaptive_stage_rejected) ... ok
+test_no_early_checkpoint (test_checkpoint_stage2.Checkpoint.test_no_early_checkpoint) ... ok
+test_only_closed_roles_count (test_checkpoint_stage2.Checkpoint.test_only_closed_roles_count) ... ok
+test_prior_batch_threshold_rejected (test_checkpoint_stage2.Checkpoint.test_prior_batch_threshold_rejected) ... ok
+test_all_planned_stage2_initial_geometry_screens (test_offline_stage2.Offline.test_all_planned_stage2_initial_geometry_screens) ... ok
+test_ambiguity_never_blindly_tuned (test_offline_stage2.Offline.test_ambiguity_never_blindly_tuned) ... ok
+test_input_not_mutated (test_offline_stage2.Offline.test_input_not_mutated) ... ok
+test_invalid_straight_dimensions (test_offline_stage2.Offline.test_invalid_straight_dimensions) ... ok
+test_non20dB_can_be_length_calibrated (test_offline_stage2.Offline.test_non20dB_can_be_length_calibrated) ... ok
+test_straight_native_operands (test_offline_stage2.Offline.test_straight_native_operands) ... ok
+test_targets_and_widths_fixed (test_offline_stage2.Offline.test_targets_and_widths_fixed) ... ok
+test_changed_committed_blob_rejects (test_release_2b.Publication.test_changed_committed_blob_rejects) ... ok
+test_immutable_blob_matches (test_release_2b.Publication.test_immutable_blob_matches) ... ok
+test_remote_flag_required (test_release_2b.Publication.test_remote_flag_required) ... ok
+test_bad_CAD_rejects (test_release_2b.Release.test_bad_CAD_rejects) ... ok
+test_existing_worker_rejects (test_release_2b.Release.test_existing_worker_rejects) ... ok
+test_first_role_cannot_be_tuned (test_release_2b.Release.test_first_role_cannot_be_tuned) ... ok
+test_incomplete_prior_gate_rejects (test_release_2b.Release.test_incomplete_prior_gate_rejects) ... ok
+test_no_actual_publication_proof_rejects (test_release_2b.Release.test_no_actual_publication_proof_rejects) ... ok
+test_pause_rejects (test_release_2b.Release.test_pause_rejects) ... ok
+test_resume_rejects (test_release_2b.Release.test_resume_rejects) ... ok
+test_valid_fixture (test_release_2b.Release.test_valid_fixture) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 0.604s
+
+OK
+{'at': '2026-11-12T00:10:52.918235+00:00', 'threshold': 100, 'prior_closed_Analyze_requests': 91, 'this_batch_validated_completed': 9, 'cumulative_checkpoint_count': 100, 'requested_total': 101, 'geometry_total': 15, 'geometry_limits': {'1a': 5, '1b': 9, '2a': 45, '2b': 66, '3': 42, '4': 8, '5': 12}, 'batch': '2b', 'note': '历史累计为前批实际请求数；本批完成数只计原生结果及角色核验已闭合的阶段。请求数可能包含在算的下一段，不把Python启动当成HFSS完成。'}
