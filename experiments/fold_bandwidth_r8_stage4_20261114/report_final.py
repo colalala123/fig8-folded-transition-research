@@ -53,7 +53,8 @@ def audit(root,cfg):
         ss=[]
         for s in ('S(1:1,1:1)','S(2:1,1:1)'):ss.append(ar[:,heads.index(s+'_real')]+1j*ar[:,heads.index(s+'_imag')])
         qr=extract(ar[:,0],np.array(ss).T,read(w/'native/metadata.json'));qo=read(w/'review/extraction_R2.json')
-        np.testing.assert_allclose(state(qr),state(qo),atol=1e-10,rtol=0)
+        if state(qo) is None:assert state(qr) is None
+        else:np.testing.assert_allclose(state(qr),state(qo),atol=1e-10,rtol=0)
         assert qr['bandwidths']['BW15']==qo['bandwidths']['BW15']
         checks.append(dict(case=c,numerical_pass=True,mesh=r['mesh_cells'],delta_s=r['delta_s'],Analyze=len(cc),real_image_ack=True,publication=pub['commit']))
     intervals.sort();assert all(x[1]<=y[0] for x,y in zip(intervals,intervals[1:]))
@@ -75,7 +76,9 @@ def run(root):
     costs={n:None if value(n) is None else 1000*(6.332 if by[n]['family']=='N04' else 6.214)-1000*value(n) for n in ('D1','D2','D3','D4')}
     tip=all(costs[n] is not None and (costs[n]<=30 if n in ('D1','D3') else 30<=costs[n]<=90) for n in costs)
     summ=all(costs[n] is not None and (50<=costs[n]<=110 if n in ('D1','D3') else costs[n]<=45) for n in costs)
-    q1=dict(costs_MHz=costs,tip_hypothesis_pass=tip,sum_hypothesis_pass=summ,winner='tip' if tip and not summ else 'a+g' if summ and not tip else 'neither' if not tip and not summ else 'both; no unique discriminator')
+    complete=all(v is not None for v in costs.values())
+    q1=dict(costs_MHz=costs,scorable=complete,tip_hypothesis_pass=tip if complete else None,sum_hypothesis_pass=summ if complete else None,
+       winner=('not_scorable_missing_usable_designs' if not complete else 'tip' if tip and not summ else 'a+g' if summ and not tip else 'neither' if not tip and not summ else 'both; no unique discriminator'))
     qq=dict(Q1=q1)
     for q,n,lo,hi in [('Q2','D7',6.24,6.29),('Q3','D5',6.,6.07),('Q4','D6',6.25,6.30),('Q5','D8',6.34,6.50)]:
         v=value(n);qq[q]=dict(design=n,BW15_star=v,range=[lo,hi],passed=v is not None and lo<=v<=hi)
@@ -92,7 +95,7 @@ def run(root):
     lines+=['','BW15预测按R8条件化实测L；完整六模型逐点误差与四项门槛见T1_SCORES.json。T1即使失败仍永久保留前瞻身份，T2/T3绝不替代它计入盲测。','','## 三种代价及平台模型误差','','|模型|T1 n|RMSE MHz|','|---|---:|---:|']
     for k,v in errors.items():lines.append(f'|{k}|{v["n"]}|{v["RMSE_MHz"]:.3f}|')
     lines+=['','## Q1–Q5及平台结论','',json.dumps(qq,ensure_ascii=False,indent=2),'',
-       'Q1严格用原登记N04=6.332/N14=6.214平台及区间；若判neither不把最接近的一组改称成立。D1/D3实际端头净距与计划粗估不一致，削弱区分度；不能拿本批结果再改冻结阈值。',
+       'Q1严格用原登记N04=6.332/N14=6.214平台及区间；缺少任一可用点时不可判分，不把缺失误写为两个假说都失败。若全部可评分但判neither，不把最接近的一组改称成立。D1/D3实际端头净距与计划粗估不一致，削弱区分度；不能拿本批结果再改冻结阈值。',
        '', '## 可用点表','', '|设计|Wm|a|g|选中案例|Ws|谷 GHz|D dB|L dB|BW15* GHz|可用|严格双峰≤-20|','|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---|']
     for r in selected:
         lines.append(f"|{r['design']}|{r['geometry_mm']['Wm']}|{r['a']}|{r['g']}|{r['case']}|{r['geometry_mm']['Ws']}|{r['central_GHz']}|{r['D']}|{r['L']}|{r['BW15_star']}|{r['tuned']}|{r['hard_design_peaks_pass']}|")
