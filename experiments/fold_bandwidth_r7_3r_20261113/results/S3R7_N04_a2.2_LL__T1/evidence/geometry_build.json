@@ -1,0 +1,529 @@
+{
+  "requested_geometry_mm": {
+    "Wm": 1.936496,
+    "Lm": 6.506,
+    "Ls1": 11.427,
+    "Ls2": 1.452,
+    "Ls3": 2.6510000000000002,
+    "Ws": 0.451
+  },
+  "slot_rectangles_mm": [
+    {
+      "name": "main",
+      "origin_xy": [
+        -5.7135,
+        -0.2255
+      ],
+      "size_xy": [
+        11.427,
+        0.451
+      ]
+    },
+    {
+      "name": "right_connector",
+      "origin_xy": [
+        5.2625,
+        -1.2265
+      ],
+      "size_xy": [
+        0.451,
+        1.001
+      ]
+    },
+    {
+      "name": "right_leg",
+      "origin_xy": [
+        3.0624999999999996,
+        -1.2265
+      ],
+      "size_xy": [
+        2.2,
+        0.451
+      ]
+    },
+    {
+      "name": "left_connector",
+      "origin_xy": [
+        -5.7135,
+        -1.2265
+      ],
+      "size_xy": [
+        0.451,
+        1.001
+      ]
+    },
+    {
+      "name": "left_leg",
+      "origin_xy": [
+        -5.2625,
+        -1.2265
+      ],
+      "size_xy": [
+        2.2,
+        0.451
+      ]
+    }
+  ],
+  "deleted_original_ground": true,
+  "layers": {
+    "top": {
+      "ground": "Substrate_7",
+      "operations": [
+        {
+          "tool": "StructureBSlot_top_main",
+          "name": "main",
+          "origin_xy": [
+            -5.7135,
+            -0.2255
+          ],
+          "size_xy": [
+            11.427,
+            0.451
+          ]
+        },
+        {
+          "tool": "StructureBSlot_top_right_connector",
+          "name": "right_connector",
+          "origin_xy": [
+            5.2625,
+            -1.2265
+          ],
+          "size_xy": [
+            0.451,
+            1.001
+          ]
+        },
+        {
+          "tool": "StructureBSlot_top_right_leg",
+          "name": "right_leg",
+          "origin_xy": [
+            3.0624999999999996,
+            -1.2265
+          ],
+          "size_xy": [
+            2.2,
+            0.451
+          ]
+        },
+        {
+          "tool": "StructureBSlot_top_left_connector",
+          "name": "left_connector",
+          "origin_xy": [
+            -5.7135,
+            -1.2265
+          ],
+          "size_xy": [
+            0.451,
+            1.001
+          ]
+        },
+        {
+          "tool": "StructureBSlot_top_left_leg",
+          "name": "left_leg",
+          "origin_xy": [
+            -5.2625,
+            -1.2265
+          ],
+          "size_xy": [
+            2.2,
+            0.451
+          ]
+        }
+      ]
+    },
+    "bottom": {
+      "ground": "Substrate_9",
+      "operations": [
+        {
+          "tool": "StructureBSlot_bottom_main",
+          "name": "main",
+          "origin_xy": [
+            -5.7135,
+            -0.2255
+          ],
+          "size_xy": [
+            11.427,
+            0.451
+          ]
+        },
+        {
+          "tool": "StructureBSlot_bottom_right_connector",
+          "name": "right_connector",
+          "origin_xy": [
+            5.2625,
+            -1.2265
+          ],
+          "size_xy": [
+            0.451,
+            1.001
+          ]
+        },
+        {
+          "tool": "StructureBSlot_bottom_right_leg",
+          "name": "right_leg",
+          "origin_xy": [
+            3.0624999999999996,
+            -1.2265
+          ],
+          "size_xy": [
+            2.2,
+            0.451
+          ]
+        },
+        {
+          "tool": "StructureBSlot_bottom_left_connector",
+          "name": "left_connector",
+          "origin_xy": [
+            -5.7135,
+            -1.2265
+          ],
+          "size_xy": [
+            0.451,
+            1.001
+          ]
+        },
+        {
+          "tool": "StructureBSlot_bottom_left_leg",
+          "name": "left_leg",
+          "origin_xy": [
+            -5.2625,
+            -1.2265
+          ],
+          "size_xy": [
+            2.2,
+            0.451
+          ]
+        }
+      ]
+    }
+  },
+  "setup_names": [
+    "Setup18",
+    "Setup19"
+  ],
+  "saved": true,
+  "materials_and_boundary": {
+    "material_role": "lossless_control",
+    "board_half_x_mm": 15.0,
+    "before": {
+      "Substrate_1": {
+        "material": "Rogers RO4003 (tm)",
+        "solve_inside": true,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          0.035,
+          15.0,
+          25.0,
+          0.848
+        ]
+      },
+      "air_box": {
+        "material": "air",
+        "solve_inside": true,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          -11.0,
+          15.0,
+          25.0,
+          11.0
+        ]
+      },
+      "Substrate_2": {
+        "material": "Rogers RO4003 (tm)",
+        "solve_inside": true,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          -0.848,
+          15.0,
+          25.0,
+          -0.035
+        ]
+      },
+      "Substrate_3": {
+        "material": "copper",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.968248,
+          0.0,
+          0.848,
+          0.968248,
+          6.506,
+          0.883
+        ]
+      },
+      "Substrate_4": {
+        "material": "copper",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.91,
+          -25.0,
+          0.848,
+          0.91,
+          0.0,
+          0.883
+        ]
+      },
+      "Substrate_5": {
+        "material": "copper",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.91,
+          0.0,
+          -0.883,
+          0.91,
+          25.0,
+          -0.848
+        ]
+      },
+      "Substrate_18": {
+        "material": "copper",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.968248,
+          -6.506,
+          -0.883,
+          0.968248,
+          0.0,
+          -0.848
+        ]
+      },
+      "Substrate_7": {
+        "material": "copper",
+        "solve_inside": false,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          0.0,
+          15.0,
+          25.0,
+          0.035
+        ]
+      },
+      "Substrate_9": {
+        "material": "copper",
+        "solve_inside": false,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          -0.035,
+          15.0,
+          25.0,
+          0.0
+        ]
+      },
+      "Rectangle1": {
+        "material": "",
+        "solve_inside": false,
+        "bounding_box": [
+          -7.52,
+          -25.0,
+          -2.77555756156289e-15,
+          7.52,
+          -25.0,
+          6.504
+        ]
+      },
+      "Rectangle2": {
+        "material": "",
+        "solve_inside": false,
+        "bounding_box": [
+          -7.52,
+          25.0,
+          -6.504,
+          7.52,
+          25.0,
+          -2.77555756156289e-15
+        ]
+      }
+    },
+    "after": {
+      "Substrate_1": {
+        "material": "Fig8Stage3Lossless_rogers_ro4003_(tm)",
+        "solve_inside": true,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          0.035,
+          15.0,
+          25.0,
+          0.848
+        ]
+      },
+      "air_box": {
+        "material": "air",
+        "solve_inside": true,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          -11.0,
+          15.0,
+          25.0,
+          11.0
+        ]
+      },
+      "Substrate_2": {
+        "material": "Fig8Stage3Lossless_rogers_ro4003_(tm)",
+        "solve_inside": true,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          -0.848,
+          15.0,
+          25.0,
+          -0.035
+        ]
+      },
+      "Substrate_3": {
+        "material": "pec",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.968248,
+          0.0,
+          0.848,
+          0.968248,
+          6.506,
+          0.883
+        ]
+      },
+      "Substrate_4": {
+        "material": "pec",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.91,
+          -25.0,
+          0.848,
+          0.91,
+          0.0,
+          0.883
+        ]
+      },
+      "Substrate_5": {
+        "material": "pec",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.91,
+          0.0,
+          -0.883,
+          0.91,
+          25.0,
+          -0.848
+        ]
+      },
+      "Substrate_18": {
+        "material": "pec",
+        "solve_inside": false,
+        "bounding_box": [
+          -0.968248,
+          -6.506,
+          -0.883,
+          0.968248,
+          0.0,
+          -0.848
+        ]
+      },
+      "Substrate_7": {
+        "material": "pec",
+        "solve_inside": false,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          0.0,
+          15.0,
+          25.0,
+          0.035
+        ]
+      },
+      "Substrate_9": {
+        "material": "pec",
+        "solve_inside": false,
+        "bounding_box": [
+          -15.0,
+          -25.0,
+          -0.035,
+          15.0,
+          25.0,
+          0.0
+        ]
+      },
+      "Rectangle1": {
+        "material": "",
+        "solve_inside": false,
+        "bounding_box": [
+          -7.52,
+          -25.0,
+          -2.77555756156289e-15,
+          7.52,
+          -25.0,
+          6.504
+        ]
+      },
+      "Rectangle2": {
+        "material": "",
+        "solve_inside": false,
+        "bounding_box": [
+          -7.52,
+          25.0,
+          -6.504,
+          7.52,
+          25.0,
+          -2.77555756156289e-15
+        ]
+      }
+    },
+    "changed_materials": [
+      {
+        "object": "Substrate_1",
+        "old": "rogers ro4003 (tm)",
+        "new": "Fig8Stage3Lossless_rogers_ro4003_(tm)"
+      },
+      {
+        "object": "Substrate_2",
+        "old": "rogers ro4003 (tm)",
+        "new": "Fig8Stage3Lossless_rogers_ro4003_(tm)"
+      },
+      {
+        "object": "Substrate_3",
+        "old": "copper",
+        "new": "pec"
+      },
+      {
+        "object": "Substrate_4",
+        "old": "copper",
+        "new": "pec"
+      },
+      {
+        "object": "Substrate_5",
+        "old": "copper",
+        "new": "pec"
+      },
+      {
+        "object": "Substrate_18",
+        "old": "copper",
+        "new": "pec"
+      },
+      {
+        "object": "Substrate_7",
+        "old": "copper",
+        "new": "pec"
+      },
+      {
+        "object": "Substrate_9",
+        "old": "copper",
+        "new": "pec"
+      }
+    ],
+    "dielectric_readback": {
+      "Fig8Stage3Lossless_rogers_ro4003_(tm)": {
+        "permittivity": "3.55",
+        "loss_tangent": "0",
+        "conductivity": "0"
+      }
+    },
+    "widened_objects": [],
+    "lossless_verified": true,
+    "new_Analyze": 0
+  }
+}
