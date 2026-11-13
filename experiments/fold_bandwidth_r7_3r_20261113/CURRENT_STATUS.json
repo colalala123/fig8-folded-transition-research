@@ -1,11 +1,11 @@
 {
-  "at": "2026-11-13T10:28:34.803134+00:00",
-  "R7_geometries": 26,
-  "stage3_geometries": 32,
-  "geometry_total": 132,
+  "at": "2026-11-13T10:47:51.168045+00:00",
+  "R7_geometries": 27,
+  "stage3_geometries": 33,
+  "geometry_total": 133,
   "geometry_cap": 187,
-  "R7_actual_Analyze": 260,
-  "actual_Analyze_total": 1221,
+  "R7_actual_Analyze": 265,
+  "actual_Analyze_total": 1226,
   "stage3_cap": 42,
   "R7_cap": 35,
   "completed_parents": [
@@ -170,6 +170,16 @@
       "stage4_enabled": false
     },
     {
+      "at": "2026-11-13T10:46:35.993057+00:00",
+      "parent_id": "S3R7_N14_a1.8_WIDE",
+      "complete": true,
+      "tuned": null,
+      "selected_case": "S3R7_N14_a1.8_WIDE__T1",
+      "kind": "BOUNDARY",
+      "reason": "对照完成",
+      "stage4_enabled": false
+    },
+    {
       "at": "2026-11-13T09:47:34.102580+00:00",
       "parent_id": "S3R7_N14_a2.2_LL",
       "complete": true,
@@ -202,5 +212,15 @@
   ],
   "stage4_started": false,
   "stage5_started": false,
-  "stop": null
+  "stop": {
+    "at": "2026-11-13T10:46:39.090934+00:00",
+    "reason": "R7 4.3: 3R全部完成，停止等审核，不进入阶段4",
+    "phase": "3R_complete_awaiting_review",
+    "stage4_started": false,
+    "stage5_started": false,
+    "no_hook": true,
+    "authorization_sha256": "33f97b95fc9ee7899b77d484f5c82540d72ce77937479a3f12216bb3a88c9c4e",
+    "new_geometry": 27,
+    "new_actual_Analyze": 265
+  }
 }

@@ -75,7 +75,7 @@ def audit(root):
             w=case_dir(root,r['case'],cfg);bal=np.load(w/'review/lossless_modal_balance.npz');z=np.load(w/'native/full_modes.npz')
             s=cfg['designs'][read(w/'input/freeze.json')['parent_id']];sel=selection(root,s['parent'],cfg)
             qp=source(sel[0])[0] if sel[0] not in cfg['case_paths'] else case_dir(root,sel[0],cfg)/'review/extraction_R2.json';q=read(qp)
-            f=bal['f_GHz'];band=(f>=q['BW15']['low_GHz'])&(f<=q['BW15']['high_GHz'])
+            f=bal['f_GHz'];band=(f>=q['bandwidths']['BW15']['low_GHz'])&(f<=q['bandwidths']['BW15']['high_GHz'])
             a2.plot(f[band],bal['residual_fraction'][band],label=f"a={r['a']:.1f} mm")
             # Publish frequency-resolved propagation evidence, with invalid samples explicit.
             dest=out/(r['case']+'_POWER.csv')
