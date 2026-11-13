@@ -92,9 +92,16 @@ def audit(root):
     write(out/'AUDIT.json',audit);write(out/'BOUNDARY_COMPARISONS.json',boundaries);write(out/'POWER_SUMMARY.json',all_power)
     # Preserve original scoring, including slope uncertainty and negative predictions.
     mm=read(HERE/'final/METRICS.json');scores=read(HERE/'final/PREDICTION_SCORES.json');gate=read(HERE/'final/GATE.json')
+    by={(r['family'],r['a']):r for r in mm}
+    spreads={fam:1000*(max(by[fam,a]['BW15_star'] for a in (.6,1.,1.8,2.2))-min(by[fam,a]['BW15_star'] for a in (.6,1.,1.8,2.2))) for fam in ('N04','N14')}
+    long_cost={fam:1000*(by[fam,1.8]['BW15_star']-by[fam,2.6]['BW15_star']) for fam in ('N04','N14')}
+    straight_cost={fam:1000*(by[fam,1.8]['BW15_star']-by[fam,0.]['BW15_star']) for fam in ('N04','N14')}
     lines=['# R7 3R最终审核报告','',
       f"八个新设计均达到R7研究可用点；加上4个既有点，共12个等纹波研究点。10个无耗和2个加宽基板对照均完成，数量条件{'通过' if gate['passed'] else '未通过'}。",
       '同纹波带宽、预测评分与功率余量的结论按下列实测数据报告，不把研究可用点冒充硬−20 dB交付设计。3R已停止，未进入阶段4/5。','',
+      f"冻结折算到L=−20.3 dB后，a=0.6–2.2 mm的BW15*跨度：N04 {spreads['N04']:.2f} MHz，N14 {spreads['N14']:.2f} MHz。P1只在N04满足；不能概括为两家族都严格无带宽代价。",
+      f"a=2.6相对a=1.8的BW15*代价：N04 {long_cost['N04']:.2f} MHz，N14 {long_cost['N14']:.2f} MHz，两家族均满足P2的50–150 MHz预测。直槽相对a=1.8更窄{straight_cost['N04']:.2f}、{straight_cost['N14']:.2f} MHz；P3的110 MHz上限在N14略超。",
+      '以上是冻结名义斜率的点估计，完整上下限保留；接近50/110/150 MHz边界时，不能忽视斜率及约0.06 dB数值起伏。BWref*与BW15*分列，不把不同阈值的带宽混用。','',
       f"本轮{len(geos)}几何、{len(calls)}次实际Analyze；阶段3累计{6+len(geos)}/42几何，全局{106+len(geos)}/187，累计实际请求{961+len(calls)}。",'',
       '## 可复核主表','见 [冻结口径完整报告](../final/REPORT.md)、[METRICS.json](../final/METRICS.json)。主表同时给原始BW15/BW20/BWref和冻结斜率折算、上下限。','',
       '## 四条预测（固定口径，不因结果修改）']
