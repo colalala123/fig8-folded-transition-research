@@ -7,6 +7,7 @@ import numpy as np,subprocess,psutil,csv
 from datetime import datetime
 from collections import Counter
 import laws
+def fmt(v,n=4):return '—' if v is None else f'{v:.{n}f}'
 def metrics(root,case,cfg):
     w=case_dir(root,case,cfg);q=read(w/'review/extraction_R2.json');y=state(q);bw=q['bandwidths']
     fz=read(w/'input/freeze.json');g=fz['design']['geometry_mm'];z=np.load(w/'native/full_modes.npz')
@@ -92,14 +93,14 @@ def run(root):
       '', '## 各T1预测与实测','', '|设计|谷预测/实测 GHz|D预测/实测 dB|L预测/实测 dB|BW15预测/实测 GHz|四项全过|', '|---|---|---|---|---|---|']
     for s in scores:
         yp=s['frozen_prediction'];t=s['T1'];bp=None if t['L'] is None else yp['BW15_star_GHz']['F2_tip']+.125*(t['L']+20.3)
-        lines.append(f"|{s['design']}|{yp['central_valley_GHz']:.4f}/{t['central_GHz']}|{yp['D_dB']:.3f}/{t['D']}|{yp['L_dB']:.3f}/{t['L']}|{bp}/{t['BW15']}|{s['T1_all_pass']}|")
+        lines.append(f"|{s['design']}|{fmt(yp['central_valley_GHz'])}/{fmt(t['central_GHz'])}|{fmt(yp['D_dB'],3)}/{fmt(t['D'],3)}|{fmt(yp['L_dB'],3)}/{fmt(t['L'],3)}|{fmt(bp)}/{fmt(t['BW15'])}|{s['T1_all_pass']}|")
     lines+=['','BW15预测按R8条件化实测L；完整六模型逐点误差与四项门槛见T1_SCORES.json。T1即使失败仍永久保留前瞻身份，T2/T3绝不替代它计入盲测。','','## 三种代价及平台模型误差','','|模型|T1 n|RMSE MHz|','|---|---:|---:|']
     for k,v in errors.items():lines.append(f'|{k}|{v["n"]}|{v["RMSE_MHz"]:.3f}|')
-    lines+=['','## Q1–Q5及平台结论','',json.dumps(qq,ensure_ascii=False,indent=2),'',
+    lines+=['','## Q1–Q5及平台结论','','```json',json.dumps(qq,ensure_ascii=False,indent=2),'```','',
        'Q1严格用原登记N04=6.332/N14=6.214平台及区间；缺少任一可用点时不可判分，不把缺失误写为两个假说都失败。若全部可评分但判neither，不把最接近的一组改称成立。D1/D3实际端头净距与计划粗估不一致，削弱区分度；不能拿本批结果再改冻结阈值。',
        '', '## 可用点表','', '|设计|Wm|a|g|选中案例|Ws|谷 GHz|D dB|L dB|BW15* GHz|可用|严格双峰≤-20|','|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---|']
     for r in selected:
-        lines.append(f"|{r['design']}|{r['geometry_mm']['Wm']}|{r['a']}|{r['g']}|{r['case']}|{r['geometry_mm']['Ws']}|{r['central_GHz']}|{r['D']}|{r['L']}|{r['BW15_star']}|{r['tuned']}|{r['hard_design_peaks_pass']}|")
+        lines.append(f"|{r['design']}|{r['geometry_mm']['Wm']}|{r['a']}|{r['g']}|{r['case']}|{r['geometry_mm']['Ws']}|{fmt(r['central_GHz'])}|{fmt(r['D'],3)}|{fmt(r['L'],3)}|{fmt(r['BW15_star'])}|{r['tuned']}|{r['hard_design_peaks_pass']}|")
     lines+=['','## 限制与接续','','- R7研究可用与硬-20dB交付分开；BW20缺失时保留null，不用BW15*伪造。','- 原生插值/约10万网格，不是直接频点、加密网格或制造公差认证；本批没有全模功率/辐射分解的新认证。','- 80历史点拟合与整阶梯CV均在R8-1先推送；本批不改规律系数。','- 独立AUDIT逐项核验原生CSV重提取、网格/ΔS、14核角色、实际看图ACK、发布先于启动、串行不重叠、历史字节与预算。','- 旧批STOP与旧均匀数据不动；无hook/周期唤醒。阶段5目标需审核后另定，不自动接续。']
     (out/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     write(out/'MANIFEST.json',{p.name:sha(p) for p in out.iterdir() if p.is_file()})
