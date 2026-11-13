@@ -61,7 +61,9 @@ def audit(root,cfg):
         checks.append(dict(case=c,numerical_pass=True,mesh=r['mesh_cells'],delta_s=r['delta_s'],Analyze=len(cc),real_image_ack=True,publication=pub['commit']))
     intervals.sort();assert all(x[1]<=y[0] for x,y in zip(intervals,intervals[1:]))
     return dict(at=now(),passed=True,new_geometry=len(geos),new_Analyze=len(apis),total_geometry=133+len(geos),total_Analyze=1226+len(apis),
-        code_and_laws_unchanged=True,historical_hashes_unchanged=True,serial_nonoverlap=True,checks=checks)
+        code_and_laws_unchanged=True,historical_hashes_unchanged=True,serial_nonoverlap=True,checks=checks,
+        passed_scope='technical execution/numerical/provenance audit, not scientific predictions or all data-role assumptions',
+        all_eight_unseen_tuple_assumption_pass=False,data_role_issue='D5 seen Wm/a/g tuple included in frozen training; explicitly disclosed, no retrospective refit')
 def run(root):
     cfg=read(root/'authorization.json');out=HERE/'final';out.mkdir()
     decisions=[read(root/'decisions'/(p+'_FINAL.json')) for p in cfg['parent_order']]

@@ -1,0 +1,280 @@
+{
+  "at": "2026-11-13T22:55:03.083550+00:00",
+  "case": "S4R8_D8__T1",
+  "parent_id": "S4R8_D8",
+  "attempt_ordinal": 1,
+  "kind": "EQ",
+  "family": "Wm2.060",
+  "solve_completed": true,
+  "numerical_pass": true,
+  "design_pass": false,
+  "tuning_status": {
+    "tuned": false,
+    "usable_for_law": false,
+    "error_e": 3.1626045431103904,
+    "mean_inner_peak_dB": -20.149834873999065,
+    "signed_D_dB": 1.5813022715551952,
+    "hard_design_peaks_pass": false
+  },
+  "next_suggestion": {
+    "needs_solve": true,
+    "geometry_mm": {
+      "Wm": 2.06,
+      "Ws": 0.45,
+      "Lm": 6.549,
+      "Ls1": 12.306,
+      "Ls2": 1.45,
+      "Ls3": 2.25
+    },
+    "base_case": "current",
+    "base_y": [
+      6.63,
+      1.5813022715551952,
+      -20.149834873999065
+    ],
+    "J": [
+      [
+        -2.289230701737977,
+        30.53228377154883,
+        -0.6955549647386575
+      ],
+      [
+        0.5361494320764321,
+        -12.643532733954954,
+        -0.882301707575541
+      ],
+      [
+        -1.7043121446708058,
+        38.69451387622909,
+        27.843526794816334
+      ]
+    ],
+    "broyden_updates": [],
+    "raw_step": [
+      -0.022806853868721874,
+      0.05730075722702672,
+      -0.004147175440221684
+    ],
+    "step_scale": 1.0,
+    "actual_step": [
+      -0.022999999999999687,
+      0.05699999999999861,
+      -0.0040000000000000036
+    ],
+    "predicted_change": [
+      0.09003007234701185,
+      -1.5777019480859447,
+      -0.14566754032208115
+    ],
+    "predicted_y": [
+      6.720030072347011,
+      0.0036003234692505437,
+      -20.295502414321145
+    ],
+    "screen": {
+      "input_geometry_mm": {
+        "Wm": 2.06,
+        "Ws": 0.45,
+        "Lm": 6.549,
+        "Ls1": 12.306,
+        "Ls2": 1.45,
+        "Ls3": 2.25
+      },
+      "geometry_mm": {
+        "Wm": 2.06,
+        "Ws": 0.45,
+        "Lm": 6.549,
+        "Ls1": 12.306,
+        "Ls2": 1.45,
+        "Ls3": 2.25
+      },
+      "nominal_a_mm": 1.8,
+      "input_a_mm": 1.8,
+      "actual_a_mm": 1.8,
+      "adjusted": false,
+      "adjustment_step_mm": 0.001,
+      "additional_attempts": 0,
+      "can_submit": true,
+      "decision_scope": "geometry_only_not_solver_authorization",
+      "solver_authorized": false,
+      "must_recheck_every_attempt": true,
+      "screen_before": {
+        "a_mm": 1.8,
+        "g_mm": 0.5499999999999999,
+        "L_parameter_sum_mm": 19.706,
+        "L_centerline_mm": 17.906,
+        "rho": 0.37552014614838125,
+        "central_line_width_mm": 2.06,
+        "tip_to_line_x_mm": 2.8729999999999993,
+        "tip_to_tip_x_mm": 7.805999999999999,
+        "min_tip_to_tip_x_mm": 3.686,
+        "slot_to_board_edge_x_mm": 8.847000000000001,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "screen_after": {
+        "a_mm": 1.8,
+        "g_mm": 0.5499999999999999,
+        "L_parameter_sum_mm": 19.706,
+        "L_centerline_mm": 17.906,
+        "rho": 0.37552014614838125,
+        "central_line_width_mm": 2.06,
+        "tip_to_line_x_mm": 2.8729999999999993,
+        "tip_to_tip_x_mm": 7.805999999999999,
+        "min_tip_to_tip_x_mm": 3.686,
+        "slot_to_board_edge_x_mm": 8.847000000000001,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "reason": "already_passes"
+    },
+    "width_backoffs": [],
+    "nominal_a_mm": 1.8,
+    "actual_a_mm": 1.8,
+    "reason": "R7_direct_peak_feedback",
+    "data_role": "prospective_tuning_attempt_not_blind_test"
+  },
+  "metrics": {
+    "inner_peak_low_dB": -20.940486009776663,
+    "inner_peak_high_dB": -19.359183738221468,
+    "inner_peak_mean_dB": -20.149834873999065,
+    "central_valley_GHz": 6.63,
+    "BW15_GHz": 6.496799522715339,
+    "BW20_GHz": null,
+    "BW_S21_GHz": 7.210817597105546,
+    "BW_joint_GHz": null,
+    "N1": 1.0111047481089126,
+    "N2": 0.8474994971969567,
+    "P_eff": 1.5390609772895556,
+    "R_eff": 0.5673933925150879,
+    "fm_GHz": 6.576029957488797,
+    "fs_GHz": 6.584101976694311
+  },
+  "mesh_cells": 103697,
+  "delta_s": 0.0015632,
+  "passes": 23,
+  "Analyze_requests": 9,
+  "native_sha256": "0fc309838259d45af8eb06751b0dcc4c2d30965489ec8ff8fdfc39b2066ae1f6",
+  "final_sweep_history_unchanged": true,
+  "role_checks": {
+    "adaptive_00": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 48,
+        "-solve": 0,
+        "-port_adapt": 1,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_01": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_02": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_03": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_04": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_05": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_06": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "adaptive_07": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 3,
+        "-solve": 0,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    },
+    "final_sweep": {
+      "passed": true,
+      "errors": [],
+      "roles": {
+        "-solve_broadband_adapt": 0,
+        "-solve": 29,
+        "-port_adapt": 0,
+        "-port_solve": 0,
+        "unknown": 0
+      },
+      "lower_core_sweep_count": 0
+    }
+  },
+  "topology": "folded",
+  "data_role": "prospective_test_T1",
+  "result_level": "名义插值；非直接频点/制造/全模式功率认证"
+}
