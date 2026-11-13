@@ -1,0 +1,638 @@
+[
+  {
+    "design": "D1",
+    "T1": {
+      "case": "S4R8_D1__T1",
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.434,
+        "Lm": 6.555,
+        "Ls1": 9.032,
+        "Ls2": 2.868,
+        "Ls3": 1.434
+      },
+      "central_GHz": 6.27,
+      "D": 12.532274903809348,
+      "L": -21.007410224948593,
+      "tuned": false,
+      "usable_for_law": false,
+      "error_e": 25.064549807618697,
+      "mean_inner_peak_dB": -21.007410224948593,
+      "signed_D_dB": 12.532274903809348,
+      "hard_design_peaks_pass": false,
+      "BW15": null,
+      "BW20": null,
+      "BW15_star": null,
+      "BW15_star_slope_range": null,
+      "S21_min_in_BW15_dB": null,
+      "tip_clearance_mm": 2.113752,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.719609245023411,
+      "D_dB": 0.0026200899800507362,
+      "L_dB": -20.302860065255903,
+      "BW15_star_GHz": {
+        "F1_tip": 6.293858497589524,
+        "F1_sum": 6.265357404064098,
+        "F1_a": 6.34188843082384,
+        "F2_tip": 6.283557456692091,
+        "F2_sum": 6.2550563631666645,
+        "F2_a": 6.331587389926407
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.293500989432537,
+        "F1_sum": 6.26499989590711,
+        "F1_a": 6.341530922666852,
+        "F2_tip": 6.2831999485351036,
+        "F2_sum": 6.254698855009677,
+        "F2_a": 6.331229881769419
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": -0.44960924502341104,
+      "D_dB": 12.529654813829298,
+      "L_dB": -0.7045501596926904
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": null,
+      "F1_sum": null,
+      "F1_a": null,
+      "F2_tip": null,
+      "F2_sum": null,
+      "F2_a": null
+    },
+    "passed_components": {
+      "valley": false,
+      "D": false,
+      "L": false,
+      "BW15_primary": false
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": true,
+    "overlapping_training_cases": [],
+    "central_error_vs_target_GHz": -0.4500000000000002,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  },
+  {
+    "design": "D2",
+    "T1": {
+      "case": "S4R8_D2__T1",
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.471,
+        "Lm": 6.499,
+        "Ls1": 11.931,
+        "Ls2": 1.192,
+        "Ls3": 2.871
+      },
+      "central_GHz": 6.53,
+      "D": 4.775631138392512,
+      "L": -19.86585239886517,
+      "tuned": false,
+      "usable_for_law": false,
+      "error_e": 9.551262276785025,
+      "mean_inner_peak_dB": -19.86585239886517,
+      "signed_D_dB": 4.775631138392512,
+      "hard_design_peaks_pass": false,
+      "BW15": 6.476444770769416,
+      "BW20": null,
+      "BW15_star": 6.422176320627562,
+      "BW15_star_slope_range": [
+        6.4156641066105395,
+        6.428688534644585
+      ],
+      "S21_min_in_BW15_dB": -1.1696593059816713,
+      "tip_clearance_mm": 2.1262519999999996,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.719993631091773,
+      "D_dB": 0.002887244771808706,
+      "L_dB": -20.291763339773322,
+      "BW15_star_GHz": {
+        "F1_tip": 6.294733362311066,
+        "F1_sum": 6.324881535988341,
+        "F1_a": 6.271585154562087,
+        "F2_tip": 6.284432321413633,
+        "F2_sum": 6.314580495090908,
+        "F2_a": 6.2612841136646535
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.295762944839401,
+        "F1_sum": 6.325911118516676,
+        "F1_a": 6.2726147370904215,
+        "F2_tip": 6.285461903941968,
+        "F2_sum": 6.315610077619243,
+        "F2_a": 6.262313696192988
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": -0.18999363109177292,
+      "D_dB": 4.772743893620704,
+      "L_dB": 0.4259109409081532
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": 127.44295831649578,
+      "F1_sum": 97.29478463922092,
+      "F1_a": 150.5911660654755,
+      "F2_tip": 137.74399921392887,
+      "F2_sum": 107.59582553665403,
+      "F2_a": 160.89220696290863
+    },
+    "passed_components": {
+      "valley": false,
+      "D": false,
+      "L": false,
+      "BW15_primary": false
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": true,
+    "overlapping_training_cases": [],
+    "central_error_vs_target_GHz": -0.1899999999999995,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  },
+  {
+    "design": "D3",
+    "T1": {
+      "case": "S4R8_D3__T1",
+      "geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.389,
+        "Lm": 6.556,
+        "Ls1": 8.94,
+        "Ls2": 2.778,
+        "Ls3": 1.389
+      },
+      "central_GHz": 6.31,
+      "D": 12.346066029330963,
+      "L": -21.123049174215875,
+      "tuned": false,
+      "usable_for_law": false,
+      "error_e": 24.692132058661926,
+      "mean_inner_peak_dB": -21.123049174215875,
+      "signed_D_dB": 12.346066029330963,
+      "hard_design_peaks_pass": false,
+      "BW15": null,
+      "BW20": null,
+      "BW15_star": null,
+      "BW15_star_slope_range": null,
+      "S21_min_in_BW15_dB": null,
+      "tip_clearance_mm": 2.1709999999999994,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.720451870907746,
+      "D_dB": -0.007742054895394595,
+      "L_dB": -20.306063049683587,
+      "BW15_star_GHz": {
+        "F1_tip": 6.146370682099638,
+        "F1_sum": 6.113862848127903,
+        "F1_a": 6.190393874887645,
+        "F2_tip": 6.169764133145472,
+        "F2_sum": 6.137256299173737,
+        "F2_a": 6.213787325933479
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.1456128008891895,
+        "F1_sum": 6.113104966917454,
+        "F1_a": 6.1896359936771965,
+        "F2_tip": 6.1690062519350235,
+        "F2_sum": 6.136498417963288,
+        "F2_a": 6.2130294447230305
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": -0.41045187090774604,
+      "D_dB": 12.353808084226358,
+      "L_dB": -0.8169861245322885
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": null,
+      "F1_sum": null,
+      "F1_a": null,
+      "F2_tip": null,
+      "F2_sum": null,
+      "F2_a": null
+    },
+    "passed_components": {
+      "valley": false,
+      "D": false,
+      "L": false,
+      "BW15_primary": false
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": true,
+    "overlapping_training_cases": [],
+    "central_error_vs_target_GHz": -0.41000000000000014,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  },
+  {
+    "design": "D4",
+    "T1": {
+      "case": "S4R8_D4__T1",
+      "geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.426,
+        "Lm": 6.501,
+        "Ls1": 11.839,
+        "Ls2": 1.102,
+        "Ls3": 2.826
+      },
+      "central_GHz": 6.52,
+      "D": 4.399690071406088,
+      "L": -19.665020545864003,
+      "tuned": false,
+      "usable_for_law": false,
+      "error_e": 8.799380142812176,
+      "mean_inner_peak_dB": -19.665020545864003,
+      "signed_D_dB": 4.399690071406088,
+      "hard_design_peaks_pass": false,
+      "BW15": 6.340580817224909,
+      "BW20": null,
+      "BW15_star": 6.261208385457909,
+      "BW15_star_slope_range": [
+        6.2516836936458695,
+        6.270733077269949
+      ],
+      "S21_min_in_BW15_dB": -1.163290897101907,
+      "tip_clearance_mm": 2.1835,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.718547026274372,
+      "D_dB": 0.023057383667877483,
+      "L_dB": -20.29566187916575,
+      "BW15_star_GHz": {
+        "F1_tip": 6.14724554682118,
+        "F1_sum": 6.173386980052147,
+        "F1_a": 6.120090598625892,
+        "F2_tip": 6.170638997867014,
+        "F2_sum": 6.196780431097981,
+        "F2_a": 6.143484049671726
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.147787811925461,
+        "F1_sum": 6.173929245156428,
+        "F1_a": 6.120632863730174,
+        "F2_tip": 6.171181262971295,
+        "F2_sum": 6.197322696202262,
+        "F2_a": 6.144026314776008
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": -0.19854702627437248,
+      "D_dB": 4.37663268773821,
+      "L_dB": 0.630641333301746
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": 113.96283863672885,
+      "F1_sum": 87.82140540576222,
+      "F1_a": 141.1177868320177,
+      "F2_tip": 90.56938759089483,
+      "F2_sum": 64.42795435992821,
+      "F2_a": 117.72433578618369
+    },
+    "passed_components": {
+      "valley": false,
+      "D": false,
+      "L": false,
+      "BW15_primary": false
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": true,
+    "overlapping_training_cases": [],
+    "central_error_vs_target_GHz": -0.20000000000000018,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  },
+  {
+    "design": "D5",
+    "T1": {
+      "case": "S4R8_D5__T1",
+      "geometry_mm": {
+        "Wm": 1.71161,
+        "Ws": 0.296,
+        "Lm": 6.623,
+        "Ls1": 13.168,
+        "Ls2": 1.142,
+        "Ls3": 1.296
+      },
+      "central_GHz": 6.82,
+      "D": -2.458376251164861,
+      "L": -20.79447992716208,
+      "tuned": false,
+      "usable_for_law": false,
+      "error_e": 4.916752502329722,
+      "mean_inner_peak_dB": -20.79447992716208,
+      "signed_D_dB": -2.458376251164861,
+      "hard_design_peaks_pass": false,
+      "BW15": 5.975782805238481,
+      "BW20": null,
+      "BW15_star": 6.03759279613374,
+      "BW15_star_slope_range": [
+        6.03017559722631,
+        6.0450099950411715
+      ],
+      "S21_min_in_BW15_dB": -1.1947070325798308,
+      "tip_clearance_mm": 4.377999999999999,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.720025988715987,
+      "D_dB": 0.004986369326569375,
+      "L_dB": -20.288545801337218,
+      "BW15_star_GHz": {
+        "F1_tip": 6.071198738258553,
+        "F1_sum": 6.071198738258553,
+        "F1_a": 6.071198738258553,
+        "F2_tip": 6.058106328110197,
+        "F2_sum": 6.058106328110197,
+        "F2_a": 6.058106328110197
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.072630513091401,
+        "F1_sum": 6.072630513091401,
+        "F1_a": 6.072630513091401,
+        "F2_tip": 6.059538102943045,
+        "F2_sum": 6.059538102943045,
+        "F2_a": 6.059538102943045
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": 0.09997401128401329,
+      "D_dB": -2.4633626204914303,
+      "L_dB": -0.5059341258248615
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": -33.605942124811605,
+      "F1_sum": -33.605942124811605,
+      "F1_a": -33.605942124811605,
+      "F2_tip": -20.51353197645689,
+      "F2_sum": -20.51353197645689,
+      "F2_a": -20.51353197645689
+    },
+    "passed_components": {
+      "valley": false,
+      "D": false,
+      "L": false,
+      "BW15_primary": true
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": false,
+    "overlapping_training_cases": [
+      "S2_E1_N08_a1.0__T1"
+    ],
+    "central_error_vs_target_GHz": 0.10000000000000053,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  },
+  {
+    "design": "D6",
+    "T1": {
+      "case": "S4R8_D6__T1",
+      "geometry_mm": {
+        "Wm": 1.874,
+        "Ws": 0.388,
+        "Lm": 6.557,
+        "Ls1": 12.146,
+        "Ls2": 1.326,
+        "Ls3": 2.188
+      },
+      "central_GHz": 6.75,
+      "D": -0.6485443801755828,
+      "L": -20.26140270211763,
+      "tuned": false,
+      "usable_for_law": false,
+      "error_e": 1.2970887603511656,
+      "mean_inner_peak_dB": -20.26140270211763,
+      "signed_D_dB": -0.6485443801755828,
+      "hard_design_peaks_pass": false,
+      "BW15": 6.27420825296457,
+      "BW20": null,
+      "BW15_star": 6.269383590729273,
+      "BW15_star_slope_range": [
+        6.2688046312610375,
+        6.269962550197509
+      ],
+      "S21_min_in_BW15_dB": -1.1712937205431422,
+      "tip_clearance_mm": 2.9480000000000004,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.719869018264005,
+      "D_dB": 0.005682780257666564,
+      "L_dB": -20.296590837023274,
+      "BW15_star_GHz": {
+        "F1_tip": 6.266663547876211,
+        "F1_sum": 6.266663547876211,
+        "F1_a": 6.266663547876211,
+        "F2_tip": 6.284295670792643,
+        "F2_sum": 6.284295670792643,
+        "F2_a": 6.284295670792643
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.267089693248302,
+        "F1_sum": 6.267089693248302,
+        "F1_a": 6.267089693248302,
+        "F2_tip": 6.284721816164733,
+        "F2_sum": 6.284721816164733,
+        "F2_a": 6.284721816164733
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": 0.030130981735995377,
+      "D_dB": -0.6542271604332494,
+      "L_dB": 0.03518813490564554
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": 2.7200428530615994,
+      "F1_sum": 2.7200428530615994,
+      "F1_a": 2.7200428530615994,
+      "F2_tip": -14.91208006336997,
+      "F2_sum": -14.91208006336997,
+      "F2_a": -14.91208006336997
+    },
+    "passed_components": {
+      "valley": false,
+      "D": true,
+      "L": true,
+      "BW15_primary": true
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": true,
+    "overlapping_training_cases": [],
+    "central_error_vs_target_GHz": 0.03000000000000025,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  },
+  {
+    "design": "D7",
+    "T1": {
+      "case": "S4R8_D7__T1",
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.483,
+        "Lm": 6.488,
+        "Ls1": 11.035,
+        "Ls2": 1.516,
+        "Ls3": 2.883
+      },
+      "central_GHz": 6.71,
+      "D": -0.008196148715903462,
+      "L": -20.65302812151141,
+      "tuned": true,
+      "usable_for_law": true,
+      "error_e": 0.5883802025190181,
+      "mean_inner_peak_dB": -20.65302812151141,
+      "signed_D_dB": -0.008196148715903462,
+      "hard_design_peaks_pass": true,
+      "BW15": 6.257745783417955,
+      "BW20": 5.925579972181051,
+      "BW15_star": 6.301874298606881,
+      "BW15_star_slope_range": [
+        6.296578876784211,
+        6.3071697204295525
+      ],
+      "S21_min_in_BW15_dB": -0.971568131890046,
+      "tip_clearance_mm": 1.666252,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.718572586388489,
+      "D_dB": 0.0256199983862685,
+      "L_dB": -20.292502000245648,
+      "BW15_star_GHz": {
+        "F1_tip": 6.262538340558311,
+        "F1_sum": 6.273860851481847,
+        "F1_a": 6.271585154562087,
+        "F2_tip": 6.2522372996608775,
+        "F2_sum": 6.263559810584414,
+        "F2_a": 6.2612841136646535
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.263475590527605,
+        "F1_sum": 6.274798101451141,
+        "F1_a": 6.272522404531381,
+        "F2_tip": 6.253174549630172,
+        "F2_sum": 6.264497060553708,
+        "F2_a": 6.262221363633948
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": -0.0085725863884889,
+      "D_dB": -0.03381614710217196,
+      "L_dB": -0.3605261212657638
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": 39.335958048570596,
+      "F1_sum": 28.013447125034396,
+      "F1_a": 30.289144044794547,
+      "F2_tip": 49.63699894600371,
+      "F2_sum": 38.31448802246751,
+      "F2_a": 40.59018494222766
+    },
+    "passed_components": {
+      "valley": true,
+      "D": true,
+      "L": false,
+      "BW15_primary": false
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": true,
+    "overlapping_training_cases": [],
+    "central_error_vs_target_GHz": -0.009999999999999787,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  },
+  {
+    "design": "D8",
+    "T1": {
+      "case": "S4R8_D8__T1",
+      "geometry_mm": {
+        "Wm": 2.06,
+        "Ws": 0.454,
+        "Lm": 6.572,
+        "Ls1": 12.241,
+        "Ls2": 1.458,
+        "Ls3": 2.254
+      },
+      "central_GHz": 6.63,
+      "D": 1.5813022715551952,
+      "L": -20.149834873999065,
+      "tuned": false,
+      "usable_for_law": false,
+      "error_e": 3.1626045431103904,
+      "mean_inner_peak_dB": -20.149834873999065,
+      "signed_D_dB": 1.5813022715551952,
+      "hard_design_peaks_pass": false,
+      "BW15": 6.496799522715339,
+      "BW20": null,
+      "BW15_star": 6.478028881965222,
+      "BW15_star_slope_range": [
+        6.475776405075208,
+        6.480281358855236
+      ],
+      "S21_min_in_BW15_dB": -1.2606334957476797,
+      "tip_clearance_mm": 2.8365,
+      "data_role": "prospective_test_T1"
+    },
+    "frozen_prediction": {
+      "central_valley_GHz": 6.719193802359386,
+      "D_dB": 0.011564407070304608,
+      "L_dB": -20.29863368491811,
+      "BW15_star_GHz": {
+        "F1_tip": 6.490547128077484,
+        "F1_sum": 6.490547128077484,
+        "F1_a": 6.490547128077484,
+        "F2_tip": 6.360061973763321,
+        "F2_sum": 6.360061973763321,
+        "F2_a": 6.360061973763321
+      },
+      "BW15_GHz": {
+        "F1_tip": 6.490717917462721,
+        "F1_sum": 6.490717917462721,
+        "F1_a": 6.490717917462721,
+        "F2_tip": 6.360232763148558,
+        "F2_sum": 6.360232763148558,
+        "F2_a": 6.360232763148558
+      },
+      "primary_bandwidth_model": "F2_tip",
+      "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+    },
+    "errors": {
+      "valley_GHz": -0.0891938023593859,
+      "D_dB": 1.5697378644848905,
+      "L_dB": 0.14879881091904323
+    },
+    "BW15_errors_MHz": {
+      "F1_tip": -12.518246112262155,
+      "F1_sum": -12.518246112262155,
+      "F1_a": -12.518246112262155,
+      "F2_tip": 117.96690820190125,
+      "F2_sum": 117.96690820190125,
+      "F2_a": 117.96690820190125
+    },
+    "passed_components": {
+      "valley": false,
+      "D": false,
+      "L": true,
+      "BW15_primary": false
+    },
+    "T1_all_pass": false,
+    "unseen_Wm_a_g_tuple": true,
+    "overlapping_training_cases": [],
+    "central_error_vs_target_GHz": -0.08999999999999986,
+    "scoring": "T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit"
+  }
+]

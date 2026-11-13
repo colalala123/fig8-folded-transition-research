@@ -1,3 +1,5 @@
-# R8 阶段4
+# R8 阶段4：已完成，停在阶段5之前
 
-入口：OFFLINE_R8_1.md；求解前冻结：freeze/、offline/、pre_solve/。历史R7保持不变。R8授权来源：计划9f90b07及本聊天人类同意；阶段4完成后停，不进5。
+入口：[SUMMARY.md](SUMMARY.md) 与 [完整报告](final/REPORT.md)。
+
+冻结27e8e2b先于首个求解；D1–D8顺序完成，18几何、180实际Analyze，6/8研究可用。D5已见组合限制与D6采样边界单独披露。旧R7保持不变，无hook，不自动接续阶段5。

@@ -91,23 +91,30 @@ def run(root):
         v=value(n);qq[q]=dict(design=n,BW15_star=v,range=[lo,hi],passed=v is not None and lo<=v<=hi)
     qq['Q5']['saturation']=None if value('D8') is None else 'saturated' if value('D8')<6.42 else 'linear' if value('D8')>6.42 else 'boundary'
     errors={k:dict(n=sum(s['BW15_errors_MHz'][k] is not None for s in scores),RMSE_MHz=float(np.sqrt(np.mean([s['BW15_errors_MHz'][k]**2 for s in scores if s['BW15_errors_MHz'][k] is not None])))) for k in scores[0]['BW15_errors_MHz']}
-    for n,v in [('AUDIT',aud),('T1_SCORES',scores),('SELECTED',selected),('REVIEWER_SCORES',qq),('BANDWIDTH_MODEL_ERRORS',errors)]:write(out/(n+'.json'),v)
+    novel_errors={k:dict(n=sum(s['BW15_errors_MHz'][k] is not None and s['unseen_Wm_a_g_tuple'] for s in scores),RMSE_MHz=float(np.sqrt(np.mean([s['BW15_errors_MHz'][k]**2 for s in scores if s['BW15_errors_MHz'][k] is not None and s['unseen_Wm_a_g_tuple']])))) for k in scores[0]['BW15_errors_MHz']}
+    for n,v in [('AUDIT',aud),('T1_SCORES',scores),('SELECTED',selected),('REVIEWER_SCORES',qq),('BANDWIDTH_MODEL_ERRORS',errors),('UNSEEN_TUPLE_BANDWIDTH_ERRORS',novel_errors)]:write(out/(n+'.json'),v)
     usable=sum(r['tuned'] for r in selected);t1pass=sum(s['T1_all_pass'] for s in scores)
     unseen=[s for s in scores if s['unseen_Wm_a_g_tuple']]
     lines=['# R8 阶段4完成报告','', '## 总结','',f'8个指定设计均完成有限流程；{usable}/8取得R7可用点，T1四项联合预测通过{t1pass}/8。新增{aud["new_geometry"]}几何、{aud["new_Analyze"]}实际Analyze；累计{aud["total_geometry"]}/187几何、{aud["total_Analyze"]}实际Analyze。阶段4完成后停止，不进入阶段5。',
       '',f'其中只有{len(unseen)}/8是未见(Wm,a,g)组合；这些组合的T1联合通过{sum(s["T1_all_pass"] for s in unseen)}/{len(unseen)}。D5历史组合曾进入训练，须单列；见DATA_ROLE_DISCLOSURE.md。不能宣称8项全是独立未见组合。',
       '',f'Q1按预登记区间判为：{q1["winner"]}。D8的平台判断为：{qq["Q5"]["saturation"]}。此结论仅覆盖本次设计与数值口径，不是普适的P/R逆向设计定律。',
+      '', '严格T1评分的边界说明：D6实测谷6.75 GHz，对冻结值6.719869的误差为30.13098 MHz，仅比30 MHz门槛多0.13098 MHz，而原生频率采样步长是10 MHz；若相对名义目标6.72 GHz，则恰在30 MHz边界。这里不改严格评分，但必须把它与D1/D3的大幅外推失败区分。D6其余三项预测门槛通过，仍因R7峰差0.5 dB条件需要T2。',
       '', '## 各T1预测与实测','', '|设计|谷预测/实测 GHz|D预测/实测 dB|L预测/实测 dB|BW15预测/实测 GHz|四项全过|', '|---|---|---|---|---|---|']
     for s in scores:
         yp=s['frozen_prediction'];t=s['T1'];bp=None if t['L'] is None else yp['BW15_star_GHz']['F2_tip']+.125*(t['L']+20.3)
         lines.append(f"|{s['design']}|{fmt(yp['central_valley_GHz'])}/{fmt(t['central_GHz'])}|{fmt(yp['D_dB'],3)}/{fmt(t['D'],3)}|{fmt(yp['L_dB'],3)}/{fmt(t['L'],3)}|{fmt(bp)}/{fmt(t['BW15'])}|{s['T1_all_pass']}|")
-    lines+=['','BW15预测按R8条件化实测L；完整六模型逐点误差与四项门槛见T1_SCORES.json。T1即使失败仍永久保留前瞻身份，T2/T3绝不替代它计入盲测。','','## 三种代价及平台模型误差','','|模型|T1 n|RMSE MHz|','|---|---:|---:|']
-    for k,v in errors.items():lines.append(f'|{k}|{v["n"]}|{v["RMSE_MHz"]:.3f}|')
+    lines+=['','BW15预测按R8条件化实测L；完整六模型逐点误差与四项门槛见T1_SCORES.json。T1预测先于求解冻结；但D5须按已见组合单列，T2/T3绝不替代T1计入独立检验。','','## 三种代价及平台模型误差','','D1/D3主BW15缺失，不补零。全指定点口径含D5；未见组合口径剔除D5，均不包含调参结果。','','|模型|指定T1 n|RMSE MHz|未见组合n|RMSE MHz|','|---|---:|---:|---:|---:|']
+    for k,v in errors.items():lines.append(f'|{k}|{v["n"]}|{v["RMSE_MHz"]:.3f}|{novel_errors[k]["n"]}|{novel_errors[k]["RMSE_MHz"]:.3f}|')
     lines+=['','## Q1–Q5及平台结论','','```json',json.dumps(qq,ensure_ascii=False,indent=2),'```','',
        'Q1严格用原登记N04=6.332/N14=6.214平台及区间；缺少任一可用点时不可判分，不把缺失误写为两个假说都失败。若全部可评分但判neither，不把最接近的一组改称成立。D1/D3实际端头净距与计划粗估不一致，削弱区分度；不能拿本批结果再改冻结阈值。',
        '', '## 可用点表','', '|设计|Wm|a|g|选中案例|Ws|谷 GHz|D dB|L dB|BW15* GHz|可用|严格双峰≤-20|','|---|---:|---:|---:|---|---:|---:|---:|---:|---:|---|---|']
     for r in selected:
-        lines.append(f"|{r['design']}|{r['geometry_mm']['Wm']}|{r['a']}|{r['g']}|{r['case']}|{r['geometry_mm']['Ws']}|{fmt(r['central_GHz'])}|{fmt(r['D'],3)}|{fmt(r['L'],3)}|{fmt(r['BW15_star'])}|{r['tuned']}|{r['hard_design_peaks_pass']}|")
+        lines.append(f"|{r['design']}|{r['geometry_mm']['Wm']}|{r['a']}|{r['g']}|{r['case']}|{r['geometry_mm']['Ws']}|{fmt(r['central_GHz'])}|{fmt(r['D'],3)}|{fmt(r['L'],3)}|{fmt(r['BW15_star'] if r['tuned'] else None)}|{r['tuned']}|{r['hard_design_peaks_pass']}|")
+    lines+=['', 'D1/D3不满足等纹波可用条件，表中不展示其代数折算值作为规律证据；原始指标及布尔资格仍完整保留在SELECTED.json。','',
+      '## 平台与参数规律的实际意义','',
+      f"D8的BW15*={by['D8']['BW15_star']:.6f} GHz，冻结线性平台预测{laws.platform(m['platform']['1'],2.060):.6f} GHz，二次预测{laws.platform(m['platform']['2'],2.060):.6f} GHz。按Q5的6.42 GHz分界，偏向线性支路，说明在Wm=2.060这个检验点没有出现二次模型预测的明显饱和；单点不证明任意加宽都持续线性增加。",
+      f"D8原生名义-20dB主带宽为{by['D8']['BW20']:.6f} GHz，为下一阶段6.0GHz目标提供候选，但未做更密网格、直接频点或制造公差确认。",'','公式链还不能承诺一次反解即命中：严格T1四项联合结果及整阶梯CV均显示长度/峰差预测存在泛化误差。局部反馈调参在本预算中得到6个可用点；D1/D3的g=2.0超出旧训练范围，需要新方案改善g相关长度修正和外推初值，不能据当前三次未调准断言物理不可达。','',
+      'Q2名义不通过（D7较预期上界高约12 MHz）；Q3/Q4/Q5名义通过，其中Q3的D5不是未见组合验证。Q1因D1/D3未调准仍无法区分净距与a+g假说。']
     lines+=['','## 限制与接续','','- R7研究可用与硬-20dB交付分开；BW20缺失时保留null，不用BW15*伪造。','- 原生插值/约10万网格，不是直接频点、加密网格或制造公差认证；本批没有全模功率/辐射分解的新认证。','- 80历史点拟合与整阶梯CV均在R8-1先推送；本批不改规律系数。','- 独立AUDIT逐项核验原生CSV重提取、网格/ΔS、14核角色、实际看图ACK、发布先于启动、串行不重叠、历史字节与预算。','- 旧批STOP与旧均匀数据不动；无hook/周期唤醒。阶段5目标需审核后另定，不自动接续。']
     (out/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     write(out/'MANIFEST.json',{p.name:sha(p) for p in out.iterdir() if p.is_file()})

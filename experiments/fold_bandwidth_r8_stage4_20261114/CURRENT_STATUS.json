@@ -1,13 +1,13 @@
 {
-  "at": "2026-11-13T22:55:31.078648+00:00",
-  "phase": "stage4",
-  "R8_geometries": 17,
+  "at": "2026-11-13T23:16:44.142964+00:00",
+  "phase": "stage4_complete_awaiting_review",
+  "R8_geometries": 18,
   "R8_cap": 24,
-  "geometry_total": 150,
+  "geometry_total": 151,
   "geometry_cap": 187,
   "stage4_cumulative_cap": 157,
-  "R8_actual_Analyze": 173,
-  "actual_Analyze_total": 1399,
+  "R8_actual_Analyze": 180,
+  "actual_Analyze_total": 1406,
   "completed_parents": [
     {
       "at": "2026-11-13T17:39:38.348744+00:00",
@@ -85,8 +85,35 @@
       "kind": "EQ",
       "reason": "R7 usable",
       "stage5_enabled": false
+    },
+    {
+      "at": "2026-11-13T23:16:42.537711+00:00",
+      "parent_id": "S4R8_D8",
+      "complete": true,
+      "tuned": true,
+      "selected_case": "S4R8_D8__T2",
+      "attempts": 2,
+      "kind": "EQ",
+      "reason": "R7 usable",
+      "stage5_enabled": false
     }
   ],
   "stage5_started": false,
-  "stop": null
+  "stop": {
+    "at": "2026-11-13T23:20:56.457029+00:00",
+    "phase": "stage4_complete_awaiting_review",
+    "reason": "R8 D1-D8有限流程全部结束，按授权停止，阶段5未启动",
+    "new_geometry": 18,
+    "new_actual_Analyze": 180,
+    "total_geometry": 151,
+    "total_actual_Analyze": 1406,
+    "usable_designs": 6,
+    "assigned_designs": 8,
+    "stage5_started": false,
+    "automatic_continuation_enabled": false,
+    "hook_messages": 0
+  },
+  "active": 0,
+  "automatic_continuation_enabled": false,
+  "hook_messages": 0
 }
