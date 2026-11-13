@@ -1,0 +1,366 @@
+{
+  "at": "2026-11-13T03:40:33.732471+00:00",
+  "parent_id": "S3R7_N04_a2.2",
+  "attempt_ordinal": 2,
+  "design": {
+    "id": "S3R7_N04_a2.2",
+    "kind": "EQ",
+    "family": "N04",
+    "nominal_a_mm": 2.2,
+    "topology": "folded",
+    "max_Analyze": 3,
+    "seed": "S2_E1_N04_a2.2__T2",
+    "material_role": "archived_lossy",
+    "data_role": "prospective_tuning_attempt_not_blind_test",
+    "geometry_mm": {
+      "Wm": 1.936496,
+      "Ws": 0.451,
+      "Lm": 6.506,
+      "Ls1": 11.427,
+      "Ls2": 1.452,
+      "Ls3": 2.6510000000000002
+    },
+    "tuning": {
+      "needs_solve": true,
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.451,
+        "Lm": 6.506,
+        "Ls1": 11.427,
+        "Ls2": 1.452,
+        "Ls3": 2.6510000000000002
+      },
+      "base_case": "S3R7_N04_a2.2__T1",
+      "base_y": [
+        6.68,
+        0.2623132814810809,
+        -20.425914441978378
+      ],
+      "J": [
+        [
+          -2.3029376190101707,
+          30.62923420895566,
+          -0.7325193984928258
+        ],
+        [
+          0.30960424478508797,
+          -11.041155294582525,
+          -1.4932424757776321
+        ],
+        [
+          -1.7798907158179496,
+          39.22908889304656,
+          27.63970860353924
+        ]
+      ],
+      "broyden_updates": [
+        {
+          "case": "S3R7_N04_a2.2__T1",
+          "triggered": true,
+          "components": [
+            1
+          ],
+          "predicted": [
+            -0.028252668527657857,
+            0.34920183513433356,
+            1.3824836126673228
+          ],
+          "actual": [
+            -0.07000000000000028,
+            0.6444850097852921,
+            1.2699005687940499
+          ]
+        }
+      ],
+      "raw_step": [
+        -0.02358445588578721,
+        -0.03428345467709158,
+        0.002078345348096529
+      ],
+      "step_scale": 1.0,
+      "actual_step": [
+        -0.02400000000000002,
+        -0.03399999999999892,
+        0.0020000000000000018
+      ],
+      "predicted_change": [
+        0.04118417710191559,
+        -0.28124416321304935,
+        0.12363012694734425
+      ],
+      "predicted_y": [
+        6.721184177101915,
+        -0.01893088173196844,
+        -20.302284315031034
+      ],
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 1.936496,
+          "Ws": 0.451,
+          "Lm": 6.506,
+          "Ls1": 11.427,
+          "Ls2": 1.452,
+          "Ls3": 2.6510000000000002
+        },
+        "geometry_mm": {
+          "Wm": 1.936496,
+          "Ws": 0.451,
+          "Lm": 6.506,
+          "Ls1": 11.427,
+          "Ls2": 1.452,
+          "Ls3": 2.6510000000000002
+        },
+        "nominal_a_mm": 2.2,
+        "input_a_mm": 2.2,
+        "actual_a_mm": 2.2,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 2.2,
+          "g_mm": 0.5499999999999999,
+          "L_parameter_sum_mm": 19.633,
+          "L_centerline_mm": 17.829,
+          "rho": 0.4179697448173993,
+          "central_line_width_mm": 1.936496,
+          "tip_to_line_x_mm": 2.0942519999999996,
+          "tip_to_tip_x_mm": 6.124999999999999,
+          "min_tip_to_tip_x_mm": 3.562496,
+          "slot_to_board_edge_x_mm": 9.2865,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 2.2,
+          "g_mm": 0.5499999999999999,
+          "L_parameter_sum_mm": 19.633,
+          "L_centerline_mm": 17.829,
+          "rho": 0.4179697448173993,
+          "central_line_width_mm": 1.936496,
+          "tip_to_line_x_mm": 2.0942519999999996,
+          "tip_to_tip_x_mm": 6.124999999999999,
+          "min_tip_to_tip_x_mm": 3.562496,
+          "slot_to_board_edge_x_mm": 9.2865,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "width_backoffs": [],
+      "nominal_a_mm": 2.2,
+      "actual_a_mm": 2.2,
+      "reason": "R7_direct_peak_feedback",
+      "data_role": "prospective_tuning_attempt_not_blind_test"
+    },
+    "prediction": {
+      "level": "R7_direct_peak_feedback_not_circuit_inverse",
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.451,
+        "Lm": 6.506,
+        "Ls1": 11.427,
+        "Ls2": 1.452,
+        "Ls3": 2.6510000000000002
+      },
+      "topology": "folded"
+    },
+    "screen": {
+      "input_geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.451,
+        "Lm": 6.506,
+        "Ls1": 11.427,
+        "Ls2": 1.452,
+        "Ls3": 2.6510000000000002
+      },
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.451,
+        "Lm": 6.506,
+        "Ls1": 11.427,
+        "Ls2": 1.452,
+        "Ls3": 2.6510000000000002
+      },
+      "nominal_a_mm": 2.2,
+      "input_a_mm": 2.2,
+      "actual_a_mm": 2.2,
+      "adjusted": false,
+      "adjustment_step_mm": 0.001,
+      "additional_attempts": 0,
+      "can_submit": true,
+      "decision_scope": "geometry_only_not_solver_authorization",
+      "solver_authorized": false,
+      "must_recheck_every_attempt": true,
+      "screen_before": {
+        "a_mm": 2.2,
+        "g_mm": 0.5499999999999999,
+        "L_parameter_sum_mm": 19.633,
+        "L_centerline_mm": 17.829,
+        "rho": 0.4179697448173993,
+        "central_line_width_mm": 1.936496,
+        "tip_to_line_x_mm": 2.0942519999999996,
+        "tip_to_tip_x_mm": 6.124999999999999,
+        "min_tip_to_tip_x_mm": 3.562496,
+        "slot_to_board_edge_x_mm": 9.2865,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "screen_after": {
+        "a_mm": 2.2,
+        "g_mm": 0.5499999999999999,
+        "L_parameter_sum_mm": 19.633,
+        "L_centerline_mm": 17.829,
+        "rho": 0.4179697448173993,
+        "central_line_width_mm": 1.936496,
+        "tip_to_line_x_mm": 2.0942519999999996,
+        "tip_to_tip_x_mm": 6.124999999999999,
+        "min_tip_to_tip_x_mm": 3.562496,
+        "slot_to_board_edge_x_mm": 9.2865,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "reason": "already_passes"
+    }
+  },
+  "nominal_a_mm": 2.2,
+  "expected_boxes": [
+    {
+      "name": "StructureBSlot_top_main",
+      "parameters_mm": {
+        "XPosition": -5.7135,
+        "YPosition": -0.2255,
+        "ZPosition": -0.01,
+        "XSize": 11.427,
+        "YSize": 0.451,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_connector",
+      "parameters_mm": {
+        "XPosition": 5.2625,
+        "YPosition": -1.2265,
+        "ZPosition": -0.01,
+        "XSize": 0.451,
+        "YSize": 1.001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_leg",
+      "parameters_mm": {
+        "XPosition": 3.0624999999999996,
+        "YPosition": -1.2265,
+        "ZPosition": -0.01,
+        "XSize": 2.2,
+        "YSize": 0.451,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_connector",
+      "parameters_mm": {
+        "XPosition": -5.7135,
+        "YPosition": -1.2265,
+        "ZPosition": -0.01,
+        "XSize": 0.451,
+        "YSize": 1.001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_leg",
+      "parameters_mm": {
+        "XPosition": -5.2625,
+        "YPosition": -1.2265,
+        "ZPosition": -0.01,
+        "XSize": 2.2,
+        "YSize": 0.451,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_main",
+      "parameters_mm": {
+        "XPosition": -5.7135,
+        "YPosition": -0.2255,
+        "ZPosition": -0.045,
+        "XSize": 11.427,
+        "YSize": 0.451,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_connector",
+      "parameters_mm": {
+        "XPosition": 5.2625,
+        "YPosition": -1.2265,
+        "ZPosition": -0.045,
+        "XSize": 0.451,
+        "YSize": 1.001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_leg",
+      "parameters_mm": {
+        "XPosition": 3.0624999999999996,
+        "YPosition": -1.2265,
+        "ZPosition": -0.045,
+        "XSize": 2.2,
+        "YSize": 0.451,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_connector",
+      "parameters_mm": {
+        "XPosition": -5.7135,
+        "YPosition": -1.2265,
+        "ZPosition": -0.045,
+        "XSize": 0.451,
+        "YSize": 1.001,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_leg",
+      "parameters_mm": {
+        "XPosition": -5.2625,
+        "YPosition": -1.2265,
+        "ZPosition": -0.045,
+        "XSize": 2.2,
+        "YSize": 0.451,
+        "ZSize": 0.055
+      }
+    }
+  ],
+  "source_hashes": {
+    "hfss/INV01_A14.aedt": "ee640438d8d1be88ecc4c6928a487bd9683493a3d06323d4d655d23534e6b4ee"
+  },
+  "authorization_sha256": "33f97b95fc9ee7899b77d484f5c82540d72ce77937479a3f12216bb3a88c9c4e",
+  "resume": false,
+  "inherited_Analyze": 0,
+  "previous_extraction_sha256": "c23521080ad8d292554171c9b50b293366d4736dc2fcee77534f3b52e30d18d4",
+  "solver_started": false
+}
