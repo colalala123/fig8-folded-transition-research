@@ -1,0 +1,97 @@
+{
+  "at": "2026-11-13T22:12:02.726815+00:00",
+  "detected": "post-D5-completion independent overlap audit; omitted from initial offline tests",
+  "rule": "Do not change frozen training, coefficients or old input labels. D5 has a new exact geometry but is not an unseen Wm/a/g-combination test; report separately.",
+  "unseen_tuple_designs": 7,
+  "assigned_designs": 8,
+  "designs": [
+    {
+      "design": "D1",
+      "unseen_Wm_a_g_tuple": true,
+      "overlapping_training_rows": [],
+      "exact_T1_geometry_seen": false
+    },
+    {
+      "design": "D2",
+      "unseen_Wm_a_g_tuple": true,
+      "overlapping_training_rows": [],
+      "exact_T1_geometry_seen": false
+    },
+    {
+      "design": "D3",
+      "unseen_Wm_a_g_tuple": true,
+      "overlapping_training_rows": [],
+      "exact_T1_geometry_seen": false
+    },
+    {
+      "design": "D4",
+      "unseen_Wm_a_g_tuple": true,
+      "overlapping_training_rows": [],
+      "exact_T1_geometry_seen": false
+    },
+    {
+      "design": "D5",
+      "unseen_Wm_a_g_tuple": false,
+      "overlapping_training_rows": [
+        {
+          "case": "S2_E1_N08_a1.0__T1",
+          "source": "experiments/fold_bandwidth_review_r7_20261113/out/ALL_GEOMETRIES.json",
+          "family": "N08",
+          "group": "N08_a_ladder",
+          "geometry_mm": {
+            "Wm": 1.71161,
+            "Ws": 0.360281,
+            "Lm": 6.63,
+            "Ls1": 13.203,
+            "Ls2": 1.270562,
+            "Ls3": 1.360281
+          },
+          "Wm": 1.71161,
+          "a": 1.0,
+          "g": 0.55,
+          "Lc": 17.023562000000002,
+          "y": [
+            6.7,
+            0.1059466244522298,
+            -18.89112550413431
+          ],
+          "target_x": [
+            6.618050095460762,
+            16.828386542650524,
+            0.30319807504207785
+          ],
+          "local_target_correction": [
+            -0.011949904539238118,
+            -0.19517545734947928,
+            -0.057082924957922145
+          ],
+          "balanced_for_bandwidth": false,
+          "BW15": 6.2350326074571605,
+          "BW15_star": 6.058923295473949,
+          "tip_clearance": 4.331218999999999
+        }
+      ],
+      "exact_T1_geometry_seen": false
+    },
+    {
+      "design": "D6",
+      "unseen_Wm_a_g_tuple": true,
+      "overlapping_training_rows": [],
+      "exact_T1_geometry_seen": false
+    },
+    {
+      "design": "D7",
+      "unseen_Wm_a_g_tuple": true,
+      "overlapping_training_rows": [],
+      "exact_T1_geometry_seen": false
+    },
+    {
+      "design": "D8",
+      "unseen_Wm_a_g_tuple": true,
+      "overlapping_training_rows": [],
+      "exact_T1_geometry_seen": false
+    }
+  ],
+  "no_extra_geometry": true,
+  "no_retroactive_refit": true
+}

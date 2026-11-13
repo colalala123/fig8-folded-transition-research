@@ -71,7 +71,10 @@ def run(root):
         yp=s['prediction'];bwerr={k:None if t1['BW15'] is None or t1['L'] is None else 1000*(t1['BW15']-(v+.125*(t1['L']+20.3))) for k,v in yp['BW15_star_GHz'].items()}
         er=dict(valley_GHz=None if t1['central_GHz'] is None else t1['central_GHz']-yp['central_valley_GHz'],D_dB=None if t1['D'] is None else t1['D']-yp['D_dB'],L_dB=None if t1['L'] is None else t1['L']-yp['L_dB'])
         passed={k:v is not None and abs(v)<=lim+1e-10 for k,v,lim in [('valley',er['valley_GHz'],.03),('D',er['D_dB'],.7),('L',er['L_dB'],.3),('BW15_primary',bwerr['F2_tip'],40.)]}
+        overlaps=[r['case'] for r in read(HERE/'offline/TRAINING.json')['rows'] if abs(r['Wm']-s['geometry_mm']['Wm'])<1e-7 and abs(r['a']-s['nominal_a_mm'])<1e-6 and abs(r['g']-s['g_mm'])<1e-6]
         scores.append(dict(design=s['design'],T1=t1,frozen_prediction=yp,errors=er,BW15_errors_MHz=bwerr,passed_components=passed,T1_all_pass=all(passed.values()),
+            unseen_Wm_a_g_tuple=not overlaps,overlapping_training_cases=overlaps,
+            central_error_vs_target_GHz=None if t1['central_GHz'] is None else t1['central_GHz']-6.72,
             scoring='T1 only, six frozen models; BW15 prediction conditioned only on measured L per R8, no refit'))
     by={r['design']:r for r in selected}
     def value(n):return by[n]['BW15_star'] if by[n]['tuned'] else None
@@ -88,7 +91,9 @@ def run(root):
     errors={k:dict(n=sum(s['BW15_errors_MHz'][k] is not None for s in scores),RMSE_MHz=float(np.sqrt(np.mean([s['BW15_errors_MHz'][k]**2 for s in scores if s['BW15_errors_MHz'][k] is not None])))) for k in scores[0]['BW15_errors_MHz']}
     for n,v in [('AUDIT',aud),('T1_SCORES',scores),('SELECTED',selected),('REVIEWER_SCORES',qq),('BANDWIDTH_MODEL_ERRORS',errors)]:write(out/(n+'.json'),v)
     usable=sum(r['tuned'] for r in selected);t1pass=sum(s['T1_all_pass'] for s in scores)
+    unseen=[s for s in scores if s['unseen_Wm_a_g_tuple']]
     lines=['# R8 阶段4完成报告','', '## 总结','',f'8个指定设计均完成有限流程；{usable}/8取得R7可用点，T1四项联合预测通过{t1pass}/8。新增{aud["new_geometry"]}几何、{aud["new_Analyze"]}实际Analyze；累计{aud["total_geometry"]}/187几何、{aud["total_Analyze"]}实际Analyze。阶段4完成后停止，不进入阶段5。',
+      '',f'其中只有{len(unseen)}/8是未见(Wm,a,g)组合；这些组合的T1联合通过{sum(s["T1_all_pass"] for s in unseen)}/{len(unseen)}。D5历史组合曾进入训练，须单列；见DATA_ROLE_DISCLOSURE.md。不能宣称8项全是独立未见组合。',
       '',f'Q1按预登记区间判为：{q1["winner"]}。D8的平台判断为：{qq["Q5"]["saturation"]}。此结论仅覆盖本次设计与数值口径，不是普适的P/R逆向设计定律。',
       '', '## 各T1预测与实测','', '|设计|谷预测/实测 GHz|D预测/实测 dB|L预测/实测 dB|BW15预测/实测 GHz|四项全过|', '|---|---|---|---|---|---|']
     for s in scores:
