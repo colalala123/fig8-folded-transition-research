@@ -15,6 +15,7 @@ def metrics(root,case,cfg):
     return dict(case=case,geometry_mm=g,central_GHz=None if y is None else float(y[0]),D=None if y is None else float(y[1]),L=None if y is None else float(y[2]),
         **classify(q),BW15=b['BW_GHz'],BW20=bw['BW20']['BW_GHz'],
         BW15_star=None if not valid or y is None else b['BW_GHz']-.125*(float(y[2])+20.3),
+        BW15_star_slope_range=None if not valid or y is None else sorted(b['BW_GHz']-s*(float(y[2])+20.3) for s in (.110,.140)),
         S21_min_in_BW15_dB=None if not valid else float(np.min(20*np.log10(abs(z['S'][(z['f_GHz']>=edges[0])&(z['f_GHz']<=edges[1]),2,0])))),
         tip_clearance_mm=(g['Ls1']-2*g['Ls3']-max(g['Wm'],1.82))/2,data_role=fz['design']['data_role'])
 def audit(root,cfg):
