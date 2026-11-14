@@ -116,13 +116,24 @@ def build():
         if s:
             z=np.load(case_dir(ROOT,s['case'],cfg)/'native/full_modes.npz');fr=z['f_GHz'];S=z['S'];ax.plot(fr,20*np.log10(abs(S[:,0,0])),label='S11 nominal');ax.plot(fr,20*np.log10(abs(S[:,2,0])),label='S21 nominal')
             if p.endswith('B1') and dense:
-                z=np.load(case_dir(ROOT,dense['case'],cfg)/'native/full_modes.npz');ax.plot(z['f_GHz'],20*np.log10(abs(z['S'][:,0,0])),ls='--',label='S11 dense')
+                z=np.load(case_dir(ROOT,dense['case'],cfg)/'native/full_modes.npz');ax.plot(z['f_GHz'],20*np.log10(abs(z['S'][:,0,0])),ls='--',label='S11 dense');ax.plot(z['f_GHz'],20*np.log10(abs(z['S'][:,2,0])),ls=':',label='S21 dense')
         ax.set(xlim=(2.5,11),ylim=(-50,1),title=p,xlabel='GHz',ylabel='dB');ax.axhline(-20.5,c='gray',ls=':');ax.legend();ax.grid(alpha=.3)
     fig.tight_layout();fig.savefig(out/'DELIVERY_CURVES.png',dpi=150);plt.close(fig)
     fig,ax=plt.subplots(figsize=(9,5));old=read(HERE/'offline/COST_REFIT.json')['points'];plat=[r for r in old if abs(r['a']-1.8)<1e-6 and abs(r['g']-.55)<1e-6];ax.scatter([r['Wm'] for r in plat],[r['y'] for r in plat],label='Historical platform')
     for s in usable:
         if s['parent'].split('_')[-1].startswith('W'):ax.scatter(s['geometry_mm']['Wm'],s['BW15_star'],marker='*',s=120);ax.annotate(s['parent'].split('_')[-1],(s['geometry_mm']['Wm'],s['BW15_star']))
     ax.set(xlabel='Wm (mm)',ylabel='BW15* (GHz)',title='R9 measured usable platforms (tuned)');ax.grid(alpha=.3);ax.legend();fig.tight_layout();fig.savefig(out/'WM_PLATFORM.png',dpi=150);plt.close(fig)
+    alloc=read(HERE/'offline_5B/FULL_SELECTION_AUDIT.json')['all_four_candidates'];ar=[]
+    for r in alloc:
+        if not r['usable_recomputed']:continue
+        if r['source']=='R9':q=read(case_dir(ROOT,r['case'],cfg)/'review/extraction_R2.json')
+        else:q=read(REPO/'experiments'/r['source']/'results'/r['case']/'review/extraction_R2.json')
+        ar.append(dict(case=r['case'],a=r['a'],g=r['g'],total_fold=r['a']+r['g'],Ls1=q['geometry_mm']['Ls1'],BW15_star=r['BW15_star'],cost_MHz=(6.332-r['BW15_star'])*1000,data_role='tuned; historical and R9 sources explicitly separated'))
+    ar.sort(key=lambda r:r['a']);write(out/'ALLOCATION.json',ar)
+    fig,ax=plt.subplots(figsize=(9,5))
+    ax.plot([r['a'] for r in ar],[r['cost_MHz'] for r in ar],marker='o')
+    for r in ar:ax.annotate(f"a={r['a']:.1f}, g={r['g']:.2f}\nLs1={r['Ls1']:.3f}",(r['a'],r['cost_MHz']),xytext=(4,7),textcoords='offset points')
+    ax.set(xlabel='a (mm); a+g approximately 3.0-3.15 mm',ylabel='Cost versus N04 6.332GHz platform (MHz)',title='N04 fold allocation (tuned; not exactly matched span)');ax.grid(alpha=.3);fig.tight_layout();fig.savefig(out/'ALLOCATION.png',dpi=150);plt.close(fig)
     audit=read(out/'AUDIT.json');lines=['# R9 阶段5中文总结','','## 总结',f"本轮已按有限方案结束：新增 {audit['geometries']}/26 个几何、{audit['new_API']} 次实际 Analyze；累计 {audit['total_geometry']}/187 个几何、{audit['total_API']} 次实际请求。14核1组串行，无hook，无阶段6。",'',f"5A 可用 {len(usable)} 项；5B 名义交付 {sum(bool(s['delivery_pass']) for s in selected if s['parent'] in cfg['parent_order'][6:9])}/3。不把研究可用、两个内峰达标、名义插值、密网格确认、加工认证混为一谈。",'', '## 选定数据','|设计|案例|中心 GHz|D dB|L dB|BW15* GHz|BW20 GHz|研究可用|交付|','|---|---|---|---|---|---|---|---|---|']
     for s in selected:lines.append('|'+ '|'.join(str(v) for v in [s['parent'],s['case'],s['center'],s['D'],s['L'],s['BW15_star'] if s['usable'] else '不用于规律',s['BW20'],s['usable'],s['delivery_pass']])+'|')
     lines+=['','## T1前瞻与审核方预测','每个T1的冻结值、实测与四门槛评分见 T1_SCORES.json；T2以后永久标记调参，D1c/D3c是T4/T5，不作独立T1。','```json',json.dumps(read(out/'REVIEWER_SCORES.json'),ensure_ascii=False,indent=2),'```','','Q7缺可用点时不可判，不计失败。Q8严格使用五个求解前冻结模型和实测调准几何；未达≤25MHz且领先第二名30%就保持“分不开”。Wm是否饱和按Q6原门槛判；不把有限点线性趋势推广到任意宽度。','','## 交付尺寸与公差']
@@ -133,7 +144,7 @@ def build():
     lines+=['','![交付曲线](DELIVERY_CURVES.png)','','![Wm平台](WM_PLATFORM.png)','','B1密网格只核验同一几何的数值变化；B2/B3没有独立更密网格确认，其−20dB推断依赖B1和0.5dB余量。若Q10偏差超过0.5dB，B2/B3结论须降级；确认失败不追加调参。','','公差是局部Broyden线性外推，不含基材、连接器及联合电磁重算，不是制造认证。坐标转换在固定a/g下为δLc=δLs1+2δWs；对三变量8个最坏角点完整枚举，不只做RSS。1b核对见TOLERANCE.json。','','## 证据与接续边界','全部原生CSV独立复算一致；每项实际看图ACK、角色/网格/串行/清理/求解前推送证据见AUDIT.json。预算逐请求记账，未使用的额度不转成新授权。阶段5完成后停止，任何后续几何或认证需新的人类授权。']
     top=['',f"- W1/W2 的可用 BW15*：{q6['W1']['actual']} / {q6['W2']['actual']} GHz；按Q6门槛，2.06–2.35mm段未显示规定的饱和。W3未调准，不能用其较宽但中心偏移的曲线判断2.50mm平台。",f"- N04 的D1c/S1代价(MHz)：{[c['cost_MHz'] for c in cs]}。Q7={q7['passed']}，支持本组近似同折叠量里把折叠分配给g更便宜；不是只凭带宽就证明辐射损耗成因。",f"- Q8预注册胜出者：{winner}；各模型RMSE(MHz)={ {k:round(v['RMSE_MHz'],3) for k,v in q8.items()} }。胜出仅限这5个新可用点；它们的a≤1.8，未触发a模型2.39mm拐点，不能据此宣布a是唯一物理原因或推翻历史失败记录。",f"- B1名义BW20={b1['BW20'] if b1 else None} GHz；密网格结果见Q10。公差是条件线性估计，不等于加工后仍保证−20dB。",'']
     ii=lines.index('## 选定数据');lines[ii:ii]=top
-    lines+=['','## 公差口径特别说明','主表采用与1b宽度阶梯一致的固定a/g参数化（Ws变化时同步调整派生Ls2/Ls3），δLc=δLs1+2δWs。如果理解成只改变六尺寸中的Ws、同时固定Ls2/Ls3，则δLc=δLs1−4δWs，并且a/g也发生变化；现有J没有独立a/g导数，不能完成该蚀刻模型的完整公差预测。TOLERANCE.json另列忽略未知a/g项的条件投影，明确不作认证。不能把主表当作所有真实加工误差的最坏界。','', '|设计|固定a/g口径±0.02mm联合最坏内峰(dB)|仍≤−20dB|','|---|---|---|']
+    lines+=['','## 折叠分配与Q8解释','![N04折叠分配](ALLOCATION.png)','四个点的a+g约3.0–3.15mm，不是严格相同Ls1的控制试验；实际跨度与代价见ALLOCATION.json。不能把这组相关性当作严格单变量因果实验。','Q8胜出者使用的是R9经阶段4资料重拟合后冻结的系数，不是R8/R7-only那套旧系数。本轮所有可用点a≤1.8mm，a模型未触发2.39mm折线；胜出主要说明这5点的平台/低a侧外推更准，不能独立证明长折臂阈值，也不抹去旧预测失效。','','## 公差口径特别说明','主表采用与1b宽度阶梯一致的固定a/g参数化（Ws变化时同步调整派生Ls2/Ls3），δLc=δLs1+2δWs。如果理解成只改变六尺寸中的Ws、同时固定Ls2/Ls3，则δLc=δLs1−4δWs，并且a/g也发生变化；现有J没有独立a/g导数，不能完成该蚀刻模型的完整公差预测。TOLERANCE.json另列忽略未知a/g项的条件投影，明确不作认证。不能把主表当作所有真实加工误差的最坏界。','', '|设计|固定a/g口径±0.02mm联合最坏内峰(dB)|仍≤−20dB|','|---|---|---|']
     for p,t in tols.items():lines.append(f"|{p}|{t['worst_inner_peak_dB']:.4f}|{t['worst_still_below_minus20']}|")
     (out/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     write(out/'MANIFEST.json',{p.name:sha(p) for p in out.iterdir() if p.is_file()})
