@@ -65,7 +65,12 @@ def build():
     for d in ds:
         if d.get('skipped'):continue
         c=d['selected_case'];p=d['parent_id'];w=case_dir(ROOT,c,cfg);fz=read(w/'input/freeze.json');q=read(w/'review/extraction_R2.json');g=q['geometry_mm'];dim=chain.dimensions(g);sc=scores(q)
-        selected.append(dict(parent=p,case=c,geometry_mm=g,a=dim['a_mm'],g=dim['g_mm'],tip_line_clearance_mm=(g['Ls1']-2*g['Ls3']-max(g['Wm'],1.82))/2,tip_tip_clearance_mm=g['Ls1']-2*g['Ls3'],**sc,delivery_pass=d.get('delivery_pass'),data_role=d['data_role']))
+        rev=read(w/'review/REVIEW_STAGE3.json');zz=np.load(w/'native/full_modes.npz');mins={}
+        for band in ('BW15','BW20'):
+            bb=q['bandwidths'][band]
+            mask=(zz['f_GHz']>=bb['low_GHz'])&(zz['f_GHz']<=bb['high_GHz']) if bb['BW_GHz'] is not None else np.zeros(len(zz['f_GHz']),dtype=bool)
+            mins[band]=float(np.min(20*np.log10(abs(zz['S'][mask,2,0])))) if mask.any() else None
+        selected.append(dict(parent=p,case=c,geometry_mm=g,a=dim['a_mm'],g=dim['g_mm'],tip_line_clearance_mm=(g['Ls1']-2*g['Ls3']-max(g['Wm'],1.82))/2,tip_tip_clearance_mm=g['Ls1']-2*g['Ls3'],**sc,delivery_pass=d.get('delivery_pass'),data_role=d['data_role'],inner_peaks=q['shape']['inner_peaks'],S21_min_dB=mins,main_bands={k:q['bandwidths'][k] for k in ('BW15','BW20')},mesh=rev['mesh_cells'],delta_s=rev['delta_s'],P_eff=rev['metrics'].get('P_eff'),R_eff=rev['metrics'].get('R_eff'),circuit_extraction_nonunique=q['circuit'].get('extraction_nonunique'),certification_level='nominal interpolating only; dense confirmation separately; not manufacturing'))
         if p in cfg['parent_order'][6:9]:tols[p]=tolerance(q,histories(ROOT,p,cfg))
         cc=p+'__T1';ww=case_dir(ROOT,cc,cfg) if cc in cfg['case_paths'] else None
         if ww and (ww/'review/extraction_R2.json').exists() and not p.endswith('dense'):
@@ -121,7 +126,7 @@ def build():
     for s in selected:
         p=s['parent']
         if p not in cfg['parent_order'][6:9]:continue
-        lines += ['', '### '+p,'几何(mm)：`'+json.dumps(s['geometry_mm'])+'`',f"端头到微带净距 {s['tip_line_clearance_mm']} mm；两端头横向净距 {s['tip_tip_clearance_mm']} mm。",'公差：```json\n'+json.dumps(tols[p],ensure_ascii=False,indent=2)+'\n```']
+        lines += ['', '### '+p,'几何(mm)：`'+json.dumps(s['geometry_mm'])+'`',f"端头到微带净距 {s['tip_line_clearance_mm']} mm；两端头横向净距 {s['tip_tip_clearance_mm']} mm。",f"两个实际内峰：{s['inner_peaks']}；BW20带内最差S21={s['S21_min_dB']['BW20']} dB。",'公差：```json\n'+json.dumps(tols[p],ensure_ascii=False,indent=2)+'\n```']
     lines+=['','![交付曲线](DELIVERY_CURVES.png)','','![Wm平台](WM_PLATFORM.png)','','B1密网格只核验同一几何的数值变化；B2/B3没有独立更密网格确认，其−20dB推断依赖B1和0.5dB余量。若Q10偏差超过0.5dB，B2/B3结论须降级；确认失败不追加调参。','','公差是局部Broyden线性外推，不含基材、连接器及联合电磁重算，不是制造认证。坐标转换在固定a/g下为δLc=δLs1+2δWs；对三变量8个最坏角点完整枚举，不只做RSS。1b核对见TOLERANCE.json。','','## 证据与接续边界','全部原生CSV独立复算一致；每项实际看图ACK、角色/网格/串行/清理/求解前推送证据见AUDIT.json。预算逐请求记账，未使用的额度不转成新授权。阶段5完成后停止，任何后续几何或认证需新的人类授权。']
     (out/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     write(out/'MANIFEST.json',{p.name:sha(p) for p in out.iterdir() if p.is_file()})
