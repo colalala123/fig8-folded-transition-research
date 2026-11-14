@@ -28,7 +28,10 @@ def tolerance(q,hh):
         v=np.array(c)@K;yy=y+v
         corners.append(dict(delta_Lm_Ls1_Ws_mm=c,delta_valley_D_L=v.tolist(),peaks_dB=peak(yy),valley_GHz=float(yy[0])))
     worst=max(max(c['peaks_dB']) for c in corners)
-    return dict(J_Lm_Lc_Ws=J.tolist(),J_Lm_Ls1_Ws_fixed_a_g=K.tolist(),updates=logs,single_parameter_pm002=singles,corners=corners,worst_inner_peak_dB=worst,worst_still_below_minus20=bool(worst<=-20),valley_range_GHz=[min(c['valley_GHz'] for c in corners),max(c['valley_GHz'] for c in corners)],assumption='a,g held fixed: deltaLc=deltaLs1+2deltaWs; independent dimensional errors, linear model only; no manufacturing certification')
+    Klit=np.array([J[0],J[1],J[2]-4*J[1]]);literal=[]
+    for c in itertools.product([-.02,.02],repeat=3):
+        yy=y+np.array(c)@Klit;literal.append(dict(delta_Lm_Ls1_Ws_mm=c,peaks_dB=peak(yy),valley_GHz=float(yy[0])))
+    return dict(J_Lm_Lc_Ws=J.tolist(),J_Lm_Ls1_Ws_fixed_a_g=K.tolist(),updates=logs,single_parameter_pm002=singles,corners=corners,worst_inner_peak_dB=worst,worst_still_below_minus20=bool(worst<=-20),valley_range_GHz=[min(c['valley_GHz'] for c in corners),max(c['valley_GHz'] for c in corners)],assumption='Primary: same parameterization as archived 1b, a/g held fixed, deltaLc=deltaLs1+2deltaWs. This adjusts derived Ls2/Ls3 consistently, and is not a literal independent etch-width model.',literal_Ws_only_conditional_projection=dict(J_Lm_Ls1_Ws=Klit.tolist(),corners=literal,worst_peak_dB=max(max(c['peaks_dB']) for c in literal),not_full_tolerance_prediction=True,missing_derivatives='If only Ws changes and Ls2/Ls3 are held fixed: deltaLc=-4deltaWs, deltaa=-deltaWs, deltag=-2deltaWs. Local J has no independent a/g derivatives, so this projection omits those unknown effects and cannot certify even a nominally passing corner.'),manufacturing_certified=False)
 
 def raw_replay(out):
     sys.path.insert(0,str(REPO/'experiments/fold_bandwidth_review_r7_20261113'))
@@ -128,6 +131,10 @@ def build():
         if p not in cfg['parent_order'][6:9]:continue
         lines += ['', '### '+p,'几何(mm)：`'+json.dumps(s['geometry_mm'])+'`',f"端头到微带净距 {s['tip_line_clearance_mm']} mm；两端头横向净距 {s['tip_tip_clearance_mm']} mm。",f"两个实际内峰：{s['inner_peaks']}；BW20带内最差S21={s['S21_min_dB']['BW20']} dB。",'公差：```json\n'+json.dumps(tols[p],ensure_ascii=False,indent=2)+'\n```']
     lines+=['','![交付曲线](DELIVERY_CURVES.png)','','![Wm平台](WM_PLATFORM.png)','','B1密网格只核验同一几何的数值变化；B2/B3没有独立更密网格确认，其−20dB推断依赖B1和0.5dB余量。若Q10偏差超过0.5dB，B2/B3结论须降级；确认失败不追加调参。','','公差是局部Broyden线性外推，不含基材、连接器及联合电磁重算，不是制造认证。坐标转换在固定a/g下为δLc=δLs1+2δWs；对三变量8个最坏角点完整枚举，不只做RSS。1b核对见TOLERANCE.json。','','## 证据与接续边界','全部原生CSV独立复算一致；每项实际看图ACK、角色/网格/串行/清理/求解前推送证据见AUDIT.json。预算逐请求记账，未使用的额度不转成新授权。阶段5完成后停止，任何后续几何或认证需新的人类授权。']
+    top=['',f"- W1/W2 的可用 BW15*：{q6['W1']['actual']} / {q6['W2']['actual']} GHz；按Q6门槛，2.06–2.35mm段未显示规定的饱和。W3未调准，不能用其较宽但中心偏移的曲线判断2.50mm平台。",f"- N04 的D1c/S1代价(MHz)：{[c['cost_MHz'] for c in cs]}。Q7={q7['passed']}，支持本组近似同折叠量里把折叠分配给g更便宜；不是只凭带宽就证明辐射损耗成因。",f"- Q8预注册胜出者：{winner}；各模型RMSE(MHz)={ {k:round(v['RMSE_MHz'],3) for k,v in q8.items()} }。胜出仅限这5个新可用点；它们的a≤1.8，未触发a模型2.39mm拐点，不能据此宣布a是唯一物理原因或推翻历史失败记录。",f"- B1名义BW20={b1['BW20'] if b1 else None} GHz；密网格结果见Q10。公差是条件线性估计，不等于加工后仍保证−20dB。",'']
+    ii=lines.index('## 选定数据');lines[ii:ii]=top
+    lines+=['','## 公差口径特别说明','主表采用与1b宽度阶梯一致的固定a/g参数化（Ws变化时同步调整派生Ls2/Ls3），δLc=δLs1+2δWs。如果理解成只改变六尺寸中的Ws、同时固定Ls2/Ls3，则δLc=δLs1−4δWs，并且a/g也发生变化；现有J没有独立a/g导数，不能完成该蚀刻模型的完整公差预测。TOLERANCE.json另列忽略未知a/g项的条件投影，明确不作认证。不能把主表当作所有真实加工误差的最坏界。','', '|设计|固定a/g口径±0.02mm联合最坏内峰(dB)|仍≤−20dB|','|---|---|---|']
+    for p,t in tols.items():lines.append(f"|{p}|{t['worst_inner_peak_dB']:.4f}|{t['worst_still_below_minus20']}|")
     (out/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
     write(out/'MANIFEST.json',{p.name:sha(p) for p in out.iterdir() if p.is_file()})
     print(json.dumps(audit,ensure_ascii=False)[:600])
