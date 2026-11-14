@@ -1,0 +1,168 @@
+{
+  "Q6": {
+    "W1": {
+      "actual": 6.62784229916379,
+      "prediction": [
+        6.61,
+        6.72
+      ],
+      "passed": true,
+      "unscorable_reason": null
+    },
+    "W2": {
+      "actual": 6.824812732066976,
+      "prediction": [
+        6.79,
+        6.91
+      ],
+      "passed": true,
+      "unscorable_reason": null
+    },
+    "W3": {
+      "actual": null,
+      "prediction": [
+        6.96,
+        7.1
+      ],
+      "passed": null,
+      "unscorable_reason": "not R7 usable or skipped; do not infer saturation from unbalanced/shifted data"
+    },
+    "saturation_between_2p06_2p35": false
+  },
+  "Q7": {
+    "points": [
+      {
+        "design": "D1c",
+        "cost_MHz": 3.566349045989625,
+        "passed": true
+      },
+      {
+        "design": "S1",
+        "cost_MHz": 17.30071285575807,
+        "passed": true
+      }
+    ],
+    "passed": true
+  },
+  "Q8": {
+    "models": {
+      "tip": {
+        "errors_MHz": [
+          55.38770083621092,
+          40.930167933024286,
+          19.420589845990044,
+          20.858814912861234,
+          5.85545365575868
+        ],
+        "RMSE_MHz": 33.435346141462574,
+        "cases": [
+          "S5R9_W1__T2",
+          "S5R9_W2__T3",
+          "S5R9_D1c__T4",
+          "S5R9_D3c__T4",
+          "S5R9_S1__T3"
+        ]
+      },
+      "sum": {
+        "errors_MHz": [
+          49.447700836210196,
+          37.12726793302412,
+          -58.76707495401057,
+          -58.06411108713938,
+          -45.03271114424212
+        ],
+        "RMSE_MHz": 50.35169174943104,
+        "cases": [
+          "S5R9_W1__T2",
+          "S5R9_W2__T3",
+          "S5R9_D1c__T4",
+          "S5R9_D3c__T4",
+          "S5R9_S1__T3"
+        ]
+      },
+      "a": {
+        "errors_MHz": [
+          26.62770083620991,
+          11.6072679330248,
+          6.405997045989764,
+          9.374440912861104,
+          20.14036085575821
+        ],
+        "RMSE_MHz": 16.603097281373927,
+        "cases": [
+          "S5R9_W1__T2",
+          "S5R9_W2__T3",
+          "S5R9_D1c__T4",
+          "S5R9_D3c__T4",
+          "S5R9_S1__T3"
+        ]
+      },
+      "span": {
+        "errors_MHz": [
+          35.527700836210485,
+          17.507267933024373,
+          -89.71192295400954,
+          -92.21727908713895,
+          -68.16955914424128
+        ],
+        "RMSE_MHz": 67.48046596378481,
+        "cases": [
+          "S5R9_W1__T2",
+          "S5R9_W2__T3",
+          "S5R9_D1c__T4",
+          "S5R9_D3c__T4",
+          "S5R9_S1__T3"
+        ]
+      },
+      "rho": {
+        "errors_MHz": [
+          56.593716174451636,
+          34.02538742865957,
+          -66.39574370012369,
+          -62.26362404397179,
+          -52.92666572708615
+        ],
+        "RMSE_MHz": 55.582301689788025,
+        "cases": [
+          "S5R9_W1__T2",
+          "S5R9_W2__T3",
+          "S5R9_D1c__T4",
+          "S5R9_D3c__T4",
+          "S5R9_S1__T3"
+        ]
+      }
+    },
+    "winner": "a",
+    "scope": "pre-registered predictive comparison on the five new usable 5A points; not a physical causal identification",
+    "all_new_usable_a_at_most_1p8": true,
+    "caveat": "Every usable 5A a is below the frozen a-model knee 2.39mm. A win cannot independently establish the large-a hinge mechanism, and does not erase earlier retrospective/model failures."
+  },
+  "Q9": {
+    "equal_ripple_platform_source": {
+      "case": "S5R9_W2__T3",
+      "Wm": 2.35,
+      "BW15_star": 6.824812732066976
+    },
+    "difference_GHz": 0.3698905017676193,
+    "passed": true
+  },
+  "Q10": {
+    "nominal_peaks": [
+      -20.79577764657861,
+      -20.6866488858579
+    ],
+    "dense_peaks": [
+      -20.669701420473913,
+      -20.430823960171892
+    ],
+    "difference_dB": [
+      0.12607622610469704,
+      0.25582492568600657
+    ],
+    "prediction_pass": true,
+    "margin_insufficient": false,
+    "confirmation_hard_minus20_pass": true,
+    "center_difference_GHz": -0.03000000000000025,
+    "BW20_difference_GHz": 0.01132647316133717
+  }
+}

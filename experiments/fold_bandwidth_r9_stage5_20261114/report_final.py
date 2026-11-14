@@ -37,10 +37,13 @@ def raw_replay(out):
     sys.path.insert(0,str(REPO/'experiments/fold_bandwidth_review_r7_20261113'))
     sys.path.insert(0,str(REPO/'experiments/fold_bandwidth_review_r8_20261113'))
     from review_checks import load
-    from review_3r import metrics
-    cfg=read(ROOT/'authorization.json');checks=[]
+    from review_3r import metrics as legacy_metrics
+    from independent_response import metrics,load_csv
+    cfg=read(ROOT/'authorization.json');checks=[];legacy_differences=[]
     for gp in sorted((ROOT/'ledger').glob('geometry_*.json')):
-        case=read(gp)['case'];w=case_dir(ROOT,case,cfg);rec=read(w/'RUN_RECORD.json');rev=read(w/'review/REVIEW_STAGE3.json');q=read(w/'review/extraction_R2.json');y=state(q);r=metrics(*load(w/'native/full_modes.csv'))
+        case=read(gp)['case'];w=case_dir(ROOT,case,cfg);rec=read(w/'RUN_RECORD.json');rev=read(w/'review/REVIEW_STAGE3.json');q=read(w/'review/extraction_R2.json');y=state(q);r=metrics(*load_csv(w/'native/full_modes.csv'))
+        old=legacy_metrics(*load(w/'native/full_modes.csv'))
+        if abs(old['D_dB']-r['D_dB'])>1e-9 or abs(old['peak_mean_dB']-r['peak_mean_dB'])>1e-9:legacy_differences.append(dict(case=case,legacy=old,R2_maximum_between_adjacent_prominent_valleys=r,reason='Legacy helper chooses first local maximum; tiny interpolation ripple can precede true inner maximum. Canonical R2 definition and original worker result are unchanged.'))
         diffs=dict(center=r['valley_GHz']-y[0],D=r['D_dB']-y[1],L=r['peak_mean_dB']-y[2])
         for b in ('BW15','BW20'):
             v=q['bandwidths'][b]['BW_GHz'];z=r[b]
@@ -71,7 +74,8 @@ def raw_replay(out):
         if sha(REPO/p)!=h:raise RuntimeError('frozen changed '+p)
     for p,h in read(ROOT/'R9_2_PUBLICATION.json')['hashes'].items():
         if sha(REPO/p)!=h:raise RuntimeError('R9-2 freeze changed '+p)
-    write(out/'AUDIT.json',dict(passed=True,geometries=len(checks),new_API=total,total_geometry=151+len(checks),total_API=1406+total,checks=checks,serial_nonoverlap=True,old_evidence_unchanged=True,no_hooks=True))
+    write(out/'LEGACY_REPLAY_DIFFERENCES.json',legacy_differences)
+    write(out/'AUDIT.json',dict(passed=True,geometries=len(checks),new_API=total,total_geometry=151+len(checks),total_API=1406+total,checks=checks,serial_nonoverlap=True,old_evidence_unchanged=True,no_hooks=True,independent_replay='independent_response.py raw CSV, registered R2 max-between-prominent-valleys rule; no canonical extractor import',legacy_auxiliary_peak_differences=len(legacy_differences)))
 
 def build():
     out=HERE/'final';out.mkdir(exist_ok=False);cfg=read(ROOT/'authorization.json');raw_replay(out)
@@ -86,6 +90,8 @@ def build():
             mask=(zz['f_GHz']>=bb['low_GHz'])&(zz['f_GHz']<=bb['high_GHz']) if bb['BW_GHz'] is not None else np.zeros(len(zz['f_GHz']),dtype=bool)
             mins[band]=float(np.min(20*np.log10(abs(zz['S'][mask,2,0])))) if mask.any() else None
         selected.append(dict(parent=p,case=c,geometry_mm=g,a=dim['a_mm'],g=dim['g_mm'],tip_line_clearance_mm=(g['Ls1']-2*g['Ls3']-max(g['Wm'],1.82))/2,tip_tip_clearance_mm=g['Ls1']-2*g['Ls3'],**sc,delivery_pass=d.get('delivery_pass'),data_role=d['data_role'],inner_peaks=q['shape']['inner_peaks'],S21_min_dB=mins,main_bands={k:q['bandwidths'][k] for k in ('BW15','BW20')},mesh=rev['mesh_cells'],delta_s=rev['delta_s'],P_eff=rev['metrics'].get('P_eff'),R_eff=rev['metrics'].get('R_eff'),circuit_extraction_nonunique=q['circuit'].get('extraction_nonunique'),certification_level='nominal interpolating only; dense confirmation separately; not manufacturing'))
+        if p.endswith('dense'):
+            selected[-1].update(raw_nominal_recipe_check=d.get('delivery_pass'),delivery_pass=None,confirmation_minus20_pass=bool(rev['numerical_pass'] and max(x['S11_dB'] for x in q['shape']['inner_peaks'])<=-20),not_a_new_geometry_training_case=True)
         if p in cfg['parent_order'][6:9]:tols[p]=tolerance(q,histories(ROOT,p,cfg))
         cc=p+'__T1';ww=case_dir(ROOT,cc,cfg) if cc in cfg['case_paths'] else None
         if ww and (ww/'review/extraction_R2.json').exists() and not p.endswith('dense'):
@@ -112,7 +118,7 @@ def build():
         choice=read(HERE/'offline_5B/REGISTRY.json')['Wm_star'];diff=choice['BW15_star']-b1['BW20'];q9=dict(equal_ripple_platform_source=choice,difference_GHz=diff,passed=.30<=diff<=.40)
     dense=sel.get('S5R9_B1dense');q10=None
     if dense and b1:
-        a=read(case_dir(ROOT,b1['case'],cfg)/'review/extraction_R2.json');b=read(case_dir(ROOT,dense['case'],cfg)/'review/extraction_R2.json');pa=[p['S11_dB'] for p in a['shape']['inner_peaks']];pb=[p['S11_dB'] for p in b['shape']['inner_peaks']];dif=np.array(pb)-pa
+        a=read(case_dir(ROOT,b1['case'],cfg)/'review/extraction_R2.json');b=read(case_dir(ROOT,dense['case'],cfg)/'review/extraction_R2.json');pa=[p['S11_dB'] for p in sorted(a['shape']['inner_peaks'],key=lambda p:p['GHz'])];pb=[p['S11_dB'] for p in sorted(b['shape']['inner_peaks'],key=lambda p:p['GHz'])];dif=np.array(pb)-pa
         q10=dict(nominal_peaks=pa,dense_peaks=pb,difference_dB=dif.tolist(),prediction_pass=bool(max(abs(dif))<=.35),margin_insufficient=bool(max(abs(dif))>.5),confirmation_hard_minus20_pass=bool(max(pb)<=-20),center_difference_GHz=b['shape']['central_valley_GHz']-a['shape']['central_valley_GHz'],BW20_difference_GHz=(dense['BW20']-b1['BW20']) if dense['BW20'] is not None and b1['BW20'] is not None else None)
     write(out/'REVIEWER_SCORES.json',dict(Q6=q6,Q7=q7,Q8=dict(models=q8,winner=winner,scope='pre-registered predictive comparison on the five new usable 5A points; not a physical causal identification',all_new_usable_a_at_most_1p8=all(s['a']<=1.8+1e-8 for s in usable),caveat='Every usable 5A a is below the frozen a-model knee 2.39mm. A win cannot independently establish the large-a hinge mechanism, and does not erase earlier retrospective/model failures.'),Q9=q9,Q10=q10))
     # Independent archival Ws-ladder check, same fixed-a/g physical dimensional coordinate.
@@ -137,25 +143,25 @@ def build():
     ax.set(xlabel='Wm (mm)',ylabel='BW15* (GHz)',title='R9 measured usable platforms (tuned)');ax.grid(alpha=.3);ax.legend();fig.tight_layout();fig.savefig(out/'WM_PLATFORM.png',dpi=150);plt.close(fig)
     alloc=read(HERE/'offline_5B/FULL_SELECTION_AUDIT.json')['all_four_candidates'];ar=[]
     for r in alloc:
-        if not r['usable_recomputed']:continue
         if r['source']=='R9':q=read(case_dir(ROOT,r['case'],cfg)/'review/extraction_R2.json')
         else:q=read(REPO/'experiments'/r['source']/'results'/r['case']/'review/extraction_R2.json')
-        ar.append(dict(case=r['case'],a=r['a'],g=r['g'],total_fold=r['a']+r['g'],Ls1=q['geometry_mm']['Ls1'],BW15_star=r['BW15_star'],cost_MHz=(6.332-r['BW15_star'])*1000,data_role='tuned; historical and R9 sources explicitly separated'))
+        ar.append(dict(case=r['case'],a=r['a'],g=r['g'],total_fold=r['a']+r['g'],Ls1=q['geometry_mm']['Ls1'],BW15_star=r['BW15_star'],cost_MHz=(6.332-r['BW15_star'])*1000,L_dB=float(state(q)[2]),current_R7_response_usable=r['usable_recomputed'],historical_plan_candidate=True,slope_range_error_MHz=float(.015*abs(state(q)[2]+20.3)*1000),data_role='tuned R9' if r['source']=='R9' else 'historical normalized reference; keep legacy eligibility separate from current R7 L window'))
     ar.sort(key=lambda r:r['a']);write(out/'ALLOCATION.json',ar)
     fig,ax=plt.subplots(figsize=(9,5))
-    ax.plot([r['a'] for r in ar],[r['cost_MHz'] for r in ar],marker='o')
+    ax.plot([r['a'] for r in ar],[r['cost_MHz'] for r in ar],lw=1,alpha=.5)
+    for r in ar:ax.errorbar(r['a'],r['cost_MHz'],yerr=r['slope_range_error_MHz'],fmt='o' if r['current_R7_response_usable'] else 's',mfc=None if r['current_R7_response_usable'] else 'none',color='C0' if r['current_R7_response_usable'] else 'C1',capsize=3,label='Historical L outside current window' if not r['current_R7_response_usable'] else None)
     for r in ar:ax.annotate(f"a={r['a']:.1f}, g={r['g']:.2f}\nLs1={r['Ls1']:.3f}",(r['a'],r['cost_MHz']),xytext=(4,7),textcoords='offset points')
-    ax.set(xlabel='a (mm); a+g approximately 3.0-3.15 mm',ylabel='Cost versus N04 6.332GHz platform (MHz)',title='N04 fold allocation (tuned; not exactly matched span)');ax.grid(alpha=.3);fig.tight_layout();fig.savefig(out/'ALLOCATION.png',dpi=150);plt.close(fig)
+    ax.margins(x=.2,y=.25);ax.set(xlabel='a (mm); a+g approximately 3.0-3.15 mm',ylabel='Cost versus N04 6.332GHz platform (MHz)',title='N04 allocation; bars: normalization slope 0.110-0.140');ax.grid(alpha=.3);ax.legend();fig.tight_layout();fig.savefig(out/'ALLOCATION.png',dpi=150);plt.close(fig)
     audit=read(out/'AUDIT.json');lines=['# R9 阶段5中文总结','','## 总结',f"本轮已按有限方案结束：新增 {audit['geometries']}/26 个几何、{audit['new_API']} 次实际 Analyze；累计 {audit['total_geometry']}/187 个几何、{audit['total_API']} 次实际请求。14核1组串行，无hook，无阶段6。",'',f"5A 可用 {len(usable)} 项；5B 名义交付 {sum(bool(s['delivery_pass']) for s in selected if s['parent'] in cfg['parent_order'][6:9])}/3。不把研究可用、两个内峰达标、名义插值、密网格确认、加工认证混为一谈。",'', '## 选定数据','|设计|案例|中心 GHz|D dB|L dB|BW15* GHz|BW20 GHz|研究可用|交付|','|---|---|---|---|---|---|---|---|---|']
     for s in selected:lines.append('|'+ '|'.join(str(v) for v in [s['parent'],s['case'],s['center'],s['D'],s['L'],s['BW15_star'] if s['usable'] else '不用于规律',s['BW20'],s['usable'],s['delivery_pass']])+'|')
     lines+=['','## T1前瞻与审核方预测','每个T1的冻结值、实测与四门槛评分见 T1_SCORES.json；T2以后永久标记调参，D1c/D3c是T4/T5，不作独立T1。','```json',json.dumps(read(out/'REVIEWER_SCORES.json'),ensure_ascii=False,indent=2),'```','','Q7缺可用点时不可判，不计失败。Q8严格使用五个求解前冻结模型和实测调准几何；未达≤25MHz且领先第二名30%就保持“分不开”。Wm是否饱和按Q6原门槛判；不把有限点线性趋势推广到任意宽度。','','## 交付尺寸与公差']
     for s in selected:
         p=s['parent']
         if p not in cfg['parent_order'][6:9]:continue
-        lines += ['', '### '+p,'几何(mm)：`'+json.dumps(s['geometry_mm'])+'`',f"端头到微带净距 {s['tip_line_clearance_mm']} mm；两端头横向净距 {s['tip_tip_clearance_mm']} mm。",f"两个实际内峰：{s['inner_peaks']}；BW20带内最差S21={s['S21_min_dB']['BW20']} dB。",'公差：```json\n'+json.dumps(tols[p],ensure_ascii=False,indent=2)+'\n```']
+        lines += ['', '### '+p,'几何(mm)：`'+json.dumps(s['geometry_mm'])+'`',f"端头到微带净距 {s['tip_line_clearance_mm']} mm；两端头横向净距 {s['tip_tip_clearance_mm']} mm。",f"两个实际内峰：{s['inner_peaks']}；BW20带内最差S21={s['S21_min_dB']['BW20']} dB。",'公差：\n\n```json\n'+json.dumps(tols[p],ensure_ascii=False,indent=2)+'\n```']
     lines+=['','![交付曲线](DELIVERY_CURVES.png)','','![Wm平台](WM_PLATFORM.png)','','B1密网格只核验同一几何的数值变化；B2/B3没有独立更密网格确认，其−20dB推断依赖B1和0.5dB余量。若Q10偏差超过0.5dB，B2/B3结论须降级；确认失败不追加调参。','','公差是局部Broyden线性外推，不含基材、连接器及联合电磁重算，不是制造认证。坐标转换在固定a/g下为δLc=δLs1+2δWs；对三变量8个最坏角点完整枚举，不只做RSS。1b核对见TOLERANCE.json。','','## 证据与接续边界','全部原生CSV独立复算一致；每项实际看图ACK、角色/网格/串行/清理/求解前推送证据见AUDIT.json。预算逐请求记账，未使用的额度不转成新授权。阶段5完成后停止，任何后续几何或认证需新的人类授权。']
     top=['',f"- W1/W2 的可用 BW15*：{q6['W1']['actual']} / {q6['W2']['actual']} GHz；按Q6门槛，2.06–2.35mm段未显示规定的饱和。W3未调准，不能用其较宽但中心偏移的曲线判断2.50mm平台。",f"- N04 的D1c/S1代价(MHz)：{[c['cost_MHz'] for c in cs]}。Q7={q7['passed']}，支持本组近似同折叠量里把折叠分配给g更便宜；不是只凭带宽就证明辐射损耗成因。",f"- Q8预注册胜出者：{winner}；各模型RMSE(MHz)={ {k:round(v['RMSE_MHz'],3) for k,v in q8.items()} }。胜出仅限这5个新可用点；它们的a≤1.8，未触发a模型2.39mm拐点，不能据此宣布a是唯一物理原因或推翻历史失败记录。",f"- B1名义BW20={b1['BW20'] if b1 else None} GHz；密网格结果见Q10。公差是条件线性估计，不等于加工后仍保证−20dB。",'']
-    ii=lines.index('## 选定数据');lines[ii:ii]=top
+    top += [f"- T1四门槛联合：{sum(t['primary_span_four_joint_pass'] for t in t1)}/{len(t1)}；带宽模型胜出不等于完整几何一次反解成功。", f"- ±0.02mm三变量联合线性估计：{sum(t['worst_still_below_minus20'] for t in tols.values())}/3仍保持−20dB；最坏内峰(dB)={[round(t['worst_inner_peak_dB'],3) for t in tols.values()]}。", f"- B1密网格确认：{q10}。",'']; ii=lines.index('## 选定数据');lines[ii:ii]=top
     lines+=['','## 折叠分配与Q8解释','![N04折叠分配](ALLOCATION.png)','四个点的a+g约3.0–3.15mm，不是严格相同Ls1的控制试验；实际跨度与代价见ALLOCATION.json。不能把这组相关性当作严格单变量因果实验。','Q8胜出者使用的是R9经阶段4资料重拟合后冻结的系数，不是R8/R7-only那套旧系数。本轮所有可用点a≤1.8mm，a模型未触发2.39mm折线；胜出主要说明这5点的平台/低a侧外推更准，不能独立证明长折臂阈值，也不抹去旧预测失效。','','## 公差口径特别说明','主表采用与1b宽度阶梯一致的固定a/g参数化（Ws变化时同步调整派生Ls2/Ls3），δLc=δLs1+2δWs。如果理解成只改变六尺寸中的Ws、同时固定Ls2/Ls3，则δLc=δLs1−4δWs，并且a/g也发生变化；现有J没有独立a/g导数，不能完成该蚀刻模型的完整公差预测。TOLERANCE.json另列忽略未知a/g项的条件投影，明确不作认证。不能把主表当作所有真实加工误差的最坏界。','', '|设计|固定a/g口径±0.02mm联合最坏内峰(dB)|仍≤−20dB|','|---|---|---|']
     for p,t in tols.items():lines.append(f"|{p}|{t['worst_inner_peak_dB']:.4f}|{t['worst_still_below_minus20']}|")
     (out/'REPORT.md').write_text('\n'.join(lines)+'\n',encoding='utf-8')
