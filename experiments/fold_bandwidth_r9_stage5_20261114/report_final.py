@@ -64,7 +64,7 @@ def build():
     selected=[];t1=[];tols={}
     for d in ds:
         if d.get('skipped'):continue
-        c=d['selected_case'];p=d['parent_id'];w=case_dir(ROOT,c,cfg);fz=read(w/'input/freeze.json');q=read(w/'review/extraction_R2.json');g=q['geometry_mm'];dim=chain.dimensions(g);sc=scores(q)
+        c=d['selected_case'];p=d['parent_id'];w=case_dir(ROOT,c,cfg);fz=read(w/'input/freeze.json');q=read(w/'review/extraction_R2.json');g=q['geometry_mm'];dim=chain.dimensions(g);sc=scores(q);sc.pop('delivery',None)
         rev=read(w/'review/REVIEW_STAGE3.json');zz=np.load(w/'native/full_modes.npz');mins={}
         for band in ('BW15','BW20'):
             bb=q['bandwidths'][band]
