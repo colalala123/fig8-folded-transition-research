@@ -1,0 +1,195 @@
+{
+  "at": "2026-11-14T06:02:01.419666+00:00",
+  "case": "S5R9_D3c__T4",
+  "parent_id": "S5R9_D3c",
+  "attempt_ordinal": 4,
+  "record": {
+    "case": "S5R9_D3c__T4",
+    "solve_completed": true,
+    "numerical_pass": true,
+    "design_pass": null,
+    "Analyze_requested": 9,
+    "inherited_Analyze_requests": 0,
+    "passes": 23,
+    "mesh_cells": 103743,
+    "delta_s": 0.0018069,
+    "new_Analyze_requested": 9,
+    "finished_at": "2026-11-14T06:01:24.021800+00:00"
+  },
+  "review": {
+    "at": "2026-11-14T06:01:26.779645+00:00",
+    "case": "S5R9_D3c__T4",
+    "parent_id": "S5R9_D3c",
+    "attempt_ordinal": 4,
+    "kind": "EQ",
+    "family": "N14",
+    "solve_completed": true,
+    "numerical_pass": true,
+    "design_pass": false,
+    "tuning_status": {
+      "tuned": true,
+      "usable_for_law": true,
+      "error_e": 1.0000000000000084,
+      "mean_inner_peak_dB": -20.219176448005918,
+      "signed_D_dB": -0.2120772499670558,
+      "hard_design_peaks_pass": true
+    },
+    "next_suggestion": {
+      "needs_solve": false,
+      "reason": "already_R7_usable",
+      "selected": "current"
+    },
+    "metrics": {
+      "inner_peak_low_dB": -20.11313782302239,
+      "inner_peak_high_dB": -20.325215072989447,
+      "inner_peak_mean_dB": -20.219176448005918,
+      "central_valley_GHz": 6.75,
+      "BW15_GHz": 6.1828999710864,
+      "BW20_GHz": 5.854024923736377,
+      "BW_S21_GHz": 6.967558564950929,
+      "BW_joint_GHz": 5.854024923736377,
+      "N1": 1.0076793461122162,
+      "N2": 0.8389463498484533,
+      "P_eff": 1.5332926950341117,
+      "R_eff": 0.660113284390947,
+      "fm_GHz": 6.63859033818561,
+      "fs_GHz": 6.59485863309442
+    },
+    "mesh_cells": 103743,
+    "delta_s": 0.0018069,
+    "passes": 23,
+    "Analyze_requests": 9,
+    "native_sha256": "059f4448e20e7c49a8443f8fcf00ac1d0b413a7509727f7738f33ae5ca761734",
+    "final_sweep_history_unchanged": true,
+    "role_checks": {
+      "adaptive_00": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 48,
+          "-solve": 0,
+          "-port_adapt": 1,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "adaptive_01": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 3,
+          "-solve": 0,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "adaptive_02": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 3,
+          "-solve": 0,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "adaptive_03": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 3,
+          "-solve": 0,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "adaptive_04": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 3,
+          "-solve": 0,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "adaptive_05": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 3,
+          "-solve": 0,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "adaptive_06": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 3,
+          "-solve": 0,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "adaptive_07": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 3,
+          "-solve": 0,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      },
+      "final_sweep": {
+        "passed": true,
+        "errors": [],
+        "roles": {
+          "-solve_broadband_adapt": 0,
+          "-solve": 28,
+          "-port_adapt": 0,
+          "-port_solve": 0,
+          "unknown": 0
+        },
+        "lower_core_sweep_count": 0
+      }
+    },
+    "topology": "folded",
+    "data_role": "tuned_not_independent_test",
+    "result_level": "名义插值；非直接频点/制造/全模式功率认证"
+  },
+  "roles": {
+    "-port_adapt": 1,
+    "-solve_broadband_adapt": 69,
+    "-solve": 28
+  },
+  "cleanup": {
+    "app_created": true,
+    "released": true,
+    "scratch_restored": true
+  },
+  "geometry_total": 161,
+  "actual_Analyze_total": 1507,
+  "geometry_limit": 187,
+  "batch": "5",
+  "batch_geometry_used": 10,
+  "batch_geometry_limit": 26,
+  "technical_failure": false
+}
