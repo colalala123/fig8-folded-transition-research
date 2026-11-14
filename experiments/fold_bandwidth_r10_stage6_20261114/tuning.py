@@ -39,14 +39,14 @@ def broyden(J,dx,dy):
         return J+np.outer(dx,dy-pred)/(dx@dx),dict(triggered=True,components=triggers,predicted=pred.tolist(),actual=dy.tolist())
     return J,dict(triggered=False,components=[],predicted=pred.tolist(),actual=dy.tolist())
 
-def propose_history(history,a,top,target=None,force_sequential=False):
+def propose_history(history,a,top,target=None,force_sequential=False,peak_window=None):
     target=TARGET if target is None else np.array(target,float)
     delivery=target[2]<-20.5
     err=lambda q:float(np.max(abs(state(q)-target)/([.03,.2,.1] if delivery else [.03,.5,.6]))) if state(q) is not None else float('inf')
     valid=[r for r in history if state(r['q']) is not None]
     if not valid:return dict(needs_solve=False,reason='no_three_valley_seed')
     best=min(valid,key=lambda r:err(r['q']))
-    if err(best['q'])<=1+1e-10 and (not delivery or max(p['S11_dB'] for p in best['q']['shape']['inner_peaks'])<=-20.5):return dict(needs_solve=False,reason='already_R7_usable',selected=best['case'])
+    if err(best['q'])<=1+1e-10 and (all(peak_window[0]<=p['S11_dB']<=peak_window[1] for p in best['q']['shape']['inner_peaks']) if peak_window is not None else (not delivery or max(p['S11_dB'] for p in best['q']['shape']['inner_peaks'])<=-20.5)):return dict(needs_solve=False,reason='already_R7_usable',selected=best['case'])
     J=J0.copy();updates=[]
     if force_sequential:
         for b,r in zip(valid,valid[1:]):
