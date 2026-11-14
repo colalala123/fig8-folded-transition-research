@@ -81,11 +81,11 @@ def build():
     write(out/'SELECTED.json',selected);write(out/'T1_SCORES.json',t1)
     q6={}
     for k,lo,hi in [('W1',6.61,6.72),('W2',6.79,6.91),('W3',6.96,7.10)]:
-        s=sel.get('S5R9_'+k);v=s['BW15_star'] if s and s['usable'] else None;q6[k]=dict(actual=v,prediction=[lo,hi],passed=None if v is None else lo<=v<=hi)
-    w2=q6['W2']['actual'];q6['saturation_between_2p06_2p35']=None if w2 is None else w2<6.75
+        s=sel.get('S5R9_'+k);v=s['BW15_star'] if s and s['usable'] else None;q6[k]=dict(actual=v,prediction=[lo,hi],passed=None if v is None else bool(lo<=v<=hi),unscorable_reason=None if v is not None else 'not R7 usable or skipped; do not infer saturation from unbalanced/shifted data')
+    w2=q6['W2']['actual'];q6['saturation_between_2p06_2p35']=None if w2 is None else bool(w2<6.75)
     cs=[]
     for k in ('D1c','S1'):
-        s=sel.get('S5R9_'+k);v=s['BW15_star'] if s and s['usable'] else None;cs.append(dict(design=k,cost_MHz=None if v is None else (6.332-v)*1000,passed=None if v is None else 6.332-v<=.05))
+        s=sel.get('S5R9_'+k);v=s['BW15_star'] if s and s['usable'] else None;cs.append(dict(design=k,cost_MHz=None if v is None else (6.332-v)*1000,passed=None if v is None else bool(6.332-v<=.05)))
     q7=dict(points=cs,passed=all(c['passed'] for c in cs) if all(c['passed'] is not None for c in cs) else None)
     q8={}
     for mode in ('tip','sum','a','span','rho'):
