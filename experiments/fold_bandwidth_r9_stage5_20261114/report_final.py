@@ -1,5 +1,5 @@
 """OFFLINE ONLY post-freeze reporting. Not imported by dispatch, worker, fit or tuner."""
-import sys,csv,itertools,json
+import sys,csv,itertools,json,subprocess,hashlib
 from pathlib import Path
 import numpy as np
 from prepare_r9 import *
@@ -50,7 +50,17 @@ def raw_replay(out):
         pub=read(ROOT/'publications'/(case+'.json'));start=read(w/'evidence/start_requested.json');ack=read(w/'review/visual_ack.json')
         if pub['at']>=start['at'] or not ack['actually_viewed'] or ack['plot_sha256']!=sha(w/'review/S11_S21.png'):raise RuntimeError('publication/actual-view proof '+case)
         if not rev['numerical_pass'] or not rec['cleanup']['released']:raise RuntimeError('numeric/cleanup '+case)
-        checks.append(dict(case=case,raw_csv_sha256=sha(w/'native/full_modes.csv'),diffs=diffs,mesh=rec['mesh_cells'],delta_s=rec['delta_s'],API=rec['Analyze_requested'],published_before_start=True,actual_view=True,cleanup=True,start=start['at'],end=rec['finished_at']))
+        freeze=read(w/'input/freeze.json');dense=freeze['design'].get('dense_confirmation',False)
+        if not ((200000<=rec['mesh_cells']<=240000 and rec['delta_s']<=.002) if dense else (100000<=rec['mesh_cells']<=112000 and rec['delta_s']<=.005)):raise RuntimeError('independent numerical limit '+case)
+        rel=(HERE/'pre_solve'/(case+'.json')).relative_to(REPO).as_posix();blob=hashlib.sha256(subprocess.check_output(['git','show',pub['commit']+':'+rel],cwd=REPO)).hexdigest()
+        if blob!=sha(w/'input/freeze.json'):raise RuntimeError('git freeze mismatch '+case)
+        from roles_r6 import evaluate
+        for rp in (w/'evidence').glob('*_solver.jsonl'):
+            if not evaluate([json.loads(t) for t in rp.read_text(encoding='utf-8').splitlines()],rp.name.removesuffix('_solver.jsonl'))['passed']:raise RuntimeError('independent role replay '+case)
+        snap=read(w/'evidence/geometry_build.json')['materials_and_boundary']['after'];g=q['geometry_mm']
+        for n,expect in [('Substrate_3',[-g['Wm']/2,0.,.848,g['Wm']/2,g['Lm'],.883]),('Substrate_18',[-g['Wm']/2,-g['Lm'],-.883,g['Wm']/2,0.,-.848])]:
+            if not np.allclose(snap[n]['bounding_box'],expect,atol=1e-7,rtol=0):raise RuntimeError('native microstrip readback '+case)
+        checks.append(dict(case=case,raw_csv_sha256=sha(w/'native/full_modes.csv'),diffs=diffs,mesh=rec['mesh_cells'],delta_s=rec['delta_s'],API=rec['Analyze_requested'],published_before_start=True,publication_commit=pub['commit'],published_freeze_sha256=blob,independent_role_replay=True,native_Lm_Wm_readback=True,actual_view=True,cleanup=True,start=start['at'],end=rec['finished_at']))
     intervals=sorted(checks,key=lambda r:r['start'])
     if any(a['end']>b['start'] for a,b in zip(intervals,intervals[1:])):raise RuntimeError('serial overlap')
     total=len(list((ROOT/'ledger').glob('Analyze_*.json')))
@@ -59,6 +69,8 @@ def raw_replay(out):
         if sha(p)!=h:raise RuntimeError('historical changed '+p)
     for p,h in {**cfg['code_hashes'],**cfg['plan_hashes'],**cfg['frozen_hashes']}.items():
         if sha(REPO/p)!=h:raise RuntimeError('frozen changed '+p)
+    for p,h in read(ROOT/'R9_2_PUBLICATION.json')['hashes'].items():
+        if sha(REPO/p)!=h:raise RuntimeError('R9-2 freeze changed '+p)
     write(out/'AUDIT.json',dict(passed=True,geometries=len(checks),new_API=total,total_geometry=151+len(checks),total_API=1406+total,checks=checks,serial_nonoverlap=True,old_evidence_unchanged=True,no_hooks=True))
 
 def build():
