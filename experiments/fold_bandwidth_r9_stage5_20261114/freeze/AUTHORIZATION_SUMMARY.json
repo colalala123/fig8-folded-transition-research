@@ -1,0 +1,1089 @@
+{
+  "at": "2026-11-14T02:22:38.352701+00:00",
+  "human_authorized": true,
+  "batch": "5",
+  "limits": {
+    "1a": 5,
+    "1b": 9,
+    "2a": 45,
+    "2b": 66,
+    "3": 42,
+    "4": 24,
+    "5": 30
+  },
+  "total_geometry_limit": 187,
+  "batch_geometry_limit": 26,
+  "per_parent_geometry_limit": 3,
+  "per_geometry_Analyze_limit": 14,
+  "prior_geometry_total": 151,
+  "prior_Analyze_total": 1406,
+  "cores": 14,
+  "tasks": 1,
+  "serial": true,
+  "no_hook": true,
+  "user_authorization": "用户明确同意R9第0节全部变化；R9-1先推送，5A后R9-2先推送，再5B+B1一次密网格+离线公差；5B后停止，不进6。",
+  "plan_commit": "af6dd1ccfaa425566ae993d9fa2ef44968c60a1b",
+  "aedt_install": "D:/Program Files/AnsysEM/v242/Win64",
+  "prior_batch_audit": "F:\\2026-1\\circuit\\test\\checkouts\\fig8-folded-transition-research\\experiments\\fold_bandwidth_r6_stage2b_analysis_20261112\\final\\INDEPENDENT_AUDIT.json",
+  "prior_batch_gate": "F:\\2026-1\\circuit\\test\\checkouts\\fig8-folded-transition-research\\experiments\\fold_bandwidth_r6_stage2b_analysis_20261112\\final\\GATE_TO_STAGE3.json",
+  "parent_order": [
+    "S5R9_W1",
+    "S5R9_W2",
+    "S5R9_W3",
+    "S5R9_D1c",
+    "S5R9_D3c",
+    "S5R9_S1",
+    "S5R9_B1",
+    "S5R9_B2",
+    "S5R9_B3",
+    "S5R9_B1dense"
+  ],
+  "designs": {
+    "S5R9_W1": {
+      "id": "S5R9_W1",
+      "design": "W1",
+      "family": "Wm2.200",
+      "nominal_a_mm": 1.8,
+      "g_mm": 0.55,
+      "geometry_mm": {
+        "Wm": 2.2,
+        "Ws": 0.514,
+        "Lm": 6.574,
+        "Ls1": 12.46,
+        "Ls2": 1.578,
+        "Ls3": 2.314
+      },
+      "unrounded_target_x": [
+        6.57396438829939,
+        18.188107693422225,
+        0.5140953819617302
+      ],
+      "prediction": {
+        "central_valley_GHz": 6.720023297470218,
+        "D_dB": -0.001241826783959444,
+        "L_dB": -20.302585522012016,
+        "BW15_star_GHz": {
+          "tip": 6.683230000000001,
+          "sum": 6.67729,
+          "a": 6.65447,
+          "span": 6.6633700000000005,
+          "rho": 6.68383561493776
+        },
+        "BW15_GHz": {
+          "tip": 6.6829068097484985,
+          "sum": 6.676966809748498,
+          "a": 6.654146809748498,
+          "span": 6.663046809748499,
+          "rho": 6.683512424686258
+        },
+        "primary_bandwidth_model": "span",
+        "response_prediction_method": "R9 refitted local target parameters + J rounding; not guaranteed"
+      },
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 2.2,
+          "Ws": 0.514,
+          "Lm": 6.574,
+          "Ls1": 12.46,
+          "Ls2": 1.578,
+          "Ls3": 2.314
+        },
+        "geometry_mm": {
+          "Wm": 2.2,
+          "Ws": 0.514,
+          "Lm": 6.574,
+          "Ls1": 12.46,
+          "Ls2": 1.578,
+          "Ls3": 2.314
+        },
+        "nominal_a_mm": 1.8,
+        "input_a_mm": 1.8,
+        "actual_a_mm": 1.8,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.8,
+          "g_mm": 0.55,
+          "L_parameter_sum_mm": 20.244,
+          "L_centerline_mm": 18.188,
+          "rho": 0.38450899031811897,
+          "central_line_width_mm": 2.2,
+          "tip_to_line_x_mm": 2.8160000000000003,
+          "tip_to_tip_x_mm": 7.832000000000001,
+          "min_tip_to_tip_x_mm": 3.826,
+          "slot_to_board_edge_x_mm": 8.77,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.8,
+          "g_mm": 0.55,
+          "L_parameter_sum_mm": 20.244,
+          "L_centerline_mm": 18.188,
+          "rho": 0.38450899031811897,
+          "central_line_width_mm": 2.2,
+          "tip_to_line_x_mm": 2.8160000000000003,
+          "tip_to_tip_x_mm": 7.832000000000001,
+          "min_tip_to_tip_x_mm": 3.826,
+          "slot_to_board_edge_x_mm": 8.77,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "tip_clearance_mm": 2.8160000000000003,
+      "data_role": "prospective_test_T1",
+      "extrapolation": true,
+      "kind": "EQ",
+      "topology": "folded",
+      "max_Analyze": 3,
+      "material_role": "archived_lossy",
+      "board_half_x_mm": 15.0,
+      "target_y": [
+        6.72,
+        0.0,
+        -20.3
+      ]
+    },
+    "S5R9_W2": {
+      "id": "S5R9_W2",
+      "design": "W2",
+      "family": "Wm2.350",
+      "nominal_a_mm": 1.8,
+      "g_mm": 0.55,
+      "geometry_mm": {
+        "Wm": 2.35,
+        "Ws": 0.581,
+        "Lm": 6.602,
+        "Ls1": 12.63,
+        "Ls2": 1.712,
+        "Ls3": 2.381
+      },
+      "unrounded_target_x": [
+        6.601906751652582,
+        18.491715667998996,
+        0.5805373964572675
+      ],
+      "prediction": {
+        "central_valley_GHz": 6.719150556625018,
+        "D_dB": 0.017152343246006046,
+        "L_dB": -20.287435211823563,
+        "BW15_star_GHz": {
+          "tip": 6.8702031,
+          "sum": 6.86194,
+          "a": 6.83642,
+          "span": 6.84232,
+          "rho": 6.8599192026902385
+        },
+        "BW15_GHz": {
+          "tip": 6.871773698522055,
+          "sum": 6.863510598522055,
+          "a": 6.837990598522055,
+          "span": 6.843890598522055,
+          "rho": 6.861489801212294
+        },
+        "primary_bandwidth_model": "span",
+        "response_prediction_method": "R9 refitted local target parameters + J rounding; not guaranteed"
+      },
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 2.35,
+          "Ws": 0.581,
+          "Lm": 6.602,
+          "Ls1": 12.63,
+          "Ls2": 1.712,
+          "Ls3": 2.381
+        },
+        "geometry_mm": {
+          "Wm": 2.35,
+          "Ws": 0.581,
+          "Lm": 6.602,
+          "Ls1": 12.63,
+          "Ls2": 1.712,
+          "Ls3": 2.381
+        },
+        "nominal_a_mm": 1.8,
+        "input_a_mm": 1.7999999999999998,
+        "actual_a_mm": 1.7999999999999998,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.7999999999999998,
+          "g_mm": 0.55,
+          "L_parameter_sum_mm": 20.816000000000003,
+          "L_centerline_mm": 18.492000000000004,
+          "rho": 0.39325518831667944,
+          "central_line_width_mm": 2.35,
+          "tip_to_line_x_mm": 2.7590000000000003,
+          "tip_to_tip_x_mm": 7.868000000000001,
+          "min_tip_to_tip_x_mm": 3.976,
+          "slot_to_board_edge_x_mm": 8.684999999999999,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.7999999999999998,
+          "g_mm": 0.55,
+          "L_parameter_sum_mm": 20.816000000000003,
+          "L_centerline_mm": 18.492000000000004,
+          "rho": 0.39325518831667944,
+          "central_line_width_mm": 2.35,
+          "tip_to_line_x_mm": 2.7590000000000003,
+          "tip_to_tip_x_mm": 7.868000000000001,
+          "min_tip_to_tip_x_mm": 3.976,
+          "slot_to_board_edge_x_mm": 8.684999999999999,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "tip_clearance_mm": 2.7590000000000003,
+      "data_role": "prospective_test_T1",
+      "extrapolation": true,
+      "kind": "EQ",
+      "topology": "folded",
+      "max_Analyze": 3,
+      "material_role": "archived_lossy",
+      "board_half_x_mm": 15.0,
+      "target_y": [
+        6.72,
+        0.0,
+        -20.3
+      ]
+    },
+    "S5R9_W3": {
+      "id": "S5R9_W3",
+      "design": "W3",
+      "family": "Wm2.500",
+      "nominal_a_mm": 1.8,
+      "g_mm": 0.55,
+      "geometry_mm": {
+        "Wm": 2.5,
+        "Ws": 0.652,
+        "Lm": 6.643,
+        "Ls1": 12.814,
+        "Ls2": 1.854,
+        "Ls3": 2.452
+      },
+      "unrounded_target_x": [
+        6.642569928510179,
+        18.817690486645873,
+        0.6516462708071089
+      ],
+      "prediction": {
+        "central_valley_GHz": 6.718578547591225,
+        "D_dB": 0.022905101707539677,
+        "L_dB": -20.290723154260426,
+        "BW15_star_GHz": {
+          "tip": 7.0531005,
+          "sum": 7.046589999999999,
+          "a": 7.01837,
+          "span": 7.02127,
+          "rho": 7.036080873480818
+        },
+        "BW15_GHz": {
+          "tip": 7.0542601057174465,
+          "sum": 7.047749605717446,
+          "a": 7.019529605717446,
+          "span": 7.022429605717447,
+          "rho": 7.037240479198264
+        },
+        "primary_bandwidth_model": "span",
+        "response_prediction_method": "R9 refitted local target parameters + J rounding; not guaranteed"
+      },
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 2.5,
+          "Ws": 0.652,
+          "Lm": 6.643,
+          "Ls1": 12.814,
+          "Ls2": 1.854,
+          "Ls3": 2.452
+        },
+        "geometry_mm": {
+          "Wm": 2.5,
+          "Ws": 0.652,
+          "Lm": 6.643,
+          "Ls1": 12.814,
+          "Ls2": 1.854,
+          "Ls3": 2.452
+        },
+        "nominal_a_mm": 1.8,
+        "input_a_mm": 1.7999999999999998,
+        "actual_a_mm": 1.7999999999999998,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.7999999999999998,
+          "g_mm": 0.55,
+          "L_parameter_sum_mm": 21.426,
+          "L_centerline_mm": 18.817999999999998,
+          "rho": 0.4019415663212919,
+          "central_line_width_mm": 2.5,
+          "tip_to_line_x_mm": 2.705,
+          "tip_to_tip_x_mm": 7.91,
+          "min_tip_to_tip_x_mm": 4.1259999999999994,
+          "slot_to_board_edge_x_mm": 8.593,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.7999999999999998,
+          "g_mm": 0.55,
+          "L_parameter_sum_mm": 21.426,
+          "L_centerline_mm": 18.817999999999998,
+          "rho": 0.4019415663212919,
+          "central_line_width_mm": 2.5,
+          "tip_to_line_x_mm": 2.705,
+          "tip_to_tip_x_mm": 7.91,
+          "min_tip_to_tip_x_mm": 4.1259999999999994,
+          "slot_to_board_edge_x_mm": 8.593,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "tip_clearance_mm": 2.705,
+      "data_role": "prospective_test_T1",
+      "extrapolation": true,
+      "kind": "EQ",
+      "topology": "folded",
+      "max_Analyze": 3,
+      "material_role": "archived_lossy",
+      "board_half_x_mm": 15.0,
+      "target_y": [
+        6.72,
+        0.0,
+        -20.3
+      ]
+    },
+    "S5R9_S1": {
+      "id": "S5R9_S1",
+      "design": "S1",
+      "family": "N04",
+      "nominal_a_mm": 1.4,
+      "g_mm": 1.6,
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.433,
+        "Lm": 6.55,
+        "Ls1": 9.664,
+        "Ls2": 2.466,
+        "Ls3": 1.833
+      },
+      "unrounded_target_x": [
+        6.549973232441331,
+        16.530153101962096,
+        0.43332129220094545
+      ],
+      "prediction": {
+        "central_valley_GHz": 6.720404219552917,
+        "D_dB": -0.009679221161271252,
+        "L_dB": -20.308829444191726,
+        "BW15_star_GHz": {
+          "tip": 6.2985613408,
+          "sum": 6.269666576,
+          "a": 6.334839648,
+          "span": 6.212613728,
+          "rho": 6.241802062337094
+        },
+        "BW15_GHz": {
+          "tip": 6.297457660276034,
+          "sum": 6.268562895476034,
+          "a": 6.333735967476034,
+          "span": 6.211510047476034,
+          "rho": 6.240698381813128
+        },
+        "primary_bandwidth_model": "span",
+        "response_prediction_method": "R9 refitted local target parameters + J rounding; not guaranteed"
+      },
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 1.936496,
+          "Ws": 0.433,
+          "Lm": 6.55,
+          "Ls1": 9.664,
+          "Ls2": 2.466,
+          "Ls3": 1.833
+        },
+        "geometry_mm": {
+          "Wm": 1.936496,
+          "Ws": 0.433,
+          "Lm": 6.55,
+          "Ls1": 9.664,
+          "Ls2": 2.466,
+          "Ls3": 1.833
+        },
+        "nominal_a_mm": 1.4,
+        "input_a_mm": 1.4,
+        "actual_a_mm": 1.4,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.4,
+          "g_mm": 1.6,
+          "L_parameter_sum_mm": 18.262,
+          "L_centerline_mm": 16.53,
+          "rho": 0.4708137115321433,
+          "central_line_width_mm": 1.936496,
+          "tip_to_line_x_mm": 2.0307519999999997,
+          "tip_to_tip_x_mm": 5.997999999999999,
+          "min_tip_to_tip_x_mm": 3.562496,
+          "slot_to_board_edge_x_mm": 10.168,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.4,
+          "g_mm": 1.6,
+          "L_parameter_sum_mm": 18.262,
+          "L_centerline_mm": 16.53,
+          "rho": 0.4708137115321433,
+          "central_line_width_mm": 1.936496,
+          "tip_to_line_x_mm": 2.0307519999999997,
+          "tip_to_tip_x_mm": 5.997999999999999,
+          "min_tip_to_tip_x_mm": 3.562496,
+          "slot_to_board_edge_x_mm": 10.168,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "tip_clearance_mm": 2.0307519999999997,
+      "data_role": "prospective_test_T1",
+      "extrapolation": true,
+      "kind": "EQ",
+      "topology": "folded",
+      "max_Analyze": 3,
+      "material_role": "archived_lossy",
+      "board_half_x_mm": 15.0,
+      "target_y": [
+        6.72,
+        0.0,
+        -20.3
+      ]
+    },
+    "S5R9_D1c": {
+      "id": "S5R9_D1c",
+      "design": "D1c",
+      "family": "N04",
+      "nominal_a_mm": 1.0,
+      "g_mm": 2.0,
+      "geometry_mm": {
+        "Wm": 1.936496,
+        "Ws": 0.434,
+        "Lm": 6.555,
+        "Ls1": 9.032,
+        "Ls2": 2.868,
+        "Ls3": 1.434
+      },
+      "unrounded_target_x": [
+        6.5547131398802145,
+        15.899786201534603,
+        0.43408877839156373
+      ],
+      "prediction": {
+        "central_valley_GHz": 6.719609245023411,
+        "D_dB": 0.0026200899800507362,
+        "L_dB": -20.302860065255903,
+        "BW15_star_GHz": {
+          "F1_tip": 6.293858497589524,
+          "F1_sum": 6.265357404064098,
+          "F1_a": 6.34188843082384,
+          "F2_tip": 6.283557456692091,
+          "F2_sum": 6.2550563631666645,
+          "F2_a": 6.331587389926407
+        },
+        "BW15_GHz": {
+          "F1_tip": 6.293500989432537,
+          "F1_sum": 6.26499989590711,
+          "F1_a": 6.341530922666852,
+          "F2_tip": 6.2831999485351036,
+          "F2_sum": 6.254698855009677,
+          "F2_a": 6.331229881769419
+        },
+        "primary_bandwidth_model": "F2_tip",
+        "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+      },
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 1.936496,
+          "Ws": 0.434,
+          "Lm": 6.555,
+          "Ls1": 9.032,
+          "Ls2": 2.868,
+          "Ls3": 1.434
+        },
+        "geometry_mm": {
+          "Wm": 1.936496,
+          "Ws": 0.434,
+          "Lm": 6.555,
+          "Ls1": 9.032,
+          "Ls2": 2.868,
+          "Ls3": 1.434
+        },
+        "nominal_a_mm": 1.0,
+        "input_a_mm": 1.0,
+        "actual_a_mm": 1.0,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.0,
+          "g_mm": 2.0,
+          "L_parameter_sum_mm": 17.636,
+          "L_centerline_mm": 15.899999999999999,
+          "rho": 0.4878657291902926,
+          "central_line_width_mm": 1.936496,
+          "tip_to_line_x_mm": 2.113752,
+          "tip_to_tip_x_mm": 6.164,
+          "min_tip_to_tip_x_mm": 3.562496,
+          "slot_to_board_edge_x_mm": 10.484,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.0,
+          "g_mm": 2.0,
+          "L_parameter_sum_mm": 17.636,
+          "L_centerline_mm": 15.899999999999999,
+          "rho": 0.4878657291902926,
+          "central_line_width_mm": 1.936496,
+          "tip_to_line_x_mm": 2.113752,
+          "tip_to_tip_x_mm": 6.164,
+          "min_tip_to_tip_x_mm": 3.562496,
+          "slot_to_board_edge_x_mm": 10.484,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "tip_clearance_mm": 2.113752,
+      "data_role": "tuned_not_independent_test",
+      "extrapolation": true,
+      "kind": "EQ",
+      "topology": "folded",
+      "max_Analyze": 2,
+      "material_role": "archived_lossy",
+      "board_half_x_mm": 15.0,
+      "tuning": null,
+      "target_y": [
+        6.72,
+        0.0,
+        -20.3
+      ]
+    },
+    "S5R9_D3c": {
+      "id": "S5R9_D3c",
+      "design": "D3c",
+      "family": "N14",
+      "nominal_a_mm": 1.0,
+      "g_mm": 2.0,
+      "geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.389,
+        "Lm": 6.556,
+        "Ls1": 8.94,
+        "Ls2": 2.778,
+        "Ls3": 1.389
+      },
+      "unrounded_target_x": [
+        6.556109447724373,
+        15.718361845349147,
+        0.3892319545727336
+      ],
+      "prediction": {
+        "central_valley_GHz": 6.720451870907746,
+        "D_dB": -0.007742054895394595,
+        "L_dB": -20.306063049683587,
+        "BW15_star_GHz": {
+          "F1_tip": 6.146370682099638,
+          "F1_sum": 6.113862848127903,
+          "F1_a": 6.190393874887645,
+          "F2_tip": 6.169764133145472,
+          "F2_sum": 6.137256299173737,
+          "F2_a": 6.213787325933479
+        },
+        "BW15_GHz": {
+          "F1_tip": 6.1456128008891895,
+          "F1_sum": 6.113104966917454,
+          "F1_a": 6.1896359936771965,
+          "F2_tip": 6.1690062519350235,
+          "F2_sum": 6.136498417963288,
+          "F2_a": 6.2130294447230305
+        },
+        "primary_bandwidth_model": "F2_tip",
+        "response_prediction_method": "frozen target-parameter fit plus J-linear rounding correction; model discrepancy assessed by whole-ladder CV"
+      },
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 1.810636,
+          "Ws": 0.389,
+          "Lm": 6.556,
+          "Ls1": 8.94,
+          "Ls2": 2.778,
+          "Ls3": 1.389
+        },
+        "geometry_mm": {
+          "Wm": 1.810636,
+          "Ws": 0.389,
+          "Lm": 6.556,
+          "Ls1": 8.94,
+          "Ls2": 2.778,
+          "Ls3": 1.389
+        },
+        "nominal_a_mm": 1.0,
+        "input_a_mm": 1.0,
+        "actual_a_mm": 1.0,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.0,
+          "g_mm": 2.0,
+          "L_parameter_sum_mm": 17.273999999999997,
+          "L_centerline_mm": 15.717999999999996,
+          "rho": 0.482459187217784,
+          "central_line_width_mm": 1.82,
+          "tip_to_line_x_mm": 2.1709999999999994,
+          "tip_to_tip_x_mm": 6.161999999999999,
+          "min_tip_to_tip_x_mm": 3.4459999999999997,
+          "slot_to_board_edge_x_mm": 10.530000000000001,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.0,
+          "g_mm": 2.0,
+          "L_parameter_sum_mm": 17.273999999999997,
+          "L_centerline_mm": 15.717999999999996,
+          "rho": 0.482459187217784,
+          "central_line_width_mm": 1.82,
+          "tip_to_line_x_mm": 2.1709999999999994,
+          "tip_to_tip_x_mm": 6.161999999999999,
+          "min_tip_to_tip_x_mm": 3.4459999999999997,
+          "slot_to_board_edge_x_mm": 10.530000000000001,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "tip_clearance_mm": 2.1709999999999994,
+      "data_role": "tuned_not_independent_test",
+      "extrapolation": true,
+      "kind": "EQ",
+      "topology": "folded",
+      "max_Analyze": 2,
+      "material_role": "archived_lossy",
+      "board_half_x_mm": 15.0,
+      "tuning": null,
+      "target_y": [
+        6.72,
+        0.0,
+        -20.3
+      ]
+    }
+  },
+  "case_paths": {
+    "S5R9_W1__T1": "runs/S5R9_W1/attempt_001",
+    "S5R9_W1__T2": "runs/S5R9_W1/attempt_002",
+    "S5R9_W1__T3": "runs/S5R9_W1/attempt_003",
+    "S5R9_W2__T1": "runs/S5R9_W2/attempt_001",
+    "S5R9_W2__T2": "runs/S5R9_W2/attempt_002",
+    "S5R9_W2__T3": "runs/S5R9_W2/attempt_003",
+    "S5R9_W3__T1": "runs/S5R9_W3/attempt_001",
+    "S5R9_W3__T2": "runs/S5R9_W3/attempt_002",
+    "S5R9_W3__T3": "runs/S5R9_W3/attempt_003",
+    "S5R9_D1c__T4": "runs/S5R9_D1c/attempt_004",
+    "S5R9_D1c__T5": "runs/S5R9_D1c/attempt_005",
+    "S5R9_D3c__T4": "runs/S5R9_D3c/attempt_004",
+    "S5R9_D3c__T5": "runs/S5R9_D3c/attempt_005",
+    "S5R9_S1__T1": "runs/S5R9_S1/attempt_001",
+    "S5R9_S1__T2": "runs/S5R9_S1/attempt_002",
+    "S5R9_S1__T3": "runs/S5R9_S1/attempt_003",
+    "S5R9_B1__T1": "runs/S5R9_B1/attempt_001",
+    "S5R9_B1__T2": "runs/S5R9_B1/attempt_002",
+    "S5R9_B1__T3": "runs/S5R9_B1/attempt_003",
+    "S5R9_B2__T1": "runs/S5R9_B2/attempt_001",
+    "S5R9_B2__T2": "runs/S5R9_B2/attempt_002",
+    "S5R9_B2__T3": "runs/S5R9_B2/attempt_003",
+    "S5R9_B3__T1": "runs/S5R9_B3/attempt_001",
+    "S5R9_B3__T2": "runs/S5R9_B3/attempt_002",
+    "S5R9_B3__T3": "runs/S5R9_B3/attempt_003",
+    "S5R9_B1dense__T1": "runs/S5R9_B1dense/attempt_001"
+  },
+  "case_specs": {
+    "S5R9_W1__T1": {
+      "parent_id": "S5R9_W1",
+      "attempt_ordinal": 1
+    },
+    "S5R9_W1__T2": {
+      "parent_id": "S5R9_W1",
+      "attempt_ordinal": 2
+    },
+    "S5R9_W1__T3": {
+      "parent_id": "S5R9_W1",
+      "attempt_ordinal": 3
+    },
+    "S5R9_W2__T1": {
+      "parent_id": "S5R9_W2",
+      "attempt_ordinal": 1
+    },
+    "S5R9_W2__T2": {
+      "parent_id": "S5R9_W2",
+      "attempt_ordinal": 2
+    },
+    "S5R9_W2__T3": {
+      "parent_id": "S5R9_W2",
+      "attempt_ordinal": 3
+    },
+    "S5R9_W3__T1": {
+      "parent_id": "S5R9_W3",
+      "attempt_ordinal": 1
+    },
+    "S5R9_W3__T2": {
+      "parent_id": "S5R9_W3",
+      "attempt_ordinal": 2
+    },
+    "S5R9_W3__T3": {
+      "parent_id": "S5R9_W3",
+      "attempt_ordinal": 3
+    },
+    "S5R9_D1c__T4": {
+      "parent_id": "S5R9_D1c",
+      "attempt_ordinal": 4
+    },
+    "S5R9_D1c__T5": {
+      "parent_id": "S5R9_D1c",
+      "attempt_ordinal": 5
+    },
+    "S5R9_D3c__T4": {
+      "parent_id": "S5R9_D3c",
+      "attempt_ordinal": 4
+    },
+    "S5R9_D3c__T5": {
+      "parent_id": "S5R9_D3c",
+      "attempt_ordinal": 5
+    },
+    "S5R9_S1__T1": {
+      "parent_id": "S5R9_S1",
+      "attempt_ordinal": 1
+    },
+    "S5R9_S1__T2": {
+      "parent_id": "S5R9_S1",
+      "attempt_ordinal": 2
+    },
+    "S5R9_S1__T3": {
+      "parent_id": "S5R9_S1",
+      "attempt_ordinal": 3
+    },
+    "S5R9_B1__T1": {
+      "parent_id": "S5R9_B1",
+      "attempt_ordinal": 1
+    },
+    "S5R9_B1__T2": {
+      "parent_id": "S5R9_B1",
+      "attempt_ordinal": 2
+    },
+    "S5R9_B1__T3": {
+      "parent_id": "S5R9_B1",
+      "attempt_ordinal": 3
+    },
+    "S5R9_B2__T1": {
+      "parent_id": "S5R9_B2",
+      "attempt_ordinal": 1
+    },
+    "S5R9_B2__T2": {
+      "parent_id": "S5R9_B2",
+      "attempt_ordinal": 2
+    },
+    "S5R9_B2__T3": {
+      "parent_id": "S5R9_B2",
+      "attempt_ordinal": 3
+    },
+    "S5R9_B3__T1": {
+      "parent_id": "S5R9_B3",
+      "attempt_ordinal": 1
+    },
+    "S5R9_B3__T2": {
+      "parent_id": "S5R9_B3",
+      "attempt_ordinal": 2
+    },
+    "S5R9_B3__T3": {
+      "parent_id": "S5R9_B3",
+      "attempt_ordinal": 3
+    },
+    "S5R9_B1dense__T1": {
+      "parent_id": "S5R9_B1dense",
+      "attempt_ordinal": 1
+    }
+  },
+  "code_hashes": {
+    "experiments/fold_bandwidth_r6_20261111/common_r6.py": "03124be6ef0d689062bb1959542e39226512a6713554da3dacf5c4c06c54caac",
+    "experiments/fold_bandwidth_r6_20261111/roles_r6.py": "de60aa1fe18f70324bd47e5ee0e4c40714a93d89fb95608ee8c511e0fffb9375",
+    "experiments/fold_bandwidth_r6_20261111/observer_r6.py": "c2afc31cbf6bc2241d28e830f95de0f9aa9de1337909009027fa1fdefd94738d",
+    "experiments/fold_bandwidth_r6_20261111/runtime_r6.py": "70aa9283d0e284d7a3b97e7ae566a1099280bddb476684d494a0b1d85fbf1cb4",
+    "experiments/fold_bandwidth_r6_20261111/worker_r6.py": "a1c97e454e56c6263a74cc0e06f0afcd794b001e0a2c68bc3ee6690449a02553",
+    "experiments/fold_bandwidth_r6_20261111/review_r6.py": "95fa9d4f033b3af46521672d9c67cf9d1ff1af2fdce558dc3eac65cda3019dae",
+    "experiments/fold_bandwidth_r4_20261110/headless_worker_r5.py": "0f575be06f31cd6653785721e93deb2bf1e57266d5c84fbf977af78cb5bb3305",
+    "experiments/fold_bandwidth_r4_20261110/scratch_guard.py": "9b138d994631540e0b6d0ff44e2236709cec6d02c7f95026d260e21694898272",
+    "experiments/fold_bandwidth_r4_20261110/native_geometry.py": "766c19577cb1fdb548a4cbe0954c75a1645c07ff1f0df096f8a1a7a57f884087",
+    "experiments/fold_bandwidth_r4_20261110/staged_mesh_r5.py": "12b4d19d00c7e7c81196476b64e375f58109f19fd303a470b49831befc0b82c9",
+    "experiments/fold_bandwidth_r4_20261110/stage_messages_r5.py": "ccc6fe94f02d2c78bcf83d3db0583987a5c1fb13eff33c3041467f6d020985cf",
+    "experiments/fold_bandwidth_r4_20261110/recovery_r5.py": "896b87b73fbf34fb3b78841441cc239e90178c71946c047c56521874c03e92bb",
+    "experiments/fold_bandwidth_r4_20261110/review_r5.py": "72e8799ae38303bc182a9904d549d6700c2f7a0a7e0e581962615bcfa106bd10",
+    "experiments/fold_bandwidth_r4_20261110/STAGE1_CRITERIA_R5.json": "6f4fd1ab911bf578225fe736f4a26e2f839ca788a13c88a9d66b62a6affa4388",
+    "experiments/fold_bandwidth_r2_20261110/analyze_stage1.py": "f1eeab0ce6e69b64c2442d2a96295a3bde0c7c14d8a8e6b736f77ee941b542aa",
+    "experiments/fold_bandwidth_r2_20261110/build_evidence.py": "394f69e7838bd73d78d55eb6db23d887d13989de81b25e98073ab65ddf677d05",
+    "experiments/fold_bandwidth_r2_20261110/chain.py": "3148d305025e305bfaba6a7d993a84c0a0e0afdecd472be425e07f43945a8b07",
+    "experiments/fold_bandwidth_r2_20261110/common.py": "f6180a04c5eca6963ca6851d1a3a533941a24471136abd0c18f37cce243f3386",
+    "experiments/fold_bandwidth_r2_20261110/extract_run.py": "55d326d23efa7b62fbfe430bddc5eb04940222817ecf4eb0d94380a76234ed8f",
+    "experiments/fold_bandwidth_r2_20261110/geometry.py": "fdea9993907aba246913f5cd7cb5c1e3f8933308dce08ba29887c3e9179a4dba",
+    "experiments/fold_bandwidth_r2_20261110/portability.py": "2975d6ffda9da5abd1ee670301eb30780c9b2e9c109642fdd46d706143c68ca9",
+    "experiments/fold_bandwidth_r2_20261110/presubmit.py": "3c2eb0167f37cc51bc08bfae895b1fa453992b30de15e6cc3e6d1506e6b8c8b3",
+    "experiments/fold_bandwidth_r2_20261110/test_r2.py": "12a7ce79c6fd63d11a163c0a606e52ee80d024e2d98e1d2f893b9332701a46ec",
+    "experiments/fold_bandwidth_r2_20261110/verify_r2.py": "cb6ea8f64ab4024c15fa5819a8ab201440bd420c887d81c5647cbc7345c526c8",
+    "experiments/fold_bandwidth_r6_20261111/observer_r6_v2.py": "82e32aa883b9455f546c2a6425b4da8be1f86aeb617f367bccfd2cb2623487d9",
+    "experiments/fold_bandwidth_r6_20261111/runtime_r6_v2.py": "0f219aee48a85fd118d9df22630f642309030a56666517d82c80e14876ec0713",
+    "experiments/fold_bandwidth_r6_20261111/worker_r6_v2.py": "051956298ef8b601bf07b84ec38ad7482774860d7aa048a103c41dcc5d3f45f4",
+    "experiments/fold_bandwidth_r6_stage2_20261111/budget_stage2.py": "2fd1684e9b5f83cb0ee015880d976adb860745c315d3e325c2edc13fbe1650ef",
+    "experiments/fold_bandwidth_r6_stage2_20261111/checkpoint_stage2.py": "5b0fa8c225aa7a489a94714ae1cc14b44e8dbda48c9667506165aaec7dafb7c7",
+    "experiments/fold_bandwidth_r6_stage2_20261111/collect_stage2.py": "173a129508e41b3e59307778672a2955e9816dc354a1d0212ee91c92dc10bad3",
+    "experiments/fold_bandwidth_r6_stage2_20261111/common_stage2.py": "d06d56d34e4d172d1cec97c2ecf2f3e17473c2dc6d10c843bc942b69f75804a7",
+    "experiments/fold_bandwidth_r6_stage2_20261111/controller_stage2.py": "7c837be69aca776cd605af965c800c01a9e7aa7d7f52b26c7e551baaf100b815",
+    "experiments/fold_bandwidth_r6_stage2_20261111/native_control.py": "3912e3f9cded10b369640179a7b076ae13a9df92f06da7aac286bc016cff5d24",
+    "experiments/fold_bandwidth_r6_stage2_20261111/prepare_stage2.py": "bdd89863c68b5c38b925000920b038d8fc61165c90cbd252d0d02a82d9729985",
+    "experiments/fold_bandwidth_r6_stage2_20261111/review_stage2.py": "c86c8616d49f3c7764aedc65835b83105e4a0ccd2c397ddc6582a26e827b76b8",
+    "experiments/fold_bandwidth_r6_stage2_20261111/runtime_stage2.py": "87762a6d4577865d6ba036bba23cf2ad64ca3e7001e7f8127b61be40fca67fc8",
+    "experiments/fold_bandwidth_r6_stage2_20261111/test_budget_stage2.py": "fe387ad847ab650f99cd1f460a3a75665b5043431d18db2a8ae6cc5fbcc81926",
+    "experiments/fold_bandwidth_r6_stage2_20261111/test_checkpoint_stage2.py": "b5d35bc1957204217deb0d39df07d3512a9f90ff360e013d4d417a594657b1b5",
+    "experiments/fold_bandwidth_r6_stage2_20261111/test_offline_stage2.py": "76fd6173e34c1c4d00f37d6752791ab1fd45e8873a20ded6e88336a8b647b591",
+    "experiments/fold_bandwidth_r6_stage2_20261111/test_release_stage2.py": "a9b1295811f07010f2713b6af7101718dae790cc7b2fb38f4246bc4c8bf2f210",
+    "experiments/fold_bandwidth_r6_stage2_20261111/tuning.py": "a7da3cbc6e7bb48394dcf4e613f3531959bdeaf5694b5824931c721db2b6ed21",
+    "experiments/fold_bandwidth_r6_stage2_20261111/worker_stage2.py": "f8b386b35c7a04c22bcbf18926ff68e5327a8b65e31321c582900ba790f34a48",
+    "experiments/fold_bandwidth_r6_stage2_20261111/runtime_header_stage2.txt": "8e7886034a61cea2ae0de08fbc294755cc141166b7561f3719577cd347e161cd",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/budget_stage2.py": "b5f78b7956e5a399307ba34a53f6abb03b524fe54533b1460d3020a191372901",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/checkpoint_stage2.py": "71035d73b4dd1060ddc83d51e945110abfbdce63056bf7215500d287cd5aea02",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/collect_stage2.py": "e4e4c39aff7eb23f4e497190cde0d17b6f1ecad8c6330c8dd754f4c0f76ce0f9",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/common_stage2.py": "d06d56d34e4d172d1cec97c2ecf2f3e17473c2dc6d10c843bc942b69f75804a7",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/controller_stage2.py": "7c837be69aca776cd605af965c800c01a9e7aa7d7f52b26c7e551baaf100b815",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/native_control.py": "3912e3f9cded10b369640179a7b076ae13a9df92f06da7aac286bc016cff5d24",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/prepare_stage2.py": "f0762a651fb39cc4f959de26a4bcd547239e6e5660871e2717d23c7f09e2b13e",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/review_stage2.py": "1d661e1eff7b3f6bdd96f4eb0e86ffa8154626664910ed306abbcb9e32a8eddb",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/runtime_stage2.py": "8d620bec7f9d002ecdd1502f64a7400e0a9a073c7eb5b6209675ccc981239c0b",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/test_budget_stage2.py": "2abf75d7d0d6e0a0d87e8a6dd35d3a8d14e40f7c809b23a80bdca376dd9d0a09",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/test_checkpoint_stage2.py": "8d50e3d9060e1af9fff19105b6a76beecd3ac07e71503a5050a00db1ffb62e66",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/test_offline_stage2.py": "0a39669e8fb40987544ff13fc7e3286fa308cd6efd6e85a6d38e97d12debe1de",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/test_release_2b.py": "aa84fc7492ca51a5c2b026d632f7fac640cffdc6026f51c22d137a02162aed1a",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/tuning.py": "c68acd7dcfc0f5e1082768c5f217a057b7a2b0d6c968ae32cabdc5f474fc049e",
+    "experiments/fold_bandwidth_r6_stage2b_20261112/worker_stage2.py": "f8b386b35c7a04c22bcbf18926ff68e5327a8b65e31321c582900ba790f34a48",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/audit_batch.py": "3023940c219c9e181a10e30b59009ac6e7ce3291562471ff6cf9d920a98fbc65",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/fit_model.py": "21d20439eb62058fe05f87d71b8caa5be66c15bd704795d6a666ed19e357b258",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/freeze_2b.py": "ee513aa633eadd3e000cc2e6242137db52b88e09d49cd85a4f0e58a033543572",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/report_model.py": "48b535341bd0636510a97598ca9f81bf8bce409489abafbd7c84c00a102f3557",
+    "experiments/fold_bandwidth_r6_stage2_model_20261112/test_fit_model.py": "3867e808a791f2cdc48a5c6f991c027472aa2f975ce6ea35a28dfc48abde9b32",
+    "experiments/fold_bandwidth_r6_stage3_20261112/budget_stage2.py": "468b2896351e1fa142fb1cc3a1d0a7a68a5da70645a8a4933a78aa1c78e2005f",
+    "experiments/fold_bandwidth_r6_stage3_20261112/build_executor.py": "90392b0b9b695ff71df3132cfacc0ed69cf508e3bbd1287d56df52a842d46428",
+    "experiments/fold_bandwidth_r6_stage3_20261112/checkpoint_stage2.py": "a2e268ba8b9b8ced65788dfbb27e848c7fc69c77f93534816777e8802fa40182",
+    "experiments/fold_bandwidth_r6_stage3_20261112/collect_stage2.py": "d5d14d6e7546f64be60ef0ff037f32ff9a5be988118121606092d1664acfdf44",
+    "experiments/fold_bandwidth_r6_stage3_20261112/common_stage2.py": "a7f38091955578b55bc4a205e939fda2789c94c50de9a2c00184bd13c83ddeca",
+    "experiments/fold_bandwidth_r6_stage3_20261112/controller_stage2.py": "ed83b6174ac77cedc6b92cb59bff2a57758a7ed06dbe09bbf3ce7e02af378a9e",
+    "experiments/fold_bandwidth_r6_stage3_20261112/document_preflight.py": "017e7641069345f4c0fc64005403914c77d3e44f121caff1e6d6816b225bbc92",
+    "experiments/fold_bandwidth_r6_stage3_20261112/final_analysis.py": "027a050b5d6bde1879c6ddfb1165bd8d4f5fcbf904ee30fa500a92cf60a21a04",
+    "experiments/fold_bandwidth_r6_stage3_20261112/native_control.py": "f6b2d2c32077f868aa71182d56c45b5ac812432d3de5a6a2db73c171fbe5ae07",
+    "experiments/fold_bandwidth_r6_stage3_20261112/power_analysis.py": "8cd98af3320051306d7a828ed5f10c58c49bb1531b221ce82100ccef3a4fc40f",
+    "experiments/fold_bandwidth_r6_stage3_20261112/power_native.py": "82e27659d14f2eb60a0fbcf9b5b10c92ece7c2f4e49d9c35e51bebb605c3f39a",
+    "experiments/fold_bandwidth_r6_stage3_20261112/preflight_native.py": "826097b120353759bbe4b481c0216ce528a13004fa80d17bdff7863c88529ae9",
+    "experiments/fold_bandwidth_r6_stage3_20261112/prepare_stage3.py": "bf0d3e2da19184c6c90ee67072ae93ed9ba974866c1aa7af0d4e57231a28cc1d",
+    "experiments/fold_bandwidth_r6_stage3_20261112/probe_power.py": "6c4909a49b7cbcba43473f673d7e4a9ac83be6bccabf45bf69368393263e7760",
+    "experiments/fold_bandwidth_r6_stage3_20261112/review_stage3.py": "a04938db76dac3008c2c17d2fe26b4e24828962bd78d4ad594300d664c436dba",
+    "experiments/fold_bandwidth_r6_stage3_20261112/runtime_stage2.py": "6cdced17a8228ddcc5c0dfa457277db7d1f404223edecc7496264154a91dca60",
+    "experiments/fold_bandwidth_r6_stage3_20261112/solve_block.py": "d2d9e6c3b6f0ecbad7d535f5768da3f1dbc2ffc0cde433ed4d6e887863725461",
+    "experiments/fold_bandwidth_r6_stage3_20261112/test_stage3.py": "478e46c2c4f7a6a6f863c7a6cb39f054397b78ae0e1bdd40fa31d9ad9b7acf25",
+    "experiments/fold_bandwidth_r6_stage3_20261112/tuning.py": "1665db37686a37f285ddcaf764dfcfbcd325868dc968fb24f97bd67ec07ccbba",
+    "experiments/fold_bandwidth_r6_stage3_20261112/update_status.py": "b6ceb83262e1602f63bb125c964774dca9039e302b638aa3274cfbc92f744848",
+    "experiments/fold_bandwidth_r6_stage3_20261112/worker_stage2.py": "703997423bbd24f3db0cdfd303ad5c2fda66611922de1c08a2f6a5d123730ac6",
+    "experiments/fold_bandwidth_r3_20261110/prepare_stage3.py": "003711259f836c6942872f6437dd890dfb115be5587b10ca047a1455fe2bcca6",
+    "experiments/fold_bandwidth_r3_20261110/stage3_metrics.py": "688a9a26712e428051082c780058b4d3099bd8e18b59a167dc7bcdead4bfdbee",
+    "experiments/fold_bandwidth_r3_20261110/test_r3.py": "c53485cdf063c10c97f561c10f417f2efddeeb61ff6f87073536d8edd1b980b9",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/budget_stage2.py": "8750203b772944770ea03bb1d3938413618f514d7bbbfc4ccaf43caf95543e21",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/build_corrected.py": "e34dbafadc469907644fe5ddae756e7c71e541ce2de1ade8ea0314f206ebe63f",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/checkpoint_stage2.py": "a2e268ba8b9b8ced65788dfbb27e848c7fc69c77f93534816777e8802fa40182",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/collect_stage2.py": "677701c23af1f61fef7c1500c6c7c7be2ffad69e8cbb2c524ed5546c0876d5aa",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/common_stage2.py": "a7f38091955578b55bc4a205e939fda2789c94c50de9a2c00184bd13c83ddeca",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/controller_stage2.py": "ed83b6174ac77cedc6b92cb59bff2a57758a7ed06dbe09bbf3ce7e02af378a9e",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/final_analysis.py": "00a1a73d4261dcec39dbcde71745fcdf146dbca16716a0c9313d6268d1086a86",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/history_links.py": "7bab9d884581200169a5fff5fbefa60b4276ae404bbd2a6febca8b372e3a95c5",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/native_control.py": "fdf050f2f6dd413ded98600147fae786d67cde6b43a7fe7f483f2edee1b4048c",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/power_analysis.py": "249afa0858ec9b0b09e396e76aec0701350c5a8855b016f5ad67502b0a675d48",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/prepare_stage3.py": "11da281fcd023451601d92e62c15fe33edfbaf051fe49dc348d3be9755cdbe7d",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/review_stage3.py": "00c84ff372ad68f90698324eac522ec24843c5e1c7ca47a670e4800b549d3af7",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/runtime_stage2.py": "9132a9ade76576ff188715c2285d4d85d3b2c7cf1e46b9952d741153f828e5c1",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/solve_block.py": "d2d9e6c3b6f0ecbad7d535f5768da3f1dbc2ffc0cde433ed4d6e887863725461",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/test_centerline_fix.py": "a52bc867286f9a2b19ffeb23bdc537997cb462cda95e33b0a0134514a9b67a17",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/test_cost_cover.py": "5405957d274278e015d28826242477d4dba44c39228d90afc931a65fb83bca4a",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/test_stage3.py": "335b2c16cdd7d1ac4ea02b02fbc1d7b2b3ed3a56957f44fdb5b965f848b9ef23",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/tuning.py": "c2c7c817d59071fe005e309da52c16fa3aed5fec94982205476618537dff6bf2",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/update_status.py": "ad3f3602f3d3a60b24597cfd12ccd6aba20097dbb691f26effdf44cef841268d",
+    "experiments/fold_bandwidth_r6_stage3_corrected_20261113/worker_stage2.py": "703997423bbd24f3db0cdfd303ad5c2fda66611922de1c08a2f6a5d123730ac6",
+    "experiments/fold_bandwidth_r7_3r_20261113/bootstrap.py": "acb5f80ca5dc720f7acb6df47871e7ca12259cc962d1fd91db6cdc66e78b9d2f",
+    "experiments/fold_bandwidth_r7_3r_20261113/budget_stage2.py": "aeae6b46ea6f465a07793a0a60e12d5f2e801466bf5a02e5bf25d0cf2022be43",
+    "experiments/fold_bandwidth_r7_3r_20261113/checkpoint_stage2.py": "a2e268ba8b9b8ced65788dfbb27e848c7fc69c77f93534816777e8802fa40182",
+    "experiments/fold_bandwidth_r7_3r_20261113/collect_stage2.py": "677701c23af1f61fef7c1500c6c7c7be2ffad69e8cbb2c524ed5546c0876d5aa",
+    "experiments/fold_bandwidth_r7_3r_20261113/common_stage2.py": "a7f38091955578b55bc4a205e939fda2789c94c50de9a2c00184bd13c83ddeca",
+    "experiments/fold_bandwidth_r7_3r_20261113/controller_stage2.py": "98be5be79e2a7034516ae21f385e41baf12ec4dd912eb5172927b3cb50c0adf3",
+    "experiments/fold_bandwidth_r7_3r_20261113/manage.py": "75f287afb14116bc02f4cea45aa8b48b7bd27ec4459da36a6b85fc5037ad4614",
+    "experiments/fold_bandwidth_r7_3r_20261113/native_control.py": "fdf050f2f6dd413ded98600147fae786d67cde6b43a7fe7f483f2edee1b4048c",
+    "experiments/fold_bandwidth_r7_3r_20261113/offline_fit.py": "b5c64b2a2ee019c5bfa950755ecc27f4a06be54e12020692e58534ed52651452",
+    "experiments/fold_bandwidth_r7_3r_20261113/power_analysis.py": "249afa0858ec9b0b09e396e76aec0701350c5a8855b016f5ad67502b0a675d48",
+    "experiments/fold_bandwidth_r7_3r_20261113/prepare_r7.py": "321181782a0b2c55cb896e3aa097ec070b083d7c8ee5942d1fdc2dbcc65528d4",
+    "experiments/fold_bandwidth_r7_3r_20261113/report_r7.py": "df6afb559ca6db3f64abd510aa4f37884537cf3108f0c365d76e78bb6dd4c6b7",
+    "experiments/fold_bandwidth_r7_3r_20261113/review_stage3.py": "00c84ff372ad68f90698324eac522ec24843c5e1c7ca47a670e4800b549d3af7",
+    "experiments/fold_bandwidth_r7_3r_20261113/runtime_stage2.py": "bd88b48e2ba234380e1b28f7696f0b07a61b83ba500a18c138e94aa988feaa9f",
+    "experiments/fold_bandwidth_r7_3r_20261113/solve_block.py": "d2d9e6c3b6f0ecbad7d535f5768da3f1dbc2ffc0cde433ed4d6e887863725461",
+    "experiments/fold_bandwidth_r7_3r_20261113/test_r7.py": "afd2fb3c0562c105bc5f39c90347c7509ddb5d586352573889b2338bda4c8788",
+    "experiments/fold_bandwidth_r7_3r_20261113/tuning.py": "d98968ca08c1ab722f2daa8c3f8f8cbb4de2b4816d7f93734fc244ed09e7c306",
+    "experiments/fold_bandwidth_r7_3r_20261113/worker_stage2.py": "1be0edce7b4253fabb3261eef2d12c762feaa5fdfdf4d3e572411ed02966c81e",
+    "experiments/fold_bandwidth_r8_stage4_20261114/budget_stage2.py": "cdd2473b3467744ff3cd54720648b8163e4141618b741f2088ae15939c13088c",
+    "experiments/fold_bandwidth_r8_stage4_20261114/checkpoint_stage2.py": "7ba508a49e75975e65ff731ba1274f63c7764ddb57c928f65b3a2091fda09e65",
+    "experiments/fold_bandwidth_r8_stage4_20261114/collect_stage2.py": "41406c9cd45bf37b8c2cffe507398bb1f3dce5b9664dd259e2e20d07f7434230",
+    "experiments/fold_bandwidth_r8_stage4_20261114/common_stage2.py": "a73cb5e2b771d1e03f3901dde664d2fd4ba69166642b4fa7347f60a98344c162",
+    "experiments/fold_bandwidth_r8_stage4_20261114/controller_stage2.py": "98be5be79e2a7034516ae21f385e41baf12ec4dd912eb5172927b3cb50c0adf3",
+    "experiments/fold_bandwidth_r8_stage4_20261114/laws.py": "f3299de7022a85d9e586014eac66eedcb713239ae1526864c59e05bdb45f1f3c",
+    "experiments/fold_bandwidth_r8_stage4_20261114/manage.py": "b0dd59dfc06b35312f3e0e0eaa834f2705ae8578c21a3491bb4a181078fc84a8",
+    "experiments/fold_bandwidth_r8_stage4_20261114/native_control.py": "fdf050f2f6dd413ded98600147fae786d67cde6b43a7fe7f483f2edee1b4048c",
+    "experiments/fold_bandwidth_r8_stage4_20261114/power_analysis.py": "249afa0858ec9b0b09e396e76aec0701350c5a8855b016f5ad67502b0a675d48",
+    "experiments/fold_bandwidth_r8_stage4_20261114/prepare_r8.py": "54f00549794b904aab135cff611368a59a534bb527a40835ecaa3591e3b4584c",
+    "experiments/fold_bandwidth_r8_stage4_20261114/review_stage3.py": "829f664eab58cad1281e44d406e827a0bb65e543d7861fc8dab67adbdb964c66",
+    "experiments/fold_bandwidth_r8_stage4_20261114/runtime_stage2.py": "6e9ad3a69604ee622b92c7332478af71f79b75d5e87a8fd69e8b21a6b79fbd71",
+    "experiments/fold_bandwidth_r8_stage4_20261114/solve_block.py": "d2d9e6c3b6f0ecbad7d535f5768da3f1dbc2ffc0cde433ed4d6e887863725461",
+    "experiments/fold_bandwidth_r8_stage4_20261114/test_r8.py": "8f01827a2eb2c80fd8864ec8ad4b371911bc429bde2e0b1caadd6b56c347023c",
+    "experiments/fold_bandwidth_r8_stage4_20261114/tuning.py": "6f50aa045f8406f1d14eda39fc420d6222f09afd696f947a30f782c35c0f8c70",
+    "experiments/fold_bandwidth_r8_stage4_20261114/worker_stage2.py": "e864f47fae25db0508a30017fe8fbbebd4d697dbe526de6b14f53733b418fe5f",
+    "experiments/fold_bandwidth_r9_stage5_20261114/budget_stage2.py": "be35f7c22c2a3756bb0f112395413642b99ad01aa119c1550b3bdc9c1d3bfa03",
+    "experiments/fold_bandwidth_r9_stage5_20261114/checkpoint_stage2.py": "152c1874970f7c8141cfef278d4219e69a3541943d8af5f575b1e4652ae44d18",
+    "experiments/fold_bandwidth_r9_stage5_20261114/collect_stage2.py": "b9aded34460129cc94d94715ed3c286cb6b93e4668647b1abdc13891bb60571b",
+    "experiments/fold_bandwidth_r9_stage5_20261114/common_stage2.py": "377897b71231c889212eef975a94c68023ba160b7b52178b9a1122269cb1df3f",
+    "experiments/fold_bandwidth_r9_stage5_20261114/controller_stage2.py": "98be5be79e2a7034516ae21f385e41baf12ec4dd912eb5172927b3cb50c0adf3",
+    "experiments/fold_bandwidth_r9_stage5_20261114/freeze_5b.py": "ebbca4e2706577a68de1275f170546827599b908a72ed6089bc0bd8e58048224",
+    "experiments/fold_bandwidth_r9_stage5_20261114/laws.py": "7eb12f01d3cc0a7ebb0058ae2766d7638916ff3644cc7a7aa19bb886aa636034",
+    "experiments/fold_bandwidth_r9_stage5_20261114/manage.py": "a1f002a1d9d7784c3bea19c3ed7a0bf168a08c2713acabb3e4b8ab87995024a5",
+    "experiments/fold_bandwidth_r9_stage5_20261114/native_control.py": "fdf050f2f6dd413ded98600147fae786d67cde6b43a7fe7f483f2edee1b4048c",
+    "experiments/fold_bandwidth_r9_stage5_20261114/power_analysis.py": "249afa0858ec9b0b09e396e76aec0701350c5a8855b016f5ad67502b0a675d48",
+    "experiments/fold_bandwidth_r9_stage5_20261114/prepare_r9.py": "b01d31ac8a822e8687c8e50b393fe16637d0522ac2479a7ba10edbc31e64b41d",
+    "experiments/fold_bandwidth_r9_stage5_20261114/review_stage3.py": "0b0d92f07326295ce690654bd524433adcbe10ce14e2db5b9af155938380fda3",
+    "experiments/fold_bandwidth_r9_stage5_20261114/runtime_stage2.py": "f550690555577cd10dffbbbc69ac168c1fd7897a119905eadfb0a6b723b07a44",
+    "experiments/fold_bandwidth_r9_stage5_20261114/solve_block.py": "d2d9e6c3b6f0ecbad7d535f5768da3f1dbc2ffc0cde433ed4d6e887863725461",
+    "experiments/fold_bandwidth_r9_stage5_20261114/test_r9.py": "f47a47197b734f0eb4d686163a6632e761852fc178cd3839f5909074bfbf6a71",
+    "experiments/fold_bandwidth_r9_stage5_20261114/tuning.py": "7fd2299ce83eb3f58a2a9227704979358090de8baee48f5fe466bb7ef70bb87d",
+    "experiments/fold_bandwidth_r9_stage5_20261114/worker_stage2.py": "db18524335f4b674ebc9e7d1cb4c820ae2f5ce75e2fe66266df3375cff8159a0"
+  },
+  "plan_hashes": {
+    "docs/PLAN_20261110_FOLD_BANDWIDTH.md": "ffdc1ba830954e22edf038f8727fdb0be9bfd8fa4fe175aee7fa32c4db5658b4",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R1.md": "5bac2ae8f1e51fb27883175ca5890622422bc4a73ad72da9cfd324235a7d4876",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R2.md": "d15f4db9a442862c7db3df0ffaf9b190f17b7e26c8e7d01ef4cfbf562ccc67a0",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R3.md": "38ea38fa5e27db151b8f1015f4a613c1d0667e1be2dc308c06358a058eefc5d9",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R4.md": "421bf1ab111bbbb7cbbb79e4ee9e00fba2450782b58a70dbf751dda03bbdb3a2",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R5.md": "229990ea491d0d07c571a85194dd48fb01df17c1a19c8ccf1ccd7058c5aca1db",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R6.md": "00aa2952f914a20cc76d6817bc0b34b9ad701e169be660faea084cbbd414a380",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R7.md": "bfcb76b4b5b939696ea69ea144d99391190183e154fa034cdc9c059b264ba94e",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R8.md": "be81fea97f94d8c7623956c219eeb0932b792eb63b26715daaedf199b46f20f0",
+    "docs/PLAN_20261110_FOLD_BANDWIDTH_R9.md": "c3579f4b87c6a4739cff7de1aab46ac61a45a403ca5858c5fb226eb1aa94a034"
+  },
+  "frozen_hashes": {
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/COST_REFIT.json": "4983638824a5d64c0659319236f14bd7d26abea9717c5eac5c7b68067c99b759",
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/CROSS_VALIDATION.json": "3263c6fc905b6f2ca87d47bfee37996d22495b3c2e82c12b1c651bc8fdd69643",
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/LAWS.json": "aaccfa213ac562e20333dae41a2933f1b5c4c9966503155e77d540511942975c",
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/REVIEWER_PREDICTIONS.json": "5db60bd1aa8658639c6f4bb9b57c236041f3e3ef643a035424d7e9e6f13af9b0",
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/SENSITIVITY.json": "9227d3a30fcc372323db0ebe89a92adb4053b005b7033b7ba56cb1d49f73a376",
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/T1_GEOMETRIES.json": "9b06dd687775eaa3a2413d6023ca6bb4568e66956549a0b66e0ccf5a15168831",
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/TEST_RESULTS.json": "3d0fc93cfda38adfd3eeecd14d9e57f9123d95d6f075f5ed55401ec42763b30e",
+    "experiments/fold_bandwidth_r9_stage5_20261114/offline/TRAINING.json": "b93a9d3475b17776d3339d80b555e70cc1c02bd9e8447a1f818ab21986408518",
+    "experiments/fold_bandwidth_r9_stage5_20261114/freeze/BUDGET.json": "759760eb78dd5c70fb3641765e11e03f9d62d7dca882eddd584817d7fe8ea4db",
+    "experiments/fold_bandwidth_r9_stage5_20261114/freeze/REGISTRY.json": "9ea8a6cf1e9391088e6a9037228672fb1e2ff5d56b33b2640fbf9f2978c571bc"
+  },
+  "technical_recovery_policy": "R6 2.3；故障保留，审核缓存逐轮一致后版本化续算；不自动冷重试。",
+  "prior_parent_geometry": {},
+  "calibration_overrides": {
+    "S3R3_EQ_N04_01__T3": "S3R3_EQ_N04_01__T1"
+  },
+  "prior_stage3_audit": "F:\\2026-1\\circuit\\test\\checkouts\\fig8-folded-transition-research\\experiments\\fold_bandwidth_r6_stage3_corrected_20261113\\stop_review\\INDEPENDENT_AUDIT.json",
+  "execution_revision": "R9_STAGE5",
+  "R9_cumulative_geometry_cap": 177
+}

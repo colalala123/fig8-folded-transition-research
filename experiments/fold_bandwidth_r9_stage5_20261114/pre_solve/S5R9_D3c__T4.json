@@ -1,0 +1,389 @@
+{
+  "at": "2026-11-14T02:22:38.899638+00:00",
+  "parent_id": "S5R9_D3c",
+  "attempt_ordinal": 4,
+  "design": {
+    "id": "S5R9_D3c",
+    "design": "D3c",
+    "family": "N14",
+    "nominal_a_mm": 1.0,
+    "g_mm": 2.0,
+    "geometry_mm": {
+      "Wm": 1.810636,
+      "Ws": 0.363,
+      "Lm": 6.6,
+      "Ls1": 9.961,
+      "Ls2": 2.726,
+      "Ls3": 1.363
+    },
+    "unrounded_target_x": [
+      6.556109447724373,
+      15.718361845349147,
+      0.3892319545727336
+    ],
+    "prediction": {
+      "response_y": [
+        6.720175267978731,
+        -0.006855990501295928,
+        -20.308370499533368
+      ],
+      "frozen_BW_laws_unchanged": true
+    },
+    "screen": {
+      "input_geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.363,
+        "Lm": 6.6,
+        "Ls1": 9.961,
+        "Ls2": 2.726,
+        "Ls3": 1.363
+      },
+      "geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.363,
+        "Lm": 6.6,
+        "Ls1": 9.961,
+        "Ls2": 2.726,
+        "Ls3": 1.363
+      },
+      "nominal_a_mm": 1.0,
+      "input_a_mm": 1.0,
+      "actual_a_mm": 1.0,
+      "adjusted": false,
+      "adjustment_step_mm": 0.001,
+      "additional_attempts": 0,
+      "can_submit": true,
+      "decision_scope": "geometry_only_not_solver_authorization",
+      "solver_authorized": false,
+      "must_recheck_every_attempt": true,
+      "screen_before": {
+        "a_mm": 1.0,
+        "g_mm": 2.0,
+        "L_parameter_sum_mm": 18.139,
+        "L_centerline_mm": 16.686999999999998,
+        "rho": 0.4508517558851095,
+        "central_line_width_mm": 1.82,
+        "tip_to_line_x_mm": 2.7075,
+        "tip_to_tip_x_mm": 7.235,
+        "min_tip_to_tip_x_mm": 3.4459999999999997,
+        "slot_to_board_edge_x_mm": 10.0195,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "screen_after": {
+        "a_mm": 1.0,
+        "g_mm": 2.0,
+        "L_parameter_sum_mm": 18.139,
+        "L_centerline_mm": 16.686999999999998,
+        "rho": 0.4508517558851095,
+        "central_line_width_mm": 1.82,
+        "tip_to_line_x_mm": 2.7075,
+        "tip_to_tip_x_mm": 7.235,
+        "min_tip_to_tip_x_mm": 3.4459999999999997,
+        "slot_to_board_edge_x_mm": 10.0195,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "reason": "already_passes"
+    },
+    "tip_clearance_mm": 2.1709999999999994,
+    "data_role": "tuned_not_independent_test",
+    "extrapolation": true,
+    "kind": "EQ",
+    "topology": "folded",
+    "max_Analyze": 2,
+    "material_role": "archived_lossy",
+    "board_half_x_mm": 15.0,
+    "tuning": {
+      "needs_solve": true,
+      "geometry_mm": {
+        "Wm": 1.810636,
+        "Ws": 0.363,
+        "Lm": 6.6,
+        "Ls1": 9.961,
+        "Ls2": 2.726,
+        "Ls3": 1.363
+      },
+      "base_case": "S4R8_D3__T3",
+      "base_y": [
+        6.55,
+        3.9877835404741404,
+        -19.186506011071742
+      ],
+      "J": [
+        [
+          -2.2934897934532152,
+          30.519243415753436,
+          -0.5231539347435248
+        ],
+        [
+          0.4646744896726601,
+          -12.002062996794333,
+          1.1361210802213488
+        ],
+        [
+          -1.7059112820592546,
+          38.58924824337108,
+          28.01031320622868
+        ]
+      ],
+      "broyden_updates": [
+        {
+          "case": "S4R8_D3__T2",
+          "triggered": true,
+          "forced_R9_D1_D3": true,
+          "predicted": [
+            0.11228152744208597,
+            -3.3593920728062856,
+            0.21162228568350272
+          ],
+          "actual": [
+            0.10000000000000053,
+            -4.167842158454146,
+            1.492557809750462
+          ]
+        },
+        {
+          "case": "S4R8_D3__T3",
+          "triggered": true,
+          "forced_R9_D1_D3": true,
+          "predicted": [
+            0.1564470882321418,
+            -5.251698624071911,
+            0.9085283102747548
+          ],
+          "actual": [
+            0.13999999999999968,
+            -4.1904403304026765,
+            0.4439853533936713
+          ]
+        }
+      ],
+      "raw_step": [
+        -0.005137332670682375,
+        0.16902842200236937,
+        -0.04670488146600034
+      ],
+      "step_scale": 1.0,
+      "actual_step": [
+        -0.005000000000000782,
+        0.16899999999999693,
+        -0.046999999999999986
+      ],
+      "predicted_change": [
+        0.17017526797873095,
+        -3.9946395309754363,
+        -1.1218644884616251
+      ],
+      "predicted_y": [
+        6.720175267978731,
+        -0.006855990501295928,
+        -20.308370499533368
+      ],
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 1.810636,
+          "Ws": 0.363,
+          "Lm": 6.6,
+          "Ls1": 9.961,
+          "Ls2": 2.726,
+          "Ls3": 1.363
+        },
+        "geometry_mm": {
+          "Wm": 1.810636,
+          "Ws": 0.363,
+          "Lm": 6.6,
+          "Ls1": 9.961,
+          "Ls2": 2.726,
+          "Ls3": 1.363
+        },
+        "nominal_a_mm": 1.0,
+        "input_a_mm": 1.0,
+        "actual_a_mm": 1.0,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.0,
+          "g_mm": 2.0,
+          "L_parameter_sum_mm": 18.139,
+          "L_centerline_mm": 16.686999999999998,
+          "rho": 0.4508517558851095,
+          "central_line_width_mm": 1.82,
+          "tip_to_line_x_mm": 2.7075,
+          "tip_to_tip_x_mm": 7.235,
+          "min_tip_to_tip_x_mm": 3.4459999999999997,
+          "slot_to_board_edge_x_mm": 10.0195,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.0,
+          "g_mm": 2.0,
+          "L_parameter_sum_mm": 18.139,
+          "L_centerline_mm": 16.686999999999998,
+          "rho": 0.4508517558851095,
+          "central_line_width_mm": 1.82,
+          "tip_to_line_x_mm": 2.7075,
+          "tip_to_tip_x_mm": 7.235,
+          "min_tip_to_tip_x_mm": 3.4459999999999997,
+          "slot_to_board_edge_x_mm": 10.0195,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "width_backoffs": [],
+      "nominal_a_mm": 1.0,
+      "actual_a_mm": 1.0,
+      "reason": "R7_direct_peak_feedback",
+      "data_role": "prospective_tuning_attempt_not_blind_test"
+    },
+    "target_y": [
+      6.72,
+      0.0,
+      -20.3
+    ]
+  },
+  "nominal_a_mm": 1.0,
+  "expected_boxes": [
+    {
+      "name": "StructureBSlot_top_main",
+      "parameters_mm": {
+        "XPosition": -4.9805,
+        "YPosition": -0.1815,
+        "ZPosition": -0.01,
+        "XSize": 9.961,
+        "YSize": 0.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_connector",
+      "parameters_mm": {
+        "XPosition": 4.6175,
+        "YPosition": -2.5445,
+        "ZPosition": -0.01,
+        "XSize": 0.363,
+        "YSize": 2.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_leg",
+      "parameters_mm": {
+        "XPosition": 3.6175,
+        "YPosition": -2.5445,
+        "ZPosition": -0.01,
+        "XSize": 1.0,
+        "YSize": 0.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_connector",
+      "parameters_mm": {
+        "XPosition": -4.9805,
+        "YPosition": -2.5445,
+        "ZPosition": -0.01,
+        "XSize": 0.363,
+        "YSize": 2.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_leg",
+      "parameters_mm": {
+        "XPosition": -4.6175,
+        "YPosition": -2.5445,
+        "ZPosition": -0.01,
+        "XSize": 1.0,
+        "YSize": 0.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_main",
+      "parameters_mm": {
+        "XPosition": -4.9805,
+        "YPosition": -0.1815,
+        "ZPosition": -0.045,
+        "XSize": 9.961,
+        "YSize": 0.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_connector",
+      "parameters_mm": {
+        "XPosition": 4.6175,
+        "YPosition": -2.5445,
+        "ZPosition": -0.045,
+        "XSize": 0.363,
+        "YSize": 2.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_leg",
+      "parameters_mm": {
+        "XPosition": 3.6175,
+        "YPosition": -2.5445,
+        "ZPosition": -0.045,
+        "XSize": 1.0,
+        "YSize": 0.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_connector",
+      "parameters_mm": {
+        "XPosition": -4.9805,
+        "YPosition": -2.5445,
+        "ZPosition": -0.045,
+        "XSize": 0.363,
+        "YSize": 2.363,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_leg",
+      "parameters_mm": {
+        "XPosition": -4.6175,
+        "YPosition": -2.5445,
+        "ZPosition": -0.045,
+        "XSize": 1.0,
+        "YSize": 0.363,
+        "ZSize": 0.055
+      }
+    }
+  ],
+  "source_hashes": {
+    "hfss/INV01_A14.aedt": "ee640438d8d1be88ecc4c6928a487bd9683493a3d06323d4d655d23534e6b4ee"
+  },
+  "authorization_sha256": "53a6a386d327677a323954c6f1b51b62b42e8aa065b2e939957613487f3b6e41",
+  "resume": false,
+  "inherited_Analyze": 0,
+  "previous_extraction_sha256": "7faf10a4a25a50f6f543189ccb0e4d6443cb2e62d980f7b246f5442165f954a0",
+  "solver_started": false
+}
