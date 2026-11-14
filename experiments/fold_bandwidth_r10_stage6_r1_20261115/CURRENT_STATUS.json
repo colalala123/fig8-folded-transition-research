@@ -1,12 +1,12 @@
 {
-  "at": "2026-11-14T18:11:12.491591+00:00",
+  "at": "2026-11-14T19:08:54.856272+00:00",
   "phase": "R10_stage6",
-  "R10_geometries": 7,
+  "R10_geometries": 8,
   "R10_geometry_cap": 27,
-  "geometry_total": 180,
+  "geometry_total": 181,
   "geometry_cap": 200,
-  "R10_actual_Analyze": 66,
-  "actual_Analyze_total": 1699,
+  "R10_actual_Analyze": 87,
+  "actual_Analyze_total": 1720,
   "completed_parents": [
     {
       "at": "2026-11-14T16:09:53.030161+00:00",
@@ -145,8 +145,67 @@
       "kind": "CONTROL",
       "data_role": "tolerance_single_geometry_no_tuning",
       "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
+    },
+    {
+      "at": "2026-11-14T18:33:54.984698+00:00",
+      "parent_id": "S6R10_P7",
+      "complete": true,
+      "passed": true,
+      "selected_case": "S6R10_P7__T1",
+      "measurement": {
+        "center_GHz": 6.72,
+        "low_peak_dB": -21.013231165260535,
+        "high_peak_dB": -20.67077841959511,
+        "BW20_GHz": 6.459958461332885,
+        "S21_min_dB": -1.1126165959597303,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.776522408888152,
+        "BW15_star_GHz": 6.844273007941629
+      },
+      "usable_for_law": null,
+      "kind": "CONTROL",
+      "data_role": "tolerance_single_geometry_no_tuning",
+      "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
+    },
+    {
+      "at": "2026-11-14T18:57:17.854569+00:00",
+      "parent_id": "S6R10_P8",
+      "complete": true,
+      "passed": true,
+      "selected_case": "S6R10_P8__T1",
+      "measurement": {
+        "center_GHz": 6.73,
+        "low_peak_dB": -20.555869085996562,
+        "high_peak_dB": -20.413869895603078,
+        "BW20_GHz": 6.454700055178298,
+        "S21_min_dB": -1.1129605589162341,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.7661857892023605,
+        "BW15_star_GHz": 6.789294475552338
+      },
+      "usable_for_law": null,
+      "kind": "CONTROL",
+      "data_role": "tolerance_single_geometry_no_tuning",
+      "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
     }
   ],
   "stage7_authorized": false,
-  "stop": null
+  "stop": {
+    "at": "2026-11-14T18:58:57.837415+00:00",
+    "case": "S6R10_P9__T1",
+    "reason": "R10技术中断；保留证据并停止，不自动重试",
+    "record": {
+      "case": "S6R10_P9__T1",
+      "solve_completed": false,
+      "numerical_pass": null,
+      "design_pass": null,
+      "Analyze_requested": 0,
+      "inherited_Analyze_requests": 0,
+      "new_Analyze_requested": 0
+    }
+  }
 }

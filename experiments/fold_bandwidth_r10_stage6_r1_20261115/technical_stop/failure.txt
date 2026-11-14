@@ -1,0 +1,93 @@
+Traceback (most recent call last):
+  File "F:\2026-1\circuit\test\.venv\Lib\site-packages\ansys\aedt\core\internal\grpc_plugin_dll_class.py", line 116, in __Invoke__
+    ret = _retry_ntimes(
+          ^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\.venv\Lib\site-packages\ansys\aedt\core\generic\general_methods.py", line 613, in _retry_ntimes
+    raise AttributeError(f"Error in Executing Method {function.__name__}.")
+AttributeError: Error in Executing Method InvokeAedtObjMethod.
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r10_stage6_r1_20261115\worker_stage2.py", line 77, in execute
+    geom=apply_case(app,pred)
+         ^^^^^^^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r10_stage6_r1_20261115\native_control.py", line 132, in apply_case
+    p=copy.deepcopy(dict(boundary.props));y=-25. if boundary.name=='1' else 25.;z=(ir['h_mm']+.07)*(1 if boundary.name=='1' else -1)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 136, in deepcopy
+    y = copier(x, memo)
+        ^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 221, in _deepcopy_dict
+    y[deepcopy(key, memo)] = deepcopy(value, memo)
+                             ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 162, in deepcopy
+    y = _reconstruct(x, memo, *rv)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 259, in _reconstruct
+    state = deepcopy(state, memo)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 136, in deepcopy
+    y = copier(x, memo)
+        ^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 221, in _deepcopy_dict
+    y[deepcopy(key, memo)] = deepcopy(value, memo)
+                             ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 162, in deepcopy
+    y = _reconstruct(x, memo, *rv)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 259, in _reconstruct
+    state = deepcopy(state, memo)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 136, in deepcopy
+    y = copier(x, memo)
+        ^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 221, in _deepcopy_dict
+    y[deepcopy(key, memo)] = deepcopy(value, memo)
+                             ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 162, in deepcopy
+    y = _reconstruct(x, memo, *rv)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 259, in _reconstruct
+    state = deepcopy(state, memo)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 136, in deepcopy
+    y = copier(x, memo)
+        ^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 221, in _deepcopy_dict
+    y[deepcopy(key, memo)] = deepcopy(value, memo)
+                             ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 162, in deepcopy
+    y = _reconstruct(x, memo, *rv)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 259, in _reconstruct
+    state = deepcopy(state, memo)
+            ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 136, in deepcopy
+    y = copier(x, memo)
+        ^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 221, in _deepcopy_dict
+    y[deepcopy(key, memo)] = deepcopy(value, memo)
+                             ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 136, in deepcopy
+    y = copier(x, memo)
+        ^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 221, in _deepcopy_dict
+    y[deepcopy(key, memo)] = deepcopy(value, memo)
+                             ^^^^^^^^^^^^^^^^^^^^^
+  File "D:\uv\python\cpython-3.12.13-windows-x86_64-none\Lib\copy.py", line 143, in deepcopy
+    y = copier(memo)
+        ^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\.venv\Lib\site-packages\ansys\aedt\core\internal\grpc_plugin_dll_class.py", line 138, in DynamicFunc
+    return self.__Invoke__(funcName, args)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\.venv\Lib\site-packages\ansys\aedt\core\internal\grpc_plugin_dll_class.py", line 128, in __Invoke__
+    pyaedt_logger.debug(f"{funcName}({argv})")
+                                     ^^^^^^
+  File "F:\2026-1\circuit\test\.venv\Lib\site-packages\ansys\aedt\core\modules\boundary\common.py", line 78, in __repr__
+    return self.name
+           ^^^^^^^^^
+  File "F:\2026-1\circuit\test\.venv\Lib\site-packages\ansys\aedt\core\modules\boundary\common.py", line 343, in name
+    return self._name
+           ^^^^^^^^^^
+AttributeError: 'BoundaryObject' object has no attribute '_name'. Did you mean: 'name'?

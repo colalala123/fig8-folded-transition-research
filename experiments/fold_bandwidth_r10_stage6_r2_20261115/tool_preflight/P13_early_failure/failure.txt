@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r10_stage6_r2_20261115\preflight_h_no_solve.py", line 34, in preflight
+    geom=native_control.apply_case(app,fz['design']);write(root/'GEOMETRY_PROOF.json',geom)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r10_stage6_r2_20261115\native_control.py", line 136, in apply_case
+    set_props(editor,n,'CreateRectangle',{'Position/X':-ir['port_width_mm']/2,'Width':sign*ir['port_height_mm'],'Height':ir['port_width_mm']})
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r10_stage6_r2_20261115\native_control.py", line 100, in set_props
+    if not set(props)<=available:raise RuntimeError('native creation properties missing '+name+': '+str(set(props)-available))
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: native creation properties missing Rectangle1: {'Height', 'Width'}
