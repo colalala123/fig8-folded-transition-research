@@ -1,0 +1,89 @@
+{
+  "execution_revision": "R12_STAGE6_R4",
+  "plan_commit": "ead3d02",
+  "user_authorization": "Human accepts R12 section0: finite R4, cancel dense P1/P2 and C1, Gamma-margin B1R max3+dense+C1R, W3T4 and W4max2, then stop",
+  "prior_geometry_total": 189,
+  "prior_Analyze_total": 1807,
+  "batch_geometry_limit": 8,
+  "total_geometry_limit": 200,
+  "inherited_stage6_geometry": 16,
+  "inherited_stage6_Analyze": 174,
+  "full_stage6_geometry_limit": 27,
+  "parent_order": [
+    "S6R10_N0",
+    "S6R10_P10",
+    "S6R10_P11",
+    "S6R10_P12",
+    "S6R10_P13",
+    "S6R10_P14",
+    "S6R10_P1",
+    "S6R10_P2",
+    "S6R10_P3",
+    "S6R10_P4",
+    "S6R10_P5",
+    "S6R10_P6",
+    "S6R10_P7",
+    "S6R10_P8",
+    "S6R10_P9",
+    "S6R10_P9c",
+    "S6R10_B1R",
+    "S6R10_B1Rdense",
+    "S6R10_C1R",
+    "S6R10_W3",
+    "S6R10_W4"
+  ],
+  "cancelled_parents": [
+    "S6R10_P1dense",
+    "S6R10_P2dense",
+    "S6R10_C1"
+  ],
+  "case_specs": {
+    "S6R10_B1R__T1": {
+      "parent_id": "S6R10_B1R",
+      "attempt_ordinal": 1,
+      "numerical_retry": false
+    },
+    "S6R10_B1R__T2": {
+      "parent_id": "S6R10_B1R",
+      "attempt_ordinal": 2,
+      "numerical_retry": false
+    },
+    "S6R10_B1R__T3": {
+      "parent_id": "S6R10_B1R",
+      "attempt_ordinal": 3,
+      "numerical_retry": false
+    },
+    "S6R10_B1Rdense__T1": {
+      "parent_id": "S6R10_B1Rdense",
+      "attempt_ordinal": 1,
+      "numerical_retry": false
+    },
+    "S6R10_C1R__T1": {
+      "parent_id": "S6R10_C1R",
+      "attempt_ordinal": 1,
+      "numerical_retry": false
+    },
+    "S6R10_W3__T4": {
+      "parent_id": "S6R10_W3",
+      "attempt_ordinal": 4,
+      "numerical_retry": false
+    },
+    "S6R10_W4__T1": {
+      "parent_id": "S6R10_W4",
+      "attempt_ordinal": 1,
+      "numerical_retry": false
+    },
+    "S6R10_W4__T2": {
+      "parent_id": "S6R10_W4",
+      "attempt_ordinal": 2,
+      "numerical_retry": false
+    }
+  },
+  "cores": 14,
+  "tasks": 1,
+  "serial": true,
+  "no_hook": true,
+  "technical_recovery_policy": "R12 finite R4 only; any modeling/compatibility/native-validation error stops. No automatic R5.",
+  "batch_max_Analyze_from_geometry_caps": 118,
+  "full_stage6_max_Analyze_from_geometry_caps": 292
+}

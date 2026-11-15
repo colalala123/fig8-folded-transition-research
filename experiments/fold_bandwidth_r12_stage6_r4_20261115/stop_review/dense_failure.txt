@@ -1,0 +1,8 @@
+Traceback (most recent call last):
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r12_stage6_r4_20261115\worker_stage2.py", line 121, in execute
+    label,passes,percent=(dense_next_stage(rows) if pred.get('dense_confirmation') else next_stage(rows))
+                          ^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r12_stage6_r4_20261115\common_stage2.py", line 23, in dense_next_stage
+    if n>240000:raise NumericalStop('dense confirmation cells >240000 safety stop')
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+staged_mesh_r5.NumericalStop: dense confirmation cells >240000 safety stop
