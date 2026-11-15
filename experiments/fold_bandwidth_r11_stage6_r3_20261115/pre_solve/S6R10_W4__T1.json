@@ -1,0 +1,1285 @@
+{
+  "at": "2026-11-15T02:03:56.536506+00:00",
+  "parent_id": "S6R10_W4",
+  "attempt_ordinal": 1,
+  "logical_case": "S6R10_W4__T1",
+  "numerical_retry": false,
+  "design": {
+    "id": "S6R10_W4",
+    "design": "W4",
+    "geometry_mm": {
+      "Wm": 2.65,
+      "Ws": 0.706,
+      "Lm": 6.46,
+      "Ls1": 12.721,
+      "Ls2": 1.962,
+      "Ls3": 2.506
+    },
+    "nominal_a_mm": 1.8,
+    "g_mm": 0.55,
+    "screen": {
+      "input_geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.706,
+        "Lm": 6.46,
+        "Ls1": 12.721,
+        "Ls2": 1.962,
+        "Ls3": 2.506
+      },
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.706,
+        "Lm": 6.46,
+        "Ls1": 12.721,
+        "Ls2": 1.962,
+        "Ls3": 2.506
+      },
+      "nominal_a_mm": 1.8,
+      "input_a_mm": 1.7999999999999998,
+      "actual_a_mm": 1.7999999999999998,
+      "adjusted": false,
+      "adjustment_step_mm": 0.001,
+      "additional_attempts": 0,
+      "can_submit": true,
+      "decision_scope": "geometry_only_not_solver_authorization",
+      "solver_authorized": false,
+      "must_recheck_every_attempt": true,
+      "screen_before": {
+        "a_mm": 1.7999999999999998,
+        "g_mm": 0.55,
+        "L_parameter_sum_mm": 21.657,
+        "L_centerline_mm": 18.833,
+        "rho": 0.41261485893706423,
+        "central_line_width_mm": 2.65,
+        "tip_to_line_x_mm": 2.5295000000000005,
+        "tip_to_tip_x_mm": 7.7090000000000005,
+        "min_tip_to_tip_x_mm": 4.276,
+        "slot_to_board_edge_x_mm": 8.6395,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "screen_after": {
+        "a_mm": 1.7999999999999998,
+        "g_mm": 0.55,
+        "L_parameter_sum_mm": 21.657,
+        "L_centerline_mm": 18.833,
+        "rho": 0.41261485893706423,
+        "central_line_width_mm": 2.65,
+        "tip_to_line_x_mm": 2.5295000000000005,
+        "tip_to_tip_x_mm": 7.7090000000000005,
+        "min_tip_to_tip_x_mm": 4.276,
+        "slot_to_board_edge_x_mm": 8.6395,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "reason": "already_passes"
+    },
+    "unrounded_target_x": [
+      6.459994625231941,
+      18.83339390427012,
+      0.7064851314700873
+    ],
+    "target_y": [
+      6.72,
+      0.0,
+      -20.3
+    ],
+    "data_role": "prospective_T1_not_HFSS_truth",
+    "prediction": {
+      "central_valley_GHz": 6.720603319821457,
+      "D_dB": -0.013627480924163708,
+      "L_dB": -20.313163967122843,
+      "method": "R10 expanded retrospective target-parameter fit plus J rounding correction",
+      "limitations": "Target-based prediction, not an independent response surrogate; model discrepancy remains.",
+      "BW15_star_primary_linear_GHz": 7.170686663488212,
+      "BW15_star_quadratic_alternative_GHz": 7.146616120096343,
+      "BW15_star_warning": "Outside measured usable Wm<=2.35; linear vs quadratic are frozen alternatives, not post-hoc selection."
+    },
+    "cad_ir": {
+      "board_policy": "fixed_milled_outline",
+      "base_geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.706,
+        "Lm": 6.46,
+        "Ls1": 12.721,
+        "Ls2": 1.962,
+        "Ls3": 2.506
+      },
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.706,
+        "Lm": 6.46,
+        "Ls1": 12.721,
+        "Ls2": 1.962,
+        "Ls3": 2.506
+      },
+      "etch_e_mm": 0.0,
+      "er": 3.55,
+      "h_mm": 0.813,
+      "tand": 0.0027,
+      "copper_mm": 0.035,
+      "port_policy": "clip_cut_faces",
+      "h_port_policy": "height_8h_width_fixed",
+      "port_width_mm": 15.04,
+      "port_height_mm": 6.504,
+      "profiles": {
+        "top": [
+          [
+            -1.325,
+            0.0
+          ],
+          [
+            -0.91,
+            0.0
+          ],
+          [
+            -0.91,
+            -25.0
+          ],
+          [
+            0.91,
+            -25.0
+          ],
+          [
+            0.91,
+            0.0
+          ],
+          [
+            1.325,
+            0.0
+          ],
+          [
+            1.325,
+            6.46
+          ],
+          [
+            -1.325,
+            6.46
+          ]
+        ],
+        "bottom": [
+          [
+            -1.325,
+            -6.46
+          ],
+          [
+            1.325,
+            -6.46
+          ],
+          [
+            1.325,
+            0.0
+          ],
+          [
+            0.91,
+            0.0
+          ],
+          [
+            0.91,
+            25.0
+          ],
+          [
+            -0.91,
+            25.0
+          ],
+          [
+            -0.91,
+            0.0
+          ],
+          [
+            -1.325,
+            0.0
+          ]
+        ],
+        "slot": [
+          [
+            -6.3605,
+            -1.609
+          ],
+          [
+            -3.8545,
+            -1.609
+          ],
+          [
+            -3.8545,
+            -0.903
+          ],
+          [
+            -5.6545,
+            -0.903
+          ],
+          [
+            -5.6545,
+            -0.353
+          ],
+          [
+            5.6545,
+            -0.353
+          ],
+          [
+            5.6545,
+            -0.903
+          ],
+          [
+            3.8545,
+            -0.903
+          ],
+          [
+            3.8545,
+            -1.609
+          ],
+          [
+            6.3605,
+            -1.609
+          ],
+          [
+            6.3605,
+            0.353
+          ],
+          [
+            -6.3605,
+            0.353
+          ]
+        ],
+        "ground": [
+          [
+            -15.0,
+            -25.0
+          ],
+          [
+            15.0,
+            -25.0
+          ],
+          [
+            15.0,
+            25.0
+          ],
+          [
+            -15.0,
+            25.0
+          ]
+        ]
+      },
+      "source_profiles": {
+        "top": [
+          [
+            -1.325,
+            0.0
+          ],
+          [
+            -0.91,
+            0.0
+          ],
+          [
+            -0.91,
+            -25.0
+          ],
+          [
+            0.91,
+            -25.0
+          ],
+          [
+            0.91,
+            0.0
+          ],
+          [
+            1.325,
+            0.0
+          ],
+          [
+            1.325,
+            6.46
+          ],
+          [
+            -1.325,
+            6.46
+          ]
+        ],
+        "bottom": [
+          [
+            -1.325,
+            -6.46
+          ],
+          [
+            1.325,
+            -6.46
+          ],
+          [
+            1.325,
+            0.0
+          ],
+          [
+            0.91,
+            0.0
+          ],
+          [
+            0.91,
+            25.0
+          ],
+          [
+            -0.91,
+            25.0
+          ],
+          [
+            -0.91,
+            0.0
+          ],
+          [
+            -1.325,
+            0.0
+          ]
+        ],
+        "slot": [
+          [
+            -6.3605,
+            -1.609
+          ],
+          [
+            -3.8545,
+            -1.609
+          ],
+          [
+            -3.8545,
+            -0.903
+          ],
+          [
+            -5.6545,
+            -0.903
+          ],
+          [
+            -5.6545,
+            -0.353
+          ],
+          [
+            5.6545,
+            -0.353
+          ],
+          [
+            5.6545,
+            -0.903
+          ],
+          [
+            3.8545,
+            -0.903
+          ],
+          [
+            3.8545,
+            -1.609
+          ],
+          [
+            6.3605,
+            -1.609
+          ],
+          [
+            6.3605,
+            0.353
+          ],
+          [
+            -6.3605,
+            0.353
+          ]
+        ],
+        "ground": [
+          [
+            -15.0,
+            -25.0
+          ],
+          [
+            15.0,
+            -25.0
+          ],
+          [
+            15.0,
+            25.0
+          ],
+          [
+            -15.0,
+            25.0
+          ]
+        ]
+      },
+      "rectangles": {
+        "top": [
+          [
+            -1.325,
+            0.0,
+            1.325,
+            6.46
+          ],
+          [
+            -0.91,
+            -25.0,
+            0.91,
+            0.0
+          ]
+        ],
+        "bottom": [
+          [
+            -1.325,
+            -6.46,
+            1.325,
+            0.0
+          ],
+          [
+            -0.91,
+            0.0,
+            0.91,
+            25.0
+          ]
+        ],
+        "slot": [
+          [
+            -6.3605,
+            -1.609,
+            -3.8545,
+            -0.903
+          ],
+          [
+            -6.3605,
+            -0.903,
+            -5.6545,
+            -0.353
+          ],
+          [
+            -6.3605,
+            -0.353,
+            6.3605,
+            0.353
+          ],
+          [
+            3.8545,
+            -1.609,
+            6.3605,
+            -0.903
+          ],
+          [
+            5.6545,
+            -0.903,
+            6.3605,
+            -0.353
+          ]
+        ],
+        "ground": [
+          [
+            -15.0,
+            -25.0,
+            15.0,
+            25.0
+          ]
+        ]
+      },
+      "edge_distance_proof": {
+        "top": [
+          {
+            "start": [
+              -1.325,
+              0.0
+            ],
+            "end": [
+              -0.91,
+              0.0
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -0.91,
+              0.0
+            ],
+            "end": [
+              -0.91,
+              -25.0
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -0.91,
+              -25.0
+            ],
+            "end": [
+              0.91,
+              -25.0
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": true,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              0.91,
+              -25.0
+            ],
+            "end": [
+              0.91,
+              0.0
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              0.91,
+              0.0
+            ],
+            "end": [
+              1.325,
+              0.0
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              1.325,
+              0.0
+            ],
+            "end": [
+              1.325,
+              6.46
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              1.325,
+              6.46
+            ],
+            "end": [
+              -1.325,
+              6.46
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -1.325,
+              6.46
+            ],
+            "end": [
+              -1.325,
+              0.0
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          }
+        ],
+        "bottom": [
+          {
+            "start": [
+              -1.325,
+              -6.46
+            ],
+            "end": [
+              1.325,
+              -6.46
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              1.325,
+              -6.46
+            ],
+            "end": [
+              1.325,
+              0.0
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              1.325,
+              0.0
+            ],
+            "end": [
+              0.91,
+              0.0
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              0.91,
+              0.0
+            ],
+            "end": [
+              0.91,
+              25.0
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              0.91,
+              25.0
+            ],
+            "end": [
+              -0.91,
+              25.0
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": true,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -0.91,
+              25.0
+            ],
+            "end": [
+              -0.91,
+              0.0
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -0.91,
+              0.0
+            ],
+            "end": [
+              -1.325,
+              0.0
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -1.325,
+              0.0
+            ],
+            "end": [
+              -1.325,
+              -6.46
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          }
+        ],
+        "slot": [
+          {
+            "start": [
+              -6.3605,
+              -1.609
+            ],
+            "end": [
+              -3.8545,
+              -1.609
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -3.8545,
+              -1.609
+            ],
+            "end": [
+              -3.8545,
+              -0.903
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -3.8545,
+              -0.903
+            ],
+            "end": [
+              -5.6545,
+              -0.903
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -5.6545,
+              -0.903
+            ],
+            "end": [
+              -5.6545,
+              -0.353
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -5.6545,
+              -0.353
+            ],
+            "end": [
+              5.6545,
+              -0.353
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              5.6545,
+              -0.353
+            ],
+            "end": [
+              5.6545,
+              -0.903
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              5.6545,
+              -0.903
+            ],
+            "end": [
+              3.8545,
+              -0.903
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              3.8545,
+              -0.903
+            ],
+            "end": [
+              3.8545,
+              -1.609
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              3.8545,
+              -1.609
+            ],
+            "end": [
+              6.3605,
+              -1.609
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              6.3605,
+              -1.609
+            ],
+            "end": [
+              6.3605,
+              0.353
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              6.3605,
+              0.353
+            ],
+            "end": [
+              -6.3605,
+              0.353
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          },
+          {
+            "start": [
+              -6.3605,
+              0.353
+            ],
+            "end": [
+              -6.3605,
+              -1.609
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": -0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": false
+          }
+        ],
+        "ground": [
+          {
+            "start": [
+              -15.0,
+              -25.0
+            ],
+            "end": [
+              15.0,
+              -25.0
+            ],
+            "inward_normal": [
+              -0.0,
+              1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": true,
+            "fixed_milled_board_edge": true
+          },
+          {
+            "start": [
+              15.0,
+              -25.0
+            ],
+            "end": [
+              15.0,
+              25.0
+            ],
+            "inward_normal": [
+              -1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": true
+          },
+          {
+            "start": [
+              15.0,
+              25.0
+            ],
+            "end": [
+              -15.0,
+              25.0
+            ],
+            "inward_normal": [
+              -0.0,
+              -1.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": true,
+            "fixed_milled_board_edge": true
+          },
+          {
+            "start": [
+              -15.0,
+              25.0
+            ],
+            "end": [
+              -15.0,
+              -25.0
+            ],
+            "inward_normal": [
+              1.0,
+              0.0
+            ],
+            "signed_inward_distance_mm": 0.0,
+            "simulation_cut_face": false,
+            "fixed_milled_board_edge": true
+          }
+        ]
+      },
+      "expected_slot_boxes": [
+        {
+          "name": "StructureBSlot_top_main",
+          "parameters_mm": {
+            "XPosition": -6.3605,
+            "YPosition": -0.353,
+            "ZPosition": -0.01,
+            "XSize": 12.721,
+            "YSize": 0.706,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_top_right_connector",
+          "parameters_mm": {
+            "XPosition": 5.6545000000000005,
+            "YPosition": -1.609,
+            "ZPosition": -0.01,
+            "XSize": 0.706,
+            "YSize": 1.256,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_top_right_leg",
+          "parameters_mm": {
+            "XPosition": 3.8545000000000003,
+            "YPosition": -1.609,
+            "ZPosition": -0.01,
+            "XSize": 1.7999999999999998,
+            "YSize": 0.706,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_top_left_connector",
+          "parameters_mm": {
+            "XPosition": -6.3605,
+            "YPosition": -1.609,
+            "ZPosition": -0.01,
+            "XSize": 0.706,
+            "YSize": 1.256,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_top_left_leg",
+          "parameters_mm": {
+            "XPosition": -5.6545000000000005,
+            "YPosition": -1.609,
+            "ZPosition": -0.01,
+            "XSize": 1.7999999999999998,
+            "YSize": 0.706,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_bottom_main",
+          "parameters_mm": {
+            "XPosition": -6.3605,
+            "YPosition": -0.353,
+            "ZPosition": -0.045,
+            "XSize": 12.721,
+            "YSize": 0.706,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_bottom_right_connector",
+          "parameters_mm": {
+            "XPosition": 5.6545000000000005,
+            "YPosition": -1.609,
+            "ZPosition": -0.045,
+            "XSize": 0.706,
+            "YSize": 1.256,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_bottom_right_leg",
+          "parameters_mm": {
+            "XPosition": 3.8545000000000003,
+            "YPosition": -1.609,
+            "ZPosition": -0.045,
+            "XSize": 1.7999999999999998,
+            "YSize": 0.706,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_bottom_left_connector",
+          "parameters_mm": {
+            "XPosition": -6.3605,
+            "YPosition": -1.609,
+            "ZPosition": -0.045,
+            "XSize": 0.706,
+            "YSize": 1.256,
+            "ZSize": 0.055
+          }
+        },
+        {
+          "name": "StructureBSlot_bottom_left_leg",
+          "parameters_mm": {
+            "XPosition": -5.6545000000000005,
+            "YPosition": -1.609,
+            "ZPosition": -0.045,
+            "XSize": 1.7999999999999998,
+            "YSize": 0.706,
+            "ZSize": 0.055
+          }
+        }
+      ],
+      "feed_width_mm": 1.82,
+      "stub_shoulder_y_mm": 0.0,
+      "stub_open_end_y_mm": 6.46,
+      "canonical_six_dimensions_sufficient": true,
+      "source_sha256": {
+        "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\input\\freeze.json": "cd1a07c8586ac0432fc82b0bc60828d98b7b8e9e026099085134f7efeca71450",
+        "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\evidence\\geometry_build.json": "0b75a5c8ca0f0d19cd28ef972578caf1d9286625274fb48c2f1267d9039f1ef0",
+        "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\evidence\\native_slot_boxes.json": "c793ca3560bf4400bab1b616a69ca2c16ec9b445ea07e67e1869141a66a9284d",
+        "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\evidence\\ports.json": "b0267fdfa9b7d31cb27f1866f8634ed9b07f2a5327dedb070a14fd83e30357cf"
+      }
+    },
+    "topology": "folded",
+    "material_role": "archived_lossy",
+    "board_half_x_mm": 15.0,
+    "kind": "EQ",
+    "family": "W4",
+    "dense_confirmation": false,
+    "tuning": null
+  },
+  "nominal_a_mm": 1.8,
+  "expected_boxes": [
+    {
+      "name": "StructureBSlot_top_main",
+      "parameters_mm": {
+        "XPosition": -6.3605,
+        "YPosition": -0.353,
+        "ZPosition": -0.01,
+        "XSize": 12.721,
+        "YSize": 0.706,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_connector",
+      "parameters_mm": {
+        "XPosition": 5.6545000000000005,
+        "YPosition": -1.609,
+        "ZPosition": -0.01,
+        "XSize": 0.706,
+        "YSize": 1.256,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_right_leg",
+      "parameters_mm": {
+        "XPosition": 3.8545000000000003,
+        "YPosition": -1.609,
+        "ZPosition": -0.01,
+        "XSize": 1.7999999999999998,
+        "YSize": 0.706,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_connector",
+      "parameters_mm": {
+        "XPosition": -6.3605,
+        "YPosition": -1.609,
+        "ZPosition": -0.01,
+        "XSize": 0.706,
+        "YSize": 1.256,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_top_left_leg",
+      "parameters_mm": {
+        "XPosition": -5.6545000000000005,
+        "YPosition": -1.609,
+        "ZPosition": -0.01,
+        "XSize": 1.7999999999999998,
+        "YSize": 0.706,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_main",
+      "parameters_mm": {
+        "XPosition": -6.3605,
+        "YPosition": -0.353,
+        "ZPosition": -0.045,
+        "XSize": 12.721,
+        "YSize": 0.706,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_connector",
+      "parameters_mm": {
+        "XPosition": 5.6545000000000005,
+        "YPosition": -1.609,
+        "ZPosition": -0.045,
+        "XSize": 0.706,
+        "YSize": 1.256,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_right_leg",
+      "parameters_mm": {
+        "XPosition": 3.8545000000000003,
+        "YPosition": -1.609,
+        "ZPosition": -0.045,
+        "XSize": 1.7999999999999998,
+        "YSize": 0.706,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_connector",
+      "parameters_mm": {
+        "XPosition": -6.3605,
+        "YPosition": -1.609,
+        "ZPosition": -0.045,
+        "XSize": 0.706,
+        "YSize": 1.256,
+        "ZSize": 0.055
+      }
+    },
+    {
+      "name": "StructureBSlot_bottom_left_leg",
+      "parameters_mm": {
+        "XPosition": -5.6545000000000005,
+        "YPosition": -1.609,
+        "ZPosition": -0.045,
+        "XSize": 1.7999999999999998,
+        "YSize": 0.706,
+        "ZSize": 0.055
+      }
+    }
+  ],
+  "source_hashes": {
+    "hfss/INV01_A14.aedt": "ee640438d8d1be88ecc4c6928a487bd9683493a3d06323d4d655d23534e6b4ee"
+  },
+  "authorization_sha256": "f750f754aba2e11d855c796e0db4b5a462ae8b62375a15e9a04fc478f41b44b9",
+  "resume": false,
+  "inherited_Analyze": 0,
+  "previous_extraction_sha256": null,
+  "solver_started": false
+}

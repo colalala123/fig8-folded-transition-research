@@ -1,0 +1,11 @@
+Traceback (most recent call last):
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r11_stage6_r3_20261115\preflight_r11.py", line 43, in preflight
+    v=validate_native(app,fz['design'],out/'design_validation',source)
+      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r11_stage6_r3_20261115\native_validation.py", line 32, in validate_native
+    write(out/'MESSAGES.json',dict(before=before,after=after));write(out/'BOUNDARIES.json',boundary_inventory(app))
+                                                                                           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r11_stage6_r3_20261115\native_validation.py", line 19, in boundary_inventory
+    if set(entries)!={'1','2'} or any(v['type']!='Wave Port' for v in entries.values()):raise RuntimeError('unexpected boundary inventory; report rather than change')
+                                                                                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: unexpected boundary inventory; report rather than change
