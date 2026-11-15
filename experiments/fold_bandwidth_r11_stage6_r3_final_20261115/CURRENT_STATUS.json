@@ -1,17 +1,40 @@
 {
-  "at": "2026-11-15T04:42:45.024215+00:00",
+  "at": "2026-11-15T05:08:45.848212+00:00",
   "phase": "R11_stage6_R3",
-  "R10_geometries": 15,
+  "R10_geometries": 16,
   "R10_geometry_cap": 27,
-  "R3_new_geometries": 5,
+  "R3_new_geometries": 6,
   "R3_new_geometry_cap": 17,
-  "geometry_total": 188,
+  "geometry_total": 189,
   "geometry_cap": 200,
-  "R10_actual_Analyze": 164,
-  "R3_actual_Analyze": 67,
-  "actual_Analyze_total": 1797,
+  "R10_actual_Analyze": 174,
+  "R3_actual_Analyze": 77,
+  "actual_Analyze_total": 1807,
   "P10_aggregate_Analyze": 13,
   "completed_parents": [
+    {
+      "at": "2026-11-15T05:08:42.619029+00:00",
+      "parent_id": "S6R10_N0",
+      "complete": true,
+      "passed": true,
+      "selected_case": "S6R10_N0__T1",
+      "measurement": {
+        "center_GHz": 6.72,
+        "low_peak_dB": -20.68541996612751,
+        "high_peak_dB": -20.609113615525473,
+        "BW20_GHz": 6.455621793822547,
+        "S21_min_dB": -1.1095285327131144,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.769541320342794,
+        "BW15_star_GHz": 6.812949669196106
+      },
+      "usable_for_law": null,
+      "kind": "CONTROL",
+      "data_role": "mesh_noise_control_no_tuning",
+      "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
+    },
     {
       "at": "2026-11-15T02:38:28.465321+00:00",
       "parent_id": "S6R10_P10",
@@ -359,5 +382,10 @@
     }
   ],
   "stage7_authorized": false,
-  "stop": null
+  "stop": {
+    "at": "2026-11-15T05:08:45.771258+00:00",
+    "case": "S6R10_P1dense__T1",
+    "reason": "R3 inherited IR schema compatibility gate blocked conditional dense preparation; preserve frozen code, stop rather than bypass",
+    "new_Analyze": 0
+  }
 }

@@ -1,0 +1,146 @@
+{
+  "at": "2026-11-15T05:08:45.644365+00:00",
+  "case": "S6R10_P1dense__T1",
+  "phase": "pre_input_offline_gate",
+  "error": "R11 offline geometry gate: {'passed': False, 'errors': ['legacy/nonfixed board policy forbidden for dispatch'], 'contacts': [{'object': 'Substrate_1', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_1', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_1', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_1', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_4', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_5', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Rectangle1', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Rectangle2', 'axis': 1, 'value': 25.0, 'permitted': True}], 'scope': 'All frozen solid/sheet envelopes; native ValidateDesign required separately'}",
+  "traceback": "Traceback (most recent call last):\n  File \"<stdin>\", line 12, in <module>\n  File \"F:\\2026-1\\circuit\\test\\checkouts\\fig8-folded-transition-research\\experiments\\fold_bandwidth_r11_stage6_r3_final_20261115\\prepare_r10.py\", line 83, in make_input\n    check_ir(pred['cad_ir'])\n  File \"F:\\2026-1\\circuit\\test\\checkouts\\fig8-folded-transition-research\\experiments\\fold_bandwidth_r11_stage6_r3_final_20261115\\geometry_gate.py\", line 29, in check_ir\n    if not proof['passed']:raise RuntimeError('R11 offline geometry gate: '+str(proof))\n                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nRuntimeError: R11 offline geometry gate: {'passed': False, 'errors': ['legacy/nonfixed board policy forbidden for dispatch'], 'contacts': [{'object': 'Substrate_1', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_1', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_1', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_1', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_2', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_4', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_5', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_7', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 0, 'value': -15.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 0, 'value': 15.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Substrate_9', 'axis': 1, 'value': 25.0, 'permitted': True}, {'object': 'Rectangle1', 'axis': 1, 'value': -25.0, 'permitted': True}, {'object': 'Rectangle2', 'axis': 1, 'value': 25.0, 'permitted': True}], 'scope': 'All frozen solid/sheet envelopes; native ValidateDesign required separately'}\n",
+  "new_Analyze": 0,
+  "new_geometry": 0,
+  "cause": "R3 dense spec carries inherited e=0 P1 IR without new board_policy metadata; check_ir rejects it. No physical CAD build or HFSS attempt occurred.",
+  "old_board_policy": null,
+  "required_board_policy": "fixed_milled_outline",
+  "same_six_dimensions": true,
+  "same_slot_boxes": true,
+  "same_expected_native_boxes": true,
+  "candidate_normalized_gate": {
+    "passed": true,
+    "errors": [],
+    "contacts": [
+      {
+        "object": "Substrate_1",
+        "axis": 0,
+        "value": -15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_1",
+        "axis": 0,
+        "value": 15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_1",
+        "axis": 1,
+        "value": -25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_1",
+        "axis": 1,
+        "value": 25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_2",
+        "axis": 0,
+        "value": -15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_2",
+        "axis": 0,
+        "value": 15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_2",
+        "axis": 1,
+        "value": -25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_2",
+        "axis": 1,
+        "value": 25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_4",
+        "axis": 1,
+        "value": -25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_5",
+        "axis": 1,
+        "value": 25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_7",
+        "axis": 0,
+        "value": -15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_7",
+        "axis": 0,
+        "value": 15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_7",
+        "axis": 1,
+        "value": -25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_7",
+        "axis": 1,
+        "value": 25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_9",
+        "axis": 0,
+        "value": -15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_9",
+        "axis": 0,
+        "value": 15.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_9",
+        "axis": 1,
+        "value": -25.0,
+        "permitted": true
+      },
+      {
+        "object": "Substrate_9",
+        "axis": 1,
+        "value": 25.0,
+        "permitted": true
+      },
+      {
+        "object": "Rectangle1",
+        "axis": 1,
+        "value": -25.0,
+        "permitted": true
+      },
+      {
+        "object": "Rectangle2",
+        "axis": 1,
+        "value": 25.0,
+        "permitted": true
+      }
+    ],
+    "scope": "All frozen solid/sheet envelopes; native ValidateDesign required separately"
+  },
+  "no_input_directory_created": true,
+  "noisy_control": 0.07753527033242591,
+  "conditional_dense_required": true,
+  "automatic_R4_created": false
+}
