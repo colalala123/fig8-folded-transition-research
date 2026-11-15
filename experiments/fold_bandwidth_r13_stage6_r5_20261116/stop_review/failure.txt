@@ -1,0 +1,16 @@
+Traceback (most recent call last):
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r13_stage6_r5_20261116\solve_block.py", line 24, in solve_stage
+    if p.poll() is not None or time.monotonic()>deadline:raise RuntimeError('独立观察器启动失败')
+                                                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: 独立观察器启动失败
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r13_stage6_r5_20261116\worker_stage2.py", line 156, in execute
+    current=solve_stage(root,case,w,label,record,freeze,app,acf)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "F:\2026-1\circuit\test\checkouts\fig8-folded-transition-research\experiments\fold_bandwidth_r13_stage6_r5_20261116\solve_block.py", line 33, in solve_stage
+    if p.wait(timeout=20)!=0:raise RuntimeError('观察器异常退出')
+                             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+RuntimeError: 观察器异常退出

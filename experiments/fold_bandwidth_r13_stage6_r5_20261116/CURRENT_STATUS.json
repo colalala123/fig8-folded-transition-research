@@ -1,0 +1,57 @@
+{
+  "at": "2026-11-15T16:50:15.691331+00:00",
+  "phase": "R13_stage6_R5",
+  "R10_geometries": 20,
+  "R10_geometry_cap": 27,
+  "R5_new_geometries": 0,
+  "R5_new_geometry_cap": 4,
+  "geometry_total": 193,
+  "geometry_cap": 200,
+  "R10_actual_Analyze": 213,
+  "R5_actual_Analyze": 0,
+  "actual_Analyze_total": 1846,
+  "P10_aggregate_Analyze": 13,
+  "completed_parents": [
+    {
+      "at": "2026-11-15T09:36:14.715436+00:00",
+      "parent_id": "S6R10_B1R",
+      "complete": true,
+      "passed": true,
+      "selected_case": "S6R10_B1R__T3",
+      "measurement": {
+        "center_GHz": 6.7,
+        "low_peak_dB": -22.507618402731673,
+        "high_peak_dB": -22.605617499969448,
+        "BW20_GHz": 6.131643867367737,
+        "S21_min_dB": -1.0116531650554772,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.477323908143282,
+        "BW15_star_GHz": 6.759401152062102
+      },
+      "usable_for_law": null,
+      "kind": "EQ",
+      "data_role": "tuned_not_independent_test",
+      "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
+    }
+  ],
+  "stage7_authorized": false,
+  "stop": {
+    "at": "2026-11-15T16:49:28.779320+00:00",
+    "case": "S6R10_B1Rdense__T1",
+    "reason": "R13 integrity/model/process failure; stop, no automatic R6",
+    "record": {
+      "case": "S6R10_B1Rdense__T1",
+      "solve_completed": false,
+      "numerical_pass": null,
+      "design_pass": null,
+      "Analyze_requested": 12,
+      "inherited_Analyze_requests": 12,
+      "passes": 27,
+      "mesh_cells": 247756,
+      "delta_s": 0.0023507,
+      "new_Analyze_requested": 0
+    }
+  }
+}
