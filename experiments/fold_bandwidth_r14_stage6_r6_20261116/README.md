@@ -27,3 +27,12 @@
 先完成离线冻结、准备与原R4缓存克隆并推送；再`freeze_6b.py publish`、`manage.py publication`绑定远端提交；只允许`controller_stage2.py launch`派发。后续新几何先`prepare_r10.py attempt`和`preflight_r11.py`零Analyze原生验证、推送，再发布派发。终态后独立审核、实际看图ACK、归档与有限决策。
 
 本说明不是完成报告。结果以本目录最终中文报告和逐点原生证据为准。
+
+## 最终交付（已完成并正常停止）
+
+- [中文收尾报告](final/REPORT.md)
+- [逐点公差、J对照与W4前瞻误差](final/DETAILS_6A_J_AND_W4.md)
+- [正式机器可读结果](final/RESULTS.json)
+- [正常闭账](final/CLOSURE.json)与[最终审计](final/FINAL_AUDIT.json)
+
+新增3几何/34 Analyze，累计196/200几何、1880 Analyze。W4首次通过，未创建T2；C1R为有效负例。运行入口现受正常完成STOP阻断，不得自动恢复。

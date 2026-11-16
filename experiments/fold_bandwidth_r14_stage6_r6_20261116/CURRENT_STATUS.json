@@ -1,15 +1,15 @@
 {
-  "at": "2026-11-16T04:15:56.881042+00:00",
+  "at": "2026-11-16T04:53:12.107187+00:00",
   "phase": "R14_stage6_R6",
-  "R10_geometries": 22,
+  "R10_geometries": 23,
   "R10_geometry_cap": 27,
-  "R6_new_geometries": 2,
+  "R6_new_geometries": 3,
   "R6_new_geometry_cap": 4,
-  "geometry_total": 195,
+  "geometry_total": 196,
   "geometry_cap": 200,
-  "R10_actual_Analyze": 237,
-  "R6_actual_Analyze": 24,
-  "actual_Analyze_total": 1870,
+  "R10_actual_Analyze": 247,
+  "R6_actual_Analyze": 34,
+  "actual_Analyze_total": 1880,
   "P10_aggregate_Analyze": 13,
   "completed_parents": [
     {
@@ -103,8 +103,54 @@
       "kind": "EQ",
       "data_role": "R9_T1_T3_Broyden_continuation_T4_not_blind",
       "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
+    },
+    {
+      "at": "2026-11-16T04:43:13.542227+00:00",
+      "parent_id": "S6R10_W4",
+      "complete": true,
+      "passed": true,
+      "selected_case": "S6R10_W4__T1",
+      "measurement": {
+        "center_GHz": 6.74,
+        "low_peak_dB": -20.310682764778086,
+        "high_peak_dB": -20.493295790030864,
+        "BW20_GHz": 6.807337994904582,
+        "S21_min_dB": -1.2427810139389157,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 7.110659830762111,
+        "BW15_star_GHz": 7.12340849043767
+      },
+      "usable_for_law": true,
+      "kind": "EQ",
+      "data_role": "prospective_T1_not_HFSS_truth",
+      "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
     }
   ],
   "stage7_authorized": false,
-  "stop": null
+  "stop": {
+    "at": "2026-11-16T04:53:12.091279+00:00",
+    "normal_completion": true,
+    "technical_failure": false,
+    "user_paused": false,
+    "reason": "R14 finite authorized sequence completed and reviewed; no further dispatch authorized",
+    "new_geometries": 3,
+    "new_Analyze": 34,
+    "cumulative_geometries": 196,
+    "cumulative_Analyze": 1880,
+    "stage6_geometries": 23,
+    "stage6_Analyze": 247,
+    "per_case_new_Analyze": {
+      "S6R10_B1Rdense__T1": 1,
+      "S6R10_C1R__T1": 11,
+      "S6R10_W3__T4": 12,
+      "S6R10_W4__T1": 10
+    },
+    "unused_W4_T2_not_prepared": true,
+    "unused_allowance_is_not_new_authorization": true,
+    "runtime_self_fixes": [],
+    "stage7_authorized": false,
+    "next_action": "Await human review; do not resume automatically"
+  }
 }
