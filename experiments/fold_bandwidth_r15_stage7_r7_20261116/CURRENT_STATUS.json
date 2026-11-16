@@ -1,13 +1,53 @@
 {
-  "at": "2026-11-16T12:38:24.582688+00:00",
+  "at": "2026-11-16T13:08:58.398042+00:00",
   "phase": "R15_stage7_R7",
-  "new_geometries": 2,
+  "new_geometries": 3,
   "new_geometry_cap": 6,
-  "geometry_total": 198,
+  "geometry_total": 199,
   "geometry_cap": 202,
-  "new_Analyze": 21,
-  "actual_Analyze_total": 1901,
+  "new_Analyze": 31,
+  "actual_Analyze_total": 1911,
   "completed_parents": [
+    {
+      "at": "2026-11-16T13:08:55.360960+00:00",
+      "parent_id": "S7R15_C1W",
+      "complete": true,
+      "passed": null,
+      "selected_case": "S7R15_C1W__T1",
+      "measurement": {
+        "center_GHz": 6.64,
+        "low_peak_dB": -23.23520987395544,
+        "high_peak_dB": -20.654736877511723,
+        "BW20_GHz": 6.616409781692928,
+        "S21_min_dB": -1.186732307225042,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.946200342157983,
+        "BW15_star_GHz": 7.151822014124681
+      },
+      "nominal_check": {
+        "tuned": false,
+        "usable_for_law": false,
+        "error_e": 13.085844041394132,
+        "mean_inner_peak_dB": -21.944973375733582,
+        "signed_D_dB": 2.5804729964437136,
+        "hard_design_peaks_pass": true,
+        "center_window_GHz": [
+          6.72,
+          6.75
+        ],
+        "peak_window_dB": [
+          -23.353557779872993,
+          -23.153557779872994
+        ],
+        "S21_dB": -1.186732307225042,
+        "BW20_GHz": 6.616409781692928
+      },
+      "numerical_valid": true,
+      "independent_next_step_allowed": true,
+      "note": "Control completion is not a robustness pass; C1W is labeled only after dense result or declared missing."
+    },
     {
       "at": "2026-11-16T12:38:20.095344+00:00",
       "parent_id": "S7R15_W4R",
