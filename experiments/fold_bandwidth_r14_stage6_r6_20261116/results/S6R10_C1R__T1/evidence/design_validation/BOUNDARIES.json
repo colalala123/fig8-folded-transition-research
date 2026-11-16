@@ -1,0 +1,389 @@
+{
+  "saved_BoundarySetup": {
+    "BoundarySetup": {
+      "GlobalBoundData": {
+        "PortImpedance": "1",
+        "GlobalMaterialEnv": "vacuum",
+        "UseTotalFieldFormulation": false,
+        "HybridRegionCouplingType": "TwoWayCoupled",
+        "AntennaSourceToBlockageMap": {},
+        "HybridRegionIDToBlockageMap": {},
+        "RegionGroupsOrderedByID": {},
+        "HybridRegionSources": {},
+        "Current Source Conformance": "Auto",
+        "Thin Sources": false
+      },
+      "Boundaries": {
+        "NextUniqueID": 50,
+        "MoveBackwards": false,
+        "Rad1": {
+          "ID": 31,
+          "BoundType": "Radiation",
+          "IsComponent": false,
+          "Objects": [
+            627
+          ],
+          "ParentBndID": -1,
+          "UseAdaptiveIE": false,
+          "IsFssReference": false,
+          "IsForPML": false
+        },
+        "1": {
+          "ID": 43,
+          "BoundType": "Wave Port",
+          "IsComponent": false,
+          "Objects": [
+            12391
+          ],
+          "WavePortType": "Modal",
+          "NumModes": 2,
+          "PECCapPartID": -1,
+          "UseLineModeAlignment": false,
+          "DoDeembed": false,
+          "DeembedDist": "0mm",
+          "ParentBndID": -1,
+          "Modes": {
+            "Mode1": {
+              "ModeNum": 1,
+              "UseIntLine": true,
+              "IntLine": {
+                "GeometryPosition": [
+                  {
+                    "IsAttachedToEntity": true,
+                    "EntityID": 12113,
+                    "FacetedBodyTriangleIndex": -1,
+                    "TriangleVertexIndex": -1,
+                    "hasXYZ": true,
+                    "PositionType": "EdgeCenter",
+                    "UParam": 0,
+                    "VParam": 0,
+                    "XPosition": "0",
+                    "YPosition": "-25",
+                    "ZPosition": "0.845"
+                  },
+                  {
+                    "IsAttachedToEntity": true,
+                    "EntityID": 12395,
+                    "FacetedBodyTriangleIndex": -1,
+                    "TriangleVertexIndex": -1,
+                    "hasXYZ": true,
+                    "PositionType": "EdgeCenter",
+                    "UParam": 0,
+                    "VParam": 0,
+                    "XPosition": "0",
+                    "YPosition": "-25",
+                    "ZPosition": "-1.38140158943821e-15"
+                  }
+                ]
+              },
+              "AlignmentGroup": 0,
+              "CharImp": "Zpi"
+            },
+            "Mode2": {
+              "ModeNum": 2,
+              "UseIntLine": false,
+              "CharImp": "Zpi"
+            }
+          },
+          "UseAnalyticAlignment": false,
+          "ShowReporterFilter": false,
+          "ReporterFilter": [
+            true,
+            true
+          ]
+        },
+        "2": {
+          "ID": 48,
+          "BoundType": "Wave Port",
+          "IsComponent": false,
+          "Objects": [
+            19891
+          ],
+          "WavePortType": "Modal",
+          "NumModes": 2,
+          "PECCapPartID": -1,
+          "UseLineModeAlignment": false,
+          "DoDeembed": false,
+          "DeembedDist": "0mm",
+          "ParentBndID": -1,
+          "Modes": {
+            "Mode1": {
+              "ModeNum": 1,
+              "UseIntLine": true,
+              "IntLine": {
+                "GeometryPosition": [
+                  {
+                    "IsAttachedToEntity": true,
+                    "EntityID": 12152,
+                    "FacetedBodyTriangleIndex": -1,
+                    "TriangleVertexIndex": -1,
+                    "hasXYZ": true,
+                    "PositionType": "EdgeCenter",
+                    "UParam": 0,
+                    "VParam": 0,
+                    "XPosition": "0",
+                    "YPosition": "25",
+                    "ZPosition": "-0.845"
+                  },
+                  {
+                    "IsAttachedToEntity": true,
+                    "EntityID": 19895,
+                    "FacetedBodyTriangleIndex": -1,
+                    "TriangleVertexIndex": -1,
+                    "hasXYZ": true,
+                    "PositionType": "EdgeCenter",
+                    "UParam": 0,
+                    "VParam": 0,
+                    "XPosition": "0",
+                    "YPosition": "25",
+                    "ZPosition": "-1.38140158943821e-15"
+                  }
+                ]
+              },
+              "AlignmentGroup": 0,
+              "CharImp": "Zpi"
+            },
+            "Mode2": {
+              "ModeNum": 2,
+              "UseIntLine": false,
+              "CharImp": "Zpi"
+            }
+          },
+          "UseAnalyticAlignment": false,
+          "ShowReporterFilter": false,
+          "ReporterFilter": [
+            true,
+            true
+          ]
+        }
+      },
+      "ProductSpecificData": {
+        "SBRTxRxSettings": {},
+        "SBRCreepingWaveSettings": {
+          "CWRaySampleDensity": 10,
+          "CWRayCutoffDb": 40,
+          "CWCurvatureSensitivity": 50,
+          "CWAngularRayInterval": 2
+        },
+        "SBRBlockageSettings": {},
+        "PMLData": {
+          "PMLGroups": {}
+        },
+        "SortOrder": {
+          "Port": [
+            -1
+          ],
+          "Terminal": [
+            -1
+          ]
+        },
+        "Phase Center Mode": "SinglePhaseCenter",
+        "Single Phase Center": -1,
+        "SBRWedgeSettings": {
+          "MaxWedgeAngle": "135deg",
+          "IncludeSheetEdges": true,
+          "ApplySourceDistFilter": false,
+          "EnableWedgeEditing": false,
+          "EnableAutomaticWedges": true,
+          "EditType[0:]": null,
+          "SelectionType[0:]": null,
+          "ObjectID[0:]": null,
+          "FaceID[0:]": null,
+          "EdgeID[0:]": null,
+          "EdgeFaceID1[0:]": null,
+          "EdgeFaceID2[0:]": null,
+          "StartX[0:]": null,
+          "StartY[0:]": null,
+          "StartZ[0:]": null,
+          "MidX[0:]": null,
+          "MidY[0:]": null,
+          "MidZ[0:]": null,
+          "EndX[0:]": null,
+          "EndY[0:]": null,
+          "EndZ[0:]": null,
+          "ApplyBoxFilter": false
+        }
+      }
+    }
+  },
+  "native_GetBoundaries": [
+    "Rad1",
+    "Radiation"
+  ],
+  "explicit_boundaries": {
+    "Rad1": {
+      "type": "Radiation",
+      "props": {
+        "ID": 31,
+        "BoundType": "Radiation",
+        "IsComponent": false,
+        "Objects": [
+          627
+        ],
+        "ParentBndID": -1,
+        "UseAdaptiveIE": false,
+        "IsFssReference": false,
+        "IsForPML": false
+      }
+    },
+    "1": {
+      "type": "Wave Port",
+      "props": {
+        "ID": 43,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          12391
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "Start": [
+                "0mm",
+                "-25.0mm",
+                "0.84499999999999997mm"
+              ],
+              "End": [
+                "0mm",
+                "-25.0mm",
+                "0mm"
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      }
+    },
+    "2": {
+      "type": "Wave Port",
+      "props": {
+        "ID": 48,
+        "BoundType": "Wave Port",
+        "IsComponent": false,
+        "Objects": [
+          19891
+        ],
+        "WavePortType": "Modal",
+        "NumModes": 2,
+        "PECCapPartID": -1,
+        "UseLineModeAlignment": false,
+        "DoDeembed": false,
+        "DeembedDist": "0mm",
+        "ParentBndID": -1,
+        "Modes": {
+          "Mode1": {
+            "ModeNum": 1,
+            "UseIntLine": true,
+            "IntLine": {
+              "Start": [
+                "0mm",
+                "25.0mm",
+                "-0.84499999999999997mm"
+              ],
+              "End": [
+                "0mm",
+                "25.0mm",
+                "0mm"
+              ]
+            },
+            "AlignmentGroup": 0,
+            "CharImp": "Zpi"
+          },
+          "Mode2": {
+            "ModeNum": 2,
+            "UseIntLine": false,
+            "CharImp": "Zpi"
+          }
+        },
+        "UseAnalyticAlignment": false,
+        "ShowReporterFilter": false,
+        "ReporterFilter": [
+          true,
+          true
+        ]
+      }
+    }
+  },
+  "air_object_id": 627,
+  "air_faces": [
+    {
+      "id": 637,
+      "center": [
+        2.31296463463574e-15,
+        0.0,
+        11.0
+      ],
+      "explicit_face_assignment": false
+    },
+    {
+      "id": 639,
+      "center": [
+        0.0,
+        -25.0,
+        1.31418445149758e-15
+      ],
+      "explicit_face_assignment": false
+    },
+    {
+      "id": 640,
+      "center": [
+        -15.0,
+        0.0,
+        0.0
+      ],
+      "explicit_face_assignment": false
+    },
+    {
+      "id": 641,
+      "center": [
+        0.0,
+        25.0,
+        -1.31418445149758e-15
+      ],
+      "explicit_face_assignment": false
+    },
+    {
+      "id": 638,
+      "center": [
+        -2.31296463463574e-15,
+        0.0,
+        -11.0
+      ],
+      "explicit_face_assignment": false
+    },
+    {
+      "id": 642,
+      "center": [
+        15.0,
+        0.0,
+        0.0
+      ],
+      "explicit_face_assignment": false
+    }
+  ],
+  "exterior_boundary": "Rad1 Radiation assigned to air_box; wave ports on Rectangle1/2 override their apertures",
+  "evidence_basis": "native GetBoundaries + actual object-ID mapping + independently parsed saved BoundarySetup; not inferred from a wave-port-only filter",
+  "official_help": "https://ansyshelp.ansys.com/public/Views/Secured/Electronics/v242/en/Subsystems/HFSS/Content/HFSS/PerfectEBoundaries.htm",
+  "boundary_policy_unchanged": true
+}

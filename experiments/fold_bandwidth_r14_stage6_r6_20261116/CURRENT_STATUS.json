@@ -1,15 +1,15 @@
 {
-  "at": "2026-11-16T03:18:01.317144+00:00",
+  "at": "2026-11-16T03:46:44.910328+00:00",
   "phase": "R14_stage6_R6",
-  "R10_geometries": 20,
+  "R10_geometries": 21,
   "R10_geometry_cap": 27,
-  "R6_new_geometries": 0,
+  "R6_new_geometries": 1,
   "R6_new_geometry_cap": 4,
-  "geometry_total": 193,
+  "geometry_total": 194,
   "geometry_cap": 200,
-  "R10_actual_Analyze": 214,
-  "R6_actual_Analyze": 1,
-  "actual_Analyze_total": 1847,
+  "R10_actual_Analyze": 225,
+  "R6_actual_Analyze": 12,
+  "actual_Analyze_total": 1858,
   "P10_aggregate_Analyze": 13,
   "completed_parents": [
     {
@@ -56,6 +56,29 @@
       "usable_for_law": null,
       "kind": "CONTROL",
       "data_role": "B1R_dense_confirmation",
+      "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
+    },
+    {
+      "at": "2026-11-16T03:46:43.324276+00:00",
+      "parent_id": "S6R10_C1R",
+      "complete": true,
+      "passed": false,
+      "selected_case": "S6R10_C1R__T1",
+      "measurement": {
+        "center_GHz": 6.64,
+        "low_peak_dB": -22.403804151389444,
+        "high_peak_dB": -19.848284923799334,
+        "BW20_GHz": null,
+        "S21_min_dB": null,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.738778446752615,
+        "BW15_star_GHz": 6.842034013951913
+      },
+      "usable_for_law": null,
+      "kind": "CONTROL",
+      "data_role": "B1R_measured_worst_corner",
       "note": "Control completion does not mean -20dB or manufacturing pass; see role-specific metrics."
     }
   ],
