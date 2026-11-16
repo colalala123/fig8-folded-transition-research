@@ -1,0 +1,1576 @@
+{
+  "at": "2026-11-16T11:39:31.420649+00:00",
+  "status": "R15_R7_FROZEN_BEFORE_NATIVE",
+  "plan_commit": "db8596b",
+  "margin": {
+    "h0_mm": 0.813,
+    "tol_h_mm": 0.038,
+    "mode": "corner",
+    "corner_dGamma": 0.026838,
+    "RSS": 0.020759873068147066,
+    "mesh": 0.002538,
+    "tune": 0.00107,
+    "assumed_residual": 0.0023507,
+    "Gamma_req": 0.069554,
+    "P_req_dB": -23.153557779872994,
+    "Gamma_stat": 0.07924012693185294,
+    "hypothesis": "B1R sensitivities transferred to W4R; C1W independently checks this, not assumed certified"
+  },
+  "table_checks": [
+    {
+      "tol_h_mm": 0.038,
+      "mode": "corner",
+      "computed_dB": -23.153557779872994,
+      "plan_dB": -23.15,
+      "error_dB": -0.003557779872995326,
+      "within_0p005": true
+    },
+    {
+      "tol_h_mm": 0.038,
+      "mode": "statistical",
+      "computed_dB": -22.70012165399946,
+      "plan_dB": -22.7,
+      "error_dB": -0.00012165399946084676,
+      "within_0p005": true
+    },
+    {
+      "tol_h_mm": 0.025,
+      "mode": "corner",
+      "computed_dB": -22.324778581467246,
+      "plan_dB": -22.33,
+      "error_dB": 0.005221418532752153,
+      "within_0p005": false
+    },
+    {
+      "tol_h_mm": 0.025,
+      "mode": "statistical",
+      "computed_dB": -21.93362883399489,
+      "plan_dB": -21.93,
+      "error_dB": -0.003628833994891778,
+      "within_0p005": true
+    },
+    {
+      "tol_h_mm": 0.051,
+      "mode": "corner",
+      "computed_dB": -24.06983888587215,
+      "plan_dB": -24.07,
+      "error_dB": 0.00016111412784880486,
+      "within_0p005": true
+    },
+    {
+      "tol_h_mm": 0.051,
+      "mode": "statistical",
+      "computed_dB": -23.554054316921626,
+      "plan_dB": -23.55,
+      "error_dB": -0.004054316921624945,
+      "within_0p005": true
+    },
+    {
+      "tol_h_mm": 0.005,
+      "mode": "corner",
+      "computed_dB": -21.18661180042004,
+      "plan_dB": -21.19,
+      "error_dB": 0.003388199579962503,
+      "within_0p005": true
+    },
+    {
+      "tol_h_mm": 0.005,
+      "mode": "statistical",
+      "computed_dB": -20.996523454390225,
+      "plan_dB": -21.0,
+      "error_dB": 0.0034765456097751724,
+      "within_0p005": true
+    }
+  ],
+  "table_exception_policy": {
+    "active_inputs": "User-authorized default h0=.813, tol_h=.038, corner mode",
+    "active_row_within_tolerance": true,
+    "inactive_discrepancy_disclosed": [
+      {
+        "tol_h_mm": 0.025,
+        "mode": "corner",
+        "computed_dB": -22.324778581467246,
+        "plan_dB": -22.33,
+        "error_dB": 0.005221418532752153,
+        "within_0p005": false
+      }
+    ],
+    "nondefault_row_not_authorized_or_used": true,
+    "note": "No formula/table value changed. The selected default row satisfies R15 tolerance; no assumed human waiver for the unused .025mm row."
+  },
+  "designs": {
+    "S7R15_W4R": {
+      "id": "S7R15_W4R",
+      "design": "W4R",
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.555,
+        "Lm": 6.571,
+        "Ls1": 12.756,
+        "Ls2": 1.66,
+        "Ls3": 2.355
+      },
+      "base_geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.555,
+        "Lm": 6.571,
+        "Ls1": 12.756,
+        "Ls2": 1.66,
+        "Ls3": 2.355
+      },
+      "cad_ir": {
+        "board_policy": "fixed_milled_outline",
+        "base_geometry_mm": {
+          "Wm": 2.65,
+          "Ws": 0.555,
+          "Lm": 6.571,
+          "Ls1": 12.756,
+          "Ls2": 1.66,
+          "Ls3": 2.355
+        },
+        "geometry_mm": {
+          "Wm": 2.65,
+          "Ws": 0.555,
+          "Lm": 6.571,
+          "Ls1": 12.756,
+          "Ls2": 1.66,
+          "Ls3": 2.355
+        },
+        "etch_e_mm": 0.0,
+        "er": 3.55,
+        "h_mm": 0.813,
+        "tand": 0.0027,
+        "copper_mm": 0.035,
+        "port_policy": "clip_cut_faces",
+        "h_port_policy": "height_8h_width_fixed",
+        "port_width_mm": 15.04,
+        "port_height_mm": 6.504,
+        "profiles": {
+          "top": [
+            [
+              -1.325,
+              0.0
+            ],
+            [
+              -0.91,
+              0.0
+            ],
+            [
+              -0.91,
+              -25.0
+            ],
+            [
+              0.91,
+              -25.0
+            ],
+            [
+              0.91,
+              0.0
+            ],
+            [
+              1.325,
+              0.0
+            ],
+            [
+              1.325,
+              6.571
+            ],
+            [
+              -1.325,
+              6.571
+            ]
+          ],
+          "bottom": [
+            [
+              -1.325,
+              -6.571
+            ],
+            [
+              1.325,
+              -6.571
+            ],
+            [
+              1.325,
+              0.0
+            ],
+            [
+              0.91,
+              0.0
+            ],
+            [
+              0.91,
+              25.0
+            ],
+            [
+              -0.91,
+              25.0
+            ],
+            [
+              -0.91,
+              0.0
+            ],
+            [
+              -1.325,
+              0.0
+            ]
+          ],
+          "slot": [
+            [
+              -6.378,
+              -1.3825
+            ],
+            [
+              -4.023,
+              -1.3825
+            ],
+            [
+              -4.023,
+              -0.8275
+            ],
+            [
+              -5.823,
+              -0.8275
+            ],
+            [
+              -5.823,
+              -0.2775
+            ],
+            [
+              5.823,
+              -0.2775
+            ],
+            [
+              5.823,
+              -0.8275
+            ],
+            [
+              4.023,
+              -0.8275
+            ],
+            [
+              4.023,
+              -1.3825
+            ],
+            [
+              6.378,
+              -1.3825
+            ],
+            [
+              6.378,
+              0.2775
+            ],
+            [
+              -6.378,
+              0.2775
+            ]
+          ],
+          "ground": [
+            [
+              -15.0,
+              -25.0
+            ],
+            [
+              15.0,
+              -25.0
+            ],
+            [
+              15.0,
+              25.0
+            ],
+            [
+              -15.0,
+              25.0
+            ]
+          ]
+        },
+        "source_profiles": {
+          "top": [
+            [
+              -1.325,
+              0.0
+            ],
+            [
+              -0.91,
+              0.0
+            ],
+            [
+              -0.91,
+              -25.0
+            ],
+            [
+              0.91,
+              -25.0
+            ],
+            [
+              0.91,
+              0.0
+            ],
+            [
+              1.325,
+              0.0
+            ],
+            [
+              1.325,
+              6.571
+            ],
+            [
+              -1.325,
+              6.571
+            ]
+          ],
+          "bottom": [
+            [
+              -1.325,
+              -6.571
+            ],
+            [
+              1.325,
+              -6.571
+            ],
+            [
+              1.325,
+              0.0
+            ],
+            [
+              0.91,
+              0.0
+            ],
+            [
+              0.91,
+              25.0
+            ],
+            [
+              -0.91,
+              25.0
+            ],
+            [
+              -0.91,
+              0.0
+            ],
+            [
+              -1.325,
+              0.0
+            ]
+          ],
+          "slot": [
+            [
+              -6.378,
+              -1.3825
+            ],
+            [
+              -4.023,
+              -1.3825
+            ],
+            [
+              -4.023,
+              -0.8275
+            ],
+            [
+              -5.823,
+              -0.8275
+            ],
+            [
+              -5.823,
+              -0.2775
+            ],
+            [
+              5.823,
+              -0.2775
+            ],
+            [
+              5.823,
+              -0.8275
+            ],
+            [
+              4.023,
+              -0.8275
+            ],
+            [
+              4.023,
+              -1.3825
+            ],
+            [
+              6.378,
+              -1.3825
+            ],
+            [
+              6.378,
+              0.2775
+            ],
+            [
+              -6.378,
+              0.2775
+            ]
+          ],
+          "ground": [
+            [
+              -15.0,
+              -25.0
+            ],
+            [
+              15.0,
+              -25.0
+            ],
+            [
+              15.0,
+              25.0
+            ],
+            [
+              -15.0,
+              25.0
+            ]
+          ]
+        },
+        "rectangles": {
+          "top": [
+            [
+              -1.325,
+              0.0,
+              1.325,
+              6.571
+            ],
+            [
+              -0.91,
+              -25.0,
+              0.91,
+              0.0
+            ]
+          ],
+          "bottom": [
+            [
+              -1.325,
+              -6.571,
+              1.325,
+              0.0
+            ],
+            [
+              -0.91,
+              0.0,
+              0.91,
+              25.0
+            ]
+          ],
+          "slot": [
+            [
+              -6.378,
+              -1.3825,
+              -4.023,
+              -0.8275
+            ],
+            [
+              -6.378,
+              -0.8275,
+              -5.823,
+              -0.2775
+            ],
+            [
+              -6.378,
+              -0.2775,
+              6.378,
+              0.2775
+            ],
+            [
+              4.023,
+              -1.3825,
+              6.378,
+              -0.8275
+            ],
+            [
+              5.823,
+              -0.8275,
+              6.378,
+              -0.2775
+            ]
+          ],
+          "ground": [
+            [
+              -15.0,
+              -25.0,
+              15.0,
+              25.0
+            ]
+          ]
+        },
+        "edge_distance_proof": {
+          "top": [
+            {
+              "start": [
+                -1.325,
+                0.0
+              ],
+              "end": [
+                -0.91,
+                0.0
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -0.91,
+                0.0
+              ],
+              "end": [
+                -0.91,
+                -25.0
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -0.91,
+                -25.0
+              ],
+              "end": [
+                0.91,
+                -25.0
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": true,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                0.91,
+                -25.0
+              ],
+              "end": [
+                0.91,
+                0.0
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                0.91,
+                0.0
+              ],
+              "end": [
+                1.325,
+                0.0
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                1.325,
+                0.0
+              ],
+              "end": [
+                1.325,
+                6.571
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                1.325,
+                6.571
+              ],
+              "end": [
+                -1.325,
+                6.571
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -1.325,
+                6.571
+              ],
+              "end": [
+                -1.325,
+                0.0
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            }
+          ],
+          "bottom": [
+            {
+              "start": [
+                -1.325,
+                -6.571
+              ],
+              "end": [
+                1.325,
+                -6.571
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                1.325,
+                -6.571
+              ],
+              "end": [
+                1.325,
+                0.0
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                1.325,
+                0.0
+              ],
+              "end": [
+                0.91,
+                0.0
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                0.91,
+                0.0
+              ],
+              "end": [
+                0.91,
+                25.0
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                0.91,
+                25.0
+              ],
+              "end": [
+                -0.91,
+                25.0
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": true,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -0.91,
+                25.0
+              ],
+              "end": [
+                -0.91,
+                0.0
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -0.91,
+                0.0
+              ],
+              "end": [
+                -1.325,
+                0.0
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -1.325,
+                0.0
+              ],
+              "end": [
+                -1.325,
+                -6.571
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            }
+          ],
+          "slot": [
+            {
+              "start": [
+                -6.378,
+                -1.3825
+              ],
+              "end": [
+                -4.023,
+                -1.3825
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -4.023,
+                -1.3825
+              ],
+              "end": [
+                -4.023,
+                -0.8275
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -4.023,
+                -0.8275
+              ],
+              "end": [
+                -5.823,
+                -0.8275
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -5.823,
+                -0.8275
+              ],
+              "end": [
+                -5.823,
+                -0.2775
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -5.823,
+                -0.2775
+              ],
+              "end": [
+                5.823,
+                -0.2775
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                5.823,
+                -0.2775
+              ],
+              "end": [
+                5.823,
+                -0.8275
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                5.823,
+                -0.8275
+              ],
+              "end": [
+                4.023,
+                -0.8275
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                4.023,
+                -0.8275
+              ],
+              "end": [
+                4.023,
+                -1.3825
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                4.023,
+                -1.3825
+              ],
+              "end": [
+                6.378,
+                -1.3825
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                6.378,
+                -1.3825
+              ],
+              "end": [
+                6.378,
+                0.2775
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                6.378,
+                0.2775
+              ],
+              "end": [
+                -6.378,
+                0.2775
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            },
+            {
+              "start": [
+                -6.378,
+                0.2775
+              ],
+              "end": [
+                -6.378,
+                -1.3825
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": -0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": false
+            }
+          ],
+          "ground": [
+            {
+              "start": [
+                -15.0,
+                -25.0
+              ],
+              "end": [
+                15.0,
+                -25.0
+              ],
+              "inward_normal": [
+                -0.0,
+                1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": true,
+              "fixed_milled_board_edge": true
+            },
+            {
+              "start": [
+                15.0,
+                -25.0
+              ],
+              "end": [
+                15.0,
+                25.0
+              ],
+              "inward_normal": [
+                -1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": true
+            },
+            {
+              "start": [
+                15.0,
+                25.0
+              ],
+              "end": [
+                -15.0,
+                25.0
+              ],
+              "inward_normal": [
+                -0.0,
+                -1.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": true,
+              "fixed_milled_board_edge": true
+            },
+            {
+              "start": [
+                -15.0,
+                25.0
+              ],
+              "end": [
+                -15.0,
+                -25.0
+              ],
+              "inward_normal": [
+                1.0,
+                0.0
+              ],
+              "signed_inward_distance_mm": 0.0,
+              "simulation_cut_face": false,
+              "fixed_milled_board_edge": true
+            }
+          ]
+        },
+        "expected_slot_boxes": [
+          {
+            "name": "StructureBSlot_top_main",
+            "parameters_mm": {
+              "XPosition": -6.378,
+              "YPosition": -0.2775,
+              "ZPosition": -0.01,
+              "XSize": 12.756,
+              "YSize": 0.555,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_top_right_connector",
+            "parameters_mm": {
+              "XPosition": 5.823,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.01,
+              "XSize": 0.555,
+              "YSize": 1.105,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_top_right_leg",
+            "parameters_mm": {
+              "XPosition": 4.023,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.01,
+              "XSize": 1.7999999999999998,
+              "YSize": 0.555,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_top_left_connector",
+            "parameters_mm": {
+              "XPosition": -6.378,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.01,
+              "XSize": 0.555,
+              "YSize": 1.105,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_top_left_leg",
+            "parameters_mm": {
+              "XPosition": -5.823,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.01,
+              "XSize": 1.7999999999999998,
+              "YSize": 0.555,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_bottom_main",
+            "parameters_mm": {
+              "XPosition": -6.378,
+              "YPosition": -0.2775,
+              "ZPosition": -0.045,
+              "XSize": 12.756,
+              "YSize": 0.555,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_bottom_right_connector",
+            "parameters_mm": {
+              "XPosition": 5.823,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.045,
+              "XSize": 0.555,
+              "YSize": 1.105,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_bottom_right_leg",
+            "parameters_mm": {
+              "XPosition": 4.023,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.045,
+              "XSize": 1.7999999999999998,
+              "YSize": 0.555,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_bottom_left_connector",
+            "parameters_mm": {
+              "XPosition": -6.378,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.045,
+              "XSize": 0.555,
+              "YSize": 1.105,
+              "ZSize": 0.055
+            }
+          },
+          {
+            "name": "StructureBSlot_bottom_left_leg",
+            "parameters_mm": {
+              "XPosition": -5.823,
+              "YPosition": -1.3824999999999998,
+              "ZPosition": -0.045,
+              "XSize": 1.7999999999999998,
+              "YSize": 0.555,
+              "ZSize": 0.055
+            }
+          }
+        ],
+        "feed_width_mm": 1.82,
+        "stub_shoulder_y_mm": 0.0,
+        "stub_open_end_y_mm": 6.571,
+        "canonical_six_dimensions_sufficient": true,
+        "source_sha256": {
+          "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\input\\freeze.json": "cd1a07c8586ac0432fc82b0bc60828d98b7b8e9e026099085134f7efeca71450",
+          "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\evidence\\geometry_build.json": "0b75a5c8ca0f0d19cd28ef972578caf1d9286625274fb48c2f1267d9039f1ef0",
+          "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\evidence\\native_slot_boxes.json": "c793ca3560bf4400bab1b616a69ca2c16ec9b445ea07e67e1869141a66a9284d",
+          "F:\\2026-1\\circuit\\test\\output\\fig8_r9_stage5_20261114\\runs\\S5R9_B1\\attempt_002\\evidence\\ports.json": "b0267fdfa9b7d31cb27f1866f8634ed9b07f2a5327dedb070a14fd83e30357cf"
+        }
+      },
+      "nominal_a_mm": 1.7999999999999998,
+      "g_mm": 0.55,
+      "topology": "folded",
+      "material_role": "archived_lossy",
+      "board_half_x_mm": 15.0,
+      "kind": "EQ",
+      "family": "W4R",
+      "dense_confirmation": false,
+      "tuning": {
+        "needs_solve": true,
+        "geometry_mm": {
+          "Wm": 2.65,
+          "Ws": 0.555,
+          "Lm": 6.571,
+          "Ls1": 12.756,
+          "Ls2": 1.66,
+          "Ls3": 2.355
+        },
+        "base_case": "S6R10_W4__T1",
+        "base_y": [
+          6.74,
+          -0.182613025252774,
+          -20.401989277404475
+        ],
+        "J": [
+          [
+            -1.749999999999985,
+            30.975328808255753,
+            1.0715381108981958
+          ],
+          [
+            0.0,
+            -24.820718466305358,
+            2.0304020144031654
+          ],
+          [
+            -1.2499999999999956,
+            65.46137137496811,
+            16.056335662486898
+          ]
+        ],
+        "actual_step": [
+          0.11099999999999977,
+          -0.2669999999999959,
+          -0.1509999999999999
+        ],
+        "predicted_y": [
+          6.7345000000000015,
+          -0.0018867746530517593,
+          -23.24967256997594
+        ],
+        "reason": "R15 T1: B1 measured central-difference J, applied at W4; explicit large-step extrapolation",
+        "broyden_updates": [],
+        "raw_physical_step": [
+          0.11081670191871841,
+          0.0346038471771097,
+          -0.15114338268620495
+        ]
+      },
+      "screen": {
+        "input_geometry_mm": {
+          "Wm": 2.65,
+          "Ws": 0.555,
+          "Lm": 6.571,
+          "Ls1": 12.756,
+          "Ls2": 1.66,
+          "Ls3": 2.355
+        },
+        "geometry_mm": {
+          "Wm": 2.65,
+          "Ws": 0.555,
+          "Lm": 6.571,
+          "Ls1": 12.756,
+          "Ls2": 1.66,
+          "Ls3": 2.355
+        },
+        "nominal_a_mm": 1.7999999999999998,
+        "input_a_mm": 1.7999999999999998,
+        "actual_a_mm": 1.7999999999999998,
+        "adjusted": false,
+        "adjustment_step_mm": 0.001,
+        "additional_attempts": 0,
+        "can_submit": true,
+        "decision_scope": "geometry_only_not_solver_authorization",
+        "solver_authorized": false,
+        "must_recheck_every_attempt": true,
+        "screen_before": {
+          "a_mm": 1.7999999999999998,
+          "g_mm": 0.5499999999999998,
+          "L_parameter_sum_mm": 20.786,
+          "L_centerline_mm": 18.566000000000003,
+          "rho": 0.3863177138458577,
+          "central_line_width_mm": 2.65,
+          "tip_to_line_x_mm": 2.6979999999999995,
+          "tip_to_tip_x_mm": 8.046,
+          "min_tip_to_tip_x_mm": 4.276,
+          "slot_to_board_edge_x_mm": 8.622,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "screen_after": {
+          "a_mm": 1.7999999999999998,
+          "g_mm": 0.5499999999999998,
+          "L_parameter_sum_mm": 20.786,
+          "L_centerline_mm": 18.566000000000003,
+          "rho": 0.3863177138458577,
+          "central_line_width_mm": 2.65,
+          "tip_to_line_x_mm": 2.6979999999999995,
+          "tip_to_tip_x_mm": 8.046,
+          "min_tip_to_tip_x_mm": 4.276,
+          "slot_to_board_edge_x_mm": 8.622,
+          "board_half_x_mm": 15.0,
+          "screen_pass": true,
+          "reasons": [],
+          "rho_is_gate": false,
+          "long_arm_direct_coupling_flag": false,
+          "full_CAD_verified": false
+        },
+        "reason": "already_passes"
+      },
+      "data_role": "prospective_finite_tuning_not_independent_blind_test",
+      "target_y": [
+        6.735,
+        0,
+        -23.253557779872995
+      ],
+      "prediction": {
+        "response_y": [
+          6.7345000000000015,
+          -0.0018867746530517593,
+          -23.24967256997594
+        ],
+        "method": "R15 T1: B1 measured central-difference J, applied at W4; explicit large-step extrapolation"
+      }
+    }
+  },
+  "T1_derivation": {
+    "base_case": "S6R10_W4__T1",
+    "base_geometry_mm": {
+      "Wm": 2.65,
+      "Ws": 0.706,
+      "Lm": 6.46,
+      "Ls1": 12.721,
+      "Ls2": 1.962,
+      "Ls3": 2.506
+    },
+    "target_response": [
+      6.735,
+      -23.253557779872995,
+      -23.253557779872995
+    ],
+    "measured_B1_physical_J": [
+      [
+        -1.749999999999985,
+        -14.41612629322968,
+        16.559202515026072
+      ],
+      [
+        0.0,
+        14.440761247555844,
+        -10.379957218749514
+      ],
+      [
+        -1.2499999999999956,
+        12.207172470114536,
+        28.027106912471922
+      ]
+    ],
+    "coordinate_J": [
+      [
+        -1.749999999999985,
+        30.975328808255753,
+        1.0715381108981958
+      ],
+      [
+        0.0,
+        -24.820718466305358,
+        2.0304020144031654
+      ],
+      [
+        -1.2499999999999956,
+        65.46137137496811,
+        16.056335662486898
+      ]
+    ],
+    "selected_geometry_mm": {
+      "Wm": 2.65,
+      "Ws": 0.555,
+      "Lm": 6.571,
+      "Ls1": 12.756,
+      "Ls2": 1.66,
+      "Ls3": 2.355
+    },
+    "selected_prediction": [
+      6.7345000000000015,
+      -0.0018867746530517593,
+      -23.24967256997594
+    ],
+    "nearby_W3_Broyden_proxy_J": [
+      [
+        -2.289230701737977,
+        30.53228377154883,
+        -0.6955549647386575
+      ],
+      [
+        0.5361494320764321,
+        -12.643532733954954,
+        -0.882301707575541
+      ],
+      [
+        -1.7043121446708058,
+        38.69451387622909,
+        27.843526794816334
+      ]
+    ],
+    "nearby_proxy_update": {
+      "triggered": false,
+      "components": [],
+      "predicted": [
+        0.040111655916855574,
+        -0.15152252550703327,
+        0.13580323167558475
+      ],
+      "actual": [
+        0.03000000000000025,
+        -0.04615006980422365,
+        0.11711214209394427
+      ]
+    },
+    "nearby_proxy_geometry_mm": {
+      "Wm": 2.65,
+      "Ws": 0.593,
+      "Lm": 6.464,
+      "Ls1": 12.596,
+      "Ls2": 1.736,
+      "Ls3": 2.393
+    },
+    "nearby_proxy_prediction": [
+      6.7352418988820215,
+      0.0049160314377258985,
+      -23.24140212571866
+    ],
+    "nearby_proxy_screen": {
+      "input_geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.593,
+        "Lm": 6.464,
+        "Ls1": 12.596,
+        "Ls2": 1.736,
+        "Ls3": 2.393
+      },
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.593,
+        "Lm": 6.464,
+        "Ls1": 12.596,
+        "Ls2": 1.736,
+        "Ls3": 2.393
+      },
+      "nominal_a_mm": 1.8,
+      "input_a_mm": 1.7999999999999998,
+      "actual_a_mm": 1.7999999999999998,
+      "adjusted": false,
+      "adjustment_step_mm": 0.001,
+      "additional_attempts": 0,
+      "can_submit": true,
+      "decision_scope": "geometry_only_not_solver_authorization",
+      "solver_authorized": false,
+      "must_recheck_every_attempt": true,
+      "screen_before": {
+        "a_mm": 1.7999999999999998,
+        "g_mm": 0.55,
+        "L_parameter_sum_mm": 20.854,
+        "L_centerline_mm": 18.482,
+        "rho": 0.3959911767526613,
+        "central_line_width_mm": 2.65,
+        "tip_to_line_x_mm": 2.58,
+        "tip_to_tip_x_mm": 7.8100000000000005,
+        "min_tip_to_tip_x_mm": 4.276,
+        "slot_to_board_edge_x_mm": 8.702,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "screen_after": {
+        "a_mm": 1.7999999999999998,
+        "g_mm": 0.55,
+        "L_parameter_sum_mm": 20.854,
+        "L_centerline_mm": 18.482,
+        "rho": 0.3959911767526613,
+        "central_line_width_mm": 2.65,
+        "tip_to_line_x_mm": 2.58,
+        "tip_to_tip_x_mm": 7.8100000000000005,
+        "min_tip_to_tip_x_mm": 4.276,
+        "slot_to_board_edge_x_mm": 8.702,
+        "board_half_x_mm": 15.0,
+        "screen_pass": true,
+        "reasons": [],
+        "rho_is_gate": false,
+        "long_arm_direct_coupling_flag": false,
+        "full_CAD_verified": false
+      },
+      "reason": "already_passes"
+    },
+    "nearby_proxy_caveat": "No independently perturbed W4 J exists. Nearest measured tuning seed is W3 (Wm2.50); its updated Broyden J is a transferred approximation, not a claimed W4-local measurement.",
+    "reviewer_reference": {
+      "Ws": 0.557,
+      "Lm": 6.592,
+      "Ls1": 12.779
+    },
+    "differences_from_reference_mm": {
+      "Ws": -0.0020000000000000018,
+      "Lm": -0.020999999999999908,
+      "Ls1": -0.022999999999999687
+    },
+    "exceeds_0p04": {
+      "Ws": false,
+      "Lm": false,
+      "Ls1": false
+    },
+    "choice_reason": "B1 direct central differences measure both peaks and valley, so they are chosen before solving. Reference scales one B1-to-B1R secant by mean only; our solve also corrects W4 signed peak difference and targets valley6.735 and P_req-0.1. Differences >.04 are disclosed, not silently clipped.",
+    "followup_caps_coordinate_mm": [
+      0.06,
+      0.4,
+      0.13
+    ],
+    "followup_algorithm": "Same frozen selective Broyden and width-only clearance backoff as R6; tighter delivery center tolerance ±.015; max4 total attempts"
+  },
+  "Q27_Q30_verbatim": "（R7 冻结时原文写入，求解前不改）\n\n| 编号 | 预测（默认输入） | 依据 |\n|---|---|---|\n| Q27 | 调准的 W4R 的 BW20 在 6.20–6.40 GHz，比 B1R 宽 | W4 是 6.807 GHz；按 B1→B1R 的约 178 MHz/dB 估算，加深 2.84 dB 约损失 505 MHz，得 6.30 |\n| Q28 | C1W − W4R 的 Δ\\|Γ\\| 在 [0.022, 0.032] | 误差可加，且灵敏度在 Wm 2.35 → 2.65 之间基本不变 |\n| Q29 | W4R 在 3 次以内调准 | B1R 用了 3 次；外推步长更大，但有 Broyden 修正 |\n| Q30 | W4R 密网格：中央谷下移 10–30 MHz，高峰 Δ\\|Γ\\| 在 [0.0015, 0.0040]，低峰变化小于高峰 | B1、B1R 两次密网格都是这样 |\n\n用户改了输入时，Q27 的区间按同样的 178 MHz/dB 斜率换算，冻结时写出换算后的数值。\n\n",
+  "dense_rule": {
+    "min_cells_with_delta": 200000,
+    "max_delta": 0.002,
+    "forced_sweep_cells": 220000,
+    "safety_stop_above": 300000,
+    "max_passes": 34,
+    "max_Analyze": 20,
+    "refinement_percent": "30 below150000;10 below185000;5 otherwise"
+  },
+  "ordinary": {
+    "min_cells": 100000,
+    "max_cells": 112000,
+    "max_delta": 0.005,
+    "max_Analyze": 14
+  },
+  "budget": {
+    "prior_geometries": 196,
+    "prior_Analyze": 1880,
+    "new_geometry_cap": 6,
+    "total_geometry_cap": 202,
+    "max_new_Analyze": 90
+  },
+  "resources": {
+    "cores": 14,
+    "tasks": 1,
+    "serial": true,
+    "no_hook": true
+  },
+  "observer_capture_AST_identical": true,
+  "child_entries": [
+    "worker_stage2.py",
+    "observer_r13.py",
+    "controller_stage2.py",
+    "preflight_r11.py",
+    "prepare_r10.py",
+    "stage7.py",
+    "review_stage3.py",
+    "manage.py",
+    "collect_stage2.py",
+    "freeze_r15.py"
+  ],
+  "direct_runtime_children": [
+    "worker_stage2.py",
+    "observer_r13.py"
+  ],
+  "finite_tuning": {
+    "total_attempts": 4,
+    "target_center": 6.735,
+    "center_range": [
+      6.72,
+      6.75
+    ],
+    "D_max": 0.2,
+    "peak_window": [
+      -23.353557779872993,
+      -23.153557779872994
+    ],
+    "T2_T4_caps": [
+      0.06,
+      0.4,
+      0.13
+    ],
+    "fallback": "nearest reviewed W4R by normalized target error; numerical missing terminates tuning and controls use best available or frozen T1 geometry, no nominal truth invented"
+  },
+  "self_fix_cap": 2,
+  "self_fixes_used": 0,
+  "self_fix_scope": "R14 section3 pre-charge packaging only; fresh reproducer+regression+patched freeze push before retry; all other strict errors stop",
+  "no_direct_frequency_points": true,
+  "no_stage8": true
+}
