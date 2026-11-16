@@ -29,3 +29,7 @@ R6原55项、R7新34项、默认11项和8765归档文件校验；10个入口×2�
 使用本目录freeze_r15.py生成冻结/准备，prepare_r10.py生成有限输入，preflight_r11.py做原生验证，manage.py publication绑定推送后输入，controller_stage2.py launch派发。终态用review_stage3.py独立提取，执行者实际看图后manage.py ack，再finish/missing和collect_stage2.py归档。禁止把Python启动当作HFSS真实14核启动。
 
 做完正常闭账并推送中文报告，不自动进入阶段8。
+
+## 阶段7已完成并停止
+
+[中文报告](final/REPORT.md)、[机器可读结果](final/RESULTS.json)、[正常闭账](final/CLOSURE.json)、[最终审计](final/FINAL_AUDIT.json)。本轮4几何/43 Analyze，累计200/202几何。未用额度不作新授权。

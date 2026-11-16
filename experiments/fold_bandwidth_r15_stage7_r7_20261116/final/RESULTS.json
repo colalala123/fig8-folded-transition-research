@@ -1,0 +1,467 @@
+{
+  "at": "2026-11-16T13:59:25.718561+00:00",
+  "nominal": {
+    "center_GHz": 6.74,
+    "low_peak_dB": -23.324131375556448,
+    "high_peak_dB": -23.164197663595424,
+    "BW20_GHz": 6.340182363902526,
+    "S21_min_dB": -1.0664313507287477,
+    "numerical_review_passed": true,
+    "actual_view_ack": true,
+    "shape_valid": true,
+    "BW15_GHz": 6.697973001675312,
+    "BW15_star_GHz": 7.0659935666223035
+  },
+  "C1W": {
+    "center_GHz": 6.64,
+    "low_peak_dB": -23.23520987395544,
+    "high_peak_dB": -20.654736877511723,
+    "BW20_GHz": 6.616409781692928,
+    "S21_min_dB": -1.186732307225042,
+    "numerical_review_passed": true,
+    "actual_view_ack": true,
+    "shape_valid": true,
+    "BW15_GHz": 6.946200342157983,
+    "BW15_star_GHz": 7.151822014124681
+  },
+  "dense": {
+    "center_GHz": 6.7,
+    "low_peak_dB": -23.12747466148711,
+    "high_peak_dB": -22.876870016128418,
+    "BW20_GHz": 6.353700176071449,
+    "S21_min_dB": -1.0834990145685863,
+    "numerical_review_passed": true,
+    "actual_view_ack": true,
+    "shape_valid": true,
+    "BW15_GHz": 6.709816541859125,
+    "BW15_star_GHz": 7.047588084210095
+  },
+  "nominal_tuned": true,
+  "confirmation": {
+    "statistical_label": "统计稳健（含网格残差）",
+    "Gamma_dense": 0.07180529969994436,
+    "DeltaS_residual": 0.0015825,
+    "Gamma_stat": 0.07924012693185294,
+    "own_nonnegative_mesh_dGamma": 0.0023364485360347076,
+    "corner_bias_used": 0.0023364485360347076,
+    "corner_bias_source": "own_W4R",
+    "Gamma_C1W": 0.09273915962408466,
+    "corner_Gamma_plus_bias": 0.09507560816011937,
+    "worst_corner_robust": true,
+    "worst_corner_label": "最坏角点稳健",
+    "corner_minus_nominal_dGamma": 0.023270308460175013,
+    "dense_center_shift_MHz": -40.000000000000036,
+    "dense_peak_changes_dGamma": {
+      "low_peak_dB": 0.0015617574861320621,
+      "high_peak_dB": 0.0023364485360347076
+    },
+    "not_connector_or_manufacturing_certificate": true
+  },
+  "predictions": {
+    "Q27": {
+      "assessable": true,
+      "passed": true,
+      "BW20_GHz": 6.340182363902526
+    },
+    "Q28": {
+      "assessable": true,
+      "passed": true,
+      "dGamma": 0.023270308460175013
+    },
+    "Q29": {
+      "assessable": true,
+      "passed": true,
+      "selected_ordinal": 2,
+      "nominal_tuned": true
+    },
+    "Q30": {
+      "assessable": true,
+      "passed": false,
+      "center_shift_MHz": -40.000000000000036,
+      "peak_changes_dGamma": {
+        "low_peak_dB": 0.0015617574861320621,
+        "high_peak_dB": 0.0023364485360347076
+      }
+    }
+  },
+  "trials": [
+    {
+      "case": "S7R15_W4R__T1",
+      "record": {
+        "case": "S7R15_W4R__T1",
+        "solve_completed": true,
+        "numerical_pass": true,
+        "design_pass": null,
+        "Analyze_requested": 10,
+        "inherited_Analyze_requests": 0,
+        "passes": 24,
+        "mesh_cells": 100229,
+        "delta_s": 0.0017354,
+        "adaptive_converged": true,
+        "acceptance_basis": "ordinary mesh policy",
+        "new_Analyze_requested": 10,
+        "finished_at": "2026-11-16T12:03:15.962174+00:00",
+        "cleanup": {
+          "at": "2026-11-16T12:03:03.864141+00:00",
+          "app_created": true,
+          "released": true,
+          "scratch_restored": true
+        }
+      },
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.555,
+        "Lm": 6.571,
+        "Ls1": 12.756,
+        "Ls2": 1.66,
+        "Ls3": 2.355
+      },
+      "data_role": "prospective_finite_tuning_not_independent_blind_test",
+      "measurement": {
+        "center_GHz": 6.73,
+        "low_peak_dB": -23.067883689863542,
+        "high_peak_dB": -22.835761034156953,
+        "BW20_GHz": 6.390525264495299,
+        "S21_min_dB": -1.0753065831703024,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.740836686414331,
+        "BW15_star_GHz": 7.072314481665613
+      },
+      "nominal_check": {
+        "tuned": false,
+        "usable_for_law": false,
+        "error_e": 3.0173541786274782,
+        "mean_inner_peak_dB": -22.951822362010248,
+        "signed_D_dB": 0.2321226557065863,
+        "hard_design_peaks_pass": true,
+        "center_window_GHz": [
+          6.72,
+          6.75
+        ],
+        "peak_window_dB": [
+          -23.353557779872993,
+          -23.153557779872994
+        ],
+        "S21_dB": -1.0753065831703024,
+        "BW20_GHz": 6.390525264495299
+      },
+      "frozen_prediction": {
+        "response_y": [
+          6.7345000000000015,
+          -0.0018867746530517593,
+          -23.24967256997594
+        ],
+        "method": "R15 T1: B1 measured central-difference J, applied at W4; explicit large-step extrapolation"
+      },
+      "response_minus_prediction": [
+        -0.004500000000001059,
+        0.2340094303596416,
+        0.2978502079656913
+      ]
+    },
+    {
+      "case": "S7R15_W4R__T2",
+      "record": {
+        "case": "S7R15_W4R__T2",
+        "solve_completed": true,
+        "numerical_pass": true,
+        "design_pass": null,
+        "Analyze_requested": 11,
+        "inherited_Analyze_requests": 0,
+        "passes": 25,
+        "mesh_cells": 103778,
+        "delta_s": 0.0020857,
+        "adaptive_converged": true,
+        "acceptance_basis": "ordinary mesh policy",
+        "new_Analyze_requested": 11,
+        "finished_at": "2026-11-16T12:30:59.919134+00:00",
+        "cleanup": {
+          "at": "2026-11-16T12:30:50.156655+00:00",
+          "app_created": true,
+          "released": true,
+          "scratch_restored": true
+        }
+      },
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "data_role": "tuned_not_independent_test",
+      "measurement": {
+        "center_GHz": 6.74,
+        "low_peak_dB": -23.324131375556448,
+        "high_peak_dB": -23.164197663595424,
+        "BW20_GHz": 6.340182363902526,
+        "S21_min_dB": -1.0664313507287477,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.697973001675312,
+        "BW15_star_GHz": 7.0659935666223035
+      },
+      "nominal_check": {
+        "tuned": true,
+        "usable_for_law": true,
+        "error_e": 0.7996685598051201,
+        "mean_inner_peak_dB": -23.244164519575936,
+        "signed_D_dB": 0.15993371196102402,
+        "hard_design_peaks_pass": true,
+        "center_window_GHz": [
+          6.72,
+          6.75
+        ],
+        "peak_window_dB": [
+          -23.353557779872993,
+          -23.153557779872994
+        ],
+        "S21_dB": -1.0664313507287477,
+        "BW20_GHz": 6.340182363902526
+      },
+      "frozen_prediction": {
+        "response_y": [
+          6.73425,
+          0.03439519770642341,
+          -23.245779135943227
+        ]
+      },
+      "response_minus_prediction": [
+        0.005749999999999922,
+        0.1255385142546006,
+        0.0016146163672914327
+      ]
+    },
+    {
+      "case": "S7R15_C1W__T1",
+      "record": {
+        "case": "S7R15_C1W__T1",
+        "solve_completed": true,
+        "numerical_pass": true,
+        "design_pass": null,
+        "Analyze_requested": 10,
+        "inherited_Analyze_requests": 0,
+        "passes": 24,
+        "mesh_cells": 102368,
+        "delta_s": 0.0016098,
+        "adaptive_converged": true,
+        "acceptance_basis": "ordinary mesh policy",
+        "new_Analyze_requested": 10,
+        "finished_at": "2026-11-16T13:04:08.651526+00:00",
+        "cleanup": {
+          "at": "2026-11-16T13:03:53.607266+00:00",
+          "app_created": true,
+          "released": true,
+          "scratch_restored": true
+        }
+      },
+      "geometry_mm": {
+        "Wm": 2.63,
+        "Ws": 0.559,
+        "Lm": 6.56,
+        "Ls1": 12.785,
+        "Ls2": 1.648,
+        "Ls3": 2.359
+      },
+      "data_role": "W4R_C1W_control",
+      "measurement": {
+        "center_GHz": 6.64,
+        "low_peak_dB": -23.23520987395544,
+        "high_peak_dB": -20.654736877511723,
+        "BW20_GHz": 6.616409781692928,
+        "S21_min_dB": -1.186732307225042,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.946200342157983,
+        "BW15_star_GHz": 7.151822014124681
+      },
+      "nominal_check": null,
+      "frozen_prediction": {}
+    },
+    {
+      "case": "S7R15_W4Rdense__T1",
+      "record": {
+        "case": "S7R15_W4Rdense__T1",
+        "solve_completed": true,
+        "numerical_pass": true,
+        "design_pass": null,
+        "Analyze_requested": 12,
+        "inherited_Analyze_requests": 0,
+        "passes": 26,
+        "mesh_cells": 212371,
+        "delta_s": 0.0015825,
+        "adaptive_converged": true,
+        "acceptance_basis": "R15 dense termination with measured residual; not convergence if delta_s>.002",
+        "new_Analyze_requested": 12,
+        "finished_at": "2026-11-16T13:55:24.117025+00:00",
+        "cleanup": {
+          "at": "2026-11-16T13:55:12.732088+00:00",
+          "app_created": true,
+          "released": true,
+          "scratch_restored": true
+        }
+      },
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "data_role": "W4R_W4Rdense_control",
+      "measurement": {
+        "center_GHz": 6.7,
+        "low_peak_dB": -23.12747466148711,
+        "high_peak_dB": -22.876870016128418,
+        "BW20_GHz": 6.353700176071449,
+        "S21_min_dB": -1.0834990145685863,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.709816541859125,
+        "BW15_star_GHz": 7.047588084210095
+      },
+      "nominal_check": null,
+      "frozen_prediction": {}
+    }
+  ],
+  "margin": {
+    "h0_mm": 0.813,
+    "tol_h_mm": 0.038,
+    "mode": "corner",
+    "corner_dGamma": 0.026838,
+    "RSS": 0.020759873068147066,
+    "mesh": 0.002538,
+    "tune": 0.00107,
+    "assumed_residual": 0.0023507,
+    "Gamma_req": 0.069554,
+    "P_req_dB": -23.153557779872994,
+    "Gamma_stat": 0.07924012693185294,
+    "hypothesis": "B1R sensitivities transferred to W4R; C1W independently checks this, not assumed certified"
+  },
+  "dense_record": {
+    "case": "S7R15_W4Rdense__T1",
+    "solve_completed": true,
+    "numerical_pass": true,
+    "design_pass": null,
+    "Analyze_requested": 12,
+    "inherited_Analyze_requests": 0,
+    "passes": 26,
+    "mesh_cells": 212371,
+    "delta_s": 0.0015825,
+    "adaptive_converged": true,
+    "acceptance_basis": "R15 dense termination with measured residual; not convergence if delta_s>.002",
+    "new_Analyze_requested": 12,
+    "finished_at": "2026-11-16T13:55:24.117025+00:00",
+    "cleanup": {
+      "at": "2026-11-16T13:55:12.732088+00:00",
+      "app_created": true,
+      "released": true,
+      "scratch_restored": true
+    }
+  },
+  "selected_geometry_mm": {
+    "Wm": 2.65,
+    "Ws": 0.539,
+    "Lm": 6.58,
+    "Ls1": 12.765,
+    "Ls2": 1.628,
+    "Ls3": 2.339
+  },
+  "budget": {
+    "prior": {
+      "geometries": 196,
+      "Analyze": 1880
+    },
+    "new_geometries": 4,
+    "new_Analyze": 43,
+    "cumulative_geometry": 200,
+    "cumulative_Analyze": 1923,
+    "geometry_cap": 202
+  },
+  "former_comparisons": {
+    "B1": {
+      "center_GHz": 6.73,
+      "low_peak_dB": -20.795777646578607,
+      "high_peak_dB": -20.6866488858579,
+      "BW20_GHz": 6.454922230299356,
+      "S21_min_dB": -1.1090242684954967,
+      "numerical_review_passed": true,
+      "actual_view_ack": true,
+      "shape_valid": true,
+      "BW15_GHz": 6.769084683935848,
+      "BW15_star_GHz": 6.82423634221313
+    },
+    "B1dense": {
+      "center_GHz": 6.7,
+      "low_peak_dB": -20.669701420473913,
+      "high_peak_dB": -20.430823960171892,
+      "BW20_GHz": 6.4662487034606935,
+      "S21_min_dB": -1.1157893881477041,
+      "numerical_review_passed": true,
+      "actual_view_ack": true,
+      "shape_valid": true,
+      "BW15_GHz": 6.780671110563475,
+      "BW15_star_GHz": 6.811953946853837
+    },
+    "B1R": {
+      "center_GHz": 6.7,
+      "low_peak_dB": -22.507618402731673,
+      "high_peak_dB": -22.605617499969448,
+      "BW20_GHz": 6.131643867367737,
+      "S21_min_dB": -1.0116531650554772,
+      "numerical_review_passed": true,
+      "actual_view_ack": true,
+      "shape_valid": true,
+      "BW15_GHz": 6.477323908143282,
+      "BW15_star_GHz": 6.759401152062102
+    },
+    "B1Rdense": {
+      "center_GHz": 6.68,
+      "low_peak_dB": -22.528228476644095,
+      "high_peak_dB": -22.21824793869314,
+      "BW20_GHz": 6.148618414229437,
+      "S21_min_dB": -1.0145231190471033,
+      "numerical_review_passed": true,
+      "actual_view_ack": true,
+      "shape_valid": true,
+      "BW15_GHz": 6.497447323145313,
+      "BW15_star_GHz": 6.75660209910389
+    },
+    "C1R": {
+      "center_GHz": 6.64,
+      "low_peak_dB": -22.403804151389444,
+      "high_peak_dB": -19.848284923799334,
+      "BW20_GHz": null,
+      "S21_min_dB": null,
+      "numerical_review_passed": true,
+      "actual_view_ack": true,
+      "shape_valid": true,
+      "BW15_GHz": 6.738778446752615,
+      "BW15_star_GHz": 6.842034013951913
+    },
+    "W4": {
+      "center_GHz": 6.74,
+      "low_peak_dB": -20.310682764778086,
+      "high_peak_dB": -20.493295790030864,
+      "BW20_GHz": 6.807337994904582,
+      "S21_min_dB": -1.2427810139389157,
+      "numerical_review_passed": true,
+      "actual_view_ack": true,
+      "shape_valid": true,
+      "BW15_GHz": 7.110659830762111,
+      "BW15_star_GHz": 7.12340849043767
+    }
+  },
+  "full_R14_report_remains_authoritative_for_stage6": true,
+  "all_frozen_historical_hashes_verified": true,
+  "runtime_self_fixes": [],
+  "not_connector_or_manufacturing_certified": true,
+  "no_stage8": true
+}
