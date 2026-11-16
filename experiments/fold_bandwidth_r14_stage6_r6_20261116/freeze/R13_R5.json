@@ -1,0 +1,194 @@
+{
+  "at": "2026-11-15T16:42:40.591893+00:00",
+  "status": "R13_R5_PRE_SOLVE_FREEZE",
+  "plan_commit": "0c55fdc",
+  "Q25_Q26_verbatim": "（R5 冻结时原文写入，求解前不改）\n\n| 编号 | 预测 | 依据 |\n|---|---|---|\n| Q25 | B1R 密网格的最高内峰在 [−22.34, −22.06] dB，即 δ_mesh 在 [0.0015, 0.0040]。我预计它是“统计稳健（不含网格残差，边缘）”，不是“含网格残差”那一档 | B1 的密网格偏差是 Δ|Γ| 0.0028；网格比 B1 的密网格更密，但纹波更深 |\n| Q26 | B1R 密网格的中央谷在 [6.66, 6.70] GHz，可能略低于 6.69 | B1 密网格让中央谷下移 30 MHz |\n\nQ23、Q24（R12）以及 R10 的 Q16 照旧评分。\n\n对 Q23 的补充说明：它的前半句“B1R 满足统计稳健”，按第 3.2 节的“不含网格残差”档评分，与 R12 的原意一致；“含网格残差”档另外报告，不影响 Q23 的评分。\n\n",
+  "inherited_Q23_Q24": "（R4 冻结时原文写入，求解前不改）\n\n| 编号 | 预测 | 依据 |\n|---|---|---|\n| Q21 | B1R T1 的两内峰均值变化达到目标变化的 70%–130% | 两参数规律在公差尺度 R² 0.98，但 T1 要外推 4–5 个步长 |\n| Q22 | 默认输入下，调准的 B1R 的 BW20 在 6.10–6.30 GHz | Ws −0.092 按 58 MHz / 0.02 mm 推约 −265 MHz，Ls1 约 −19 MHz |\n| Q23 | B1R 满足“统计稳健”，C1R 的最高内峰在 [−20.4, −19.6] dB（角点擦边） | 角点的三项线性和 Δ|Γ| = 0.0256，大于平方和根 0.0208 |\n| Q24 | C1R − B1R 的 Δ|Γ| 在 [0.020, 0.031] | 三项可加；若超出，说明深纹波处灵敏度变了 |\n\nR10 的 Q15、Q16 照旧评分。\n\n",
+  "inherited_Q16": "W3 可用时 BW15* 在 6.90–6.99 GHz，即 2.35–2.5 mm 段斜率低于 1.1 GHz/mm；≥7.00 为仍不弯，不可用则不可判",
+  "cache_history": [
+    [
+      1,
+      2158,
+      null
+    ],
+    [
+      2,
+      2667,
+      0.22541
+    ],
+    [
+      3,
+      3093,
+      0.16222
+    ],
+    [
+      4,
+      3838,
+      0.18069
+    ],
+    [
+      5,
+      4741,
+      0.074372
+    ],
+    [
+      6,
+      5927,
+      0.11358
+    ],
+    [
+      7,
+      6913,
+      0.045985
+    ],
+    [
+      8,
+      8708,
+      0.058373
+    ],
+    [
+      9,
+      11047,
+      0.031283
+    ],
+    [
+      10,
+      14066,
+      0.036494
+    ],
+    [
+      11,
+      17289,
+      0.033137
+    ],
+    [
+      12,
+      21255,
+      0.021407
+    ],
+    [
+      13,
+      27084,
+      0.020684
+    ],
+    [
+      14,
+      34608,
+      0.02185
+    ],
+    [
+      15,
+      44184,
+      0.014461
+    ],
+    [
+      16,
+      49684,
+      0.0078579
+    ],
+    [
+      17,
+      61355,
+      0.0093172
+    ],
+    [
+      18,
+      66842,
+      0.0043524
+    ],
+    [
+      19,
+      75117,
+      0.0046017
+    ],
+    [
+      20,
+      83050,
+      0.0041802
+    ],
+    [
+      21,
+      93509,
+      0.0046747
+    ],
+    [
+      22,
+      100816,
+      0.003173
+    ],
+    [
+      23,
+      121810,
+      0.0051776
+    ],
+    [
+      24,
+      139031,
+      0.0035043
+    ],
+    [
+      25,
+      177526,
+      0.0045808
+    ],
+    [
+      26,
+      226858,
+      0.0040312
+    ],
+    [
+      27,
+      247756,
+      0.0023507
+    ]
+  ],
+  "source_STOP_sha256": "edf968bedb6bce7263bd339d4e2617194460bcbfa4a80b14d551186d1ddf8f75",
+  "source_input_sha256": "af7463aac5a9817e744dd096e489c2ac74d4d4c8301bb0410e336c0fead119c8",
+  "source_cache_manifest_sha256": "c59e75bc6562cd8739f4c2ea0431107592c9ac3f458d4e7d12a4b1e95cf6d0d1",
+  "source_adaptive_settings": {
+    "MinimumPasses": 27,
+    "MaximumPasses": 27,
+    "UseMaxTetIncrease": false,
+    "MaxDeltaS": 0.002,
+    "MinimumConvergedPasses": 2,
+    "PercentRefinement": 5
+  },
+  "nominal_T3_final_sweep": {
+    "RangeStart": "0.01GHz",
+    "RangeEnd": "15GHz",
+    "RangeStep": "0.01GHz",
+    "Type": "Interpolating",
+    "InterpTolerance": 1.0,
+    "EnforcePassivity": false,
+    "IsEnabled": true
+  },
+  "cache_final_sweep": {
+    "RangeStart": "0.01GHz",
+    "RangeEnd": "15GHz",
+    "RangeStep": "0.01GHz",
+    "Type": "Interpolating",
+    "InterpTolerance": 1.0,
+    "EnforcePassivity": false,
+    "IsEnabled": true
+  },
+  "final_sweep_all_saved_properties_policy": "Only frozen seven sweep fields are updated; all other native Sweep1 fields retained and separately audited. No adaptive setup update on cache path.",
+  "budget": {
+    "prior_geometry": 193,
+    "prior_Analyze": 1846,
+    "new_geometry_cap": 4,
+    "max_cumulative_geometry": 197,
+    "absolute_geometry_cap": 200,
+    "cache_new_Analyze": 1,
+    "cache_physical_after": 13,
+    "ordinary_cap": 14
+  },
+  "h0_mm": 0.813,
+  "tol_h_mm": 0.038,
+  "no_hook": true,
+  "no_direct_points": true,
+  "no_stage7": true,
+  "independent_steps_numerical_missing_continue": true,
+  "strict_integrity_error_stops": true,
+  "nominal_T3_full_sweep_section": "$begin 'Sweep1'\n\t\t\t\t\t\t\tID=0\n\t\t\t\t\t\t\tIsEnabled=true\n\t\t\t\t\t\t\tRangeType='LinearStep'\n\t\t\t\t\t\t\tRangeStart='0.01GHz'\n\t\t\t\t\t\t\tRangeEnd='15GHz'\n\t\t\t\t\t\t\tRangeStep='0.01GHz'\n\t\t\t\t\t\t\tType='Interpolating'\n\t\t\t\t\t\t\tSaveFields=false\n\t\t\t\t\t\t\tSaveRadFields=false\n\t\t\t\t\t\t\tInterpTolerance=1\n\t\t\t\t\t\t\tInterpMaxSolns=250\n\t\t\t\t\t\t\tInterpMinSolns=0\n\t\t\t\t\t\t\tInterpMinSubranges=1\n\t\t\t\t\t\t\tInterpUseS=true\n\t\t\t\t\t\t\tInterpUsePortImped=false\n\t\t\t\t\t\t\tInterpUsePropConst=true\n\t\t\t\t\t\t\tUseDerivativeConvergence=false\n\t\t\t\t\t\t\tInterpDerivTolerance=0.2\n\t\t\t\t\t\t\tUseFullBasis=true\n\t\t\t\t\t\t\tEnforcePassivity=false\n\t\t\t\t\t\t\tSMatrixOnlySolveMode='Auto'\n\t\t\t\t\t\t$end 'Sweep1'",
+  "retained_cache_full_sweep_section_enabled": "$begin 'Sweep1'\n\t\t\t\t\t\t\tID=0\n\t\t\t\t\t\t\tIsEnabled=true\n\t\t\t\t\t\t\tRangeType='LinearStep'\n\t\t\t\t\t\t\tRangeStart='0.01GHz'\n\t\t\t\t\t\t\tRangeEnd='15GHz'\n\t\t\t\t\t\t\tRangeStep='0.01GHz'\n\t\t\t\t\t\t\tType='Interpolating'\n\t\t\t\t\t\t\tSaveFields=false\n\t\t\t\t\t\t\tSaveRadFields=false\n\t\t\t\t\t\t\tInterpTolerance=1\n\t\t\t\t\t\t\tInterpMaxSolns=250\n\t\t\t\t\t\t\tInterpMinSolns=0\n\t\t\t\t\t\t\tInterpMinSubranges=1\n\t\t\t\t\t\t\tInterpUseS=true\n\t\t\t\t\t\t\tInterpUsePortImped=false\n\t\t\t\t\t\t\tInterpUsePropConst=true\n\t\t\t\t\t\t\tUseDerivativeConvergence=false\n\t\t\t\t\t\t\tInterpDerivTolerance=0.2\n\t\t\t\t\t\t\tUseFullBasis=true\n\t\t\t\t\t\t\tEnforcePassivity=false\n\t\t\t\t\t\t\tSMatrixOnlySolveMode='Auto'\n\t\t\t\t\t\t$end 'Sweep1'"
+}

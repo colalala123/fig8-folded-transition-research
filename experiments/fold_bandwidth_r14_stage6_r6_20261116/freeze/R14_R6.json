@@ -1,0 +1,130 @@
+{
+  "at": "2026-11-16T02:47:43.763841+00:00",
+  "status": "FROZEN_BEFORE_NATIVE_WORK",
+  "plan_commit": "a566252",
+  "plan_sha256": "4e91f797de809a4d2d97ae5e7b6a62fcfd3857e385299b3fc6de8fe668c64cb9",
+  "continuation_STOP_sha256": "8f496e1f510c6d05fea2da94969f3c8adb8185db7ee0e569a9ccd4bcd4cfda77",
+  "inherited_scientific_freeze_sha256": "c986d194d910fdbabe1c3dc428cf38818a5c13a3b155bb637bf2b66f42f39ecc",
+  "Q25_Q26_verbatim": "（R5 冻结时原文写入，求解前不改）\n\n| 编号 | 预测 | 依据 |\n|---|---|---|\n| Q25 | B1R 密网格的最高内峰在 [−22.34, −22.06] dB，即 δ_mesh 在 [0.0015, 0.0040]。我预计它是“统计稳健（不含网格残差，边缘）”，不是“含网格残差”那一档 | B1 的密网格偏差是 Δ|Γ| 0.0028；网格比 B1 的密网格更密，但纹波更深 |\n| Q26 | B1R 密网格的中央谷在 [6.66, 6.70] GHz，可能略低于 6.69 | B1 密网格让中央谷下移 30 MHz |\n\nQ23、Q24（R12）以及 R10 的 Q16 照旧评分。\n\n对 Q23 的补充说明：它的前半句“B1R 满足统计稳健”，按第 3.2 节的“不含网格残差”档评分，与 R12 的原意一致；“含网格残差”档另外报告，不影响 Q23 的评分。\n\n",
+  "direct_runtime_python_child_entries": [
+    {
+      "script": "worker_stage2.py",
+      "caller": "controller_stage2.py:launch",
+      "cwd": "REPO",
+      "argv": "python -u worker_stage2.py --runtime ROOT --case CASE"
+    },
+    {
+      "script": "observer_r13.py",
+      "caller": "solve_block.py:solve_stage",
+      "cwd": "inherited REPO",
+      "argv": "python -u observer_r13.py RUN OUTPUT READY STOP"
+    }
+  ],
+  "all_subprocess_calls": [
+    {
+      "file": "controller_stage2.py",
+      "line": 44,
+      "call": "subprocess.Popen([sys.executable, '-u', str(HERE / 'worker_stage2.py'), '--runtime', str(root), '--case', case], cwd=REPO, env=env, stdout=out, stderr=err, creationflags=subprocess.CREATE_NO_WINDOW)"
+    },
+    {
+      "file": "entry_tests_r14.py",
+      "line": 33,
+      "call": "subprocess.Popen(cmd, cwd=cwd, env=env, stdout=log, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW)"
+    },
+    {
+      "file": "entry_tests_r14.py",
+      "line": 64,
+      "call": "subprocess.run([sys.executable, '-I', '-c', IMPORT_CODE, str(folder / script)], cwd=cwd, env=env, capture_output=True, text=True, encoding='utf-8', timeout=60)"
+    },
+    {
+      "file": "freeze_6b.py",
+      "line": 31,
+      "call": "subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True)"
+    },
+    {
+      "file": "freeze_6b.py",
+      "line": 31,
+      "call": "subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/codex/fold-bandwidth-r4-execution'], cwd=REPO, text=True)"
+    },
+    {
+      "file": "freeze_6b.py",
+      "line": 35,
+      "call": "subprocess.check_output(['git', 'show', commit + ':' + rel], cwd=REPO)"
+    },
+    {
+      "file": "freeze_r14.py",
+      "line": 24,
+      "call": "subprocess.run(cmd, cwd=REPO, env=env, capture_output=True, text=True, encoding='utf-8', timeout=300)"
+    },
+    {
+      "file": "manage.py",
+      "line": 13,
+      "call": "subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=REPO, text=True)"
+    },
+    {
+      "file": "manage.py",
+      "line": 14,
+      "call": "subprocess.check_output(['git', 'ls-remote', 'origin', 'refs/heads/codex/fold-bandwidth-r4-execution'], cwd=REPO, text=True)"
+    },
+    {
+      "file": "manage.py",
+      "line": 18,
+      "call": "subprocess.check_output(['git', 'show', commit + ':' + rel], cwd=REPO)"
+    },
+    {
+      "file": "manage.py",
+      "line": 21,
+      "call": "subprocess.check_output(['git', 'show', commit + ':' + rel], cwd=REPO)"
+    },
+    {
+      "file": "runtime_stage2.py",
+      "line": 11,
+      "call": "subprocess.check_output(['git', 'show', proof['commit'] + ':' + rel], cwd=REPO)"
+    },
+    {
+      "file": "solve_block.py",
+      "line": 19,
+      "call": "subprocess.Popen([sys.executable, '-u', str(HERE / 'observer_r13.py'), str(w), str(out), str(ready), str(stop)], stdout=f, stderr=subprocess.STDOUT, creationflags=subprocess.CREATE_NO_WINDOW)"
+    }
+  ],
+  "extra_external_CLI_entries_tested": [
+    "worker_stage2.py",
+    "observer_r13.py",
+    "controller_stage2.py",
+    "preflight_r11.py",
+    "prepare_r10.py",
+    "r13.py",
+    "review_stage3.py",
+    "manage.py",
+    "collect_stage2.py",
+    "freeze_6b.py"
+  ],
+  "import_tests": "python -I fresh child, REPO and unrelated tempfile cwd, no main, no AEDT import/network/subprocess",
+  "observer_capture_AST_identical": true,
+  "observer_dry_run": "real -u script CLI, fake owner=current test process, ready identity, stop, rc0 within20s, empty valid JSONL, no engines",
+  "cache_source": "F:\\2026-1\\circuit\\test\\output\\fig8_r12_stage6_r4_20261115\\runs\\S6R10_B1Rdense\\attempt_001",
+  "cache_manifest_sha256": "c59e75bc6562cd8739f4c2ea0431107592c9ac3f458d4e7d12a4b1e95cf6d0d1",
+  "cache_source_file_count": 597,
+  "R5_clone_not_used": true,
+  "actual_budget_before": {
+    "geometries": 193,
+    "Analyze": 1846
+  },
+  "remaining": {
+    "new_geometry_max": 4,
+    "cache_sweep_Analyze": 1,
+    "ordinary_Analyze_per_geometry": 14
+  },
+  "unchanged_scientific_rules": true,
+  "resources": {
+    "cores": 14,
+    "tasks": 1,
+    "serial": true
+  },
+  "self_fix_cap": 2,
+  "self_fixes_used": 0,
+  "self_fix_scope": "only pre-charge/pre-Analyze packaging, fresh reproducer and regression then new patch freeze+push before retry; all other R13 strict failures stop",
+  "no_hook": true,
+  "no_direct_points": true,
+  "no_stage7": true
+}
