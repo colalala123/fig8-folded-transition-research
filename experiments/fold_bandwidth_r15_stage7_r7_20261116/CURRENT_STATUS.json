@@ -1,13 +1,54 @@
 {
-  "at": "2026-11-16T12:05:39.368914+00:00",
+  "at": "2026-11-16T12:38:24.582688+00:00",
   "phase": "R15_stage7_R7",
-  "new_geometries": 1,
+  "new_geometries": 2,
   "new_geometry_cap": 6,
-  "geometry_total": 197,
+  "geometry_total": 198,
   "geometry_cap": 202,
-  "new_Analyze": 10,
-  "actual_Analyze_total": 1890,
-  "completed_parents": [],
+  "new_Analyze": 21,
+  "actual_Analyze_total": 1901,
+  "completed_parents": [
+    {
+      "at": "2026-11-16T12:38:20.095344+00:00",
+      "parent_id": "S7R15_W4R",
+      "complete": true,
+      "passed": true,
+      "selected_case": "S7R15_W4R__T2",
+      "measurement": {
+        "center_GHz": 6.74,
+        "low_peak_dB": -23.324131375556448,
+        "high_peak_dB": -23.164197663595424,
+        "BW20_GHz": 6.340182363902526,
+        "S21_min_dB": -1.0664313507287477,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.697973001675312,
+        "BW15_star_GHz": 7.0659935666223035
+      },
+      "nominal_check": {
+        "tuned": true,
+        "usable_for_law": true,
+        "error_e": 0.7996685598051201,
+        "mean_inner_peak_dB": -23.244164519575936,
+        "signed_D_dB": 0.15993371196102402,
+        "hard_design_peaks_pass": true,
+        "center_window_GHz": [
+          6.72,
+          6.75
+        ],
+        "peak_window_dB": [
+          -23.353557779872993,
+          -23.153557779872994
+        ],
+        "S21_dB": -1.0664313507287477,
+        "BW20_GHz": 6.340182363902526
+      },
+      "numerical_valid": true,
+      "independent_next_step_allowed": true,
+      "note": "Control completion is not a robustness pass; C1W is labeled only after dense result or declared missing."
+    }
+  ],
   "stop": null,
   "stage8_authorized": false
 }
