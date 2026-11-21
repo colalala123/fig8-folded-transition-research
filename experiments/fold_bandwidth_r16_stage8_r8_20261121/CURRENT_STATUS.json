@@ -1,13 +1,60 @@
 {
-  "at": "2026-11-21T13:30:08.941524+00:00",
+  "at": "2026-11-21T13:56:15.574794+00:00",
   "phase": "R16_stage8_R8",
-  "new_geometries": 5,
+  "new_geometries": 6,
   "new_geometry_cap": 10,
-  "geometry_total": 205,
+  "geometry_total": 206,
   "geometry_cap": 212,
-  "new_Analyze": 51,
-  "actual_Analyze_total": 1974,
+  "new_Analyze": 61,
+  "actual_Analyze_total": 1984,
   "completed_parents": [
+    {
+      "at": "2026-11-21T13:54:22.797597+00:00",
+      "parent_id": "S8R16_C1W5",
+      "complete": true,
+      "selected_case": "S8R16_C1W5__T1",
+      "passed": null,
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.12561282457867,
+          "high_GHz": 9.968605496568989,
+          "width_GHz": 6.842992671990318,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.63,
+        "low_peak_dB": -22.290149650792838,
+        "high_peak_dB": -20.302537963594677,
+        "BW20_GHz": 6.842992671990318,
+        "S21_min_dB": -1.2753409790605215,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 7.160979782566789,
+        "BW15_star_GHz": 7.2855227584660085
+      },
+      "numerical_valid": true,
+      "attempt_ordinal": 1,
+      "corner_test": {
+        "Gamma_corner": 0.09657686460928065,
+        "mesh_bias": 0.002336,
+        "mesh_source": "borrowed_W4R_no_own_dense",
+        "adjusted": 0.09891286460928066,
+        "margin": 0.0010871353907193535,
+        "passed": true
+      }
+    },
+    {
+      "at": "2026-11-21T13:54:48.740597+00:00",
+      "parent_id": "S8R16_C1W6",
+      "complete": true,
+      "selected_case": null,
+      "passed": false,
+      "measurement": null,
+      "numerical_valid": false,
+      "attempt_ordinal": 1,
+      "skipped": true,
+      "reason": "W6R not tuned"
+    },
     {
       "at": "2026-11-21T11:58:03.810452+00:00",
       "parent_id": "S8R16_C2W",
@@ -105,8 +152,59 @@
       "numerical_valid": true,
       "attempt_ordinal": 3,
       "reason": "finite budget exhausted"
+    },
+    {
+      "at": "2026-11-21T13:54:47.337851+00:00",
+      "parent_id": "S8R16_W6R",
+      "complete": true,
+      "selected_case": null,
+      "passed": false,
+      "measurement": null,
+      "numerical_valid": false,
+      "attempt_ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned"
     }
   ],
-  "stop": null,
+  "stop": {
+    "at": "2026-11-21T13:56:15.562028+00:00",
+    "normal_completion": true,
+    "technical_failure": false,
+    "user_paused": false,
+    "reason": "R16 stage 8 finite sequence complete incl. declared conditional skips; no further authority",
+    "prior_geometries": 200,
+    "prior_Analyze": 1923,
+    "new_geometries": 6,
+    "new_Analyze": 61,
+    "cumulative_geometries": 206,
+    "cumulative_Analyze": 1984,
+    "geometry_cap": 212,
+    "distinct_simulated_configurations": 5,
+    "duplicate_full_configuration_groups": [
+      [
+        "S8R16_W5R__T2",
+        "S8R16_W5R__T3"
+      ]
+    ],
+    "duplicate_cost_charged": 10,
+    "per_case_new_Analyze": {
+      "S8R16_C1W5__T1": 10,
+      "S8R16_C2W__T1": 10,
+      "S8R16_C3W__T1": 11,
+      "S8R16_W5R__T1": 10,
+      "S8R16_W5R__T2": 10,
+      "S8R16_W5R__T3": 10
+    },
+    "unused_cases_not_prepared": [
+      "S8R16_W6R__T1",
+      "S8R16_W6R__T2",
+      "S8R16_W6R__T3",
+      "S8R16_C1W6__T1"
+    ],
+    "unused_allowance_is_not_new_authorization": true,
+    "runtime_self_fixes": [],
+    "stage9_authorized": false,
+    "next_action": "Await human review; no automatic dispatch"
+  },
   "no_further_stage_authorized": true
 }

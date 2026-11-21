@@ -5,3 +5,7 @@
 阶段封顶10几何、每点14次实际 Analyze；上轮200个几何/1923次Analyze，总授权上限212，本轮最多实际到210。未使用额度不转为其他授权。只有数值缺失可按依赖条件独立接续。模型/进程/哈希等完整性异常严格停止。打包类自修仅限R14第3节。
 
 冻结：见 [R16_R8.json](freeze/R16_R8.json)、[回归证据](freeze/OFFLINE_TESTS.json)。解读保证带时区分五条已仿真曲线的交集、由已测迁移的估计，以及加工良率认证。三者不等价。
+
+## 阶段 8 已完成并停止
+
+[中文报告](final/REPORT.md) · [可复算结果](final/RESULTS.json) · [最终审计](final/FINAL_AUDIT.json) · [闭账](final/CLOSURE.json)。未进入阶段 9。
