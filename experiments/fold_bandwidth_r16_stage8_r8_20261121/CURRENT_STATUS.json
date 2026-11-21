@@ -1,12 +1,12 @@
 {
-  "at": "2026-11-21T13:05:50.364591+00:00",
+  "at": "2026-11-21T13:30:08.941524+00:00",
   "phase": "R16_stage8_R8",
-  "new_geometries": 4,
+  "new_geometries": 5,
   "new_geometry_cap": 10,
-  "geometry_total": 204,
+  "geometry_total": 205,
   "geometry_cap": 212,
-  "new_Analyze": 41,
-  "actual_Analyze_total": 1964,
+  "new_Analyze": 51,
+  "actual_Analyze_total": 1974,
   "completed_parents": [
     {
       "at": "2026-11-21T11:58:03.810452+00:00",
@@ -77,6 +77,34 @@
         "margin": 0.02715009680462795,
         "passed": true
       }
+    },
+    {
+      "at": "2026-11-21T13:30:06.093794+00:00",
+      "parent_id": "S8R16_W5R",
+      "complete": true,
+      "selected_case": "S8R16_W5R__T1",
+      "passed": false,
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.187870378238713,
+          "high_GHz": 9.756697479401485,
+          "width_GHz": 6.568827101162771,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.71,
+        "low_peak_dB": -22.563972023269372,
+        "high_peak_dB": -22.653643942725097,
+        "BW20_GHz": 6.568827101162771,
+        "S21_min_dB": -1.1418815879115665,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.913174227050863,
+        "BW15_star_GHz": 7.201775224925518
+      },
+      "numerical_valid": true,
+      "attempt_ordinal": 3,
+      "reason": "finite budget exhausted"
     }
   ],
   "stop": null,
