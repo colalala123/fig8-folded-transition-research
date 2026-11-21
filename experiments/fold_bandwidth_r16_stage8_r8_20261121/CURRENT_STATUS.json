@@ -1,13 +1,49 @@
 {
-  "at": "2026-11-21T11:32:13.385948+00:00",
+  "at": "2026-11-21T11:58:06.642640+00:00",
   "phase": "R16_stage8_R8",
-  "new_geometries": 0,
+  "new_geometries": 1,
   "new_geometry_cap": 10,
-  "geometry_total": 200,
+  "geometry_total": 201,
   "geometry_cap": 212,
-  "new_Analyze": 0,
-  "actual_Analyze_total": 1923,
-  "completed_parents": [],
+  "new_Analyze": 10,
+  "actual_Analyze_total": 1933,
+  "completed_parents": [
+    {
+      "at": "2026-11-21T11:58:03.810452+00:00",
+      "parent_id": "S8R16_C2W",
+      "complete": true,
+      "selected_case": "S8R16_C2W__T1",
+      "passed": null,
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.3752210746807596,
+          "high_GHz": 9.43867902032035,
+          "width_GHz": 6.063457945639591,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.86,
+        "low_peak_dB": -23.028804122638917,
+        "high_peak_dB": -27.09871607388466,
+        "BW20_GHz": 6.063457945639591,
+        "S21_min_dB": -0.9497241545219992,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.447121034963022,
+        "BW15_star_GHz": 7.042591047245745
+      },
+      "numerical_valid": true,
+      "attempt_ordinal": 1,
+      "corner_test": {
+        "Gamma_corner": 0.07056019849756794,
+        "mesh_bias": 0.002336,
+        "mesh_source": "own_W4R",
+        "adjusted": 0.07289619849756794,
+        "margin": 0.02710380150243207,
+        "passed": true
+      }
+    }
+  ],
   "stop": null,
   "no_further_stage_authorized": true
 }
