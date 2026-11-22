@@ -1,0 +1,1606 @@
+{
+  "plan_commit": "1770e5d49b847263369e0518cb6ef718da3f0f32",
+  "freeze_commit": "a28c28b7ddcf28ee753071d01921c1b74700c888",
+  "target": [
+    6.74,
+    0.0,
+    -22.79507702516665
+  ],
+  "margin": {
+    "h0_mm": 0.813,
+    "tol_h_mm": 0.038,
+    "delta_corner": 0.02327,
+    "mesh_W4R": 0.002336,
+    "tune": 0.00107,
+    "Gamma_req": 0.073324,
+    "P_req_dB": -22.695077025166647
+  },
+  "decisions": {
+    "W5R": {
+      "at": "2026-11-21T17:01:23.411609+00:00",
+      "parent_id": "S9R17_W5R",
+      "complete": true,
+      "selected_case": "S9R17_W5R__T6",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.1893648011488795,
+          "high_GHz": 9.768033857875512,
+          "width_GHz": 6.578669056726632,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.78,
+        "low_peak_dB": -22.349616229292685,
+        "high_peak_dB": -23.311880431316176,
+        "BW20_GHz": 6.578669056726632,
+        "S21_min_dB": -1.1374704923942778,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.924581918278104,
+        "BW15_star_GHz": 7.240925459566158
+      },
+      "passed": false,
+      "ordinal": 6,
+      "reason": "finite budget exhausted, not proven infeasible"
+    },
+    "W6R": {
+      "at": "2026-11-21T17:01:42.752079+00:00",
+      "parent_id": "S9R17_W6R",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    },
+    "C1W6": {
+      "at": "2026-11-21T17:01:44.253607+00:00",
+      "parent_id": "S9R17_C1W6",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    },
+    "W7R": {
+      "at": "2026-11-21T17:01:45.488508+00:00",
+      "parent_id": "S9R17_W7R",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    },
+    "C1W7": {
+      "at": "2026-11-21T17:01:46.762964+00:00",
+      "parent_id": "S9R17_C1W7",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    },
+    "DC1": {
+      "at": "2026-11-21T17:01:49.277208+00:00",
+      "parent_id": "S9R17_DC1",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    },
+    "DC2": {
+      "at": "2026-11-21T17:01:50.808782+00:00",
+      "parent_id": "S9R17_DC2",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    },
+    "DC3": {
+      "at": "2026-11-21T17:01:52.031066+00:00",
+      "parent_id": "S9R17_DC3",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    },
+    "Ddense": {
+      "at": "2026-11-21T17:01:53.277268+00:00",
+      "parent_id": "S9R17_Ddense",
+      "complete": true,
+      "selected_case": null,
+      "measurement": null,
+      "passed": false,
+      "ordinal": 1,
+      "skipped": true,
+      "reason": "W5R not tuned; end stage under 3.2"
+    }
+  },
+  "raw": {
+    "S9R17_W5R__T4": {
+      "case": "S9R17_W5R__T4",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.191587962270484,
+          "high_GHz": 9.782853644748776,
+          "width_GHz": 6.5912656824782925,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.72,
+        "low_peak_dB": -22.86528509238795,
+        "high_peak_dB": -22.543503677751943,
+        "BW20_GHz": 6.5912656824782925,
+        "S21_min_dB": -1.1557949286659701,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.933418996700431,
+        "BW15_star_GHz": 7.233968294834174
+      },
+      "edges": [
+        3.191587962270484,
+        9.782853644748776
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.8,
+        "Ws": 0.63,
+        "Lm": 6.526,
+        "Ls1": 12.839,
+        "Ls2": 1.81,
+        "Ls3": 2.43
+      },
+      "geometry_base_mm": {
+        "Wm": 2.8,
+        "Ws": 0.63,
+        "Lm": 6.526,
+        "Ls1": 12.839,
+        "Ls2": 1.81,
+        "Ls3": 2.43
+      },
+      "central_state": [
+        6.72,
+        0.32178141463600696,
+        -22.704394385069946
+      ],
+      "prediction": [
+        6.740434210526316,
+        -0.018977824975023885,
+        -22.80008974405007
+      ],
+      "role": "prospective_tuning_attempt_not_blind_test",
+      "csv_sha256": "683b0e00a8089687c3a057e21472d6651dcee98e12f3a50b546e0a6a8901aef2",
+      "source": "experiments/fold_bandwidth_r17_stage9_r9_20261122/results/S9R17_W5R__T4",
+      "mesh": 102392,
+      "delta_s": 0.0015897,
+      "Analyze": 11
+    },
+    "S9R17_W5R__T5": {
+      "case": "S9R17_W5R__T5",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.1888033176001946,
+          "high_GHz": 9.786077236451803,
+          "width_GHz": 6.597273918851608,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.7,
+        "low_peak_dB": -22.720118870866393,
+        "high_peak_dB": -22.302783399988193,
+        "BW20_GHz": 6.597273918851608,
+        "S21_min_dB": -1.160626540582141,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.938079128668825,
+        "BW15_star_GHz": 7.214510520597237
+      },
+      "edges": [
+        3.1888033176001946,
+        9.786077236451803
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.8,
+        "Ws": 0.634,
+        "Lm": 6.535,
+        "Ls1": 12.839,
+        "Ls2": 1.818,
+        "Ls3": 2.434
+      },
+      "geometry_base_mm": {
+        "Wm": 2.8,
+        "Ws": 0.634,
+        "Lm": 6.535,
+        "Ls1": 12.839,
+        "Ls2": 1.818,
+        "Ls3": 2.434
+      },
+      "central_state": [
+        6.7,
+        0.4173354708782,
+        -22.511451135427293
+      ],
+      "prediction": [
+        6.740253056884623,
+        0.01079396564525692,
+        -22.792673967622534
+      ],
+      "role": "prospective_tuning_attempt_not_blind_test",
+      "csv_sha256": "8e2036d61809f90551ab282930de18b6588c8be4a41e6047e8e9c93800d34f5c",
+      "source": "experiments/fold_bandwidth_r17_stage9_r9_20261122/results/S9R17_W5R__T5",
+      "mesh": 104464,
+      "delta_s": 0.0014395,
+      "Analyze": 12
+    },
+    "S9R17_W5R__T6": {
+      "case": "S9R17_W5R__T6",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.1893648011488795,
+          "high_GHz": 9.768033857875512,
+          "width_GHz": 6.578669056726632,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.78,
+        "low_peak_dB": -22.349616229292685,
+        "high_peak_dB": -23.311880431316176,
+        "BW20_GHz": 6.578669056726632,
+        "S21_min_dB": -1.1374704923942778,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.924581918278104,
+        "BW15_star_GHz": 7.240925459566158
+      },
+      "edges": [
+        3.1893648011488795,
+        9.768033857875512
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.8,
+        "Ws": 0.631,
+        "Lm": 6.512,
+        "Ls1": 12.856,
+        "Ls2": 1.812,
+        "Ls3": 2.431
+      },
+      "geometry_base_mm": {
+        "Wm": 2.8,
+        "Ws": 0.631,
+        "Lm": 6.512,
+        "Ls1": 12.856,
+        "Ls2": 1.812,
+        "Ls3": 2.431
+      },
+      "central_state": [
+        6.78,
+        -0.9622642020234942,
+        -22.83074833030443
+      ],
+      "prediction": [
+        6.739986479703869,
+        0.02987792212939691,
+        -22.79342938694132
+      ],
+      "role": "prospective_tuning_attempt_not_blind_test",
+      "csv_sha256": "353e850073c00d81b18e3074f547dec2d8f968c3f63946538210a684c0898e1d",
+      "source": "experiments/fold_bandwidth_r17_stage9_r9_20261122/results/S9R17_W5R__T6",
+      "mesh": 103383,
+      "delta_s": 0.0014457,
+      "Analyze": 10
+    }
+  },
+  "widths": {
+    "B1R": {
+      "nominal": {
+        "case": "S6R10_B1R__T3",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.4409290135655453,
+            "high_GHz": 9.572572880933283,
+            "width_GHz": 6.131643867367737,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.7,
+          "low_peak_dB": -22.507618402731673,
+          "high_peak_dB": -22.605617499969448,
+          "BW20_GHz": 6.131643867367737,
+          "S21_min_dB": -1.0116531650554772,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 6.477323908143282,
+          "BW15_star_GHz": 6.759401152062102
+        },
+        "edges": [
+          3.4409290135655453,
+          9.572572880933283
+        ],
+        "full_three_valley_window": true,
+        "geometry_mm": {
+          "Wm": 2.35,
+          "Ws": 0.459,
+          "Lm": 6.599,
+          "Ls1": 12.545,
+          "Ls2": 1.468,
+          "Ls3": 2.259
+        },
+        "geometry_base_mm": null,
+        "central_state": [
+          6.7,
+          -0.09799909723777844,
+          -22.55661795135056
+        ],
+        "prediction": [
+          6.721,
+          -0.028353012011882645,
+          -22.559990614377224
+        ],
+        "role": "tuned_not_independent_test",
+        "csv_sha256": "25ba3e1109b4c621b8767b5eb4ddd66406c9b9453fccc0cdf67c89a8479bc1d9",
+        "source": "experiments/fold_bandwidth_r12_stage6_r4_20261115/results/S6R10_B1R__T3",
+        "mesh": 103762,
+        "delta_s": 0.002119,
+        "Analyze": 10
+      },
+      "C1": {
+        "case": "S6R10_C1R__T1",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.3721438062355373,
+            "high_GHz": 8.240998243223453,
+            "width_GHz": 4.868854436987916,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.64,
+          "low_peak_dB": -22.403804151389444,
+          "high_peak_dB": -19.848284923799334,
+          "BW20_GHz": null,
+          "S21_min_dB": null,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 6.738778446752615,
+          "BW15_star_GHz": 6.842034013951913
+        },
+        "edges": [
+          3.3721438062355373,
+          8.240998243223453
+        ],
+        "full_three_valley_window": false,
+        "geometry_mm": {
+          "Wm": 2.33,
+          "Ws": 0.479,
+          "Lm": 6.579,
+          "Ls1": 12.565,
+          "Ls2": 1.488,
+          "Ls3": 2.279
+        },
+        "geometry_base_mm": {
+          "Wm": 2.35,
+          "Ws": 0.459,
+          "Lm": 6.599,
+          "Ls1": 12.545,
+          "Ls2": 1.468,
+          "Ls3": 2.259
+        },
+        "central_state": [
+          6.64,
+          2.5555192275901106,
+          -21.12604453759439
+        ],
+        "prediction": [
+          6.721,
+          -0.028353012011882645,
+          -22.559990614377224
+        ],
+        "role": "B1R_measured_worst_corner",
+        "csv_sha256": "c3255032ae24690c8d9a4403a0713af2014797cc5a08265c825a392aee495d09",
+        "source": "experiments/fold_bandwidth_r14_stage6_r6_20261116/results/S6R10_C1R__T1",
+        "mesh": 102114,
+        "delta_s": 0.0016448,
+        "Analyze": 11
+      },
+      "C1_ref": {
+        "case": "S6R10_B1R__T3",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.4409290135655453,
+            "high_GHz": 9.572572880933283,
+            "width_GHz": 6.131643867367737,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.7,
+          "low_peak_dB": -22.507618402731673,
+          "high_peak_dB": -22.605617499969448,
+          "BW20_GHz": 6.131643867367737,
+          "S21_min_dB": -1.0116531650554772,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 6.477323908143282,
+          "BW15_star_GHz": 6.759401152062102
+        },
+        "edges": [
+          3.4409290135655453,
+          9.572572880933283
+        ],
+        "full_three_valley_window": true,
+        "geometry_mm": {
+          "Wm": 2.35,
+          "Ws": 0.459,
+          "Lm": 6.599,
+          "Ls1": 12.545,
+          "Ls2": 1.468,
+          "Ls3": 2.259
+        },
+        "geometry_base_mm": null,
+        "central_state": [
+          6.7,
+          -0.09799909723777844,
+          -22.55661795135056
+        ],
+        "prediction": [
+          6.721,
+          -0.028353012011882645,
+          -22.559990614377224
+        ],
+        "role": "tuned_not_independent_test",
+        "csv_sha256": "25ba3e1109b4c621b8767b5eb4ddd66406c9b9453fccc0cdf67c89a8479bc1d9",
+        "source": "experiments/fold_bandwidth_r12_stage6_r4_20261115/results/S6R10_B1R__T3",
+        "mesh": 103762,
+        "delta_s": 0.002119,
+        "Analyze": 10
+      },
+      "delta": {
+        "dGamma": 0.02683835162938676,
+        "adjusted_borrowed": 0.10409802810091605,
+        "robust_borrowed": false,
+        "edge_shift_MHz": [
+          -68.78520733000792,
+          -1331.5746377098296
+        ]
+      },
+      "normalized": {
+        "dx": [
+          -0.017243518215466394,
+          -0.04619481662988001,
+          -0.00785907449834732
+        ],
+        "delta_BW_MHz": -8.489416739365833,
+        "estimated_BW_GHz": 6.1231544506283715,
+        "basis": "local B1 BW gradient times three-target Jacobian correction; not HFSS"
+      },
+      "width": 2.35
+    },
+    "W4R": {
+      "nominal": {
+        "case": "S7R15_W4R__T2",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.311307661849636,
+            "high_GHz": 9.651490025752162,
+            "width_GHz": 6.340182363902526,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.74,
+          "low_peak_dB": -23.324131375556448,
+          "high_peak_dB": -23.164197663595424,
+          "BW20_GHz": 6.340182363902526,
+          "S21_min_dB": -1.0664313507287477,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 6.697973001675312,
+          "BW15_star_GHz": 7.0659935666223035
+        },
+        "edges": [
+          3.311307661849636,
+          9.651490025752162
+        ],
+        "full_three_valley_window": true,
+        "geometry_mm": {
+          "Wm": 2.65,
+          "Ws": 0.539,
+          "Lm": 6.58,
+          "Ls1": 12.765,
+          "Ls2": 1.628,
+          "Ls3": 2.339
+        },
+        "geometry_base_mm": {
+          "Wm": 2.65,
+          "Ws": 0.539,
+          "Lm": 6.58,
+          "Ls1": 12.765,
+          "Ls2": 1.628,
+          "Ls3": 2.339
+        },
+        "central_state": [
+          6.74,
+          0.15993371196102402,
+          -23.244164519575936
+        ],
+        "prediction": [
+          6.73425,
+          0.03439519770642341,
+          -23.245779135943227
+        ],
+        "role": "tuned_not_independent_test",
+        "csv_sha256": "536fc15a1794bfcb93bd0eba7b25b4bb2896b5431325354a01ba95b58238bb43",
+        "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_W4R__T2",
+        "mesh": 103778,
+        "delta_s": 0.0020857,
+        "Analyze": 11
+      },
+      "C1": {
+        "case": "S7R15_C1W__T1",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.2465732324172336,
+            "high_GHz": 9.862983014110162,
+            "width_GHz": 6.616409781692928,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.64,
+          "low_peak_dB": -23.23520987395544,
+          "high_peak_dB": -20.654736877511723,
+          "BW20_GHz": 6.616409781692928,
+          "S21_min_dB": -1.186732307225042,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 6.946200342157983,
+          "BW15_star_GHz": 7.151822014124681
+        },
+        "edges": [
+          3.2465732324172336,
+          9.862983014110162
+        ],
+        "full_three_valley_window": true,
+        "geometry_mm": {
+          "Wm": 2.63,
+          "Ws": 0.559,
+          "Lm": 6.56,
+          "Ls1": 12.785,
+          "Ls2": 1.648,
+          "Ls3": 2.359
+        },
+        "geometry_base_mm": {
+          "Wm": 2.65,
+          "Ws": 0.539,
+          "Lm": 6.58,
+          "Ls1": 12.765,
+          "Ls2": 1.628,
+          "Ls3": 2.339
+        },
+        "central_state": [
+          6.64,
+          2.5804729964437136,
+          -21.944973375733582
+        ],
+        "prediction": null,
+        "role": "W4R_C1W_control",
+        "csv_sha256": "58903a6be116395faa11eb5def58ffe778a9d566b744d16acfc707827e4966a7",
+        "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_C1W__T1",
+        "mesh": 102368,
+        "delta_s": 0.0016098,
+        "Analyze": 10
+      },
+      "C1_ref": {
+        "case": "S7R15_W4R__T2",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.311307661849636,
+            "high_GHz": 9.651490025752162,
+            "width_GHz": 6.340182363902526,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.74,
+          "low_peak_dB": -23.324131375556448,
+          "high_peak_dB": -23.164197663595424,
+          "BW20_GHz": 6.340182363902526,
+          "S21_min_dB": -1.0664313507287477,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 6.697973001675312,
+          "BW15_star_GHz": 7.0659935666223035
+        },
+        "edges": [
+          3.311307661849636,
+          9.651490025752162
+        ],
+        "full_three_valley_window": true,
+        "geometry_mm": {
+          "Wm": 2.65,
+          "Ws": 0.539,
+          "Lm": 6.58,
+          "Ls1": 12.765,
+          "Ls2": 1.628,
+          "Ls3": 2.339
+        },
+        "geometry_base_mm": {
+          "Wm": 2.65,
+          "Ws": 0.539,
+          "Lm": 6.58,
+          "Ls1": 12.765,
+          "Ls2": 1.628,
+          "Ls3": 2.339
+        },
+        "central_state": [
+          6.74,
+          0.15993371196102402,
+          -23.244164519575936
+        ],
+        "prediction": [
+          6.73425,
+          0.03439519770642341,
+          -23.245779135943227
+        ],
+        "role": "tuned_not_independent_test",
+        "csv_sha256": "536fc15a1794bfcb93bd0eba7b25b4bb2896b5431325354a01ba95b58238bb43",
+        "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_W4R__T2",
+        "mesh": 103778,
+        "delta_s": 0.0020857,
+        "Analyze": 11
+      },
+      "delta": {
+        "dGamma": 0.023270308460175013,
+        "adjusted_borrowed": 0.09507515962408467,
+        "robust_borrowed": true,
+        "edge_shift_MHz": [
+          -64.73442943240259,
+          211.49298835799968
+        ]
+      },
+      "normalized": {
+        "dx": [
+          -0.0060023567417902155,
+          0.029306304209586295,
+          0.01801403100456109
+        ],
+        "delta_BW_MHz": 54.82928919282297,
+        "estimated_BW_GHz": 6.39501165309535,
+        "basis": "local B1 BW gradient times three-target Jacobian correction; not HFSS"
+      },
+      "width": 2.65
+    },
+    "W5R": {
+      "nominal": null,
+      "C1": {
+        "case": "S8R16_C1W5__T1",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.12561282457867,
+            "high_GHz": 9.968605496568989,
+            "width_GHz": 6.842992671990318,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.63,
+          "low_peak_dB": -22.290149650792838,
+          "high_peak_dB": -20.302537963594677,
+          "BW20_GHz": 6.842992671990318,
+          "S21_min_dB": -1.2753409790605215,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 7.160979782566789,
+          "BW15_star_GHz": 7.2855227584660085
+        },
+        "edges": [
+          3.12561282457867,
+          9.968605496568989
+        ],
+        "full_three_valley_window": true,
+        "geometry_mm": {
+          "Wm": 2.78,
+          "Ws": 0.651,
+          "Lm": 6.514,
+          "Ls1": 12.886,
+          "Ls2": 1.832,
+          "Ls3": 2.451
+        },
+        "geometry_base_mm": {
+          "Wm": 2.8,
+          "Ws": 0.631,
+          "Lm": 6.534,
+          "Ls1": 12.866,
+          "Ls2": 1.812,
+          "Ls3": 2.431
+        },
+        "central_state": [
+          6.63,
+          1.9876116871981608,
+          -21.296343807193757
+        ],
+        "prediction": null,
+        "role": "prespecified_joint_corner_control",
+        "csv_sha256": "d5274ee3b31e078bbda31ea8e31d5493bafac699caddba70f99407de40c68534",
+        "source": "experiments/fold_bandwidth_r16_stage8_r8_20261121/results/S8R16_C1W5__T1",
+        "mesh": 102556,
+        "delta_s": 0.0012589,
+        "Analyze": 10
+      },
+      "C1_ref": {
+        "case": "S8R16_W5R__T1",
+        "measurement": {
+          "edges20": {
+            "low_GHz": 3.187870378238713,
+            "high_GHz": 9.756697479401485,
+            "width_GHz": 6.568827101162771,
+            "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+          },
+          "center_GHz": 6.71,
+          "low_peak_dB": -22.563972023269372,
+          "high_peak_dB": -22.653643942725097,
+          "BW20_GHz": 6.568827101162771,
+          "S21_min_dB": -1.1418815879115665,
+          "numerical_review_passed": true,
+          "actual_view_ack": true,
+          "shape_valid": true,
+          "BW15_GHz": 6.913174227050863,
+          "BW15_star_GHz": 7.201775224925518
+        },
+        "edges": [
+          3.187870378238713,
+          9.756697479401485
+        ],
+        "full_three_valley_window": true,
+        "geometry_mm": {
+          "Wm": 2.8,
+          "Ws": 0.631,
+          "Lm": 6.534,
+          "Ls1": 12.866,
+          "Ls2": 1.812,
+          "Ls3": 2.431
+        },
+        "geometry_base_mm": {
+          "Wm": 2.8,
+          "Ws": 0.631,
+          "Lm": 6.534,
+          "Ls1": 12.866,
+          "Ls2": 1.812,
+          "Ls3": 2.431
+        },
+        "central_state": [
+          6.71,
+          -0.0896719194557285,
+          -22.608807982997234
+        ],
+        "prediction": [
+          6.7410000000000005,
+          -0.027609104071345092,
+          -22.797656052547065
+        ],
+        "role": "prospective_tuning_not_independent_blind_test",
+        "csv_sha256": "2a276d45c7d02dbf2e6d23eceaacfe8d03f9324a320f1763efbee754ea8a67e7",
+        "source": "experiments/fold_bandwidth_r16_stage8_r8_20261121/results/S8R16_W5R__T1",
+        "mesh": 100546,
+        "delta_s": 0.0013665,
+        "Analyze": 10
+      },
+      "delta": {
+        "dGamma": 0.022137715734078772,
+        "adjusted_borrowed": 0.09891286460928066,
+        "robust_borrowed": true,
+        "edge_shift_MHz": [
+          -62.25755366004293,
+          211.90801716750406
+        ]
+      },
+      "normalized": null,
+      "width": 2.8
+    },
+    "W6R": {
+      "nominal": null,
+      "C1": null,
+      "C1_ref": null,
+      "delta": null,
+      "normalized": null,
+      "width": 2.95
+    },
+    "W7R": {
+      "nominal": null,
+      "C1": null,
+      "C1_ref": null,
+      "delta": null,
+      "normalized": null,
+      "width": 3.1
+    }
+  },
+  "jacobians": {
+    "W5R": {
+      "initial": [
+        [
+          -1.749999999999985,
+          30.975328808255753,
+          1.0715381108981958
+        ],
+        [
+          0.0,
+          -24.820718466305358,
+          2.0304020144031654
+        ],
+        [
+          -1.2499999999999956,
+          65.46137137496811,
+          16.056335662486898
+        ]
+      ],
+      "final": [
+        [
+          -3.0012534247063183,
+          31.638540785065967,
+          13.479773333443482
+        ],
+        [
+          0.5019387016988403,
+          -40.73666022621252,
+          4.974741194184969
+        ],
+        [
+          -1.8166151710226437,
+          67.93665745233228,
+          21.328187114647505
+        ]
+      ],
+      "change_vs_B1": [
+        [
+          -1.2512534247063334,
+          0.6632119768102136,
+          12.408235222545287
+        ],
+        [
+          0.5019387016988403,
+          -15.915941759907163,
+          2.944339179781804
+        ],
+        [
+          -0.5666151710226481,
+          2.4752860773641743,
+          5.2718514521606075
+        ]
+      ],
+      "updates": [
+        {
+          "source": "S8R16_W5R__T1",
+          "case": "S8R16_W5R__T2",
+          "triggered": true,
+          "dx": [
+            -0.0129999999999999,
+            -0.03599999999999426,
+            -0.006000000000000005
+          ],
+          "predicted": [
+            0.030249999999999607,
+            0.09809836202971967,
+            -0.1833624819351002
+          ],
+          "actual": [
+            0.04999999999999982,
+            -0.3387300188548217,
+            -0.3235400942317206
+          ],
+          "reason": "three-output chronological secant"
+        },
+        {
+          "source": "S8R16_W5R__T2",
+          "case": "S8R16_W5R__T3",
+          "triggered": false,
+          "dx": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "predicted": [
+            0.0,
+            0.0,
+            0.0
+          ],
+          "actual": [
+            0.0,
+            -2.0243362541805254e-11,
+            -2.0033752434756025e-11
+          ],
+          "reason": "dx=0 skipped"
+        },
+        {
+          "source": "S8R16_W5R__T3",
+          "case": "S9R17_W5R__T4",
+          "triggered": true,
+          "dx": [
+            0.004999999999999893,
+            0.006999999999997897,
+            0.0050000000000000044
+          ],
+          "predicted": [
+            -0.019565789473683697,
+            0.4094241133355263,
+            0.13225833317888538
+          ],
+          "actual": [
+            -0.040000000000000036,
+            0.7501833529668005,
+            0.22795369217904238
+          ],
+          "reason": "three-output chronological secant"
+        },
+        {
+          "source": "S9R17_W5R__T4",
+          "case": "S9R17_W5R__T5",
+          "triggered": true,
+          "dx": [
+            0.009000000000000341,
+            0.008000000000002672,
+            0.0040000000000000036
+          ],
+          "predicted": [
+            -0.05136988304094736,
+            0.8833908959591927,
+            0.24713748382185918
+          ],
+          "actual": [
+            -0.019999999999999574,
+            0.09555405624219304,
+            0.19294324964265286
+          ],
+          "reason": "three-output chronological secant"
+        },
+        {
+          "source": "S9R17_W5R__T5",
+          "case": "S9R17_W5R__T6",
+          "triggered": true,
+          "dx": [
+            -0.023000000000000576,
+            0.01099999999999568,
+            -0.0030000000000000027
+          ],
+          "predicted": [
+            0.028375489943580173,
+            -0.7002453319529129,
+            -0.0502371113954402
+          ],
+          "actual": [
+            0.08000000000000007,
+            -1.3795996729016942,
+            -0.31929719487713726
+          ],
+          "reason": "three-output chronological secant"
+        }
+      ]
+    }
+  },
+  "J0": [
+    [
+      -1.749999999999985,
+      30.975328808255753,
+      1.0715381108981958
+    ],
+    [
+      0.0,
+      -24.820718466305358,
+      2.0304020144031654
+    ],
+    [
+      -1.2499999999999956,
+      65.46137137496811,
+      16.056335662486898
+    ]
+  ],
+  "slopes": [
+    {
+      "pair": [
+        "B1R",
+        "W4R"
+      ],
+      "gain_GHz": 0.2718572024669781,
+      "slope_GHz_per_mm": 0.9061906748899274,
+      "converted": true
+    }
+  ],
+  "selection": null,
+  "winner": "W4R",
+  "five": {
+    "nominal": {
+      "case": "S7R15_W4R__T2",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.311307661849636,
+          "high_GHz": 9.651490025752162,
+          "width_GHz": 6.340182363902526,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.74,
+        "low_peak_dB": -23.324131375556448,
+        "high_peak_dB": -23.164197663595424,
+        "BW20_GHz": 6.340182363902526,
+        "S21_min_dB": -1.0664313507287477,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.697973001675312,
+        "BW15_star_GHz": 7.0659935666223035
+      },
+      "edges": [
+        3.311307661849636,
+        9.651490025752162
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.74,
+        0.15993371196102402,
+        -23.244164519575936
+      ],
+      "prediction": [
+        6.73425,
+        0.03439519770642341,
+        -23.245779135943227
+      ],
+      "role": "tuned_not_independent_test",
+      "csv_sha256": "536fc15a1794bfcb93bd0eba7b25b4bb2896b5431325354a01ba95b58238bb43",
+      "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_W4R__T2",
+      "mesh": 103778,
+      "delta_s": 0.0020857,
+      "Analyze": 11
+    },
+    "C1": {
+      "case": "S7R15_C1W__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.2465732324172336,
+          "high_GHz": 9.862983014110162,
+          "width_GHz": 6.616409781692928,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.64,
+        "low_peak_dB": -23.23520987395544,
+        "high_peak_dB": -20.654736877511723,
+        "BW20_GHz": 6.616409781692928,
+        "S21_min_dB": -1.186732307225042,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.946200342157983,
+        "BW15_star_GHz": 7.151822014124681
+      },
+      "edges": [
+        3.2465732324172336,
+        9.862983014110162
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.63,
+        "Ws": 0.559,
+        "Lm": 6.56,
+        "Ls1": 12.785,
+        "Ls2": 1.648,
+        "Ls3": 2.359
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.64,
+        2.5804729964437136,
+        -21.944973375733582
+      ],
+      "prediction": null,
+      "role": "W4R_C1W_control",
+      "csv_sha256": "58903a6be116395faa11eb5def58ffe778a9d566b744d16acfc707827e4966a7",
+      "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_C1W__T1",
+      "mesh": 102368,
+      "delta_s": 0.0016098,
+      "Analyze": 10
+    },
+    "C2": {
+      "case": "S8R16_C2W__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.3752210746807596,
+          "high_GHz": 9.43867902032035,
+          "width_GHz": 6.063457945639591,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.86,
+        "low_peak_dB": -23.028804122638917,
+        "high_peak_dB": -27.09871607388466,
+        "BW20_GHz": 6.063457945639591,
+        "S21_min_dB": -0.9497241545219992,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.447121034963022,
+        "BW15_star_GHz": 7.042591047245745
+      },
+      "edges": [
+        3.3752210746807596,
+        9.43867902032035
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.67,
+        "Ws": 0.519,
+        "Lm": 6.6,
+        "Ls1": 12.745,
+        "Ls2": 1.608,
+        "Ls3": 2.319
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.86,
+        -4.0699119512457465,
+        -25.06376009826179
+      ],
+      "prediction": null,
+      "role": "prespecified_joint_corner_control",
+      "csv_sha256": "c919e1b36a5eee55ef1ae5115ddad603a74b21a2f32023001d25685b58f8485e",
+      "source": "experiments/fold_bandwidth_r16_stage8_r8_20261121/results/S8R16_C2W__T1",
+      "mesh": 104151,
+      "delta_s": 0.0013503,
+      "Analyze": 10
+    },
+    "C3": {
+      "case": "S8R16_C3W__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.420572222890764,
+          "high_GHz": 9.558618258060417,
+          "width_GHz": 6.138046035169653,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.93,
+        "low_peak_dB": -23.034504898263123,
+        "high_peak_dB": -26.61883147447965,
+        "BW20_GHz": 6.138046035169653,
+        "S21_min_dB": -0.9841084409390659,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.529680337468152,
+        "BW15_star_GHz": 7.095513860764575
+      },
+      "edges": [
+        3.420572222890764,
+        9.558618258060417
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.67,
+        "Ws": 0.519,
+        "Lm": 6.6,
+        "Ls1": 12.745,
+        "Ls2": 1.608,
+        "Ls3": 2.319
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.93,
+        -3.5843265762165224,
+        -24.826668186371386
+      ],
+      "prediction": null,
+      "role": "prespecified_joint_corner_control",
+      "csv_sha256": "a6f00104e45069e645c1332f3367cceb97efd168af17a119e04dbec1b27318ff",
+      "source": "experiments/fold_bandwidth_r16_stage8_r8_20261121/results/S8R16_C3W__T1",
+      "mesh": 103748,
+      "delta_s": 0.001394,
+      "Analyze": 11
+    },
+    "dense": {
+      "case": "S7R15_W4Rdense__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.3179052897063888,
+          "high_GHz": 9.671605465777837,
+          "width_GHz": 6.353700176071449,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.7,
+        "low_peak_dB": -23.12747466148711,
+        "high_peak_dB": -22.876870016128418,
+        "BW20_GHz": 6.353700176071449,
+        "S21_min_dB": -1.0834990145685863,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.709816541859125,
+        "BW15_star_GHz": 7.047588084210095
+      },
+      "edges": [
+        3.3179052897063888,
+        9.671605465777837
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.7,
+        0.25060464535869187,
+        -23.002172338807764
+      ],
+      "prediction": null,
+      "role": "W4R_W4Rdense_control",
+      "csv_sha256": "139839d909f33531b610445684f59f8b466a1a840a395f0e110fc23a6e578582",
+      "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_W4Rdense__T1",
+      "mesh": 212371,
+      "delta_s": 0.0015825,
+      "Analyze": 12
+    }
+  },
+  "intersection": {
+    "edges": [
+      3.420572222890764,
+      9.43867902032035
+    ],
+    "width": 6.018106797429587,
+    "lower_limiter": "C3",
+    "upper_limiter": "C2"
+  },
+  "own_nonnegative_mesh_dGamma": 0.0023364485360347076,
+  "C1_plus_own_bias": 0.09507560816011937,
+  "W4R_five_reference": {
+    "nominal": {
+      "case": "S7R15_W4R__T2",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.311307661849636,
+          "high_GHz": 9.651490025752162,
+          "width_GHz": 6.340182363902526,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.74,
+        "low_peak_dB": -23.324131375556448,
+        "high_peak_dB": -23.164197663595424,
+        "BW20_GHz": 6.340182363902526,
+        "S21_min_dB": -1.0664313507287477,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.697973001675312,
+        "BW15_star_GHz": 7.0659935666223035
+      },
+      "edges": [
+        3.311307661849636,
+        9.651490025752162
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.74,
+        0.15993371196102402,
+        -23.244164519575936
+      ],
+      "prediction": [
+        6.73425,
+        0.03439519770642341,
+        -23.245779135943227
+      ],
+      "role": "tuned_not_independent_test",
+      "csv_sha256": "536fc15a1794bfcb93bd0eba7b25b4bb2896b5431325354a01ba95b58238bb43",
+      "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_W4R__T2",
+      "mesh": 103778,
+      "delta_s": 0.0020857,
+      "Analyze": 11
+    },
+    "C1": {
+      "case": "S7R15_C1W__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.2465732324172336,
+          "high_GHz": 9.862983014110162,
+          "width_GHz": 6.616409781692928,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.64,
+        "low_peak_dB": -23.23520987395544,
+        "high_peak_dB": -20.654736877511723,
+        "BW20_GHz": 6.616409781692928,
+        "S21_min_dB": -1.186732307225042,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.946200342157983,
+        "BW15_star_GHz": 7.151822014124681
+      },
+      "edges": [
+        3.2465732324172336,
+        9.862983014110162
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.63,
+        "Ws": 0.559,
+        "Lm": 6.56,
+        "Ls1": 12.785,
+        "Ls2": 1.648,
+        "Ls3": 2.359
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.64,
+        2.5804729964437136,
+        -21.944973375733582
+      ],
+      "prediction": null,
+      "role": "W4R_C1W_control",
+      "csv_sha256": "58903a6be116395faa11eb5def58ffe778a9d566b744d16acfc707827e4966a7",
+      "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_C1W__T1",
+      "mesh": 102368,
+      "delta_s": 0.0016098,
+      "Analyze": 10
+    },
+    "C2": {
+      "case": "S8R16_C2W__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.3752210746807596,
+          "high_GHz": 9.43867902032035,
+          "width_GHz": 6.063457945639591,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.86,
+        "low_peak_dB": -23.028804122638917,
+        "high_peak_dB": -27.09871607388466,
+        "BW20_GHz": 6.063457945639591,
+        "S21_min_dB": -0.9497241545219992,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.447121034963022,
+        "BW15_star_GHz": 7.042591047245745
+      },
+      "edges": [
+        3.3752210746807596,
+        9.43867902032035
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.67,
+        "Ws": 0.519,
+        "Lm": 6.6,
+        "Ls1": 12.745,
+        "Ls2": 1.608,
+        "Ls3": 2.319
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.86,
+        -4.0699119512457465,
+        -25.06376009826179
+      ],
+      "prediction": null,
+      "role": "prespecified_joint_corner_control",
+      "csv_sha256": "c919e1b36a5eee55ef1ae5115ddad603a74b21a2f32023001d25685b58f8485e",
+      "source": "experiments/fold_bandwidth_r16_stage8_r8_20261121/results/S8R16_C2W__T1",
+      "mesh": 104151,
+      "delta_s": 0.0013503,
+      "Analyze": 10
+    },
+    "C3": {
+      "case": "S8R16_C3W__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.420572222890764,
+          "high_GHz": 9.558618258060417,
+          "width_GHz": 6.138046035169653,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.93,
+        "low_peak_dB": -23.034504898263123,
+        "high_peak_dB": -26.61883147447965,
+        "BW20_GHz": 6.138046035169653,
+        "S21_min_dB": -0.9841084409390659,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.529680337468152,
+        "BW15_star_GHz": 7.095513860764575
+      },
+      "edges": [
+        3.420572222890764,
+        9.558618258060417
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.67,
+        "Ws": 0.519,
+        "Lm": 6.6,
+        "Ls1": 12.745,
+        "Ls2": 1.608,
+        "Ls3": 2.319
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.93,
+        -3.5843265762165224,
+        -24.826668186371386
+      ],
+      "prediction": null,
+      "role": "prespecified_joint_corner_control",
+      "csv_sha256": "a6f00104e45069e645c1332f3367cceb97efd168af17a119e04dbec1b27318ff",
+      "source": "experiments/fold_bandwidth_r16_stage8_r8_20261121/results/S8R16_C3W__T1",
+      "mesh": 103748,
+      "delta_s": 0.001394,
+      "Analyze": 11
+    },
+    "dense": {
+      "case": "S7R15_W4Rdense__T1",
+      "measurement": {
+        "edges20": {
+          "low_GHz": 3.3179052897063888,
+          "high_GHz": 9.671605465777837,
+          "width_GHz": 6.353700176071449,
+          "rule": "connected S11<=-20 component containing central valley; linear in dB, no envelope"
+        },
+        "center_GHz": 6.7,
+        "low_peak_dB": -23.12747466148711,
+        "high_peak_dB": -22.876870016128418,
+        "BW20_GHz": 6.353700176071449,
+        "S21_min_dB": -1.0834990145685863,
+        "numerical_review_passed": true,
+        "actual_view_ack": true,
+        "shape_valid": true,
+        "BW15_GHz": 6.709816541859125,
+        "BW15_star_GHz": 7.047588084210095
+      },
+      "edges": [
+        3.3179052897063888,
+        9.671605465777837
+      ],
+      "full_three_valley_window": true,
+      "geometry_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "geometry_base_mm": {
+        "Wm": 2.65,
+        "Ws": 0.539,
+        "Lm": 6.58,
+        "Ls1": 12.765,
+        "Ls2": 1.628,
+        "Ls3": 2.339
+      },
+      "central_state": [
+        6.7,
+        0.25060464535869187,
+        -23.002172338807764
+      ],
+      "prediction": null,
+      "role": "W4R_W4Rdense_control",
+      "csv_sha256": "139839d909f33531b610445684f59f8b466a1a840a395f0e110fc23a6e578582",
+      "source": "experiments/fold_bandwidth_r15_stage7_r7_20261116/results/S7R15_W4Rdense__T1",
+      "mesh": 212371,
+      "delta_s": 0.0015825,
+      "Analyze": 12
+    }
+  },
+  "W4R_intersection": {
+    "edges": [
+      3.420572222890764,
+      9.43867902032035
+    ],
+    "width": 6.018106797429587,
+    "lower_limiter": "C3",
+    "upper_limiter": "C2"
+  },
+  "Q": {
+    "Q36": false,
+    "Q37": false,
+    "Q38": null,
+    "Q39": null,
+    "Q40": null,
+    "Q41": null
+  },
+  "score_detail": {
+    "Q36_R8_error": 2.515733474147055
+  },
+  "transfer_residual_MHz": null,
+  "limits": "five simulated main components, no connector, no manufacturing yield certificate"
+}

@@ -6,3 +6,7 @@
 
 - [R9 冻结](freeze/R17_R9.json) · [五项回放](freeze/REPLAY.json) · [默认离线验证](freeze/OFFLINE_TESTS.json)
 - [新宽度初值 / 交付选择附录](appendices/) · [当前状态](CURRENT_STATUS.md)
+
+## 已按 §3.2 停止
+
+W5R T4–T6 三次实测均数值有效但未调准。9C 和 9D 未启动。累计 209/221 个几何，2017 次 Analyze。[中文报告](final/REPORT.md) · [数值附表](final/TABLES.md) · [闭账](final/CLOSURE.json)。
